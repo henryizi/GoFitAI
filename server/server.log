@@ -1,0 +1,1053 @@
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.199
+Server URL: http://192.168.0.199:4000
+Test API with: curl http://192.168.0.199:4000/api/test
+[2025-08-21T15:12:49.450Z] Received request for /api/generate-nutrition-plan
+[NUTRITION] Generating plan with the following user data: { id: 'test-user', goal_type: 'weight_loss', full_name: 'Test User' }
+[NUTRITION] API configuration: {
+  AI_PROVIDER: 'openrouter',
+  AVAILABLE_PROVIDERS: [ 'openrouter', 'cloudflare', 'fallback' ],
+  CHAT_MODEL: 'mistralai/mistral-small-3.2-24b-instruct:free'
+}
+[NUTRITION] Starting AI generation process...
+[NUTRITION] Using callAI function with fallback providers...
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[AI] Error with provider openrouter: 429 {
+  error: {
+    message: 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day',
+    code: 429,
+    metadata: { headers: [Object], provider_name: null }
+  },
+  user_id: 'user_300a1LXedPhBdp8IyZG1NzKxWa8'
+}
+[AI] Rate limit hit for openrouter, trying next provider...
+[AI] Trying provider: cloudflare with model @cf/meta/llama-2-7b-chat-int8
+[AI] Calling cloudflare API with model @cf/meta/llama-2-7b-chat-int8
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[NUTRITION] Received AI response, processing...
+[NUTRITION] Raw AI response length: 753
+[NUTRITION] Raw AI response preview: {
+  "daily_targets": {
+    "calories": 1700,
+    "protein": 60,
+    "carbs": 200,
+    "fat": 70
+  },
+  "micronutrients_targets": {
+    "sodium_mg": 1500,
+    "potassium_mg": 3000,
+    "vitamin_d_mcg":...
+[PARSE] Attempting to convert markdown to JSON...
+[PARSE] Full content parse failed, trying to extract JSON...
+[PARSE] Successfully parsed JSON using strategy 5
+[NUTRITION] Successfully parsed AI response
+[NUTRITION] Parsed nutrition plan keys: [ 'time_slot', 'meal', 'macros' ]
+[NUTRITION] Parsed nutrition plan structure: {
+  hasDailyTargets: false,
+  hasDailySchedule: false,
+  hasFoodSuggestions: false,
+  hasSnackSuggestions: false,
+  dailyTargetsKeys: [],
+  dailyScheduleLength: 0
+}
+[NUTRITION] AI response lacks required nutrition plan structure
+[NUTRITION] Raw AI response: {
+  "daily_targets": {
+    "calories": 1700,
+    "protein": 60,
+    "carbs": 200,
+    "fat": 70
+  },
+  "micronutrients_targets": {
+    "sodium_mg": 1500,
+    "potassium_mg": 3000,
+    "vitamin_d_mcg": 600,
+    "calcium_mg": 1000,
+    "iron_mg": 8
+  },
+  "daily_schedule": [
+    {
+      "time_slot": "Breakfast",
+      "meal": "Oatmeal with banana and almond milk",
+      "macros": {
+        "calories": 300,
+        "protein": 10,
+        "carbs": 40,
+        "fat": 10
+      }
+    },
+    {
+      "ti...
+[NUTRITION] AI generation failed: Error: AI response missing required nutrition plan structure
+    at /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:1842:21
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[NUTRITION] Creating fallback nutrition plan...
+{"level":30,"time":1755789180348,"pid":53396,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"117"},"remoteAddress":"127.0.0.1","remotePort":65500},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1271","etag":"W/\"4f7-0ztEZ5f8IAjzemjL1pi8/CxzLg0\""}},"responseTime":10903,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T02:09:00.704Z] Checking if port 4000 is free...
+[2025-08-22T02:09:00.707Z] Port 4000 is free
+[2025-08-22T02:09:00.707Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[EXPRESS] 404 - Route not found: GET /health
+{"level":30,"time":1755828567716,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51027},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"78","etag":"W/\"4e-vi3xBwmXV7GeMYsszJb9q3wAZgs\""}},"responseTime":5,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /
+{"level":30,"time":1755828595191,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51029},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"72","etag":"W/\"48-yb9pj0AxxHDLy5eOnoU4BFUZLmI\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T02:10:25.279Z] Test endpoint called
+{"level":30,"time":1755828625280,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51039},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"318","etag":"W/\"13e-H1xp7nYRIIaPy/xt74GChsLQc1k\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755828627961,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51041},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"134","etag":"W/\"86-gU9A0jJ/nZ99Dduxb5E7oLLXWuk\""}},"responseTime":0,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Processing image: undefined
+[FOOD ANALYZE] Error: Request failed with status code 400
+{"level":30,"time":1755828867426,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"1701976","content-type":"multipart/form-data; boundary=------------------------C6lJRoSTY5vT2vEmZ0yRSS","expect":"100-continue"},"remoteAddress":"192.168.0.100","remotePort":51095},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"56","etag":"W/\"38-4DUYe0VRELHYBhRq7+9Gal1WO7E\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1150,"msg":"request errored"}
+[2025-08-22T02:15:01.450Z] Test endpoint called
+{"level":30,"time":1755828901450,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51099},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"318","etag":"W/\"13e-bp8iWMhclCMGhKwP9gmyFguu1Lg\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755829173113,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":51139},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"134","etag":"W/\"86-kFVNwy5fq8nQI0kRsyXaSZ/3XsU\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755829474532,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":51230},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"134","etag":"W/\"86-HBXQZHUhw4ZvoT9+P4texz+ZZvk\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755829520953,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":9,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","user-agent":"axios/1.11.0","accept-encoding":"gzip, compress, deflate, br","host":"192.168.0.100:4000","connection":"keep-alive"},"remoteAddress":"192.168.0.100","remotePort":51239},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"134","etag":"W/\"86-lmLtYm4Wi0RytIfQbt2j9Cc8f8o\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T02:25:20.960Z] Received request for /api/generate-nutrition-plan
+[NUTRITION] Generating plan with the following user data: {
+  id: 'test-user-123',
+  age: 25,
+  weight: 70,
+  height: 175,
+  gender: 'male',
+  activity_level: 'moderate',
+  goal_type: 'muscle_gain'
+}
+[NUTRITION] API configuration: {
+  AI_PROVIDER: 'openrouter',
+  AVAILABLE_PROVIDERS: [ 'openrouter', 'cloudflare', 'fallback' ],
+  CHAT_MODEL: 'mistralai/mistral-small-3.2-24b-instruct:free'
+}
+[NUTRITION] Starting AI generation process...
+[NUTRITION] Using callAI function with fallback providers...
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[NUTRITION] Received AI response, processing...
+[NUTRITION] Raw AI response length: 2259
+[NUTRITION] Raw AI response preview: {
+  "daily_targets": {
+    "calories": 3000,
+    "protein": 175,
+    "carbs": 350,
+    "fat": 90
+  },
+  "micronutrients_targets": {
+    "sodium_mg": 2300,
+    "potassium_mg": 3400,
+    "vitamin_d_mcg"...
+[NUTRITION] Successfully parsed AI response
+[NUTRITION] Parsed nutrition plan keys: [
+  'daily_targets',
+  'micronutrients_targets',
+  'daily_schedule',
+  'food_suggestions',
+  'snack_suggestions'
+]
+[NUTRITION] Parsed nutrition plan preview: {"daily_targets":{"calories":3000,"protein":175,"carbs":350,"fat":90},"micronutrients_targets":{"sodium_mg":2300,"potassium_mg":3400,"vitamin_d_mcg":15,"calcium_mg":1000,"iron_mg":18},"daily_schedule":[{"time_slot":"Breakfast","meal":"Scrambled eggs (4 eggs) with spinach, avocado (1/2 medium), and w...
+[NUTRITION] Parsed nutrition plan structure: {
+  hasDailyTargets: true,
+  hasDailySchedule: true,
+  hasFoodSuggestions: true,
+  hasSnackSuggestions: true,
+  dailyTargetsKeys: [ 'calories', 'protein', 'carbs', 'fat' ],
+  dailyScheduleLength: 6
+}
+[NUTRITION] Saving AI-generated plan to database...
+[NUTRITION] Error updating plan with AI data: {
+  code: 'PGRST204',
+  details: null,
+  hint: null,
+  message: "Could not find the 'daily_targets' column of 'nutrition_plans' in the schema cache"
+}
+{"level":30,"time":1755829528736,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":10,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"202","accept-encoding":"gzip, compress, deflate, br","host":"192.168.0.100:4000","connection":"keep-alive"},"remoteAddress":"192.168.0.100","remotePort":51239},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1906","etag":"W/\"772-pBTwpfifDjqaO2X9DRZvmSuLGJo\""}},"responseTime":7780,"msg":"request completed"}
+{"level":30,"time":1755830387283,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":11,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","connection":"keep-alive"},"remoteAddress":"192.168.0.100","remotePort":51507},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"134","etag":"W/\"86-GPYtpGeL/fNz+Hj7nmrVQ1mvS3k\""}},"responseTime":0,"msg":"request completed"}
+[2025-08-22T02:40:26.524Z] Received request for /api/generate-nutrition-plan
+{"level":30,"time":1755830426524,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":12,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"content-type":"application/json","host":"192.168.0.100:4000","connection":"keep-alive","transfer-encoding":"chunked"},"remoteAddress":"192.168.0.100","remotePort":51513},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"41","etag":"W/\"29-koEJzupfzWsd/gDGByexkMB2jLo\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: POST /api/nutrition/generate-plan
+{"level":30,"time":1755830697158,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":13,"method":"POST","url":"/api/nutrition/generate-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"54"},"remoteAddress":"192.168.0.100","remotePort":51619},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"100","etag":"W/\"64-IHt1obRqrZMJntyxOSyd6YDdHoA\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /api/routes
+{"level":30,"time":1755830715922,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":14,"method":"GET","url":"/api/routes","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":51623},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"82","etag":"W/\"52-lYjsauFEoIRynXfE+oig1psh1SM\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T02:46:07.374Z] Received request for /api/generate-nutrition-plan
+{"level":30,"time":1755830767374,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":15,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"101"},"remoteAddress":"192.168.0.100","remotePort":51626},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"41","etag":"W/\"29-koEJzupfzWsd/gDGByexkMB2jLo\""}},"responseTime":0,"msg":"request completed"}
+[2025-08-22T02:46:35.242Z] Received request for /api/generate-nutrition-plan
+[NUTRITION] Generating plan with the following user data: {
+  id: 'test-user',
+  age: 30,
+  height: 175,
+  weight: 70,
+  activity_level: 'moderate',
+  full_name: 'Test User'
+}
+[NUTRITION] API configuration: {
+  AI_PROVIDER: 'openrouter',
+  AVAILABLE_PROVIDERS: [ 'openrouter', 'cloudflare', 'fallback' ],
+  CHAT_MODEL: 'mistralai/mistral-small-3.2-24b-instruct:free'
+}
+[NUTRITION] Starting AI generation process...
+[NUTRITION] Using callAI function with fallback providers...
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[NUTRITION] Received AI response, processing...
+[NUTRITION] Raw AI response length: 1325
+[NUTRITION] Raw AI response preview: {
+  "daily_targets": {"calories": 1800, "protein": 140, "carbs": 180, "fat": 50},
+  "micronutrients_targets": {"sodium_mg": 2300, "potassium_mg": 3500, "vitamin_d_mcg": 15, "calcium_mg": 1000, "iron_m...
+[NUTRITION] Successfully parsed AI response
+[NUTRITION] Parsed nutrition plan keys: [
+  'daily_targets',
+  'micronutrients_targets',
+  'daily_schedule',
+  'food_suggestions',
+  'snack_suggestions'
+]
+[NUTRITION] Parsed nutrition plan preview: {"daily_targets":{"calories":1800,"protein":140,"carbs":180,"fat":50},"micronutrients_targets":{"sodium_mg":2300,"potassium_mg":3500,"vitamin_d_mcg":15,"calcium_mg":1000,"iron_mg":8},"daily_schedule":[{"time_slot":"Breakfast","meal":"Greek yogurt with mixed berries, chia seeds, and a handful of almo...
+[NUTRITION] Parsed nutrition plan structure: {
+  hasDailyTargets: true,
+  hasDailySchedule: true,
+  hasFoodSuggestions: true,
+  hasSnackSuggestions: true,
+  dailyTargetsKeys: [ 'calories', 'protein', 'carbs', 'fat' ],
+  dailyScheduleLength: 4
+}
+[NUTRITION] Saving AI-generated plan to database...
+[NUTRITION] Error updating plan with AI data: {
+  code: 'PGRST204',
+  details: null,
+  hint: null,
+  message: "Could not find the 'daily_targets' column of 'nutrition_plans' in the schema cache"
+}
+{"level":30,"time":1755830801399,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":16,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"235"},"remoteAddress":"192.168.0.100","remotePort":51649},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1414","etag":"W/\"586-G6wePgj3AnJ5wiP95oW/lTSVzRQ\""}},"responseTime":6157,"msg":"request completed"}
+{"level":30,"time":1755830907431,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":17,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","connection":"keep-alive","accept":"application/json","accept-language":"*","sec-fetch-mode":"cors","user-agent":"node","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.100","remotePort":51668},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":0,"msg":"request completed"}
+[2025-08-22T02:48:27.439Z] Received request for /api/generate-nutrition-plan
+[NUTRITION] Generating plan with the following user data: {
+  id: 'test-user-123',
+  age: 30,
+  height: 175,
+  weight: 70,
+  activity_level: 'moderate',
+  full_name: 'Test User'
+}
+[NUTRITION] API configuration: {
+  AI_PROVIDER: 'openrouter',
+  AVAILABLE_PROVIDERS: [ 'openrouter', 'cloudflare', 'fallback' ],
+  CHAT_MODEL: 'mistralai/mistral-small-3.2-24b-instruct:free'
+}
+[NUTRITION] Starting AI generation process...
+[NUTRITION] Using callAI function with fallback providers...
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[NUTRITION] Received AI response, processing...
+[NUTRITION] Raw AI response length: 1315
+[NUTRITION] Raw AI response preview: {
+  "daily_targets": {"calories": 1800, "protein": 140, "carbs": 180, "fat": 70},
+  "micronutrients_targets": {"sodium_mg": 2000, "potassium_mg": 3500, "vitamin_d_mcg": 20, "calcium_mg": 1000, "iron_m...
+[NUTRITION] Successfully parsed AI response
+[NUTRITION] Parsed nutrition plan keys: [
+  'daily_targets',
+  'micronutrients_targets',
+  'daily_schedule',
+  'food_suggestions',
+  'snack_suggestions'
+]
+[NUTRITION] Parsed nutrition plan preview: {"daily_targets":{"calories":1800,"protein":140,"carbs":180,"fat":70},"micronutrients_targets":{"sodium_mg":2000,"potassium_mg":3500,"vitamin_d_mcg":20,"calcium_mg":1000,"iron_mg":8},"daily_schedule":[{"time_slot":"Breakfast","meal":"Greek yogurt with mixed berries, chia seeds, and a handful of almo...
+[NUTRITION] Parsed nutrition plan structure: {
+  hasDailyTargets: true,
+  hasDailySchedule: true,
+  hasFoodSuggestions: true,
+  hasSnackSuggestions: true,
+  dailyTargetsKeys: [ 'calories', 'protein', 'carbs', 'fat' ],
+  dailyScheduleLength: 4
+}
+[NUTRITION] Saving AI-generated plan to database...
+[NUTRITION] Error updating plan with AI data: {
+  code: 'PGRST204',
+  details: null,
+  hint: null,
+  message: "Could not find the 'daily_targets' column of 'nutrition_plans' in the schema cache"
+}
+{"level":30,"time":1755830912834,"pid":6866,"hostname":"MacBook-Air-126.local","req":{"id":18,"method":"POST","url":"/api/generate-nutrition-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","connection":"keep-alive","content-type":"application/json","accept":"application/json","cache-control":"no-cache","accept-language":"*","sec-fetch-mode":"cors","user-agent":"node","accept-encoding":"gzip, deflate","content-length":"183"},"remoteAddress":"192.168.0.100","remotePort":51669},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1408","etag":"W/\"580-40LR+YD9ThYY5zl9K2t29RckPuw\""}},"responseTime":5395,"msg":"request completed"}
+[2025-08-22T03:08:37.148Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T03:08:37.148Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T03:08:37.155Z] Server exited with code 0 and signal null
+[2025-08-22T03:08:37.155Z] Checking if port 4000 is free...
+[2025-08-22T03:08:37.155Z] Port 4000 is free
+[2025-08-22T03:08:37.155Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-22T03:08:37.189Z] No processes found on port 4000
+[2025-08-22T04:19:08.308Z] Checking if port 4000 is free...
+[2025-08-22T04:19:08.311Z] Port 4000 is free
+[2025-08-22T04:19:08.311Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+{"level":30,"time":1755836390012,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-lmHQUf/1l809yl8dldYXuogowcM\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59473},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-2C+qeElDxzCbIVrj7v87nUsuEYk\""}},"responseTime":8,"msg":"request completed"}
+{"level":30,"time":1755836390159,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-2C+qeElDxzCbIVrj7v87nUsuEYk\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59473},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-u3oha05Rw5hpdJkcB4XlCoYSKMM\""}},"responseTime":3,"msg":"request completed"}
+{"level":30,"time":1755836471930,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-u3oha05Rw5hpdJkcB4XlCoYSKMM\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59482},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-rnbodr7BZTs73NW5if0xzp2XAVk\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755836472053,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-rnbodr7BZTs73NW5if0xzp2XAVk\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59482},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-efUiUoItA7zIGDWg38azUFNPM0g\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755836478481,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-efUiUoItA7zIGDWg38azUFNPM0g\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59484},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-zEebC90K88yqS9hfiw8efEC7uCU\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755836478584,"pid":32084,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-zEebC90K88yqS9hfiw8efEC7uCU\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":59484},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Hv6S/+Sjz5wqctmgU1UXp1P6byM\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T04:21:35.222Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T04:21:35.222Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T04:21:35.226Z] Server exited with code 0 and signal null
+[2025-08-22T04:21:35.226Z] Checking if port 4000 is free...
+[2025-08-22T04:21:35.226Z] Port 4000 is free
+[2025-08-22T04:21:35.226Z] Starting server (attempt 2/10)...
+[2025-08-22T04:21:35.228Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T04:21:35.229Z] Terminating server process...
+[2025-08-22T04:21:35.229Z] Server exited with code null and signal SIGTERM
+[2025-08-22T04:21:35.229Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:21:35.259Z] No processes found on port 4000
+[2025-08-22T04:21:45.511Z] Checking if port 4000 is free...
+[2025-08-22T04:21:45.514Z] Port 4000 is free
+[2025-08-22T04:21:45.514Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-22T04:25:50.173Z] Checking if port 4000 is free...
+[2025-08-22T04:25:50.177Z] Port 4000 is free
+[2025-08-22T04:25:50.177Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[EXPRESS] 404 - Route not found: HEAD /health
+{"level":30,"time":1755836768007,"pid":33905,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"HEAD","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53468},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"79","etag":"W/\"4f-Y9FnU6lQdpf38pQ8YL4B68O11r0\""}},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1755836791030,"pid":33905,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"HEAD","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53472},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-AgQLQfdS31QmsPaAZpTVPIDJX2U\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755836856768,"pid":33905,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"HEAD","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":53489},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-tOMA0NgDFDDwHZ8CMT0ti1i+D/U\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755836971221,"pid":33905,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Hv6S/+Sjz5wqctmgU1UXp1P6byM\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":50576},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Kjn2AfZlUCFYuS6W/APCNlszbGI\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755836971389,"pid":33905,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Kjn2AfZlUCFYuS6W/APCNlszbGI\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":50576},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-wPa6Is+bXuCrUo2j+rahQjbnmQY\""}},"responseTime":0,"msg":"request completed"}
+[2025-08-22T04:30:12.173Z] Server exited with code null and signal SIGKILL
+[2025-08-22T04:30:12.173Z] Checking if port 4000 is free...
+[2025-08-22T04:30:12.173Z] Port 4000 is free
+[2025-08-22T04:30:12.173Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-22T04:30:12.194Z] Checking if port 4000 is free...
+[2025-08-22T04:30:12.197Z] Port 4000 is free
+[2025-08-22T04:30:12.197Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:12.301Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:12.301Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:14.303Z] Checking if port 4000 is free...
+[2025-08-22T04:30:14.304Z] Port 4000 is free
+[2025-08-22T04:30:14.304Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:14.408Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:14.409Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:16.410Z] Checking if port 4000 is free...
+[2025-08-22T04:30:16.410Z] Port 4000 is free
+[2025-08-22T04:30:16.410Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:16.510Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:16.510Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:18.511Z] Checking if port 4000 is free...
+[2025-08-22T04:30:18.512Z] Port 4000 is free
+[2025-08-22T04:30:18.512Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:18.618Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:18.618Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:20.619Z] Checking if port 4000 is free...
+[2025-08-22T04:30:20.619Z] Port 4000 is free
+[2025-08-22T04:30:20.619Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:20.719Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:20.719Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:22.720Z] Checking if port 4000 is free...
+[2025-08-22T04:30:22.721Z] Port 4000 is free
+[2025-08-22T04:30:22.721Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:22.805Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:22.805Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:24.807Z] Checking if port 4000 is free...
+[2025-08-22T04:30:24.807Z] Port 4000 is free
+[2025-08-22T04:30:24.807Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:24.901Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:24.901Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:26.903Z] Checking if port 4000 is free...
+[2025-08-22T04:30:26.903Z] Port 4000 is free
+[2025-08-22T04:30:26.904Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:27.019Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:27.019Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:29.020Z] Checking if port 4000 is free...
+[2025-08-22T04:30:29.022Z] Port 4000 is free
+[2025-08-22T04:30:29.022Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:29.138Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:29.138Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:31.139Z] Checking if port 4000 is free...
+[2025-08-22T04:30:31.141Z] Port 4000 is free
+[2025-08-22T04:30:31.141Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:30:31.252Z] Server exited with code 1 and signal null
+[2025-08-22T04:30:31.252Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:30:33.253Z] Server has restarted 10 times. Giving up.
+{"level":30,"time":1755837136088,"pid":34961,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-wPa6Is+bXuCrUo2j+rahQjbnmQY\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":64028},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-tvltgAeQCNgICeJyT2Pm1/6voUI\""}},"responseTime":7,"msg":"request completed"}
+{"level":30,"time":1755837136149,"pid":34961,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-tvltgAeQCNgICeJyT2Pm1/6voUI\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":64028},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-6MZCBkbA1WHty/0+96zxAadPTpY\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755837202170,"pid":34961,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-6MZCBkbA1WHty/0+96zxAadPTpY\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":64036},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-LcNB3kciE7id3eipee6iNA5XNpY\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755837202287,"pid":34961,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-LcNB3kciE7id3eipee6iNA5XNpY\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":64036},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-9cIfw5EN+3P52wxCw/njh8QFY1o\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T04:36:33.050Z] Server exited with code null and signal SIGKILL
+[2025-08-22T04:36:33.050Z] Checking if port 4000 is free...
+[2025-08-22T04:36:33.050Z] Port 4000 is free
+[2025-08-22T04:36:33.050Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-22T04:36:33.067Z] Checking if port 4000 is free...
+[2025-08-22T04:36:33.070Z] Port 4000 is free
+[2025-08-22T04:36:33.070Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+=== API CONFIGURATION ===
+Available AI Providers: [ 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Total providers available: 3
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:33.326Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:33.326Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:35.327Z] Checking if port 4000 is free...
+[2025-08-22T04:36:35.329Z] Port 4000 is free
+[2025-08-22T04:36:35.329Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:35.441Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:35.441Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:37.443Z] Checking if port 4000 is free...
+[2025-08-22T04:36:37.444Z] Port 4000 is free
+[2025-08-22T04:36:37.444Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:37.558Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:37.558Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:39.559Z] Checking if port 4000 is free...
+[2025-08-22T04:36:39.560Z] Port 4000 is free
+[2025-08-22T04:36:39.560Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:39.676Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:39.676Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:41.677Z] Checking if port 4000 is free...
+[2025-08-22T04:36:41.678Z] Port 4000 is free
+[2025-08-22T04:36:41.678Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:41.792Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:41.792Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:43.794Z] Checking if port 4000 is free...
+[2025-08-22T04:36:43.794Z] Port 4000 is free
+[2025-08-22T04:36:43.794Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:43.872Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:43.873Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:45.874Z] Checking if port 4000 is free...
+[2025-08-22T04:36:45.874Z] Port 4000 is free
+[2025-08-22T04:36:45.875Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:45.989Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:45.990Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:47.991Z] Checking if port 4000 is free...
+[2025-08-22T04:36:47.992Z] Port 4000 is free
+[2025-08-22T04:36:47.992Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:48.110Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:48.110Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:50.111Z] Checking if port 4000 is free...
+[2025-08-22T04:36:50.112Z] Port 4000 is free
+[2025-08-22T04:36:50.112Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:50.222Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:50.222Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:52.223Z] Checking if port 4000 is free...
+[2025-08-22T04:36:52.224Z] Port 4000 is free
+[2025-08-22T04:36:52.224Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+Available AI Providers: [ [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: openrouter
+Total providers available: [33m3[39m
+- openrouter: ENABLED (mistralai/mistral-small-3.2-24b-instruct:free)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-22T04:36:52.341Z] Server exited with code 1 and signal null
+[2025-08-22T04:36:52.341Z] Waiting 2000ms before restarting server...
+[2025-08-22T04:36:54.342Z] Server has restarted 10 times. Giving up.
+{"level":30,"time":1755837431686,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":53599},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-fUPUMXLDwvaZUGKNvTtjUTYY4zo\""}},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1755837659488,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-9cIfw5EN+3P52wxCw/njh8QFY1o\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52685},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Y4tVVuzH4TJ/qsZn8LPyXfvbqMs\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1755837659644,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Y4tVVuzH4TJ/qsZn8LPyXfvbqMs\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52685},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Oyrsb2/JLgBG+iJRf3ZaZP6LorE\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755837706949,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Oyrsb2/JLgBG+iJRf3ZaZP6LorE\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52690},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-hAl1Q1Uu3f6vPgFIXxN2Yp9gvAc\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755837707066,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-hAl1Q1Uu3f6vPgFIXxN2Yp9gvAc\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52690},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Vp6Pa6m5DSkVAjad0r/HDIzu2tE\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1755837842798,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Vp6Pa6m5DSkVAjad0r/HDIzu2tE\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52694},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-huZm5C7k7O0GEGSvmeO+iOj5RGQ\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755837842940,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-huZm5C7k7O0GEGSvmeO+iOj5RGQ\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52694},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-Tva6Ok+Zlq8J2Er1b7r+UMnAcGY\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755837862967,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-Tva6Ok+Zlq8J2Er1b7r+UMnAcGY\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52695},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-geXPenoAnGtT9qcfPbe1FyAwh+E\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755837863070,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":9,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-geXPenoAnGtT9qcfPbe1FyAwh+E\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":52695},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-ay+tC3tl8vEhsCLaQYzOzu2IGhg\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755838223394,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":10,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-ay+tC3tl8vEhsCLaQYzOzu2IGhg\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57720},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-ND3hQf5Ctn6ONVvGMtblgsYPB2k\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1755838223510,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":11,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-ND3hQf5Ctn6ONVvGMtblgsYPB2k\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57720},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-/sukn36l98MAqxGWXxlbAWjrsD0\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1755838268345,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":12,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-/sukn36l98MAqxGWXxlbAWjrsD0\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57727},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-VAMpLPGppUIz/tFEmmbBP6tuyTE\""}},"responseTime":1,"msg":"request completed"}
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[WORKOUT] Processing AI response with enhanced parsing...
+[WORKOUT] Strategy 3: Found JSON object pattern
+[WORKOUT] Success with strategy 3
+[WORKOUT] Successfully parsed AI response
+{"level":30,"time":1755838277559,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":13,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"191","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.110","remotePort":57727},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2705","etag":"W/\"a91-o4zOcFIcxCL0a0UhKfyOZNWo5zE\""}},"responseTime":9171,"msg":"request completed"}
+{"level":30,"time":1755838326039,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":14,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-VAMpLPGppUIz/tFEmmbBP6tuyTE\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57729},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-nD+HoKTnG0By/7aiUvLiSOdNhlM\""}},"responseTime":1,"msg":"request completed"}
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[WORKOUT] Processing AI response with enhanced parsing...
+[WORKOUT] Strategy 3: Found JSON object pattern
+[WORKOUT] Success with strategy 3
+[WORKOUT] Successfully parsed AI response
+{"level":30,"time":1755838334755,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":15,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"191","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.110","remotePort":57729},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2628","etag":"W/\"a44-zsWFmIvkMcVGehpC1j/GQtR7FIg\""}},"responseTime":8553,"msg":"request completed"}
+{"level":30,"time":1755838369166,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":16,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-nD+HoKTnG0By/7aiUvLiSOdNhlM\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57730},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-mAJuSbC6DICF90nxTXVUz97fG2o\""}},"responseTime":1,"msg":"request completed"}
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[WORKOUT] Processing AI response with enhanced parsing...
+[WORKOUT] Strategy 3: Found JSON object pattern
+[WORKOUT] Success with strategy 3
+[WORKOUT] Successfully parsed AI response
+{"level":30,"time":1755838378217,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":17,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"191","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.110","remotePort":57730},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2974","etag":"W/\"b9e-8E6v7lNUXo34HVJ7EprT4X+iDL0\""}},"responseTime":9001,"msg":"request completed"}
+{"level":30,"time":1755838437269,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":18,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-mAJuSbC6DICF90nxTXVUz97fG2o\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57731},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-2qhZYwxrYE2cEIPzhbLkmoP2kio\""}},"responseTime":2,"msg":"request completed"}
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[WORKOUT] Processing AI response with enhanced parsing...
+[WORKOUT] Strategy 3: Found JSON object pattern
+[WORKOUT] Success with strategy 3
+[WORKOUT] Successfully parsed AI response
+{"level":30,"time":1755838446623,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":19,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"191","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.110","remotePort":57731},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"3078","etag":"W/\"c06-EgjwjZnaDX++7mRBte1/GdfCu6k\""}},"responseTime":9312,"msg":"request completed"}
+{"level":30,"time":1755838480684,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":20,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-2qhZYwxrYE2cEIPzhbLkmoP2kio\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57732},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-mRhwg/Ng43HNgKmvoYrIoppQGlo\""}},"responseTime":1,"msg":"request completed"}
+[AI] Trying provider: openrouter with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Calling openrouter API with model mistralai/mistral-small-3.2-24b-instruct:free
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 3000
+[WORKOUT] Processing AI response with enhanced parsing...
+[WORKOUT] Strategy 3: Found JSON object pattern
+[WORKOUT] Success with strategy 3
+[WORKOUT] Successfully parsed AI response
+{"level":30,"time":1755838490694,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":21,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"191","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.110","remotePort":57732},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2731","etag":"W/\"aab-QnhJ30sA27/a4sSswsbzadVykuk\""}},"responseTime":9984,"msg":"request completed"}
+{"level":30,"time":1755838663126,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":22,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-mRhwg/Ng43HNgKmvoYrIoppQGlo\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57736},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-ZGDE7i2kjU1t6buUhxsk7qYwRuU\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755838663382,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":23,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","content-type":"application/json","if-none-match":"W/\"3b-ZGDE7i2kjU1t6buUhxsk7qYwRuU\"","accept":"*/*","user-agent":"Expo/1017721 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"zh-HK,zh-Hant;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.110","remotePort":57736},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-YwAUyPmfPJl0Os2IJOiF/d0fZyY\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: POST /health
+{"level":30,"time":1755838773581,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":24,"method":"POST","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53988},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"79","etag":"W/\"4f-YksyFSHkDL5IIUYBbvln0xm+SGk\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /health
+{"level":30,"time":1755838803311,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":25,"method":"GET","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53991},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"78","etag":"W/\"4e-vi3xBwmXV7GeMYsszJb9q3wAZgs\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1755838823301,"pid":36131,"hostname":"MacBook-Air-126.local","req":{"id":26,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53996},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"59","etag":"W/\"3b-BOQXwtmCemCIt8/po3PWVPZx1yU\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-22T05:00:54.936Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T05:00:54.936Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-22T05:00:54.939Z] Server exited with code 0 and signal null
+[2025-08-22T05:00:54.939Z] Checking if port 4000 is free...
+[2025-08-22T05:00:54.940Z] Port 4000 is free
+[2025-08-22T05:00:54.940Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-22T05:00:54.976Z] No processes found on port 4000
+[2025-08-22T06:12:12.549Z] Checking if port 4000 is free...
+[2025-08-22T06:12:12.551Z] Port 4000 is free
+[2025-08-22T06:12:12.551Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===

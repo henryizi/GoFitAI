@@ -1,0 +1,8 @@
+Starting mock server setup...
+CORS and JSON middleware configured
+Mock data prepared
+Routes configured, starting server...
+Shutdown handler configured
+Simple mock server running at http://localhost:4000
+Try accessing from your device at http://192.168.0.114:4000
+Server is now ready to accept connections
