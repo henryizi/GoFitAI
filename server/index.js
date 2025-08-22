@@ -4044,6 +4044,13 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     try {
       plan = parseAIResponse(content);
       console.log('[WORKOUT] Successfully parsed AI response');
+      
+      // Validate that the parsed plan has the correct structure
+      if (!plan || !plan.weeklySchedule || !Array.isArray(plan.weeklySchedule)) {
+        console.error('[WORKOUT] Parsed plan missing weeklySchedule array:', plan);
+        throw new Error('Parsed plan missing required weeklySchedule structure');
+      }
+      
     } catch (parseError) {
       console.error('[WORKOUT] All parsing strategies failed:', parseError);
       console.log('[WORKOUT] Raw response (first 1000 chars):', content.substring(0, 1000));
@@ -4057,7 +4064,9 @@ app.post('/api/generate-workout-plan', async (req, res) => {
             focus: "Upper Body",
             exercises: [
               { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
-              { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" }
+              { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
+              { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
+              { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
             ]
           },
           {
@@ -4065,7 +4074,9 @@ app.post('/api/generate-workout-plan', async (req, res) => {
             focus: "Lower Body",
             exercises: [
               { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
-              { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" }
+              { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
+              { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+              { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
             ]
           },
           {
@@ -4078,7 +4089,9 @@ app.post('/api/generate-workout-plan', async (req, res) => {
             focus: "Full Body",
             exercises: [
               { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
-              { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" }
+              { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
+              { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
+              { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
             ]
           },
           {
@@ -4086,14 +4099,17 @@ app.post('/api/generate-workout-plan', async (req, res) => {
             focus: "Core",
             exercises: [
               { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-              { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" }
+              { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+              { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
+              { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
             ]
           },
           {
             day: "Saturday",
             focus: "Cardio",
             exercises: [
-              { name: "Running", sets: 1, reps: "20-30 min", restBetweenSets: "0s" }
+              { name: "Running", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
+              { name: "Jump Rope", sets: 3, reps: "2 min", restBetweenSets: "60s" }
             ]
           },
           {
