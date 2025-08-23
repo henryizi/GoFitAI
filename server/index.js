@@ -417,7 +417,12 @@ function createModifiedPlan(currentPlan) {
   }
 }
 // Then load server/.env to override AI provider/model if set there
-dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+// Load server/.env but never override platform-assigned PORT
+const shouldOverrideLocalEnv = !process.env.PORT;
+dotenv.config({ path: path.join(__dirname, '.env'), override: shouldOverrideLocalEnv });
+if (!shouldOverrideLocalEnv) {
+  try { console.log('[ENV] Detected PORT from environment; skipping .env override for PORT'); } catch (_) {}
+}
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -446,32 +451,62 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 // AI Provider Configuration with Fallbacks
 const ***REMOVED*** = process.env.***REMOVED*** || process.env.EXPO_PUBLIC_***REMOVED***;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || process.env.EXPO_PUBLIC_DEEPSEEK_MODEL || 'deepseek/deepseek-chat';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
+// Resolve OpenRouter model and force DeepSeek if a free Mistral model is detected
+const resolveOpenRouterModel = () => {
+  const configured = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+  if (typeof configured === 'string') {
+    const lower = configured.toLowerCase();
+    const isFreeMistral = lower.includes('mistral') || lower.endsWith(':free');
+    if (isFreeMistral) {
+      return 'openai/gpt-4o-mini';
+    }
+  }
+  return configured;
+};
+const OPENROUTER_MODEL = resolveOpenRouterModel();
+
+// DeepSeek native API
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
+const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
+// Force DeepSeek V3.1 for chat by default unless overridden
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || process.env.EXPO_PUBLIC_DEEPSEEK_MODEL || 'deepseek-chat-v3.1';
 
 // Cloudflare Workers AI (for fallbacks)
 const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID;
 const CF_API_TOKEN = process.env.CF_API_TOKEN;
+const CF_VISION_MODEL = process.env.CF_VISION_MODEL || '@cf/llava-1.5-7b-hf';
+const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.EXPO_PUBLIC_FOOD_ANALYZE_PROVIDER;
 
 // Optional external services for higher accuracy
 const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API
 const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
-// AI Provider Priority List (will try in order)
+// AI Provider Priority List (DeepSeek first)
+const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
+const AI_STRICT_ONLY = String(process.env.AI_STRICT_ONLY || '').toLowerCase() === 'true';
+const AI_STRICT_EFFECTIVE = AI_DEEPSEEK_ONLY || AI_STRICT_ONLY;
 const AI_PROVIDERS = [
+  {
+    name: 'deepseek',
+    apiKey: DEEPSEEK_API_KEY,
+    apiUrl: DEEPSEEK_API_URL,
+    model: DEEPSEEK_MODEL,
+    enabled: !!DEEPSEEK_API_KEY
+  },
+  {
+    name: 'openrouter',
+    apiKey: OPENROUTER_API_KEY,
+    apiUrl: process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
+    model: OPENROUTER_MODEL,
+    enabled: !!OPENROUTER_API_KEY
+  },
   {
     name: 'openai',
     apiKey: ***REMOVED***,
     apiUrl: 'https://api.openai.com/v1/chat/completions',
     model: OPENAI_MODEL,
     enabled: !!***REMOVED***
-  },
-  {
-    name: 'openrouter',
-    apiKey: OPENROUTER_API_KEY,
-    apiUrl: process.env.OPENROUTER_API_URL || process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
-    model: OPENROUTER_MODEL,
-    enabled: !!OPENROUTER_API_KEY
   },
   {
     name: 'cloudflare',
@@ -487,19 +522,25 @@ const AI_PROVIDERS = [
     model: 'rule-based',
     enabled: true // Always available as last resort
   }
-].filter(provider => provider.enabled);
+]
+  // Filter to enabled providers first
+  .filter(provider => provider.enabled)
+  // Enforce DeepSeek-only if requested
+  .filter(provider => (AI_DEEPSEEK_ONLY ? provider.name === 'deepseek' : true));
 
-// Default provider (first available)
-const DEFAULT_PROVIDER = AI_PROVIDERS[0]?.name || 'openrouter';
-const AI_PROVIDER = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
+// Default provider (prefer DeepSeek if available); enforce deepseek when AI_DEEPSEEK_ONLY
+const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'deepseek')?.name || AI_PROVIDERS[0]?.name || 'deepseek';
+const AI_PROVIDER = AI_DEEPSEEK_ONLY ? 'deepseek' : (process.env.AI_PROVIDER || DEFAULT_PROVIDER);
 
 // Legacy AI configuration for backward compatibility
-const AI_API_KEY = ***REMOVED*** || OPENROUTER_API_KEY;
+const AI_API_KEY = ***REMOVED*** || DEEPSEEK_API_KEY || OPENROUTER_API_KEY;
 const AI_API_URL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.apiUrl || 'https://api.openai.com/v1/chat/completions';
 const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || OPENAI_MODEL;
 
 // Debug logging for API configuration
 console.log('=== API CONFIGURATION ===');
+console.log('DeepSeek-only mode:', AI_DEEPSEEK_ONLY ? 'ENABLED' : 'DISABLED');
+console.log('Strict mode (effective):', AI_STRICT_EFFECTIVE ? 'ENABLED' : 'DISABLED');
 console.log('Available AI Providers:', AI_PROVIDERS.map(p => p.name));
 console.log('Default AI_PROVIDER:', AI_PROVIDER);
 console.log('Total providers available:', AI_PROVIDERS.length);
@@ -774,6 +815,15 @@ if (!supabase) {
   console.warn('[SERVER] Supabase credentials not provided. Some endpoints that require database access will be disabled.');
 }
 
+// Ensure uploads directory exists (important on ephemeral hosts like Railway)
+try {
+  if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads', { recursive: true });
+  }
+} catch (dirErr) {
+  console.warn('[SERVER] Could not ensure uploads directory:', dirErr.message);
+}
+
 const upload = multer({ dest: 'uploads/' });
 
 // Zod schemas for input validation
@@ -814,7 +864,7 @@ const AiChatRequestSchema = z.object({
 // Compose prompt for workout plan generation
 function composePrompt(profile) {
   return `
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile:
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Use all provided metrics, and adapt recommendations accordingly.
 
 CLIENT PROFILE:
 - Full Name: ${profile.full_name || 'Client'}
@@ -826,6 +876,17 @@ CLIENT PROFILE:
 - Fat Loss Goal Priority: ${profile.goal_fat_reduction || 0}/5
 - Muscle Gain Goal Priority: ${profile.goal_muscle_gain || 0}/5
 - Exercise Frequency: ${profile.exercise_frequency || '4-6'} days per week
+- Daily Activity Level: ${profile.activity_level || 'Not specified'}
+- Body Fat: ${profile.body_fat ? `${profile.body_fat}%` : 'Not specified'}
+- Current Weight Trend: ${profile.weight_trend || 'Not specified'}
+- Body Analysis (if any): ${profile.body_analysis ? JSON.stringify(profile.body_analysis) : 'Not provided'}
+- Emulate Bodybuilder: ${profile.emulate_bodybuilder || 'None'}
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.
+2. Suggest target set volumes relative to training level (lower for beginners, higher for advanced).
+3. Provide rest times and rep ranges aligned with goals (fat loss: slightly higher reps/shorter rest; muscle gain: moderate reps/moderate rest).
+4. Ensure balanced weekly distribution across push, pull, legs, and include core.
 
 CRITICAL EXERCISE VARIETY REQUIREMENTS:
 1. NEVER repeat the same exercises in consecutive workouts
@@ -868,10 +929,13 @@ INSTRUCTIONS:
         { "name": "Tricep Pushdown", "sets": 3, "reps": "12-15", "restBetweenSets": "60s" },
         { "name": "Overhead Dumbbell Extension", "sets": 3, "reps": "10-12", "restBetweenSets": "60s" }
       ]
-    },
-    // Repeat for other days of the week
+    }
   ],
-  "estimatedTimePerSession": "60 minutes"
+  "estimatedTimePerSession": "60 minutes",
+  "progression": {
+    "mesocycleWeeks": 4,
+    "guidance": "Increase load 2.5-5% weekly if all reps achieved; optional deload in week 4 if fatigue accumulates."
+  }
 }
 
 Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.`;
@@ -949,8 +1013,8 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
     try {
       console.log(`[AI] Trying provider: ${provider.name} with model ${provider.model}`);
       
-              // Increase max_tokens for nutrition plans to ensure complete responses
-        const max_tokens = provider.name === 'openrouter' ? 3000 : 4000;
+              // Optimize max_tokens to save credits while maintaining quality
+        const max_tokens = provider.name === 'openrouter' ? 1500 : 2000;
     
     const requestBody = {
         model: provider.model,
@@ -972,6 +1036,13 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
       let response;
       
       if (provider.name === 'fallback') {
+        if (AI_STRICT_EFFECTIVE) {
+          return {
+            error: true,
+            errorType: 'strict_mode',
+            message: 'Strict mode enabled: rule-based fallback is disabled.'
+          };
+        }
         // Use rule-based fallback for nutrition analysis or plan generation
         const lastMessage = messages[messages.length - 1];
         if (lastMessage && lastMessage.content) {
@@ -1025,16 +1096,24 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         // Standard OpenAI/OpenRouter format with timeout
         const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 120000; // 2 minutes default
         
-        response = await axios.post(
-          provider.apiUrl,
-      requestBody,
-          { 
-            headers: { Authorization: `Bearer ${provider.apiKey}` },
-            timeout: AI_REQUEST_TIMEOUT
+        {
+          const headers = { Authorization: `Bearer ${provider.apiKey}` };
+          if (provider.apiUrl.includes('openrouter.ai')) {
+            headers['HTTP-Referer'] = process.env.OPENROUTER_SITE || 'http://localhost:4000';
+            headers['X-Title'] = process.env.OPENROUTER_TITLE || 'GoFitAI Server';
           }
-    );
-    
-    return response.data;
+          response = await axios.post(
+            provider.apiUrl,
+            requestBody,
+            { 
+              headers,
+              timeout: AI_REQUEST_TIMEOUT
+            }
+          );
+        }
+        
+        
+        return response.data;
       }
       
   } catch (error) {
@@ -1178,7 +1257,17 @@ app.post('/api/ai-chat', async (req, res) => {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
     ];
-    const aiResponse = await callAI(messages);
+    
+    // Set a shorter timeout for chat requests to improve responsiveness
+    const AI_CHAT_TIMEOUT = parseInt(process.env.AI_CHAT_TIMEOUT) || 60000; // 60 seconds for chat
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('AI chat request timed out')), AI_CHAT_TIMEOUT);
+    });
+    
+    const aiResponse = await Promise.race([
+      callAI(messages),
+      timeoutPromise
+    ]);
       if (aiResponse.error) {
         throw new Error(aiResponse.message);
       }
@@ -1204,6 +1293,9 @@ app.post('/api/ai-chat', async (req, res) => {
 
     } catch (aiError) {
       console.error('[AI-CHAT] AI service error:', aiError.message);
+      if (AI_STRICT_EFFECTIVE) {
+        throw aiError;
+      }
       console.log('[AI-CHAT] AI error caught, switching to fallback');
       
       // Use fallback response and create a modified plan
@@ -1220,6 +1312,9 @@ app.post('/api/ai-chat', async (req, res) => {
     
   } catch (error) {
     console.error('[AI-CHAT] Unexpected error:', error);
+    if (AI_STRICT_EFFECTIVE) {
+      return res.status(502).json({ success: false, error: 'AI chat failed and strict mode is enabled' });
+    }
     
     // Final fallback - still try to provide a useful response
     const fallbackMessage = getFallbackResponse(req.body.message || '');
@@ -2056,7 +2151,7 @@ app.post('/api/customize-meal', async (req, res) => {
         model: CHAT_MODEL,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
-        max_tokens: 500,
+        max_tokens: 300,
       },
       { headers: { Authorization: `Bearer ${AI_API_KEY}` } }
     );
@@ -2872,7 +2967,7 @@ app.post('/api/behavioral-coaching-chat', async (req, res) => {
       {
         model: CHAT_MODEL,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
+        max_tokens: 100,
         temperature: 0.7,
       },
       { headers: { Authorization: `Bearer ${AI_API_KEY}` } }
@@ -2956,26 +3051,6 @@ app.post('/api/generate-motivational-message', async (req, res) => {
     console.error('[MOTIVATION] Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
-});
-
-// Add a test endpoint
-app.get('/api/test', (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Test endpoint called`);
-  res.json({ 
-    status: 'ok', 
-    message: 'Server is running', 
-    timestamp,
-    environment: {
-      node_version: process.version,
-      deepseek_api_configured: !!AI_API_KEY,
-      openai_configured: !!***REMOVED***,
-      server_port: port,
-      server_ip: getLocalIpAddress(),
-      ai_provider: AI_PROVIDER,
-      chat_model: CHAT_MODEL,
-    }
-  });
 });
 
 app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
@@ -3404,7 +3479,7 @@ app.post('/api/generate-recipe', async (req, res) => {
               model: CHAT_MODEL,
               messages: [{ role: "user", content: prompt }],
               temperature: 0.3,
-              max_tokens: 1800,
+              max_tokens: 1200,
         response_format: { type: 'json_object' },
       },
             {
@@ -3446,6 +3521,9 @@ app.post('/api/generate-recipe', async (req, res) => {
       } catch (aiError) {
         console.error(`[${new Date().toISOString()}] AI recipe generation error:`, aiError.message);
         
+        if (AI_STRICT_EFFECTIVE) {
+          return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
+        }
         // Use our high-quality recipe generator as fallback
         console.log(`[${new Date().toISOString()}] Using high-quality recipe generator as fallback`);
         const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
@@ -3454,6 +3532,9 @@ app.post('/api/generate-recipe', async (req, res) => {
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Recipe generation error:`, error);
       
+      if (AI_STRICT_EFFECTIVE) {
+        return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
+      }
       // Final fallback - generate a simple recipe
       try {
         const simpleRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
@@ -3900,7 +3981,12 @@ app.get('/ping', (req, res) => {
 
 // Add health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    provider: AI_PROVIDER,
+    model: CHAT_MODEL
+  });
 });
 
 // Test endpoint to check API configuration
@@ -3913,7 +3999,7 @@ app.get('/api/test', (req, res) => {
     timestamp,
     environment: {
       node_version: process.version,
-      deepseek_api_configured: !!AI_API_KEY,
+      deepseek_api_configured: !!DEEPSEEK_API_KEY,
       openai_configured: !!***REMOVED***,
       server_port: port,
       server_ip: getLocalIpAddress(),
@@ -3923,15 +4009,7 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Add a health endpoint for the app to check if the server is running
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    provider: AI_PROVIDER,
-    model: CHAT_MODEL
-  });
-});
+// (duplicate /api/health removed to avoid ambiguity)
 
 // Add workout plan generation endpoint with robust JSON parsing
 app.post('/api/generate-workout-plan', async (req, res) => {
@@ -3945,8 +4023,33 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     const prompt = composePrompt(profile);
     const messages = [{ role: 'user', content: prompt }];
     
-    // Use the new callAI function with JSON response format
-    const aiResponse = await callAI(messages, { type: 'json_object' }, 0.7);
+    // Prefer DeepSeek (native). If not configured, prefer OpenRouter (DeepSeek model). Then fallback.
+    let aiResponse = null;
+    const deepseekProvider = getProviderConfig('deepseek');
+    const openrouterProvider = getProviderConfig('openrouter');
+    console.log('[WORKOUT] Provider availability:', {
+      deepseek: !!deepseekProvider,
+      openrouter: !!openrouterProvider,
+      defaultProvider: AI_PROVIDER
+    });
+    if (deepseekProvider) {
+      console.log('[WORKOUT] Using DeepSeek as preferred provider');
+      aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, 'deepseek');
+      if (aiResponse?.error) {
+        console.log('[WORKOUT] DeepSeek native failed, trying OpenRouter (DeepSeek model)...');
+        if (openrouterProvider) {
+          console.log('[WORKOUT] Using OpenRouter as fallback provider');
+          aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, 'openrouter');
+        }
+      }
+    } else if (openrouterProvider) {
+      console.log('[WORKOUT] DeepSeek not available, using OpenRouter');
+      aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, 'openrouter');
+    }
+    if (!aiResponse) {
+      console.log('[WORKOUT] No DeepSeek or OpenRouter configured, using default providers...');
+      aiResponse = await callAI(messages, { type: 'json_object' }, 0.7);
+    }
     
     // Process response as before
     const content = aiResponse.choices[0].message.content;
@@ -4041,13 +4144,58 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       throw new Error('All parsing strategies failed');
     }
     
+    // Normalize various plausible AI response shapes into { weeklySchedule: Day[] }
+    function normalizePlan(parsed) {
+      if (!parsed) return parsed;
+      
+      // If already in expected shape
+      if (Array.isArray(parsed.weeklySchedule)) {
+        return { weeklySchedule: parsed.weeklySchedule };
+      }
+      
+      // Common alternative nestings
+      if (parsed.plan && Array.isArray(parsed.plan.weeklySchedule)) {
+        return { weeklySchedule: parsed.plan.weeklySchedule };
+      }
+      if (parsed.workoutPlan && Array.isArray(parsed.workoutPlan.weeklySchedule)) {
+        return { weeklySchedule: parsed.workoutPlan.weeklySchedule };
+      }
+      if (Array.isArray(parsed.days)) {
+        return { weeklySchedule: parsed.days };
+      }
+      if (Array.isArray(parsed.week)) {
+        return { weeklySchedule: parsed.week };
+      }
+      
+      // If the root is directly an array of day objects
+      if (Array.isArray(parsed)) {
+        return { weeklySchedule: parsed };
+      }
+      
+      // If the AI returned a single day object
+      if (parsed.day && parsed.exercises && Array.isArray(parsed.exercises)) {
+        return { weeklySchedule: [parsed] };
+      }
+      
+      // Last attempt: look for a property that looks like a schedule array
+      for (const key of Object.keys(parsed)) {
+        const value = parsed[key];
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && (value[0].day || value[0].exercises)) {
+          return { weeklySchedule: value };
+        }
+      }
+      
+      return parsed;
+    }
+    
     try {
       plan = parseAIResponse(content);
       console.log('[WORKOUT] Successfully parsed AI response');
       
-      // Validate that the parsed plan has the correct structure
-      if (!plan || !plan.weeklySchedule || !Array.isArray(plan.weeklySchedule)) {
-        console.error('[WORKOUT] Parsed plan missing weeklySchedule array:', plan);
+      // Normalize and validate structure
+      plan = normalizePlan(plan);
+      if (!plan || !Array.isArray(plan.weeklySchedule)) {
+        console.error('[WORKOUT] Parsed plan missing weeklySchedule array after normalization:', plan);
         throw new Error('Parsed plan missing required weeklySchedule structure');
       }
       
@@ -4149,43 +4297,47 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       });
     }
 
-    // If we have a text description, use fallback analysis
+    // If we have a text description only, prefer AI providers before final fallback
     if (req.body.imageDescription && !req.file) {
-      console.log('[FOOD ANALYZE] Using fallback analysis for description:', req.body.imageDescription);
-      
+      console.log('[FOOD ANALYZE] Text-only analysis path');
+      const description = String(req.body.imageDescription).slice(0, 2000);
       const messages = [
         {
+          role: 'system',
+          content: 'You are an expert nutritionist. Return ONLY valid JSON, no prose.'
+        },
+        {
           role: 'user',
-          content: `Analyze this food description: ${req.body.imageDescription}`
+          content: `Analyze this food description and estimate nutrition as JSON with keys: foodItems[], totals{calories,protein,carbs,fat,fiber,sugar,sodium}. If unknown, estimate sensible values. Description: "${description}"`
         }
       ];
-      
-      const aiResponse = await callAI(messages, null, 0.1, 'fallback');
-      
-      if (aiResponse.error) {
-        return res.status(500).json({
-          success: false,
-          error: aiResponse.message
-        });
-      }
-      
+      let aiResponse = null;
+      const deepseekAvailable = !!getProviderConfig('deepseek');
+      const openrouterAvailable = !!getProviderConfig('openrouter');
       try {
-        const nutritionData = JSON.parse(aiResponse.choices[0].message.content);
-        return res.json({
-          success: true,
-          ...nutritionData
-        });
-      } catch (parseError) {
-        console.error('[FOOD ANALYZE] Error parsing fallback response:', parseError);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to parse nutrition data'
-        });
+        if (deepseekAvailable) {
+          console.log('[FOOD ANALYZE] Trying DeepSeek for text analysis');
+          aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
+        }
+        if ((!aiResponse || aiResponse.error) && openrouterAvailable) {
+          console.log('[FOOD ANALYZE] Trying OpenRouter for text analysis');
+          aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'openrouter');
+        }
+        if (!aiResponse || aiResponse.error) {
+          console.log('[FOOD ANALYZE] Falling back to rule-based for text analysis');
+          aiResponse = await callAI([{ role: 'user', content: description }], null, 0.1, 'fallback');
+        }
+        const content = aiResponse.choices[0].message.content;
+        const nutritionData = JSON.parse(content);
+        return res.json({ success: true, ...nutritionData });
+      } catch (err) {
+        console.error('[FOOD ANALYZE] Error in text-only analysis:', err);
+        return res.status(500).json({ success: false, error: 'Failed to analyze food description' });
       }
     }
 
     const foodImage = req.file;
-    console.log('[FOOD ANALYZE] Processing image:', foodImage.name);
+    console.log('[FOOD ANALYZE] Processing image:', foodImage?.originalname || foodImage?.filename || 'unknown');
 
     // Convert image to base64 for AI analysis
     const imageBuffer = fs.readFileSync(foodImage.path);
@@ -4243,48 +4395,123 @@ INSTRUCTIONS:
 Analyze the following food image:
 `;
 
-    // Call the AI service for food analysis
-    const aiResponse = await axios.post(
-      AI_API_URL,
-      {
-        model: CHAT_MODEL,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.1
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${AI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000 // 30 second timeout
+    // Choose a vision-capable provider/model with Cloudflare preference if configured
+    const visionConfig = (() => {
+      // Prefer Cloudflare if explicitly configured for food analysis
+      if ((FOOD_ANALYZE_PROVIDER && FOOD_ANALYZE_PROVIDER.toLowerCase() === 'cloudflare') && CF_ACCOUNT_ID && CF_API_TOKEN) {
+        return {
+          provider: 'cloudflare',
+          apiUrl: `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
+          model: CF_VISION_MODEL,
+          headers: {
+            Authorization: `Bearer ${CF_API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+        };
       }
-    );
+      // Use DeepSeek for vision if explicitly chosen or by default when DeepSeek is configured
+      if (((!FOOD_ANALYZE_PROVIDER) || (FOOD_ANALYZE_PROVIDER && FOOD_ANALYZE_PROVIDER.toLowerCase() === 'deepseek')) && DEEPSEEK_API_KEY) {
+        return {
+          provider: 'deepseek',
+          apiUrl: DEEPSEEK_API_URL,
+          model: process.env.DEEPSEEK_VISION_MODEL || 'deepseek-vl2',
+          headers: {
+            Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        };
+      }
+      if (***REMOVED***) {
+        return {
+          provider: 'openai',
+          apiUrl: 'https://api.openai.com/v1/chat/completions',
+          model: process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini',
+          headers: {
+            Authorization: `Bearer ${***REMOVED***}`,
+            'Content-Type': 'application/json',
+          },
+        };
+      }
+      if (OPENROUTER_API_KEY) {
+        return {
+          provider: 'openrouter',
+          apiUrl: process.env.OPENROUTER_API_URL || process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
+          model: process.env.OPENROUTER_VISION_MODEL || 'openai/gpt-4o-mini',
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        };
+      }
+      return null;
+    })();
 
-    const aiContent = aiResponse.data.choices[0]?.message?.content;
+    if (!visionConfig) {
+      return res.status(500).json({
+        success: false,
+        error: 'No AI provider configured for vision analysis. Set DEEPSEEK_API_KEY, ***REMOVED***, or OPENROUTER_API_KEY.',
+      });
+    }
+
+    // Log which provider/model will be used
+    try {
+      console.log(`[FOOD ANALYZE] Using provider: ${visionConfig.provider}, model: ${visionConfig.model}`);
+    } catch (_) {}
+
+    // Call the AI service for food analysis (vision)
+    let aiResponse;
+    if (visionConfig.provider === 'cloudflare') {
+      // Cloudflare Workers AI expects a different format; use "prompt" with concatenated text and include image as data URL if supported
+      const cfPrompt = `${prompt}\n[Image attached as data URL]`;
+      aiResponse = await axios.post(
+        visionConfig.apiUrl,
+        { 
+          // Some CF models support vision by accepting an "image" key with data URL or bytes; start with text-only for now
+          // For best results with @cf/llava, you can use {prompt, image}
+          prompt: cfPrompt,
+          image: `data:${mimeType};base64,${base64Image}`
+        },
+        { headers: visionConfig.headers, timeout: 60000 }
+      );
+    } else {
+      // Use OpenAI-compatible chat.completions content format for both OpenAI and OpenRouter
+      const contentParts = [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+      ];
+
+      const headers = { ...visionConfig.headers };
+      if (visionConfig.apiUrl.includes('openrouter.ai')) {
+        headers['HTTP-Referer'] = process.env.OPENROUTER_SITE || 'http://localhost:4000';
+        headers['X-Title'] = process.env.OPENROUTER_TITLE || 'GoFitAI Server';
+      }
+
+      aiResponse = await axios.post(
+        visionConfig.apiUrl,
+        {
+          model: visionConfig.model,
+          messages: [
+            { role: 'user', content: contentParts },
+          ],
+          max_tokens: 800,
+          temperature: 0.1,
+        },
+        { headers, timeout: 60000 }
+      );
+    }
+
+    const aiContent = visionConfig.provider === 'cloudflare'
+      ? aiResponse.data?.result?.response
+      : aiResponse.data?.choices?.[0]?.message?.content;
     if (!aiContent) {
+      console.error('[FOOD ANALYZE] Empty AI response:', JSON.stringify(aiResponse?.data || {}, null, 2).slice(0, 1000) + '...');
       throw new Error('No response from AI service');
     }
 
     // Parse the AI response
     const analysisResult = findAndParseJson(aiContent);
     if (!analysisResult) {
+      console.error('[FOOD ANALYZE] Failed to parse AI response. Preview:', String(aiContent).slice(0, 500) + '...');
       throw new Error('Failed to parse AI response');
     }
 
@@ -4303,21 +4530,20 @@ Analyze the following food image:
     });
 
   } catch (error) {
-    console.error('[FOOD ANALYZE] Error:', error.message);
-    
-    // Provide a helpful error message
-    let errorMessage = 'Failed to analyze food image';
-    if (error.message.includes('timeout')) {
-      errorMessage = 'Analysis timed out. Please try again with a clearer image.';
-    } else if (error.message.includes('AI service')) {
-      errorMessage = 'AI service temporarily unavailable. Please try again later.';
+    const errorDetails = error?.response?.data || error?.message || String(error);
+    console.error('[FOOD ANALYZE] Error:', errorDetails);
+
+    if (AI_STRICT_EFFECTIVE) {
+      return res.status(502).json({
+        success: false,
+        error: 'AI analysis failed and strict mode is enabled',
+        details: process.env.NODE_ENV === 'development' ? (typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)) : undefined,
+      });
     }
-    
-    res.status(500).json({
-      success: false,
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+
+    // Last-resort fallback: rule-based nutrition estimate (never 500)
+    const fallback = analyzeFoodWithFallback('photo of a meal');
+    return res.json({ success: true, data: fallback, fallback: true, warning: typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails) });
   }
 });
 
