@@ -76,6 +76,11 @@ export default function PlanDetailScreen() {
   ]);
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
+  
+  // Optimized input handler to prevent lag
+  const handleChatInputChange = useCallback((text: string) => {
+    setChatInput(text);
+  }, []);
   const [editingSession, setEditingSession] = useState<string | null>(null);
   const [editingExercise, setEditingExercise] = useState<string | null>(null);
   const [editedSets, setEditedSets] = useState<number | null>(null);
@@ -154,21 +159,31 @@ export default function PlanDetailScreen() {
   // Key for AsyncStorage
   const chatKey = `chatHistory_${plan?.id || 'unknown'}_${user?.id || 'unknown'}`;
 
-  // Load chat history when chat modal opens
+  // Load chat history and modified plan when chat modal opens
   useEffect(() => {
     if (chatVisible) {
       (async () => {
         try {
+          // Load chat history
           const saved = await AsyncStorage.getItem(chatKey);
           if (saved) {
             setChatHistory(JSON.parse(saved));
           }
+          
+          // Load previously modified plan if available
+          const modifiedPlanKey = `modified_plan_${planId}`;
+          const modifiedPlanData = await AsyncStorage.getItem(modifiedPlanKey);
+          if (modifiedPlanData) {
+            const modifiedPlan = JSON.parse(modifiedPlanData);
+            console.log('[CHAT] Loaded previously modified plan:', modifiedPlan.name);
+            setPendingNewPlan(modifiedPlan);
+          }
         } catch (e) {
-          // Ignore
+          console.error('[CHAT] Error loading saved data:', e);
         }
       })();
     }
-  }, [chatVisible, chatKey]);
+  }, [chatVisible, chatKey, planId]);
 
   // Save chat history whenever it changes
   useEffect(() => {
@@ -201,7 +216,7 @@ export default function PlanDetailScreen() {
       }
     };
 
-    const CHAT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 90000; // Increased to 90 seconds for AI processing
+    const CHAT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 180000; // Increased to 180 seconds (3 minutes) for complex AI reasoning
 
     try {
       console.log('--- SENDING CHAT TO AI ---');
@@ -245,7 +260,7 @@ export default function PlanDetailScreen() {
                 body: JSON.stringify({
                   planId: planId,
                   message: fullChatHistory[fullChatHistory.length - 1]?.text || '',
-                  currentPlan: plan,
+                  currentPlan: pendingNewPlan || plan, // Use modified plan if available
                 }),
               },
               timeoutMs
@@ -282,11 +297,21 @@ export default function PlanDetailScreen() {
 
       setChatHistory((prev) => [
         ...prev,
-        { sender: 'ai', text: data.message },
+        { sender: 'ai', text: data.message, hasNewPlan: !!data.newPlan },
       ]);
       if (data.newPlan) {
         console.log('[INFO] AI suggested a new plan.');
+        console.log('[DEBUG] New plan data:', JSON.stringify(data.newPlan, null, 2));
         setPendingNewPlan(data.newPlan);
+        
+        // Save the modified plan to AsyncStorage for debugging
+        try {
+          const modifiedPlanKey = `modified_plan_${planId}`;
+          await AsyncStorage.setItem(modifiedPlanKey, JSON.stringify(data.newPlan));
+          console.log('[DEBUG] Saved modified plan to AsyncStorage');
+        } catch (e) {
+          console.error('[DEBUG] Failed to save modified plan:', e);
+        }
       }
     } catch (err) {
       console.error('--- SEND CHAT FAILED ---');
@@ -1274,6 +1299,37 @@ export default function PlanDetailScreen() {
                 {chatHistory.map((msg, idx) => (
                   <View key={idx} style={msg.sender === 'user' ? styles.userMsg : styles.aiMsg}>
                     <Text style={msg.sender === 'user' ? styles.userMsgText : styles.aiMsgText}>{msg.text}</Text>
+                    {msg.sender === 'ai' && msg.hasNewPlan && pendingNewPlan && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setPreviewLoading(true);
+                          console.log('[PREVIEW BUTTON] pendingNewPlan data:', JSON.stringify(pendingNewPlan, null, 2));
+                          // Close the chatbot modal first
+                          setChatVisible(false);
+                          // Navigate to preview screen
+                          router.push({
+                            pathname: '/workout/preview-plan',
+                            params: {
+                              planObject: JSON.stringify(pendingNewPlan),
+                              originalPlanId: planId
+                            }
+                          });
+                          setPreviewLoading(false);
+                        }}
+                        style={styles.previewButtonInline}
+                        disabled={previewLoading}
+                      >
+                        <LinearGradient
+                          colors={previewLoading ? [colors.textSecondary, colors.textSecondary] : [colors.primary, colors.primaryDark]}
+                          style={styles.previewButtonInlineGradient}
+                        >
+                          <Icon name="eye-outline" size={16} color={colors.white} />
+                          <Text style={styles.previewButtonInlineText}>
+                            {previewLoading ? 'Loading...' : 'Preview Plan'}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))}
                 {chatLoading && (
@@ -1287,42 +1343,6 @@ export default function PlanDetailScreen() {
               </ScrollView>
 
               <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                {pendingNewPlan && (
-                  <View style={styles.previewBanner}>
-                    <Text style={styles.previewBannerText}>AI has suggested a new plan!</Text>
-                        <TouchableOpacity
-                      onPress={() => {
-                        if (pendingNewPlan) {
-                          setPreviewLoading(true);
-                          
-                          // Navigate to preview page with the plan data
-                          router.push({
-                            pathname: '/workout/preview-plan',
-                            params: {
-                              planObject: JSON.stringify(pendingNewPlan),
-                              originalPlanId: planId
-                            }
-                          });
-                          
-                          setPreviewLoading(false);
-                        } else {
-                          Alert.alert('Error', 'No plan available to preview.');
-                        }
-                      }}
-                          style={styles.previewBannerButtonContainer}
-                          disabled={previewLoading}
-                        >
-                          <LinearGradient
-                            colors={previewLoading ? [colors.textSecondary, colors.textSecondary] : [colors.primary, colors.primaryDark]}
-                      style={styles.previewBannerButton}
-                    >
-                            <Text style={styles.previewBannerButtonText}>
-                              {previewLoading ? 'Loading...' : 'Preview & Apply'}
-                            </Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                  </View>
-                )}
                 <View style={styles.chatInputRow}>
                   <View style={[
                     styles.chatInputContainer,
@@ -1334,8 +1354,8 @@ export default function PlanDetailScreen() {
                     </View>
                     <TextInput
                       value={chatInput}
-                      onChangeText={setChatInput}
-                      placeholder="Type your request here... (e.g., 'Make it harder', 'Add more cardio', 'Change exercises')"
+                      onChangeText={handleChatInputChange}
+                      placeholder="Type your request here..."
                       style={styles.chatInput}
                       placeholderTextColor={colors.textSecondary}
                       multiline
@@ -1343,6 +1363,13 @@ export default function PlanDetailScreen() {
                       textAlignVertical="top"
                       onFocus={() => setInputFocused(true)}
                       onBlur={() => setInputFocused(false)}
+                      autoCorrect={false}
+                      autoCapitalize="sentences"
+                      spellCheck={false}
+                      returnKeyType="default"
+                      blurOnSubmit={false}
+                      keyboardType="default"
+                      scrollEnabled={true}
                     />
                   </View>
                   {chatLoading ? (
@@ -1831,43 +1858,50 @@ const styles = StyleSheet.create({
   },
   chatInputContainer: {
     flex: 1,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(28, 28, 30, 0.9)',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
     paddingBottom: 12,
     paddingTop: 8,
+    overflow: 'hidden',
   },
   chatInput: {
     flex: 1,
     backgroundColor: 'transparent',
-    borderRadius: 24,
-    fontSize: 16,
-    maxHeight: 180,
+    borderRadius: 16,
+    fontSize: 15,
+    maxHeight: 160,
     minHeight: 80,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
     color: colors.text,
     fontWeight: '500',
     textAlignVertical: 'top',
     includeFontPadding: false,
     textAlign: 'left',
-    lineHeight: 24,
+    lineHeight: 20,
+    borderBottomWidth: 0,
+    borderWidth: 0,
+    fontFamily: 'System',
   },
   chatInputContainerFocused: {
     borderColor: colors.primary,
     borderWidth: 2,
+    borderBottomWidth: 2,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+    backgroundColor: 'rgba(28, 28, 30, 1)',
+    transform: [{ scale: 1.02 }],
   },
   loadingContainer: {
     width: 32,
@@ -1888,15 +1922,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 2,
+    paddingTop: 10,
+    paddingBottom: 4,
+    marginBottom: 4,
   },
   chatInputLabel: {
     color: colors.primary,
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   previewBanner: {
     flexDirection: 'row',
@@ -1922,6 +1957,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   previewBannerButtonText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  previewButtonInline: {
+    marginTop: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  previewButtonInlineGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  previewButtonInlineText: {
     color: colors.white,
     fontSize: 12,
     fontWeight: '700',

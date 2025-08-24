@@ -391,205 +391,11 @@ function findAndParseJson(content) {
   }
 }
 
-// Build enhanced cooking instructions for detailed recipes
-function buildEnhancedInstructions(mealType, ingredients) {
-  const lower = ingredients.map(i => i.toLowerCase().trim());
-  const hasBase = lower.some(i => /(rice|quinoa|oat|pasta|noodle|bread|tortilla|wrap|couscous|bulgur)/.test(i));
-  const hasCookProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg\b)/.test(i));
-  const hasVeg = lower.some(i => /(broccoli|spinach|lettuce|greens|pepper|tomato|cucumber|carrot|veg|vegetable|kale|onion|mushroom)/.test(i));
-  const isNoCookSnack = !hasBase && !hasCookProtein && lower.every(i => /(yogurt|greek yogurt|strawber|berry|banana|apple|fruit|granola|nuts|almond|peanut butter|honey|chia|oat\s?meal|cottage)/.test(i));
-
-  if (isNoCookSnack) {
-    return [
-      {
-        "step": "1",
-        "title": "Preparation",
-        "details": [`Gather all ingredients: ${ingredients.join(', ')}`, "Ensure all fresh ingredients are clean and at optimal temperature"]
-      },
-      {
-        "step": "2", 
-        "title": "Assembly",
-        "details": [`Add ingredients to a large mixing bowl in order of density`, "Combine gently to maintain texture and nutritional integrity"]
-      },
-      {
-        "step": "3",
-        "title": "Final Touches",
-        "details": [`${lower.some(i => /(honey|maple|syrup)/.test(i)) ? 'Drizzle sweetener evenly over the top' : 'Taste and adjust flavors as needed'}`, "Let rest for 2-3 minutes to allow flavors to meld"]
-      },
-      {
-        "step": "4",
-        "title": "Serving",
-        "details": ["Serve immediately at optimal temperature", "Garnish with remaining ingredients for visual appeal"]
-      }
-    ];
-  } else {
-    return [
-      {
-        "step": "1",
-        "title": "Mise en Place",
-        "details": [`Prepare all ingredients: wash, chop, and measure everything`, "Preheat cookware to appropriate temperatures for efficient cooking"]
-      },
-      {
-        "step": "2",
-        "title": "Base Preparation", 
-        "details": [`${hasBase ? 'Cook carbohydrate base according to package instructions until al dente' : 'Skip if no base ingredient provided'}`, "Season lightly during cooking to build flavor layers"]
-      },
-      {
-        "step": "3",
-        "title": "Protein Cooking",
-        "details": [`${hasCookProtein ? 'Cook protein source to desired doneness, ensuring proper internal temperature' : 'Skip if no protein provided'}`, "Rest protein for 2-3 minutes to retain juices"]
-      },
-      {
-        "step": "4",
-        "title": "Vegetable Preparation",
-        "details": [`${hasVeg ? 'Cook vegetables until tender-crisp, preserving nutrients and color' : 'Skip if no vegetables provided'}`, "Season vegetables with herbs and spices for enhanced flavor"]
-      },
-      {
-        "step": "5",
-        "title": "Assembly",
-        "details": ["Combine all cooked components in serving dish", "Ensure proper temperature and presentation for optimal dining experience"]
-      }
-    ];
-  }
-}
-
-// Enhanced high-quality recipe generator with detailed macro calculations
-function generateHighQualityRecipe(mealType, ingredients, targets) {
-  // Enhanced fallback function to create heavy, macro-dense recipes when AI fails
-  const { calories: caloriesNum, protein: proteinNum, carbs: carbsNum, fat: fatNum } = targets;
-  
-  // Create macro database for common ingredients (per 100g)
-  const ingredientMacros = {
-    'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-    'chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-    'beef': { calories: 250, protein: 26, carbs: 0, fat: 15 },
-    'salmon': { calories: 208, protein: 20, carbs: 0, fat: 12 },
-    'fish': { calories: 206, protein: 22, carbs: 0, fat: 12 },
-    'eggs': { calories: 155, protein: 13, carbs: 1.1, fat: 11 },
-    'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
-    'pasta': { calories: 131, protein: 5, carbs: 25, fat: 1.1 },
-    'quinoa': { calories: 120, protein: 4.4, carbs: 22, fat: 1.9 },
-    'oats': { calories: 389, protein: 17, carbs: 66, fat: 7 },
-    'bread': { calories: 265, protein: 9, carbs: 49, fat: 3.2 },
-    'potato': { calories: 77, protein: 2, carbs: 17, fat: 0.1 },
-    'sweet potato': { calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
-    'broccoli': { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 },
-    'spinach': { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
-    'avocado': { calories: 160, protein: 2, carbs: 9, fat: 15 },
-    'olive oil': { calories: 884, protein: 0, carbs: 0, fat: 100 },
-    'nuts': { calories: 607, protein: 20, carbs: 16, fat: 54 },
-    'cheese': { calories: 402, protein: 25, carbs: 1.3, fat: 33 },
-    'milk': { calories: 42, protein: 3.4, carbs: 5, fat: 1 },
-    'yogurt': { calories: 59, protein: 10, carbs: 3.6, fat: 0.4 },
-    'beans': { calories: 127, protein: 8, carbs: 23, fat: 0.5 },
-    'tofu': { calories: 76, protein: 8, carbs: 1.9, fat: 4.8 }
-  };
-
-  // Match ingredients to macro database with fuzzy matching
-  const matchIngredient = (ingredient) => {
-    const normalizedIng = ingredient.toLowerCase();
-    for (const [key, macros] of Object.entries(ingredientMacros)) {
-      if (normalizedIng.includes(key) || key.includes(normalizedIng)) {
-        return { ingredient: key, macros };
-      }
-    }
-    // Default fallback for unknown ingredients
-    return { 
-      ingredient: ingredient, 
-      macros: { calories: 100, protein: 5, carbs: 10, fat: 2 } 
-    };
-  };
-
-  // Calculate optimal quantities to meet macro targets
-  let remainingCalories = caloriesNum;
-  let remainingProtein = proteinNum;
-  let remainingCarbs = carbsNum;
-  let remainingFat = fatNum;
-
-  const ingredientsList = ingredients.map((ingredient, index) => {
-    const { ingredient: matchedName, macros } = matchIngredient(ingredient);
-    
-    // Calculate quantity needed based on macro distribution
-    const targetCaloriesForIng = remainingCalories / (ingredients.length - index);
-    const quantityGrams = Math.max(50, Math.round((targetCaloriesForIng / macros.calories) * 100));
-    
-    // Calculate actual macros for this quantity
-    const actualCalories = Math.round((quantityGrams / 100) * macros.calories);
-    const actualProtein = Math.round((quantityGrams / 100) * macros.protein * 10) / 10;
-    const actualCarbs = Math.round((quantityGrams / 100) * macros.carbs * 10) / 10;
-    const actualFat = Math.round((quantityGrams / 100) * macros.fat * 10) / 10;
-
-    // Update remaining macros
-    remainingCalories = Math.max(0, remainingCalories - actualCalories);
-    remainingProtein = Math.max(0, remainingProtein - actualProtein);
-    remainingCarbs = Math.max(0, remainingCarbs - actualCarbs);
-    remainingFat = Math.max(0, remainingFat - actualFat);
-
-    // Create user-friendly display quantity
-    let displayQuantity = `${quantityGrams}g`;
-    if (ingredient.toLowerCase().includes('egg')) {
-      displayQuantity = `${Math.ceil(quantityGrams / 50)} large eggs (${quantityGrams}g)`;
-    } else if (ingredient.toLowerCase().includes('oil')) {
-      displayQuantity = `${Math.round(quantityGrams / 13)} tbsp (${quantityGrams}g)`;
-    } else if (quantityGrams >= 200) {
-      displayQuantity = `${Math.round(quantityGrams / 100) * 100}g (about ${Math.round(quantityGrams / 100)} cups)`;
-    }
-
-    return {
-      name: ingredient,
-      quantity_grams: quantityGrams,
-      quantity_display: displayQuantity,
-      calories: actualCalories,
-      protein_grams: actualProtein,
-      carbs_grams: actualCarbs,
-      fat_grams: actualFat,
-      macro_summary: `Primary ${actualProtein > 10 ? 'protein' : actualCarbs > 15 ? 'carb' : 'fat'} source contributing to heavy meal density`
-    };
-  });
-
-  // Build enhanced instructions using the enhanced format
-  const enhancedInstructions = buildEnhancedInstructions(mealType, ingredients);
-
-  // Calculate totals
-  const totalCalories = ingredientsList.reduce((sum, ing) => sum + ing.calories, 0);
-  const totalProtein = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.protein_grams, 0) * 10) / 10;
-  const totalCarbs = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.carbs_grams, 0) * 10) / 10;
-  const totalFat = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.fat_grams, 0) * 10) / 10;
-  const totalWeight = ingredientsList.reduce((sum, ing) => sum + ing.quantity_grams, 0);
-
-  // Generate recipe name
-  const topIngredients = ingredients.slice(0, 2);
-  const name = topIngredients.length
-    ? `Heavy ${mealType} Bowl with ${topIngredients.join(' & ')}`
-    : `Power-Packed ${mealType} Bowl`;
-
-  return {
-    recipe_name: name,
-    description: `A substantial, macro-dense ${mealType.toLowerCase()} combining ${ingredients.length} ingredients for optimal nutrition and satiety. Designed to deliver ${caloriesNum} calories with high protein content.`,
-    total_weight: `${totalWeight}g`,
-    prep_time: "10-15 minutes",
-    cook_time: "15-25 minutes",
-    ingredients: ingredientsList,
-    instructions: enhancedInstructions,
-    macros: {
-      total_calories: totalCalories,
-      total_protein_grams: totalProtein,
-      total_carbs_grams: totalCarbs,
-      total_fat_grams: totalFat,
-      protein_per_100g: Math.round((totalProtein / totalWeight) * 100 * 10) / 10,
-      macro_distribution: `Protein: ${Math.round((totalProtein * 4 / totalCalories) * 100)}%, Carbs: ${Math.round((totalCarbs * 4 / totalCalories) * 100)}%, Fat: ${Math.round((totalFat * 9 / totalCalories) * 100)}%`
-    },
-    cooking_tips: [
-      "Cook proteins at medium-high heat to achieve optimal texture and retain maximum nutritional value",
-      "Combine all ingredients in one pan when possible to create flavor synergy and maximize nutrient absorption",
-      "Let the dish rest for 2-3 minutes before serving to allow flavors to meld and achieve optimal serving temperature"
-    ]
-  };
-}
-
 const dotenv = require('dotenv');
 // Load root .env if present
 dotenv.config();
+// Also try to load .env.development for development environment
+dotenv.config({ path: '../.env.development' });
 
 // Import the extractNewPlan function
 const { extractNewPlan } = require('./extract-plan-fix.js');
@@ -3451,20 +3257,17 @@ app.post('/api/analyze-body', async (req, res) => {
 
 function composeRecipePrompt(mealType, targets, ingredients) {
   return `
-You are a professional chef and nutritionist. Create ONE detailed recipe for ${mealType} using ONLY the provided ingredients. Focus on creating a HEAVY, MACRO-DENSE cuisine that provides substantial nutrition for one complete meal.
+You are a professional chef. Create ONE detailed recipe for ${mealType} using ONLY the provided ingredients. You must compute realistic quantities and write meticulous, professional instructions.
 
 MEAL TYPE: ${mealType}
 NUTRITIONAL TARGETS: Calories ${targets.calories} kcal, Protein ${targets.protein}g, Carbs ${targets.carbs}g, Fat ${targets.fat}g
 AVAILABLE INGREDIENTS (USE ONLY THESE; DO NOT ADD ANY OTHERS): ${ingredients.join(', ')}
 
-CRITICAL REQUIREMENTS:
-1) Create a HEAVY, SUBSTANTIAL meal that feels satisfying and provides enough macronutrients for one complete meal
-2) Use ONLY the ingredients listed above. Do NOT introduce anything else (no salt/pepper/oil unless present in the list)
-3) Calculate PRECISE quantities in grams for each ingredient to meet the macro targets as closely as possible
-4) Provide detailed macro breakdown for EACH individual ingredient used
-5) Focus on combining ingredients strategically to maximize protein content and overall nutritional density
-6) If oil is not provided, instruct dry-searing or non-stick cooking; if seasonings not provided, mention "season to taste if available"
-7) The instructions must be meticulous, chef-level, and executable with exact times, temperatures, and techniques
+CRITICAL RULES:
+1) Use ONLY the ingredients listed above. Do NOT introduce anything else (no salt/pepper/oil unless present in the list).
+2) Use realistic quantities (e.g., "120 g beef", "100 g cooked rice", "1 tbsp olive oil" if available). Avoid absurd amounts like "1 tbsp beef".
+3) If oil is not provided, instruct dry-searing or non-stick cooking; if salt/pepper not provided, avoid naming them and instead say "season to taste if desired".
+4) The instructions must be meticulous, chef-level, and executable. Include times, heat levels, and exact sequencing.
 5) Keep to the ingredients subset. If vegetables are provided as a generic term, treat them as a single combined item without inventing new vegetables.
 6) Return ONLY valid JSON with the exact schema below (no markdown).
 
@@ -3477,46 +3280,21 @@ INSTRUCTION REQUIREMENTS:
 
 OUTPUT JSON SCHEMA:
 {
-  "recipe_name": "Heavy [Meal Type] with [Main Ingredients] - descriptive name emphasizing substantial nature",
-  "description": "Brief description of the heavy, macro-dense meal and its nutritional benefits",
-  "total_weight": "estimated total weight in grams",
-  "prep_time": "preparation time in minutes", 
-  "cook_time": "cooking time in minutes",
+  "recipe_name": "Descriptive name using provided ingredients",
   "ingredients": [
-    {
-      "name": "exact ingredient from provided list only", 
-      "quantity_grams": "precise amount in grams to meet macros",
-      "quantity_display": "user-friendly quantity (e.g., '1 cup', '2 pieces')",
-      "calories": "calories from this ingredient",
-      "protein_grams": "protein grams from this ingredient", 
-      "carbs_grams": "carbs grams from this ingredient",
-      "fat_grams": "fat grams from this ingredient",
-      "macro_summary": "brief summary of why this ingredient contributes to the heavy meal"
-    }
+    {"name": "ingredient from list only", "quantity": "realistic amount", "macro_info": "optional: brief macro note"}
   ],
   "instructions": [
-    {"step": "1", "title": "Preparation Phase", "details": ["detailed prep instruction", "specific technique or tip"]},
-    {"step": "2", "title": "Cooking Phase", "details": ["precise cooking instruction with time/temp", "chef technique for optimal results"]}
+    {"step": "1", "title": "...", "details": ["...", "..."]},
+    {"step": "2", "title": "...", "details": ["...", "..."]}
   ],
-  "macros": {
-    "total_calories": ${targets.calories}, 
-    "total_protein_grams": ${targets.protein}, 
-    "total_carbs_grams": ${targets.carbs}, 
-    "total_fat_grams": ${targets.fat},
-    "protein_per_100g": "protein density per 100g of final dish",
-    "macro_distribution": "brief summary of how macros are distributed across ingredients"
-  },
-  "cooking_tips": [
-    "technique for making the meal more substantial and heavy",
-    "tip for maximizing nutritional density",
-    "serving suggestion for optimal macro absorption"
-  ]
+  "macros": {"calories": ${targets.calories}, "protein_grams": ${targets.protein}, "carbs_grams": ${targets.carbs}, "fat_grams": ${targets.fat}}
 }
 `;
 }
 
 // Helper to build context-aware fallback steps
-function buildContextualFallback(mealType, ingredients, targets, enhanced = false) {
+function buildContextualFallback(mealType, ingredients, targets) {
   const lower = (ingredients || []).map((i) => String(i).toLowerCase().trim());
   const hasBase = lower.some((i) => /(rice|quinoa|oat|pasta|noodle|bread|tortilla|wrap|couscous|bulgur)/.test(i));
   const hasCookProtein = lower.some((i) => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna(?!\scanned)|shrimp|egg\b)/.test(i));
@@ -3533,80 +3311,17 @@ function buildContextualFallback(mealType, ingredients, targets, enhanced = fals
         { name: 'vegetables', quantity: '1 cup' },
       ];
 
-  let instructions = [];
-  
-  if (enhanced) {
-    // Enhanced structured format for high-quality recipes
-    if (isNoCookSnack) {
-      instructions = [
-        {
-          "step": "1",
-          "title": "Preparation",
-          "details": [`Gather all ingredients: ${ingredientsList.map(i => i.name).join(', ')}`, "Ensure all fresh ingredients are clean and at optimal temperature"]
-        },
-        {
-          "step": "2", 
-          "title": "Assembly",
-          "details": [`Add ingredients to a large mixing bowl in order of density`, "Combine gently to maintain texture and nutritional integrity"]
-        },
-        {
-          "step": "3",
-          "title": "Final Touches",
-          "details": [`${lower.some(i => /(honey|maple|syrup)/.test(i)) ? 'Drizzle sweetener evenly over the top' : 'Taste and adjust flavors as needed'}`, "Let rest for 2-3 minutes to allow flavors to meld"]
-        },
-        {
-          "step": "4",
-          "title": "Serving",
-          "details": ["Serve immediately at optimal temperature", "Garnish with remaining ingredients for visual appeal"]
-        }
-      ];
-    } else {
-      instructions = [
-        {
-          "step": "1",
-          "title": "Mise en Place",
-          "details": [`Prepare all ingredients: wash, chop, and measure everything`, "Preheat cookware to appropriate temperatures for efficient cooking"]
-        },
-        {
-          "step": "2",
-          "title": "Base Preparation", 
-          "details": [`${hasBase ? 'Cook carbohydrate base according to package instructions until al dente' : 'Skip if no base ingredient provided'}`, "Season lightly during cooking to build flavor layers"]
-        },
-        {
-          "step": "3",
-          "title": "Protein Cooking",
-          "details": [`${hasCookProtein ? 'Season protein generously and cook at medium-high heat until internal temp reaches safe levels' : 'Skip if no protein requires cooking'}`, "Rest protein for 2-3 minutes after cooking to retain juices"]
-        },
-        {
-          "step": "4",
-          "title": "Vegetable Preparation",
-          "details": [`${hasVeg ? 'Sauté or steam vegetables until tender-crisp to retain maximum nutrients' : 'Add any raw vegetables directly to final assembly'}`, "Season vegetables to complement the overall flavor profile"]
-        },
-        {
-          "step": "5",
-          "title": "Final Assembly",
-          "details": ["Combine all components in serving dish, arranging for optimal presentation", "Taste and adjust seasoning to achieve perfect balance"]
-        },
-        {
-          "step": "6",
-          "title": "Plating & Service",
-          "details": ["Plate the dish with attention to color contrast and portion balance", "Serve immediately while components are at optimal temperature"]
-        }
-      ];
-    }
+  const instructions = [];
+  if (isNoCookSnack) {
+    instructions.push(`Add ${ingredientsList.map(i => i.name).join(', ')} to a bowl.`);
+    if (lower.some(i => /(honey|maple|syrup)/.test(i))) instructions.push('Drizzle sweetener over the top.');
+    instructions.push('Gently mix to combine.');
+    instructions.push('Serve chilled.');
   } else {
-    // Simple format for backward compatibility
-    if (isNoCookSnack) {
-      instructions.push(`Add ${ingredientsList.map(i => i.name).join(', ')} to a bowl.`);
-      if (lower.some(i => /(honey|maple|syrup)/.test(i))) instructions.push('Drizzle sweetener over the top.');
-      instructions.push('Gently mix to combine.');
-      instructions.push('Serve chilled.');
-    } else {
-      if (hasBase) instructions.push('Cook base (e.g., rice/quinoa/oats/pasta) according to package instructions.');
-      if (hasCookProtein) instructions.push('Season and cook protein until done.');
-      if (hasVeg) instructions.push('Sauté or steam vegetables until tender.');
-      instructions.push('Combine components and adjust seasoning to taste.');
-    }
+    if (hasBase) instructions.push('Cook base (e.g., rice/quinoa/oats/pasta) according to package instructions.');
+    if (hasCookProtein) instructions.push('Season and cook protein until done.');
+    if (hasVeg) instructions.push('Sauté or steam vegetables until tender.');
+    instructions.push('Combine components and adjust seasoning to taste.');
   }
 
   const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
@@ -3632,50 +3347,6 @@ function buildContextualFallback(mealType, ingredients, targets, enhanced = fals
 }
 
 // Add this function before the app.post('/api/generate-recipe') endpoint
-function attachPerIngredientMacros(recipe) {
-  // This function ensures all ingredients have proper macro breakdowns
-  if (!recipe || !recipe.ingredients) {
-    return recipe;
-  }
-
-  const enhancedIngredients = recipe.ingredients.map(ing => {
-    if (typeof ing === 'string') {
-      // Convert string ingredients to object format with macros
-      return {
-        name: ing,
-        quantity: '1 serving',
-        quantity_grams: 100,
-        quantity_display: '1 serving',
-        calories: 100,
-        protein_grams: 5,
-        carbs_grams: 10,
-        fat_grams: 2,
-        macro_summary: 'Standard serving size'
-      };
-    }
-    
-    // If already has macros, return as is
-    if (ing.calories !== undefined && ing.protein_grams !== undefined) {
-      return ing;
-    }
-    
-    // Add default macros if missing
-    return {
-      ...ing,
-      calories: ing.calories || 100,
-      protein_grams: ing.protein_grams || 5,
-      carbs_grams: ing.carbs_grams || 10,
-      fat_grams: ing.fat_grams || 2,
-      macro_summary: ing.macro_summary || 'Standard serving size'
-    };
-  });
-
-  return {
-    ...recipe,
-    ingredients: enhancedIngredients
-  };
-}
-
 function validateRecipeAgainstInputs(providedIngredients, recipe) {
   // Normalize text for comparison
   const normalizeText = (text) => {
@@ -3805,29 +3476,48 @@ app.post('/api/generate-recipe', async (req, res) => {
       
       // Otherwise, use the AI with fallback to our high-quality recipe generator
       // Prepare the prompt
-      const prompt = composeRecipePrompt(mealType, targets, ingredients);
+    const prompt = composeRecipePrompt(mealType, targets, ingredients);
+      
+      // Set up a timeout for the AI request
+      const AI_RECIPE_TIMEOUT = parseInt(process.env.AI_RECIPE_TIMEOUT) || 120000; // 2 minutes default
       
       try {
-        // Use the new callAI function with fallback providers
-        console.log(`[${new Date().toISOString()}] Using callAI function with fallback providers...`);
+        // Create a promise that will reject after the timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('AI request timed out')), AI_RECIPE_TIMEOUT);
+        });
         
-        const aiResponse = await callAI(
-          [{ role: 'user', content: prompt }],
-          { type: 'json_object' },
-          0.3
-        );
+        // Create the AI request promise
+        const aiRequestPromise = (async () => {
+          const response = await axios.post(
+            AI_API_URL,
+            {
+              model: CHAT_MODEL,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.3,
+              max_tokens: 1200,
+        response_format: { type: 'json_object' },
+      },
+            {
+              headers: {
+                Authorization: `Bearer ${AI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          
+          if (!response.data || !response.data.choices || !response.data.choices[0]) {
+            throw new Error('Invalid response from AI provider');
+          }
+          
+          return response.data.choices[0].message.content;
+        })();
         
-        if (aiResponse.error) {
-          console.error(`[${new Date().toISOString()}] AI provider error:`, aiResponse.message);
-          throw new Error(`AI generation failed: ${aiResponse.message}`);
-        }
-        
-        if (!aiResponse.choices || !aiResponse.choices[0]) {
-          throw new Error('Invalid response from AI provider');
-        }
+        // Race the promises - whichever resolves/rejects first wins
+        const aiResponse = await Promise.race([aiRequestPromise, timeoutPromise]);
         
         // Parse the JSON response from the AI
-        const recipe = findAndParseJson(aiResponse.choices[0].message.content);
+        const recipe = findAndParseJson(aiResponse);
         
         if (!recipe) {
           throw new Error('Failed to parse recipe from AI response');
@@ -3901,10 +3591,8 @@ app.get('/api/simple-recipe', (req, res) => {
   }
 });
 
-
-
 // More sophisticated recipe generator for fallback
-function generateSimpleRecipe(mealType, ingredients) {
+function generateSimpleRecipe(mealType, ingredients, targets) {
   // Normalize ingredients for processing
   const lower = ingredients.map(i => i.toLowerCase().trim());
   
@@ -3912,7 +3600,7 @@ function generateSimpleRecipe(mealType, ingredients) {
   const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
   const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
   const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
-  // const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
+  const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
   const isBreakfast = mealType.toLowerCase() === 'breakfast';
   const isSnack = mealType.toLowerCase() === 'snack';
   const isNoCook = !hasProtein && !hasCarbs && lower.every(i => /(yogurt|fruit|berry|granola|nuts|milk|cheese)/.test(i));
@@ -4019,38 +3707,7 @@ function generateSimpleRecipe(mealType, ingredients) {
       quantity = '1/2 cup';
     }
     
-    // Convert to new format with quantity_display and quantity_grams
-    let quantityGrams = 100; // Default weight
-    
-    // Estimate grams based on quantity
-    if (quantity.includes('cup')) {
-      if (quantity.includes('1/2')) quantityGrams = 50;
-      else if (quantity.includes('1/4')) quantityGrams = 25;
-      else quantityGrams = 100;
-    } else if (quantity.includes('tbsp')) {
-      quantityGrams = 15;
-    } else if (quantity.includes('tsp')) {
-      quantityGrams = 5;
-    } else if (quantity.includes('g')) {
-      quantityGrams = parseInt(quantity.replace(/\D/g, '')) || 100;
-    } else if (quantity.includes('large')) {
-      quantityGrams = 50;
-    } else if (quantity.includes('medium')) {
-      quantityGrams = 100;
-    } else if (quantity.includes('slice')) {
-      quantityGrams = 30;
-    } else if (quantity.includes('clove')) {
-      quantityGrams = 5;
-    } else if (quantity.includes('inch')) {
-      quantityGrams = 15;
-    }
-    
-    return { 
-      name, 
-      quantity: quantity,
-      quantity_display: quantity,
-      quantity_grams: quantityGrams
-    };
+    return { name, quantity };
   });
   
   // Generate detailed instructions
@@ -4346,6 +4003,64 @@ app.get('/api/health', (req, res) => {
     provider: AI_PROVIDER,
     model: CHAT_MODEL
   });
+});
+
+// Debug endpoint to check environment configuration
+app.get('/api/debug-env', (req, res) => {
+  const envCheck = {
+    timestamp: new Date().toISOString(),
+    environment: {
+      EXPO_PUBLIC_SUPABASE_URL: !!process.env.EXPO_PUBLIC_SUPABASE_URL,
+      EXPO_PUBLIC_SUPABASE_URL_length: process.env.EXPO_PUBLIC_SUPABASE_URL?.length || 0,
+      SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
+      SUPABASE_SERVICE_KEY_length: process.env.SUPABASE_SERVICE_KEY?.length || 0,
+      DEEPSEEK_API_KEY: !!process.env.DEEPSEEK_API_KEY,
+      supabase_client: !!supabase,
+      node_env: process.env.NODE_ENV
+    }
+  };
+  
+  res.status(200).json(envCheck);
+});
+
+// Test Supabase connection endpoint
+app.get('/api/test-supabase-connection', async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({
+      success: false,
+      error: 'Supabase client not initialized',
+      env_check: {
+        EXPO_PUBLIC_SUPABASE_URL: !!process.env.EXPO_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY
+      }
+    });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('daily_user_metrics')
+      .select('*')
+      .limit(1);
+    
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+        supabase_error: error
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Supabase connection working',
+      data_count: data?.length || 0
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Test endpoint to check API configuration
@@ -4844,6 +4559,68 @@ Analyze the following food image:
     // Last-resort fallback: rule-based nutrition estimate (never 500)
     const fallback = analyzeFoodWithFallback('photo of a meal');
     return res.json({ success: true, data: fallback, fallback: true, warning: typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails) });
+  }
+});
+
+// Profile update endpoint
+app.put('/api/profile', async (req, res) => {
+  const { userId, updates } = req.body;
+
+  if (!userId || !updates) {
+    return res.status(400).json({ error: 'Missing required parameters.' });
+  }
+
+  try {
+    console.log(`[PROFILE UPDATE] Updating profile for user: ${userId}`);
+    console.log('[PROFILE UPDATE] Updates:', updates);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[PROFILE UPDATE] Error updating profile:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('[PROFILE UPDATE] Profile updated successfully');
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[PROFILE UPDATE] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Profile retrieval endpoint
+app.get('/api/profile/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing required parameters.' });
+  }
+
+  try {
+    console.log(`[PROFILE GET] Getting profile for user: ${userId}`);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('[PROFILE GET] Error getting profile:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('[PROFILE GET] Profile retrieved successfully');
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[PROFILE GET] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

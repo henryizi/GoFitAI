@@ -2,9 +2,43 @@
   "expo": {
     "scheme": "acme",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "sentry-expo"
     ],
-    "name": "SnapBodyAI",
-    "slug": "SnapBodyAI"
+    "name": "GoFitAI",
+    "slug": "GoFitAI",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "SENTRY_DSN": "${EXPO_PUBLIC_SENTRY_DSN}",
+      "POSTHOG_API_KEY": "${EXPO_PUBLIC_POSTHOG_KEY}",
+      "POSTHOG_HOST": "${EXPO_PUBLIC_POSTHOG_HOST}",
+      "SUPABASE_URL": "${EXPO_PUBLIC_SUPABASE_URL}",
+      "SUPABASE_ANON_KEY": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
+      "DEEPSEEK_API_KEY": "${EXPO_PUBLIC_DEEPSEEK_API_KEY}",
+      "DEEPSEEK_API_URL": "${EXPO_PUBLIC_DEEPSEEK_API_URL}",
+      "API_URL": "${EXPO_PUBLIC_API_URL}",
+      "NGROK_AUTHTOKEN": "${NGROK_AUTHTOKEN}",
+      "SUPABASE_STORAGE_URL": "${EXPO_PUBLIC_SUPABASE_STORAGE_URL}",
+      "APP_NAME": "${EXPO_PUBLIC_APP_NAME}",
+      "APP_VERSION": "${EXPO_PUBLIC_APP_VERSION}"
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.GoFitAI"
+    }
   }
 }
