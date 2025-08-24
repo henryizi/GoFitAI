@@ -391,6 +391,202 @@ function findAndParseJson(content) {
   }
 }
 
+// Build enhanced cooking instructions for detailed recipes
+function buildEnhancedInstructions(mealType, ingredients) {
+  const lower = ingredients.map(i => i.toLowerCase().trim());
+  const hasBase = lower.some(i => /(rice|quinoa|oat|pasta|noodle|bread|tortilla|wrap|couscous|bulgur)/.test(i));
+  const hasCookProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg\b)/.test(i));
+  const hasVeg = lower.some(i => /(broccoli|spinach|lettuce|greens|pepper|tomato|cucumber|carrot|veg|vegetable|kale|onion|mushroom)/.test(i));
+  const isNoCookSnack = !hasBase && !hasCookProtein && lower.every(i => /(yogurt|greek yogurt|strawber|berry|banana|apple|fruit|granola|nuts|almond|peanut butter|honey|chia|oat\s?meal|cottage)/.test(i));
+
+  if (isNoCookSnack) {
+    return [
+      {
+        "step": "1",
+        "title": "Preparation",
+        "details": [`Gather all ingredients: ${ingredients.join(', ')}`, "Ensure all fresh ingredients are clean and at optimal temperature"]
+      },
+      {
+        "step": "2", 
+        "title": "Assembly",
+        "details": [`Add ingredients to a large mixing bowl in order of density`, "Combine gently to maintain texture and nutritional integrity"]
+      },
+      {
+        "step": "3",
+        "title": "Final Touches",
+        "details": [`${lower.some(i => /(honey|maple|syrup)/.test(i)) ? 'Drizzle sweetener evenly over the top' : 'Taste and adjust flavors as needed'}`, "Let rest for 2-3 minutes to allow flavors to meld"]
+      },
+      {
+        "step": "4",
+        "title": "Serving",
+        "details": ["Serve immediately at optimal temperature", "Garnish with remaining ingredients for visual appeal"]
+      }
+    ];
+  } else {
+    return [
+      {
+        "step": "1",
+        "title": "Mise en Place",
+        "details": [`Prepare all ingredients: wash, chop, and measure everything`, "Preheat cookware to appropriate temperatures for efficient cooking"]
+      },
+      {
+        "step": "2",
+        "title": "Base Preparation", 
+        "details": [`${hasBase ? 'Cook carbohydrate base according to package instructions until al dente' : 'Skip if no base ingredient provided'}`, "Season lightly during cooking to build flavor layers"]
+      },
+      {
+        "step": "3",
+        "title": "Protein Cooking",
+        "details": [`${hasCookProtein ? 'Cook protein source to desired doneness, ensuring proper internal temperature' : 'Skip if no protein provided'}`, "Rest protein for 2-3 minutes to retain juices"]
+      },
+      {
+        "step": "4",
+        "title": "Vegetable Preparation",
+        "details": [`${hasVeg ? 'Cook vegetables until tender-crisp, preserving nutrients and color' : 'Skip if no vegetables provided'}`, "Season vegetables with herbs and spices for enhanced flavor"]
+      },
+      {
+        "step": "5",
+        "title": "Assembly",
+        "details": ["Combine all cooked components in serving dish", "Ensure proper temperature and presentation for optimal dining experience"]
+      }
+    ];
+  }
+}
+
+// Enhanced high-quality recipe generator with detailed macro calculations
+function generateHighQualityRecipe(mealType, ingredients, targets) {
+  // Enhanced fallback function to create heavy, macro-dense recipes when AI fails
+  const { calories: caloriesNum, protein: proteinNum, carbs: carbsNum, fat: fatNum } = targets;
+  
+  // Create macro database for common ingredients (per 100g)
+  const ingredientMacros = {
+    'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+    'chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+    'beef': { calories: 250, protein: 26, carbs: 0, fat: 15 },
+    'salmon': { calories: 208, protein: 20, carbs: 0, fat: 12 },
+    'fish': { calories: 206, protein: 22, carbs: 0, fat: 12 },
+    'eggs': { calories: 155, protein: 13, carbs: 1.1, fat: 11 },
+    'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+    'pasta': { calories: 131, protein: 5, carbs: 25, fat: 1.1 },
+    'quinoa': { calories: 120, protein: 4.4, carbs: 22, fat: 1.9 },
+    'oats': { calories: 389, protein: 17, carbs: 66, fat: 7 },
+    'bread': { calories: 265, protein: 9, carbs: 49, fat: 3.2 },
+    'potato': { calories: 77, protein: 2, carbs: 17, fat: 0.1 },
+    'sweet potato': { calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
+    'broccoli': { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 },
+    'spinach': { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
+    'avocado': { calories: 160, protein: 2, carbs: 9, fat: 15 },
+    'olive oil': { calories: 884, protein: 0, carbs: 0, fat: 100 },
+    'nuts': { calories: 607, protein: 20, carbs: 16, fat: 54 },
+    'cheese': { calories: 402, protein: 25, carbs: 1.3, fat: 33 },
+    'milk': { calories: 42, protein: 3.4, carbs: 5, fat: 1 },
+    'yogurt': { calories: 59, protein: 10, carbs: 3.6, fat: 0.4 },
+    'beans': { calories: 127, protein: 8, carbs: 23, fat: 0.5 },
+    'tofu': { calories: 76, protein: 8, carbs: 1.9, fat: 4.8 }
+  };
+
+  // Match ingredients to macro database with fuzzy matching
+  const matchIngredient = (ingredient) => {
+    const normalizedIng = ingredient.toLowerCase();
+    for (const [key, macros] of Object.entries(ingredientMacros)) {
+      if (normalizedIng.includes(key) || key.includes(normalizedIng)) {
+        return { ingredient: key, macros };
+      }
+    }
+    // Default fallback for unknown ingredients
+    return { 
+      ingredient: ingredient, 
+      macros: { calories: 100, protein: 5, carbs: 10, fat: 2 } 
+    };
+  };
+
+  // Calculate optimal quantities to meet macro targets
+  let remainingCalories = caloriesNum;
+  let remainingProtein = proteinNum;
+  let remainingCarbs = carbsNum;
+  let remainingFat = fatNum;
+
+  const ingredientsList = ingredients.map((ingredient, index) => {
+    const { ingredient: matchedName, macros } = matchIngredient(ingredient);
+    
+    // Calculate quantity needed based on macro distribution
+    const targetCaloriesForIng = remainingCalories / (ingredients.length - index);
+    const quantityGrams = Math.max(50, Math.round((targetCaloriesForIng / macros.calories) * 100));
+    
+    // Calculate actual macros for this quantity
+    const actualCalories = Math.round((quantityGrams / 100) * macros.calories);
+    const actualProtein = Math.round((quantityGrams / 100) * macros.protein * 10) / 10;
+    const actualCarbs = Math.round((quantityGrams / 100) * macros.carbs * 10) / 10;
+    const actualFat = Math.round((quantityGrams / 100) * macros.fat * 10) / 10;
+
+    // Update remaining macros
+    remainingCalories = Math.max(0, remainingCalories - actualCalories);
+    remainingProtein = Math.max(0, remainingProtein - actualProtein);
+    remainingCarbs = Math.max(0, remainingCarbs - actualCarbs);
+    remainingFat = Math.max(0, remainingFat - actualFat);
+
+    // Create user-friendly display quantity
+    let displayQuantity = `${quantityGrams}g`;
+    if (ingredient.toLowerCase().includes('egg')) {
+      displayQuantity = `${Math.ceil(quantityGrams / 50)} large eggs (${quantityGrams}g)`;
+    } else if (ingredient.toLowerCase().includes('oil')) {
+      displayQuantity = `${Math.round(quantityGrams / 13)} tbsp (${quantityGrams}g)`;
+    } else if (quantityGrams >= 200) {
+      displayQuantity = `${Math.round(quantityGrams / 100) * 100}g (about ${Math.round(quantityGrams / 100)} cups)`;
+    }
+
+    return {
+      name: ingredient,
+      quantity_grams: quantityGrams,
+      quantity_display: displayQuantity,
+      calories: actualCalories,
+      protein_grams: actualProtein,
+      carbs_grams: actualCarbs,
+      fat_grams: actualFat,
+      macro_summary: `Primary ${actualProtein > 10 ? 'protein' : actualCarbs > 15 ? 'carb' : 'fat'} source contributing to heavy meal density`
+    };
+  });
+
+  // Build enhanced instructions using the enhanced format
+  const enhancedInstructions = buildEnhancedInstructions(mealType, ingredients);
+
+  // Calculate totals
+  const totalCalories = ingredientsList.reduce((sum, ing) => sum + ing.calories, 0);
+  const totalProtein = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.protein_grams, 0) * 10) / 10;
+  const totalCarbs = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.carbs_grams, 0) * 10) / 10;
+  const totalFat = Math.round(ingredientsList.reduce((sum, ing) => sum + ing.fat_grams, 0) * 10) / 10;
+  const totalWeight = ingredientsList.reduce((sum, ing) => sum + ing.quantity_grams, 0);
+
+  // Generate recipe name
+  const topIngredients = ingredients.slice(0, 2);
+  const name = topIngredients.length
+    ? `Heavy ${mealType} Bowl with ${topIngredients.join(' & ')}`
+    : `Power-Packed ${mealType} Bowl`;
+
+  return {
+    recipe_name: name,
+    description: `A substantial, macro-dense ${mealType.toLowerCase()} combining ${ingredients.length} ingredients for optimal nutrition and satiety. Designed to deliver ${caloriesNum} calories with high protein content.`,
+    total_weight: `${totalWeight}g`,
+    prep_time: "10-15 minutes",
+    cook_time: "15-25 minutes",
+    ingredients: ingredientsList,
+    instructions: enhancedInstructions,
+    macros: {
+      total_calories: totalCalories,
+      total_protein_grams: totalProtein,
+      total_carbs_grams: totalCarbs,
+      total_fat_grams: totalFat,
+      protein_per_100g: Math.round((totalProtein / totalWeight) * 100 * 10) / 10,
+      macro_distribution: `Protein: ${Math.round((totalProtein * 4 / totalCalories) * 100)}%, Carbs: ${Math.round((totalCarbs * 4 / totalCalories) * 100)}%, Fat: ${Math.round((totalFat * 9 / totalCalories) * 100)}%`
+    },
+    cooking_tips: [
+      "Cook proteins at medium-high heat to achieve optimal texture and retain maximum nutritional value",
+      "Combine all ingredients in one pan when possible to create flavor synergy and maximize nutrient absorption",
+      "Let the dish rest for 2-3 minutes before serving to allow flavors to meld and achieve optimal serving temperature"
+    ]
+  };
+}
+
 const dotenv = require('dotenv');
 // Load root .env if present
 dotenv.config();
@@ -943,10 +1139,11 @@ Make sure all exercises are appropriate for the client's training level. Include
 
 // Compose system prompt for AI chat
 function composeAIChatPrompt(currentPlan) {
+  const planStatus = currentPlan?.modified_from_original ? 'MODIFIED' : 'ORIGINAL';
   return `
-You are a professional fitness coach helping a client modify their workout plan. The client has a current workout plan and may want to make changes to it.
+You are a professional fitness coach helping a client modify their workout plan. The client has a ${planStatus.toLowerCase()} workout plan and may want to make changes to it.
 
-CURRENT WORKOUT PLAN:
+${planStatus} WORKOUT PLAN:
 ${JSON.stringify(currentPlan, null, 2)}
 
 INSTRUCTIONS:
@@ -955,10 +1152,11 @@ INSTRUCTIONS:
 3. Keep the same overall structure but adjust exercises, sets, reps, or focus areas as requested.
 4. If they ask for a completely new plan, you can create one from scratch.
 5. Always explain your changes clearly and provide encouragement.
+6. If this is a modified plan, consider previous changes and build upon them appropriately.
 
-IMPORTANT: When responding, give a brief, friendly message acknowledging the changes made to the plan. Do NOT show the full JSON plan in your response. Just say something like "I've adjusted your workout plan to make it harder! The changes include increased sets, higher intensity exercises, and shorter rest periods. You can preview the updated plan below."
+IMPORTANT: When responding, give a brief, friendly message acknowledging the changes made to the plan. Do NOT show the full JSON plan in your response. Just say something like "I've adjusted your workout plan based on your request! The new plan has been modified with your changes."
 
-CRITICAL: Do NOT include any JSON code blocks or backtick formatting in your text response. Only provide a simple, friendly message about the changes made.
+CRITICAL: Do NOT include any JSON code blocks or backtick formatting in your text response. Only provide a simple, friendly message about the changes made. Keep it concise and end with something like "You can preview the updated plan using the button below."
 
 Then include a JSON object with the modified plan in the following format:
 {"newPlan": { ... modified plan structure ... }}
@@ -1013,8 +1211,9 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
     try {
       console.log(`[AI] Trying provider: ${provider.name} with model ${provider.model}`);
       
-              // Optimize max_tokens to save credits while maintaining quality
-        const max_tokens = provider.name === 'openrouter' ? 1500 : 2000;
+              // Optimize max_tokens for DeepSeek (primary provider)
+        const max_tokens = provider.name === 'deepseek' ? 4000 : 
+                          provider.name === 'fallback' ? 1000 : 2000;
     
     const requestBody = {
         model: provider.model,
@@ -1070,11 +1269,14 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         }
       } else if (provider.name === 'cloudflare') {
         // Cloudflare has a different API format with timeout
-        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 120000; // 2 minutes default
+        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
         
         response = await axios.post(
           provider.apiUrl,
-          { prompt: messages.map(m => `${m.role}: ${m.content}`).join('\n') },
+          { 
+            prompt: messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+            max_tokens: max_tokens
+          },
           { 
             headers: { 
               'Authorization': `Bearer ${provider.apiKey}`,
@@ -1094,14 +1296,10 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         };
       } else {
         // Standard OpenAI/OpenRouter format with timeout
-        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 120000; // 2 minutes default
+        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
         
         {
           const headers = { Authorization: `Bearer ${provider.apiKey}` };
-          if (provider.apiUrl.includes('openrouter.ai')) {
-            headers['HTTP-Referer'] = process.env.OPENROUTER_SITE || 'http://localhost:4000';
-            headers['X-Title'] = process.env.OPENROUTER_TITLE || 'GoFitAI Server';
-          }
           response = await axios.post(
             provider.apiUrl,
             requestBody,
@@ -1258,8 +1456,8 @@ app.post('/api/ai-chat', async (req, res) => {
       { role: 'user', content: message }
     ];
     
-    // Set a shorter timeout for chat requests to improve responsiveness
-    const AI_CHAT_TIMEOUT = parseInt(process.env.AI_CHAT_TIMEOUT) || 60000; // 60 seconds for chat
+    // Set a longer timeout for chat requests to handle complex AI reasoning
+    const AI_CHAT_TIMEOUT = parseInt(process.env.AI_CHAT_TIMEOUT) || 180000; // 180 seconds (3 minutes) for chat
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('AI chat request timed out')), AI_CHAT_TIMEOUT);
     });
@@ -1288,7 +1486,7 @@ app.post('/api/ai-chat', async (req, res) => {
       cleanMessage = cleanMessage.replace(/\*\*Changes Made:\*\*.*$/s, '');
       cleanMessage = cleanMessage.replace(/\n\s*\n/g, '\n').trim();
       if (cleanMessage.length > 100 || cleanMessage.includes('```') || cleanMessage.length < 10) {
-        cleanMessage = "I've adjusted your workout plan based on your request! The changes have been made to increase intensity and challenge. You can preview the updated plan below.";
+        cleanMessage = "I've adjusted your workout plan based on your request! The new plan has been modified with your changes.";
       }
 
     } catch (aiError) {
@@ -1308,6 +1506,12 @@ app.post('/api/ai-chat', async (req, res) => {
       console.log('[AI-CHAT] Fallback plan created:', newPlan ? 'yes' : 'no');
     }
     
+    // Mark the new plan as modified if it exists
+    if (newPlan) {
+      newPlan.modified_from_original = true;
+      newPlan.modified_at = new Date().toISOString();
+    }
+    
     return res.json({ success: true, message: cleanMessage, newPlan });
     
   } catch (error) {
@@ -1319,6 +1523,12 @@ app.post('/api/ai-chat', async (req, res) => {
     // Final fallback - still try to provide a useful response
     const fallbackMessage = getFallbackResponse(req.body.message || '');
     const fallbackPlan = createModifiedPlan(req.body.currentPlan);
+    
+    // Mark fallback plan as modified too
+    if (fallbackPlan) {
+      fallbackPlan.modified_from_original = true;
+      fallbackPlan.modified_at = new Date().toISOString();
+    }
     
     return res.json({ 
       success: true, 
@@ -3241,17 +3451,20 @@ app.post('/api/analyze-body', async (req, res) => {
 
 function composeRecipePrompt(mealType, targets, ingredients) {
   return `
-You are a professional chef. Create ONE detailed recipe for ${mealType} using ONLY the provided ingredients. You must compute realistic quantities and write meticulous, professional instructions.
+You are a professional chef and nutritionist. Create ONE detailed recipe for ${mealType} using ONLY the provided ingredients. Focus on creating a HEAVY, MACRO-DENSE cuisine that provides substantial nutrition for one complete meal.
 
 MEAL TYPE: ${mealType}
 NUTRITIONAL TARGETS: Calories ${targets.calories} kcal, Protein ${targets.protein}g, Carbs ${targets.carbs}g, Fat ${targets.fat}g
 AVAILABLE INGREDIENTS (USE ONLY THESE; DO NOT ADD ANY OTHERS): ${ingredients.join(', ')}
 
-CRITICAL RULES:
-1) Use ONLY the ingredients listed above. Do NOT introduce anything else (no salt/pepper/oil unless present in the list).
-2) Use realistic quantities (e.g., "120 g beef", "100 g cooked rice", "1 tbsp olive oil" if available). Avoid absurd amounts like "1 tbsp beef".
-3) If oil is not provided, instruct dry-searing or non-stick cooking; if salt/pepper not provided, avoid naming them and instead say "season to taste if desired".
-4) The instructions must be meticulous, chef-level, and executable. Include times, heat levels, and exact sequencing.
+CRITICAL REQUIREMENTS:
+1) Create a HEAVY, SUBSTANTIAL meal that feels satisfying and provides enough macronutrients for one complete meal
+2) Use ONLY the ingredients listed above. Do NOT introduce anything else (no salt/pepper/oil unless present in the list)
+3) Calculate PRECISE quantities in grams for each ingredient to meet the macro targets as closely as possible
+4) Provide detailed macro breakdown for EACH individual ingredient used
+5) Focus on combining ingredients strategically to maximize protein content and overall nutritional density
+6) If oil is not provided, instruct dry-searing or non-stick cooking; if seasonings not provided, mention "season to taste if available"
+7) The instructions must be meticulous, chef-level, and executable with exact times, temperatures, and techniques
 5) Keep to the ingredients subset. If vegetables are provided as a generic term, treat them as a single combined item without inventing new vegetables.
 6) Return ONLY valid JSON with the exact schema below (no markdown).
 
@@ -3264,21 +3477,46 @@ INSTRUCTION REQUIREMENTS:
 
 OUTPUT JSON SCHEMA:
 {
-  "recipe_name": "Descriptive name using provided ingredients",
+  "recipe_name": "Heavy [Meal Type] with [Main Ingredients] - descriptive name emphasizing substantial nature",
+  "description": "Brief description of the heavy, macro-dense meal and its nutritional benefits",
+  "total_weight": "estimated total weight in grams",
+  "prep_time": "preparation time in minutes", 
+  "cook_time": "cooking time in minutes",
   "ingredients": [
-    {"name": "ingredient from list only", "quantity": "realistic amount", "macro_info": "optional: brief macro note"}
+    {
+      "name": "exact ingredient from provided list only", 
+      "quantity_grams": "precise amount in grams to meet macros",
+      "quantity_display": "user-friendly quantity (e.g., '1 cup', '2 pieces')",
+      "calories": "calories from this ingredient",
+      "protein_grams": "protein grams from this ingredient", 
+      "carbs_grams": "carbs grams from this ingredient",
+      "fat_grams": "fat grams from this ingredient",
+      "macro_summary": "brief summary of why this ingredient contributes to the heavy meal"
+    }
   ],
   "instructions": [
-    {"step": "1", "title": "...", "details": ["...", "..."]},
-    {"step": "2", "title": "...", "details": ["...", "..."]}
+    {"step": "1", "title": "Preparation Phase", "details": ["detailed prep instruction", "specific technique or tip"]},
+    {"step": "2", "title": "Cooking Phase", "details": ["precise cooking instruction with time/temp", "chef technique for optimal results"]}
   ],
-  "macros": {"calories": ${targets.calories}, "protein_grams": ${targets.protein}, "carbs_grams": ${targets.carbs}, "fat_grams": ${targets.fat}}
+  "macros": {
+    "total_calories": ${targets.calories}, 
+    "total_protein_grams": ${targets.protein}, 
+    "total_carbs_grams": ${targets.carbs}, 
+    "total_fat_grams": ${targets.fat},
+    "protein_per_100g": "protein density per 100g of final dish",
+    "macro_distribution": "brief summary of how macros are distributed across ingredients"
+  },
+  "cooking_tips": [
+    "technique for making the meal more substantial and heavy",
+    "tip for maximizing nutritional density",
+    "serving suggestion for optimal macro absorption"
+  ]
 }
 `;
 }
 
 // Helper to build context-aware fallback steps
-function buildContextualFallback(mealType, ingredients, targets) {
+function buildContextualFallback(mealType, ingredients, targets, enhanced = false) {
   const lower = (ingredients || []).map((i) => String(i).toLowerCase().trim());
   const hasBase = lower.some((i) => /(rice|quinoa|oat|pasta|noodle|bread|tortilla|wrap|couscous|bulgur)/.test(i));
   const hasCookProtein = lower.some((i) => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna(?!\scanned)|shrimp|egg\b)/.test(i));
@@ -3295,17 +3533,80 @@ function buildContextualFallback(mealType, ingredients, targets) {
         { name: 'vegetables', quantity: '1 cup' },
       ];
 
-  const instructions = [];
-  if (isNoCookSnack) {
-    instructions.push(`Add ${ingredientsList.map(i => i.name).join(', ')} to a bowl.`);
-    if (lower.some(i => /(honey|maple|syrup)/.test(i))) instructions.push('Drizzle sweetener over the top.');
-    instructions.push('Gently mix to combine.');
-    instructions.push('Serve chilled.');
+  let instructions = [];
+  
+  if (enhanced) {
+    // Enhanced structured format for high-quality recipes
+    if (isNoCookSnack) {
+      instructions = [
+        {
+          "step": "1",
+          "title": "Preparation",
+          "details": [`Gather all ingredients: ${ingredientsList.map(i => i.name).join(', ')}`, "Ensure all fresh ingredients are clean and at optimal temperature"]
+        },
+        {
+          "step": "2", 
+          "title": "Assembly",
+          "details": [`Add ingredients to a large mixing bowl in order of density`, "Combine gently to maintain texture and nutritional integrity"]
+        },
+        {
+          "step": "3",
+          "title": "Final Touches",
+          "details": [`${lower.some(i => /(honey|maple|syrup)/.test(i)) ? 'Drizzle sweetener evenly over the top' : 'Taste and adjust flavors as needed'}`, "Let rest for 2-3 minutes to allow flavors to meld"]
+        },
+        {
+          "step": "4",
+          "title": "Serving",
+          "details": ["Serve immediately at optimal temperature", "Garnish with remaining ingredients for visual appeal"]
+        }
+      ];
+    } else {
+      instructions = [
+        {
+          "step": "1",
+          "title": "Mise en Place",
+          "details": [`Prepare all ingredients: wash, chop, and measure everything`, "Preheat cookware to appropriate temperatures for efficient cooking"]
+        },
+        {
+          "step": "2",
+          "title": "Base Preparation", 
+          "details": [`${hasBase ? 'Cook carbohydrate base according to package instructions until al dente' : 'Skip if no base ingredient provided'}`, "Season lightly during cooking to build flavor layers"]
+        },
+        {
+          "step": "3",
+          "title": "Protein Cooking",
+          "details": [`${hasCookProtein ? 'Season protein generously and cook at medium-high heat until internal temp reaches safe levels' : 'Skip if no protein requires cooking'}`, "Rest protein for 2-3 minutes after cooking to retain juices"]
+        },
+        {
+          "step": "4",
+          "title": "Vegetable Preparation",
+          "details": [`${hasVeg ? 'Sauté or steam vegetables until tender-crisp to retain maximum nutrients' : 'Add any raw vegetables directly to final assembly'}`, "Season vegetables to complement the overall flavor profile"]
+        },
+        {
+          "step": "5",
+          "title": "Final Assembly",
+          "details": ["Combine all components in serving dish, arranging for optimal presentation", "Taste and adjust seasoning to achieve perfect balance"]
+        },
+        {
+          "step": "6",
+          "title": "Plating & Service",
+          "details": ["Plate the dish with attention to color contrast and portion balance", "Serve immediately while components are at optimal temperature"]
+        }
+      ];
+    }
   } else {
-    if (hasBase) instructions.push('Cook base (e.g., rice/quinoa/oats/pasta) according to package instructions.');
-    if (hasCookProtein) instructions.push('Season and cook protein until done.');
-    if (hasVeg) instructions.push('Sauté or steam vegetables until tender.');
-    instructions.push('Combine components and adjust seasoning to taste.');
+    // Simple format for backward compatibility
+    if (isNoCookSnack) {
+      instructions.push(`Add ${ingredientsList.map(i => i.name).join(', ')} to a bowl.`);
+      if (lower.some(i => /(honey|maple|syrup)/.test(i))) instructions.push('Drizzle sweetener over the top.');
+      instructions.push('Gently mix to combine.');
+      instructions.push('Serve chilled.');
+    } else {
+      if (hasBase) instructions.push('Cook base (e.g., rice/quinoa/oats/pasta) according to package instructions.');
+      if (hasCookProtein) instructions.push('Season and cook protein until done.');
+      if (hasVeg) instructions.push('Sauté or steam vegetables until tender.');
+      instructions.push('Combine components and adjust seasoning to taste.');
+    }
   }
 
   const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
@@ -3331,6 +3632,50 @@ function buildContextualFallback(mealType, ingredients, targets) {
 }
 
 // Add this function before the app.post('/api/generate-recipe') endpoint
+function attachPerIngredientMacros(recipe) {
+  // This function ensures all ingredients have proper macro breakdowns
+  if (!recipe || !recipe.ingredients) {
+    return recipe;
+  }
+
+  const enhancedIngredients = recipe.ingredients.map(ing => {
+    if (typeof ing === 'string') {
+      // Convert string ingredients to object format with macros
+      return {
+        name: ing,
+        quantity: '1 serving',
+        quantity_grams: 100,
+        quantity_display: '1 serving',
+        calories: 100,
+        protein_grams: 5,
+        carbs_grams: 10,
+        fat_grams: 2,
+        macro_summary: 'Standard serving size'
+      };
+    }
+    
+    // If already has macros, return as is
+    if (ing.calories !== undefined && ing.protein_grams !== undefined) {
+      return ing;
+    }
+    
+    // Add default macros if missing
+    return {
+      ...ing,
+      calories: ing.calories || 100,
+      protein_grams: ing.protein_grams || 5,
+      carbs_grams: ing.carbs_grams || 10,
+      fat_grams: ing.fat_grams || 2,
+      macro_summary: ing.macro_summary || 'Standard serving size'
+    };
+  });
+
+  return {
+    ...recipe,
+    ingredients: enhancedIngredients
+  };
+}
+
 function validateRecipeAgainstInputs(providedIngredients, recipe) {
   // Normalize text for comparison
   const normalizeText = (text) => {
@@ -3460,48 +3805,29 @@ app.post('/api/generate-recipe', async (req, res) => {
       
       // Otherwise, use the AI with fallback to our high-quality recipe generator
       // Prepare the prompt
-    const prompt = composeRecipePrompt(mealType, targets, ingredients);
-      
-      // Set up a timeout for the AI request
-      const AI_RECIPE_TIMEOUT = parseInt(process.env.AI_RECIPE_TIMEOUT) || 120000; // 2 minutes default
+      const prompt = composeRecipePrompt(mealType, targets, ingredients);
       
       try {
-        // Create a promise that will reject after the timeout
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('AI request timed out')), AI_RECIPE_TIMEOUT);
-        });
+        // Use the new callAI function with fallback providers
+        console.log(`[${new Date().toISOString()}] Using callAI function with fallback providers...`);
         
-        // Create the AI request promise
-        const aiRequestPromise = (async () => {
-          const response = await axios.post(
-            AI_API_URL,
-            {
-              model: CHAT_MODEL,
-              messages: [{ role: "user", content: prompt }],
-              temperature: 0.3,
-              max_tokens: 1200,
-        response_format: { type: 'json_object' },
-      },
-            {
-              headers: {
-                Authorization: `Bearer ${AI_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-          
-          if (!response.data || !response.data.choices || !response.data.choices[0]) {
-            throw new Error('Invalid response from AI provider');
-          }
-          
-          return response.data.choices[0].message.content;
-        })();
+        const aiResponse = await callAI(
+          [{ role: 'user', content: prompt }],
+          { type: 'json_object' },
+          0.3
+        );
         
-        // Race the promises - whichever resolves/rejects first wins
-        const aiResponse = await Promise.race([aiRequestPromise, timeoutPromise]);
+        if (aiResponse.error) {
+          console.error(`[${new Date().toISOString()}] AI provider error:`, aiResponse.message);
+          throw new Error(`AI generation failed: ${aiResponse.message}`);
+        }
+        
+        if (!aiResponse.choices || !aiResponse.choices[0]) {
+          throw new Error('Invalid response from AI provider');
+        }
         
         // Parse the JSON response from the AI
-        const recipe = findAndParseJson(aiResponse);
+        const recipe = findAndParseJson(aiResponse.choices[0].message.content);
         
         if (!recipe) {
           throw new Error('Failed to parse recipe from AI response');
@@ -3575,8 +3901,10 @@ app.get('/api/simple-recipe', (req, res) => {
   }
 });
 
+
+
 // More sophisticated recipe generator for fallback
-function generateSimpleRecipe(mealType, ingredients, targets) {
+function generateSimpleRecipe(mealType, ingredients) {
   // Normalize ingredients for processing
   const lower = ingredients.map(i => i.toLowerCase().trim());
   
@@ -3584,7 +3912,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
   const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
   const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
-  const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
+  // const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
   const isBreakfast = mealType.toLowerCase() === 'breakfast';
   const isSnack = mealType.toLowerCase() === 'snack';
   const isNoCook = !hasProtein && !hasCarbs && lower.every(i => /(yogurt|fruit|berry|granola|nuts|milk|cheese)/.test(i));
@@ -3691,7 +4019,38 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
       quantity = '1/2 cup';
     }
     
-    return { name, quantity };
+    // Convert to new format with quantity_display and quantity_grams
+    let quantityGrams = 100; // Default weight
+    
+    // Estimate grams based on quantity
+    if (quantity.includes('cup')) {
+      if (quantity.includes('1/2')) quantityGrams = 50;
+      else if (quantity.includes('1/4')) quantityGrams = 25;
+      else quantityGrams = 100;
+    } else if (quantity.includes('tbsp')) {
+      quantityGrams = 15;
+    } else if (quantity.includes('tsp')) {
+      quantityGrams = 5;
+    } else if (quantity.includes('g')) {
+      quantityGrams = parseInt(quantity.replace(/\D/g, '')) || 100;
+    } else if (quantity.includes('large')) {
+      quantityGrams = 50;
+    } else if (quantity.includes('medium')) {
+      quantityGrams = 100;
+    } else if (quantity.includes('slice')) {
+      quantityGrams = 30;
+    } else if (quantity.includes('clove')) {
+      quantityGrams = 5;
+    } else if (quantity.includes('inch')) {
+      quantityGrams = 15;
+    }
+    
+    return { 
+      name, 
+      quantity: quantity,
+      quantity_display: quantity,
+      quantity_grams: quantityGrams
+    };
   });
   
   // Generate detailed instructions
@@ -4397,20 +4756,8 @@ Analyze the following food image:
 
     // Choose a vision-capable provider/model with Cloudflare preference if configured
     const visionConfig = (() => {
-      // Prefer Cloudflare if explicitly configured for food analysis
-      if ((FOOD_ANALYZE_PROVIDER && FOOD_ANALYZE_PROVIDER.toLowerCase() === 'cloudflare') && CF_ACCOUNT_ID && CF_API_TOKEN) {
-        return {
-          provider: 'cloudflare',
-          apiUrl: `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
-          model: CF_VISION_MODEL,
-          headers: {
-            Authorization: `Bearer ${CF_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        };
-      }
-      // Use DeepSeek for vision if explicitly chosen or by default when DeepSeek is configured
-      if (((!FOOD_ANALYZE_PROVIDER) || (FOOD_ANALYZE_PROVIDER && FOOD_ANALYZE_PROVIDER.toLowerCase() === 'deepseek')) && DEEPSEEK_API_KEY) {
+      // Use DeepSeek for vision analysis (only provider configured)
+      if (DEEPSEEK_API_KEY) {
         return {
           provider: 'deepseek',
           apiUrl: DEEPSEEK_API_URL,
@@ -4421,35 +4768,13 @@ Analyze the following food image:
           },
         };
       }
-      if (***REMOVED***) {
-        return {
-          provider: 'openai',
-          apiUrl: 'https://api.openai.com/v1/chat/completions',
-          model: process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini',
-          headers: {
-            Authorization: `Bearer ${***REMOVED***}`,
-            'Content-Type': 'application/json',
-          },
-        };
-      }
-      if (OPENROUTER_API_KEY) {
-        return {
-          provider: 'openrouter',
-          apiUrl: process.env.OPENROUTER_API_URL || process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
-          model: process.env.OPENROUTER_VISION_MODEL || 'openai/gpt-4o-mini',
-          headers: {
-            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        };
-      }
       return null;
     })();
 
     if (!visionConfig) {
       return res.status(500).json({
         success: false,
-        error: 'No AI provider configured for vision analysis. Set DEEPSEEK_API_KEY, ***REMOVED***, or OPENROUTER_API_KEY.',
+        error: 'No AI provider configured for vision analysis. Set DEEPSEEK_API_KEY.',
       });
     }
 
@@ -4458,51 +4783,26 @@ Analyze the following food image:
       console.log(`[FOOD ANALYZE] Using provider: ${visionConfig.provider}, model: ${visionConfig.model}`);
     } catch (_) {}
 
-    // Call the AI service for food analysis (vision)
-    let aiResponse;
-    if (visionConfig.provider === 'cloudflare') {
-      // Cloudflare Workers AI expects a different format; use "prompt" with concatenated text and include image as data URL if supported
-      const cfPrompt = `${prompt}\n[Image attached as data URL]`;
-      aiResponse = await axios.post(
-        visionConfig.apiUrl,
-        { 
-          // Some CF models support vision by accepting an "image" key with data URL or bytes; start with text-only for now
-          // For best results with @cf/llava, you can use {prompt, image}
-          prompt: cfPrompt,
-          image: `data:${mimeType};base64,${base64Image}`
-        },
-        { headers: visionConfig.headers, timeout: 60000 }
-      );
-    } else {
-      // Use OpenAI-compatible chat.completions content format for both OpenAI and OpenRouter
-      const contentParts = [
-        { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
-      ];
+    // Call DeepSeek AI service for food analysis (vision)
+    const contentParts = [
+      { type: 'text', text: prompt },
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
+    ];
 
-      const headers = { ...visionConfig.headers };
-      if (visionConfig.apiUrl.includes('openrouter.ai')) {
-        headers['HTTP-Referer'] = process.env.OPENROUTER_SITE || 'http://localhost:4000';
-        headers['X-Title'] = process.env.OPENROUTER_TITLE || 'GoFitAI Server';
-      }
+    const aiResponse = await axios.post(
+      visionConfig.apiUrl,
+      {
+        model: visionConfig.model,
+        messages: [
+          { role: 'user', content: contentParts },
+        ],
+        max_tokens: 2000, // Higher limit for detailed food analysis
+        temperature: 0.1,
+      },
+      { headers: visionConfig.headers, timeout: 180000 } // 3 minutes for vision analysis
+    );
 
-      aiResponse = await axios.post(
-        visionConfig.apiUrl,
-        {
-          model: visionConfig.model,
-          messages: [
-            { role: 'user', content: contentParts },
-          ],
-          max_tokens: 800,
-          temperature: 0.1,
-        },
-        { headers, timeout: 60000 }
-      );
-    }
-
-    const aiContent = visionConfig.provider === 'cloudflare'
-      ? aiResponse.data?.result?.response
-      : aiResponse.data?.choices?.[0]?.message?.content;
+    const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
     if (!aiContent) {
       console.error('[FOOD ANALYZE] Empty AI response:', JSON.stringify(aiResponse?.data || {}, null, 2).slice(0, 1000) + '...');
       throw new Error('No response from AI service');
