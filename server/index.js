@@ -37,6 +37,7 @@ const { exec } = require('child_process');
 const multer = require('multer');
 const fs = require('fs');
 const helmet = require('helmet');
+const sharp = require('sharp');
 const rateLimit = require('express-rate-limit');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
@@ -4379,6 +4380,62 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 });
 
 // ===================
+// IMAGE COMPRESSION HELPER
+// ===================
+
+async function compressImageForCloudflare(imageBuffer, maxSizeBytes = 800000) { // 800KB target
+  try {
+    console.log('[IMAGE COMPRESS] Original size:', imageBuffer.length, 'bytes');
+    
+    // Get image info
+    const metadata = await sharp(imageBuffer).metadata();
+    console.log('[IMAGE COMPRESS] Original dimensions:', metadata.width, 'x', metadata.height);
+    
+    // Start with reasonable dimensions for food photos
+    let width = Math.min(metadata.width || 1024, 1024);
+    let quality = 85;
+    
+    let compressedBuffer = imageBuffer;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (compressedBuffer.length > maxSizeBytes && attempts < maxAttempts) {
+      attempts++;
+      console.log(`[IMAGE COMPRESS] Attempt ${attempts}: trying width=${width}, quality=${quality}`);
+      
+      compressedBuffer = await sharp(imageBuffer)
+        .resize(width, null, { 
+          withoutEnlargement: true,
+          fit: 'inside'
+        })
+        .jpeg({ 
+          quality: quality,
+          progressive: true,
+          mozjpeg: true 
+        })
+        .toBuffer();
+      
+      console.log(`[IMAGE COMPRESS] Attempt ${attempts} result:`, compressedBuffer.length, 'bytes');
+      
+      // Reduce dimensions and quality for next attempt
+      width = Math.floor(width * 0.8);
+      quality = Math.max(quality - 10, 60);
+    }
+    
+    if (compressedBuffer.length > maxSizeBytes) {
+      console.warn('[IMAGE COMPRESS] Could not compress below target size');
+    } else {
+      console.log('[IMAGE COMPRESS] Successfully compressed to:', compressedBuffer.length, 'bytes');
+    }
+    
+    return compressedBuffer;
+  } catch (error) {
+    console.error('[IMAGE COMPRESS] Error compressing image:', error);
+    return imageBuffer; // Return original if compression fails
+  }
+}
+
+// ===================
 // FOOD ANALYSIS ENDPOINT
 // ===================
 
@@ -4485,7 +4542,17 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
         const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
         if (matches) {
           mimeType = matches[1];
-          base64Image = matches[2];
+          const rawBase64 = matches[2];
+          
+          // Check if we need to compress the data URL image
+          const tempBuffer = Buffer.from(rawBase64, 'base64');
+          if (tempBuffer.length > 800000) { // 800KB threshold for compression
+            console.log('[FOOD ANALYZE] Data URL image too large, compressing...');
+            const compressedBuffer = await compressImageForCloudflare(tempBuffer);
+            base64Image = compressedBuffer.toString('base64');
+          } else {
+            base64Image = rawBase64;
+          }
         } else {
           return res.status(400).json({ 
           success: false,
@@ -4494,7 +4561,15 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       }
       } else {
         // Assume it's just base64 data
-        base64Image = imageData;
+        // Check if we need to compress the base64 image
+        const tempBuffer = Buffer.from(imageData, 'base64');
+        if (tempBuffer.length > 800000) { // 800KB threshold for compression
+          console.log('[FOOD ANALYZE] Base64 image too large, compressing...');
+          const compressedBuffer = await compressImageForCloudflare(tempBuffer);
+          base64Image = compressedBuffer.toString('base64');
+        } else {
+          base64Image = imageData;
+        }
         mimeType = 'image/jpeg';
     }
     } else if (req.file) {
@@ -4502,7 +4577,14 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       console.log('[FOOD ANALYZE] Processing uploaded image:', foodImage?.originalname || foodImage?.filename || 'unknown');
 
     // Convert image to base64 for AI analysis
-    const imageBuffer = fs.readFileSync(foodImage.path);
+    let imageBuffer = fs.readFileSync(foodImage.path);
+      
+      // Compress image if it's too large for Cloudflare
+      if (imageBuffer.length > 800000) { // 800KB threshold for compression
+        console.log('[FOOD ANALYZE] Image too large, compressing...');
+        imageBuffer = await compressImageForCloudflare(imageBuffer);
+      }
+      
       base64Image = imageBuffer.toString('base64');
       mimeType = foodImage.mimetype || 'image/jpeg';
     } else {
@@ -4567,8 +4649,10 @@ Analyze the following food image:
     console.log('[FOOD ANALYZE] Using vision AI to analyze food image');
     
     try {
-      // Check if image is too large (Cloudflare has limits)
-      if (base64Image.length > 10000000) { // 10MB limit for Cloudflare
+      // Check if image is too large (Cloudflare Workers AI has strict limits)
+      // Base64 encoding increases size by ~33%, so 1MB original = ~1.33MB base64
+      // Using 1MB base64 limit to stay well within Cloudflare's constraints
+      if (base64Image.length > 1000000) { // 1MB limit for Cloudflare Workers AI
         console.warn('[FOOD ANALYZE] Image too large for Cloudflare vision analysis, using fallback');
         throw new Error('Image too large for vision analysis');
       }
@@ -4670,6 +4754,15 @@ Analyze the following food image:
         data: visionError.response?.data,
         headers: visionError.response?.headers
       });
+      
+      // Handle specific error cases
+      if (visionError.response?.status === 413) {
+        throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
+      } else if (visionError.response?.status === 400) {
+        throw new Error('Invalid image format. Please use a clear photo of food.');
+      } else if (visionError.response?.status === 429) {
+        throw new Error('Too many requests. Please try again in a moment.');
+      }
       
       // NO FALLBACK - Fail fast and return error
       throw new Error(`Vision analysis failed: ${visionError.message}`);
