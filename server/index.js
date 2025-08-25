@@ -4488,21 +4488,21 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
           base64Image = matches[2];
         } else {
           return res.status(400).json({ 
-            success: false, 
+          success: false,
             error: 'Invalid base64 image format' 
-          });
-        }
+        });
+      }
       } else {
         // Assume it's just base64 data
         base64Image = imageData;
         mimeType = 'image/jpeg';
-      }
+    }
     } else if (req.file) {
-      const foodImage = req.file;
+    const foodImage = req.file;
       console.log('[FOOD ANALYZE] Processing uploaded image:', foodImage?.originalname || foodImage?.filename || 'unknown');
-      
-      // Convert image to base64 for AI analysis
-      const imageBuffer = fs.readFileSync(foodImage.path);
+
+    // Convert image to base64 for AI analysis
+    const imageBuffer = fs.readFileSync(foodImage.path);
       base64Image = imageBuffer.toString('base64');
       mimeType = foodImage.mimetype || 'image/jpeg';
     } else {
@@ -4599,7 +4599,7 @@ Analyze the following food image:
       const imageBuffer = Buffer.from(base64Image, 'base64');
       const imageArray = Array.from(imageBuffer);
       
-      // Cloudflare vision API format - Updated for correct API structure
+      // Cloudflare vision API format - Fixed for correct API structure
       const visionRequestBody = {
         prompt: prompt,
         image: imageArray,
@@ -4610,7 +4610,7 @@ Analyze the following food image:
       console.log('[FOOD ANALYZE] Request body keys:', Object.keys(visionRequestBody));
       console.log('[FOOD ANALYZE] Image array length:', imageArray.length);
       
-      // Try the newer Cloudflare AI API endpoint format
+      // Make Cloudflare vision API call
       const visionResponse = await axios.post(
         `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
         visionRequestBody,
@@ -4626,12 +4626,35 @@ Analyze the following food image:
       console.log('[FOOD ANALYZE] Cloudflare API response status:', visionResponse.status);
       console.log('[FOOD ANALYZE] Cloudflare API response keys:', Object.keys(visionResponse.data || {}));
       
+      // Extract the actual content from Cloudflare response
+      let cloudflareContent = visionResponse.data.result;
+      
+      // If result is an object, try to extract the response text
+      if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
+        console.log('[FOOD ANALYZE] Cloudflare result is object, keys:', Object.keys(cloudflareContent));
+        cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.content || JSON.stringify(cloudflareContent);
+      }
+      
+      // If still no content, try other response fields
+      if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+        cloudflareContent = visionResponse.data.response || visionResponse.data.text || visionResponse.data.content;
+      }
+      
+      // Last resort - stringify the entire response
+      if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+        console.log('[FOOD ANALYZE] No string content found, using full response data');
+        cloudflareContent = JSON.stringify(visionResponse.data);
+      }
+      
+      console.log('[FOOD ANALYZE] Final content type:', typeof cloudflareContent);
+      console.log('[FOOD ANALYZE] Final content preview:', String(cloudflareContent).slice(0, 200) + '...');
+      
       // Set response format to match expected structure for Cloudflare
       aiResponse = {
         data: {
           choices: [{
             message: {
-              content: visionResponse.data.result || visionResponse.data.response || visionResponse.data
+              content: cloudflareContent
             }
           }]
         },
@@ -4640,7 +4663,7 @@ Analyze the following food image:
       
       console.log('[FOOD ANALYZE] Vision analysis successful');
     } catch (visionError) {
-      console.log('[FOOD ANALYZE] Vision analysis failed, trying fallback:', visionError.message);
+      console.log('[FOOD ANALYZE] Vision analysis failed:', visionError.message);
       console.log('[FOOD ANALYZE] Vision error details:', {
         status: visionError.response?.status,
         statusText: visionError.response?.statusText,
@@ -4648,60 +4671,8 @@ Analyze the following food image:
         headers: visionError.response?.headers
       });
       
-      // Fallback to text-based estimation if vision fails
-      const fallbackPrompt = `
-You are an expert nutritionist. A user has uploaded a food image for analysis. Since vision analysis is unavailable, provide a realistic nutrition estimate based on common meal patterns.
-
-INSTRUCTIONS:
-1. Assume this is a typical meal/food item that someone would photograph for nutrition tracking
-2. Provide realistic nutrition estimates for common foods
-3. Return ONLY a valid JSON object with the following structure:
-
-{
-  "foodItems": [
-    {
-      "name": "Mixed Meal (estimated)",
-      "quantity": "1 serving",
-      "calories": 400,
-      "protein": 25,
-      "carbs": 45,
-      "fat": 15,
-      "fiber": 6,
-      "sugar": 12,
-      "sodium": 350
-    }
-  ],
-  "totalNutrition": {
-    "calories": 400,
-    "protein": 25,
-    "carbs": 45,
-    "fat": 15,
-    "fiber": 6,
-    "sugar": 12,
-    "sodium": 350
-  },
-  "confidence": "medium",
-  "notes": "Estimated nutrition based on typical meal composition. For more accurate results, please describe the food items."
-}
-
-Provide realistic estimates that would be appropriate for a typical meal someone would photograph.
-`;
-
-      const textResponse = await callAI([
-        { role: 'user', content: fallbackPrompt }
-      ], { type: 'json_object' }, 0.1);
-      
-      aiResponse = {
-        data: {
-          choices: [{
-            message: {
-              content: textResponse.choices?.[0]?.message?.content || textResponse.content
-            }
-          }]
-        }
-      };
-      
-      console.log('[FOOD ANALYZE] Fallback estimation successful');
+      // NO FALLBACK - Fail fast and return error
+      throw new Error(`Vision analysis failed: ${visionError.message}`);
     }
 
     const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
@@ -4721,7 +4692,10 @@ Provide realistic estimates that would be appropriate for a typical meal someone
     
     // Clean up the uploaded file
     try {
-      fs.unlinkSync(foodImage.path);
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
+        console.log('[FOOD ANALYZE] Cleaned up uploaded file:', req.file.filename);
+      }
     } catch (cleanupError) {
       console.warn('[FOOD ANALYZE] Failed to cleanup uploaded file:', cleanupError.message);
     }
@@ -4735,127 +4709,16 @@ Provide realistic estimates that would be appropriate for a typical meal someone
     const errorDetails = error?.response?.data || error?.message || String(error);
     console.error('[FOOD ANALYZE] Error:', errorDetails);
 
-          // Provide better fallback nutrition data for image analysis
-      console.log('[FOOD ANALYZE] Using enhanced fallback for image analysis');
-      
-      // Create realistic nutrition estimates for common meal types
-      const enhancedFallback = {
-        foodItems: [
-          {
-            name: "Mixed Meal (estimated)",
-            quantity: "1 serving",
-            calories: 450,
-            protein: 30,
-            carbs: 50,
-            fat: 18,
-            fiber: 8,
-            sugar: 12,
-            sodium: 500
-          }
-        ],
-        totalNutrition: {
-          calories: 450,
-          protein: 30,
-          carbs: 50,
-          fat: 18,
-          fiber: 8,
-          sugar: 12,
-          sodium: 500
-        },
-        confidence: "medium",
-        notes: "Estimated nutrition based on typical meal composition. For more accurate results, please describe the food items in detail or try again later."
-      };
-      
-      return res.json({ 
-        success: true, 
-        data: enhancedFallback,
-        fallback: true,
-        warning: "Vision analysis temporarily unavailable. Using estimated nutrition data."
-      });
-
-    // For food analysis, always provide fallback even in strict mode since it's a core feature
-    console.log('[FOOD ANALYZE] Using fallback analysis for image');
-    const fallback = analyzeFoodWithFallback('mixed meal');
-    const fallbackContent = fallback.choices[0].message.content;
-    try {
-      const fallbackData = JSON.parse(fallbackContent);
-      // Convert fallback data to the expected format for image analysis
-      const fallbackNutrition = fallbackData.nutrition || {
-        food_name: 'Mixed Meal (estimated)',
-        calories: 450,
-        protein: 30,
-        carbs: 50,
-        fat: 18,
-        fiber: 8,
-        confidence: 'medium'
-      };
-      
-      return res.json({ 
-        success: true, 
-        data: {
-          foodItems: [
-            {
-              name: fallbackNutrition.food_name,
-              quantity: "1 serving",
-              calories: fallbackNutrition.calories,
-              protein: fallbackNutrition.protein,
-              carbs: fallbackNutrition.carbs,
-              fat: fallbackNutrition.fat,
-              fiber: fallbackNutrition.fiber,
-              sugar: 12,
-              sodium: 500
-            }
-          ],
-          totalNutrition: {
-            calories: fallbackNutrition.calories,
-            protein: fallbackNutrition.protein,
-            carbs: fallbackNutrition.carbs,
-            fat: fallbackNutrition.fat,
-            fiber: fallbackNutrition.fiber,
-            sugar: 12,
-            sodium: 500
-          },
-          confidence: fallbackNutrition.confidence,
-          notes: "Estimated nutrition based on typical meal composition."
-        },
-        fallback: true, 
-        warning: "AI analysis temporarily unavailable. Using estimated nutrition data based on typical meal composition."
-      });
-    } catch (parseError) {
-      console.error('[FOOD ANALYZE] Image fallback JSON parse error:', parseError);
-      // Return a safe fallback response for images
-      return res.json({ 
-        success: true, 
-        data: {
-          foodItems: [
-            {
-              name: "Mixed Meal",
-              quantity: "1 serving",
-              calories: 350,
-              protein: 25,
-              carbs: 45,
-              fat: 12,
-              fiber: 8,
-              sugar: 15,
-              sodium: 400
-            }
-          ],
-          totalNutrition: {
-            calories: 350,
-            protein: 25,
-            carbs: 45,
-            fat: 12,
-            fiber: 8,
-            sugar: 15,
-            sodium: 400
-          },
-          confidence: "low",
-          notes: "Estimated nutrition based on typical meal composition."
-        },
-        fallback: true, 
-        warning: "Analysis temporarily unavailable. Using estimated nutrition data."
-      });
-    }
+    // NO FALLBACK - Return error response
+    res.status(500).json({
+        success: false,
+      error: 'Vision analysis failed',
+      message: errorDetails,
+      details: {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText
+      }
+    });
   }
 });
 
