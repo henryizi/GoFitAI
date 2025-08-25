@@ -1,0 +1,35 @@
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-24T13:17:44.386Z] Test endpoint called
+{"level":30,"time":1756041464389,"pid":52178,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":64889},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"284","etag":"W/\"11c-tHFj0dE+6yfTK+yor4qivml+TQU\""}},"responseTime":3,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Text-only analysis path
+[FOOD ANALYZE] Trying DeepSeek for text analysis
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 4000
+{"level":30,"time":1756041491688,"pid":52178,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"29"},"remoteAddress":"127.0.0.1","remotePort":64900},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"224","etag":"W/\"e0-X3xYF6NZyz4Su7eTwLrppCyh+UY\""}},"responseTime":9988,"msg":"request completed"}
+[2025-08-24T13:20:14.664Z] Test endpoint called
+{"level":30,"time":1756041614664,"pid":52178,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":64935},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"284","etag":"W/\"11c-5yZAH9RexnOt3EVDdnor+maO6ZI\""}},"responseTime":0,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Text-only analysis path
+[FOOD ANALYZE] Trying DeepSeek for text analysis
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 4000
+{"level":30,"time":1756041650144,"pid":52178,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"62"},"remoteAddress":"127.0.0.1","remotePort":64946},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"224","etag":"W/\"e0-X3xYF6NZyz4Su7eTwLrppCyh+UY\""}},"responseTime":9999,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...

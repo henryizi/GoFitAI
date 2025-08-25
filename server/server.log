@@ -4,148 +4,1068 @@
 === API CONFIGURATION ===
 DeepSeek-only mode: DISABLED
 Strict mode (effective): DISABLED
-Available AI Providers: [ 'deepseek', 'fallback' ]
+Available AI Providers: [ 'deepseek', 'openrouter', 'cloudflare', 'fallback' ]
 Default AI_PROVIDER: deepseek
-Total providers available: 2
+Total providers available: 4
 - deepseek: ENABLED (deepseek-v3)
+- openrouter: ENABLED (deepseek/deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Processing image: 47c31044db6169ec91bfff920688e153
+[FOOD ANALYZE] Using text-based analysis for image (vision API temporarily disabled)
+[FOOD ANALYZE] Calling AI service for smart nutrition estimation
+[AI] Trying provider: deepseek with model deepseek-v3
+[AI] Calling deepseek API with model deepseek-v3
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: 400 {
+  error: {
+    message: 'Model Not Exist',
+    type: 'invalid_request_error',
+    param: null,
+    code: 'invalid_request_error'
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: openrouter with model deepseek/deepseek-chat
+[AI] Calling openrouter API with model deepseek/deepseek-chat
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+[AI] Error with provider openrouter: 402 {
+  error: {
+    message: 'This request requires more credits, or fewer max_tokens. You requested up to 2000 tokens, but can only afford 1320. To increase, visit https://openrouter.ai/settings/credits and upgrade to a paid account',
+    code: 402,
+    metadata: { provider_name: null }
+  },
+  user_id: 'user_300a1LXedPhBdp8IyZG1NzKxWa8'
+}
+[AI] Error with openrouter, trying next provider...
+[AI] Trying provider: cloudflare with model @cf/meta/llama-2-7b-chat-int8
+[AI] Calling cloudflare API with model @cf/meta/llama-2-7b-chat-int8
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+[FOOD ANALYZE] Smart nutrition estimation successful
+[PARSE] Full content parse failed, trying to extract JSON...
+[PARSE] Successfully parsed JSON using strategy 1
+[FOOD ANALYZE] Analysis completed successfully
+{"level":30,"time":1756034820694,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"14982","content-type":"multipart/form-data; boundary=------------------------7dBijuxYUJuoeNyFYaOIPX"},"remoteAddress":"127.0.0.1","remotePort":63375},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"451","etag":"W/\"1c3-MsBWhgYFw5UnZu1UBT3VT03kYyU\""}},"responseTime":10324,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Text-only analysis path
+[FOOD ANALYZE] Trying DeepSeek for text analysis
+[AI] Trying provider: deepseek with model deepseek-v3
+[AI] Calling deepseek API with model deepseek-v3
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: 400 {
+  error: {
+    message: 'Model Not Exist',
+    type: 'invalid_request_error',
+    param: null,
+    code: 'invalid_request_error'
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] All providers failed
+[FOOD ANALYZE] Trying OpenRouter for text analysis
+[AI] Trying provider: openrouter with model deepseek/deepseek-chat
+[AI] Calling openrouter API with model deepseek/deepseek-chat
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 2000
+[AI] Error with provider openrouter: 402 {
+  error: {
+    message: 'This request requires more credits, or fewer max_tokens. You requested up to 2000 tokens, but can only afford 1320. To increase, visit https://openrouter.ai/settings/credits and upgrade to a paid account',
+    code: 402,
+    metadata: { provider_name: null }
+  },
+  user_id: 'user_300a1LXedPhBdp8IyZG1NzKxWa8'
+}
+[AI] Error with openrouter, trying next provider...
+[AI] All providers failed
+[FOOD ANALYZE] Falling back to rule-based for text analysis
+[AI] Trying provider: fallback with model rule-based
+[AI] Calling fallback API with model rule-based
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 1000
+[FALLBACK] Using rule-based nutrition analysis
+{"level":30,"time":1756034911758,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"168","content-type":"multipart/form-data; boundary=------------------------ZhfkFcId4rdYpQNmHnAWXJ"},"remoteAddress":"127.0.0.1","remotePort":63394},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"196","etag":"W/\"c4-5fe3AQpWCOQgDdsXZErmxNEziwE\""}},"responseTime":902,"msg":"request completed"}
+{"level":30,"time":1756035810103,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":63563},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-O85z+x/gKZQfhRBGNHBqbxA2hEQ\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756035810127,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"67-O85z+x/gKZQfhRBGNHBqbxA2hEQ\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":63563},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-+Bw7jlU6An+fbamV7yzBZF40O1c\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756036069320,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"67-+Bw7jlU6An+fbamV7yzBZF40O1c\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":63622},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-elC6aHT+Sz9po1/lgEw518nTj+0\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756037624284,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"67-elC6aHT+Sz9po1/lgEw518nTj+0\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":63919},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-SzmMy4+eUoa2C0CgnIgXnNU+FEE\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1756037624308,"pid":35703,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"67-SzmMy4+eUoa2C0CgnIgXnNU+FEE\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":63919},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-/VDmo9HqTUp7lFJ8/hLGM6KNU+4\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-24T14:03:38.837Z] Checking if port 4000 is free...
+[2025-08-24T14:03:38.839Z] Port 4000 is free
+[2025-08-24T14:03:38.839Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m4[39m
+- deepseek: ENABLED (deepseek-chat)
+- openrouter: ENABLED (deepseek/deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-24T14:09:12.754Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-24T14:09:12.754Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-24T14:09:12.758Z] Server exited with code 0 and signal null
+[2025-08-24T14:09:12.759Z] Checking if port 4000 is free...
+[2025-08-24T14:09:12.759Z] Port 4000 is free
+[2025-08-24T14:09:12.759Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-24T14:09:12.824Z] No processes found on port 4000
+[2025-08-24T14:09:13.205Z] Checking if port 4000 is free...
+[2025-08-24T14:09:13.207Z] Port 4000 is free
+[2025-08-24T14:09:13.207Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'openrouter'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m4[39m
+- deepseek: ENABLED (deepseek-chat)
+- openrouter: ENABLED (deepseek/deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-24T14:11:26.303Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-24T14:11:26.303Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-24T14:11:26.307Z] Server exited with code 0 and signal null
+[2025-08-24T14:11:26.307Z] Checking if port 4000 is free...
+[2025-08-24T14:11:26.307Z] Port 4000 is free
+[2025-08-24T14:11:26.308Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-24T14:11:26.368Z] No processes found on port 4000
+[2025-08-24T14:11:26.699Z] Checking if port 4000 is free...
+[2025-08-24T14:11:26.701Z] Port 4000 is free
+[2025-08-24T14:11:26.701Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ [32m'deepseek'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m1[39m
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+{"level":30,"time":1756044897684,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"67-/VDmo9HqTUp7lFJ8/hLGM6KNU+4\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":49353},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-m27nkxJ6DMNUROTj1pGCntdpGPg\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1756044897705,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","accept":"*/*","content-type":"application/json","origin":"http://localhost:8081","sec-fetch-site":"same-site","if-none-match":"W/\"69-m27nkxJ6DMNUROTj1pGCntdpGPg\"","sec-fetch-mode":"cors","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","referer":"http://localhost:8081/","sec-fetch-dest":"empty","accept-language":"en-US,en;q=0.9","priority":"u=3, i","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":49353},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-xn5PP7G+8C7cDOzN+SfkD4yXhis\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /health
+{"level":30,"time":1756046360564,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50128},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"78","etag":"W/\"4e-vi3xBwmXV7GeMYsszJb9q3wAZgs\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /
+{"level":30,"time":1756046368242,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50131},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"72","etag":"W/\"48-yb9pj0AxxHDLy5eOnoU4BFUZLmI\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756046381343,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50133},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756046391779,"pid":64001,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50135},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-2bZQ48KtiwW0SmO1OY6HBU34HjY\""}},"responseTime":0,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-24T14:42:48.587Z] Server exited with code 0 and signal null
+[2025-08-24T14:42:48.587Z] Checking if port 4000 is free...
+[2025-08-24T14:42:48.587Z] Port 4000 is free
+[2025-08-24T14:42:48.587Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ [32m'deepseek'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m1[39m
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+{"level":30,"time":1756046576482,"pid":66802,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50212},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-+RgxleCMnZLHcXvy8al/C91uBhw\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1756046580279,"pid":66802,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":50214},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":1,"msg":"request completed"}
+[2025-08-24T15:23:29.296Z] Checking if port 4000 is free...
+[2025-08-24T15:23:29.298Z] Port 4000 is free
+[2025-08-24T15:23:29.298Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-24T15:34:32.339Z] Server exited with code null and signal SIGKILL
+[2025-08-24T15:34:32.340Z] Checking if port 4000 is free...
+[2025-08-24T15:34:32.340Z] Port 4000 is free
+[2025-08-24T15:34:32.340Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-24T15:34:32.358Z] Checking if port 4000 is free...
+[2025-08-24T15:34:32.361Z] Port 4000 is free
+[2025-08-24T15:34:32.361Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+=== API CONFIGURATION ===
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:32.590Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:32.590Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:34.592Z] Checking if port 4000 is free...
+[2025-08-24T15:34:34.593Z] Port 4000 is free
+[2025-08-24T15:34:34.593Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
 - fallback: ENABLED (rule-based)
 ========================
 [SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
-    at Server.setupListenHandle [as _listen2] (node:net:1937{"level":30,"time":1755964101910,"pid":64507,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":56619},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-O/YuHoXH5axP0Y18FlX59BBOGg4\""}},"responseTime":3,"msg":"request completed"}
-[EXPRESS] 404 - Route not found: POST /api/health-check
-{"level":30,"time":1755964252258,"pid":64507,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/health-check","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":56639},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"89","etag":"W/\"59-CON5kpRHFREV/ugM26gSclq5Gt0\""}},"responseTime":1,"msg":"request completed"}
-[2025-08-24T06:14:12.690Z] Checking if port 4000 is free...
-[2025-08-24T06:14:12.693Z] Port 4000 is free
-[2025-08-24T06:14:12.693Z] Starting server (attempt 1/10)...
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:34.690Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:34.690Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:36.691Z] Checking if port 4000 is free...
+[2025-08-24T15:34:36.692Z] Port 4000 is free
+[2025-08-24T15:34:36.692Z] Starting server (attempt 3/10)...
 --- SERVER RESTARTED ---
 --- Code version: 2.2 ---
 [ENV] Detected PORT from environment; skipping .env override for PORT
 === API CONFIGURATION ===
 DeepSeek-only mode: DISABLED
 Strict mode (effective): DISABLED
-Available AI Providers: [ 'deepseek', 'fallback' ]
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
 Default AI_PROVIDER: deepseek
-Total providers available: 2
-- deepseek: ENABLED (deepseek-v3)
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
 - fallback: ENABLED (rule-based)
 ========================
-Server running on port 4000
-Local IP: 192.168.0.100
-Server URL: http://192.168.0.100:4000
-Test API with: curl http://192.168.0.100:4000/api/test
-{"level":30,"time":1756016078701,"pid":86355,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":58826},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":3,"msg":"request completed"}
-[2025-08-24T06:14:48.144Z] Received recipe generation request
-[2025-08-24T06:14:48.144Z] Generating recipe for lunch with 3 ingredients
-[2025-08-24T06:14:48.144Z] Strict mode: enabled
-[2025-08-24T06:14:48.144Z] Using high-quality recipe generator in strict mode
-{"level":30,"time":1756016088145,"pid":86355,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-recipe","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"138"},"remoteAddress":"127.0.0.1","remotePort":58828},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2441","etag":"W/\"989-rUHvmwDdeFkBPpk7e8mELYPIzR8\""}},"responseTime":6,"msg":"request completed"}
-[2025-08-24T08:45:55.949Z] Checking if port 4000 is free...
-[2025-08-24T08:45:55.952Z] Port 4000 is free
-[2025-08-24T08:45:55.952Z] Starting server (attempt 1/10)...
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:36.800Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:36.800Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:38.802Z] Checking if port 4000 is free...
+[2025-08-24T15:34:38.803Z] Port 4000 is free
+[2025-08-24T15:34:38.803Z] Starting server (attempt 4/10)...
 --- SERVER RESTARTED ---
 --- Code version: 2.2 ---
 [ENV] Detected PORT from environment; skipping .env override for PORT
 === API CONFIGURATION ===
 DeepSeek-only mode: DISABLED
 Strict mode (effective): DISABLED
-Available AI Providers: [ [32m'deepseek'[39m, [32m'fallback'[39m ]
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
 Default AI_PROVIDER: deepseek
-Total providers available: [33m2[39m
-- deepseek: ENABLED (deepseek-v3)
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:38.903Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:38.903Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:40.904Z] Checking if port 4000 is free...
+[2025-08-24T15:34:40.905Z] Port 4000 is free
+[2025-08-24T15:34:40.905Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:41.003Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:41.003Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:43.003Z] Checking if port 4000 is free...
+[2025-08-24T15:34:43.005Z] Port 4000 is free
+[2025-08-24T15:34:43.005Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:43.100Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:43.100Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:45.102Z] Checking if port 4000 is free...
+[2025-08-24T15:34:45.102Z] Port 4000 is free
+[2025-08-24T15:34:45.102Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:45.201Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:45.201Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:47.202Z] Checking if port 4000 is free...
+[2025-08-24T15:34:47.203Z] Port 4000 is free
+[2025-08-24T15:34:47.203Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:47.301Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:47.301Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:49.302Z] Checking if port 4000 is free...
+[2025-08-24T15:34:49.304Z] Port 4000 is free
+[2025-08-24T15:34:49.304Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:49.401Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:49.401Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:51.402Z] Checking if port 4000 is free...
+[2025-08-24T15:34:51.404Z] Port 4000 is free
+[2025-08-24T15:34:51.404Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:34:51.503Z] Server exited with code 1 and signal null
+[2025-08-24T15:34:51.503Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:34:53.504Z] Server has restarted 10 times. Giving up.
+[2025-08-24T15:38:27.932Z] Server exited with code null and signal SIGKILL
+[2025-08-24T15:38:27.932Z] Checking if port 4000 is free...
+[2025-08-24T15:38:27.933Z] Port 4000 is free
+[2025-08-24T15:38:27.933Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-24T15:38:27.954Z] Checking if port 4000 is free...
+[2025-08-24T15:38:27.957Z] Port 4000 is free
+[2025-08-24T15:38:27.957Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
 - fallback: ENABLED (rule-based)
 ========================
 Server running on port 4000
 Local IP: 192.168.0.100
 Server URL: http://192.168.0.100:4000
 Test API with: curl http://192.168.0.100:4000/api/test
-[PROFILE UPDATE] Updating profile for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
-[PROFILE UPDATE] Updates: { goal_fat_reduction: [33m8[39m, goal_muscle_gain: [33m12[39m }
-[PROFILE UPDATE] Profile updated successfully
-{"level":30,"time":1756025206400,"pid":9950,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"PUT","url":"/api/profile","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"106"},"remoteAddress":"127.0.0.1","remotePort":60617},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"410","etag":"W/\"19a-Ls6VwaKKuFk8iqqwBjNNbWSmvm4\""}},"responseTime":591,"msg":"request completed"}
-[EXPRESS] 404 - Route not found: GET /api/profile/2b7ea2b7-b739-47f1-b389-aba682ac8c5f
-{"level":30,"time":1756025252768,"pid":9950,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/profile/2b7ea2b7-b739-47f1-b389-aba682ac8c5f","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":60637},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"120","etag":"W/\"78-hUDWAKeDV5FnAgoruqom/2XF65M\""}},"responseTime":1,"msg":"request completed"}
-[EXPRESS] 404 - Route not found: GET /api/profile/2b7ea2b7-b739-47f1-b389-aba682ac8c5f
-{"level":30,"time":1756025282346,"pid":9950,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/profile/2b7ea2b7-b739-47f1-b389-aba682ac8c5f","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":60643},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"120","etag":"W/\"78-hUDWAKeDV5FnAgoruqom/2XF65M\""}},"responseTime":1,"msg":"request completed"}
-[2025-08-24T08:48:09.408Z] Received SIGTERM. Shutting down gracefully...
-[2025-08-24T08:48:09.409Z] Terminating server process...
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:28.091Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:28.091Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:30.093Z] Checking if port 4000 is free...
+[2025-08-24T15:38:30.094Z] Port 4000 is free
+[2025-08-24T15:38:30.094Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:30.197Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:30.197Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:32.199Z] Checking if port 4000 is free...
+[2025-08-24T15:38:32.200Z] Port 4000 is free
+[2025-08-24T15:38:32.200Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:32.303Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:32.303Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:34.305Z] Checking if port 4000 is free...
+[2025-08-24T15:38:34.306Z] Port 4000 is free
+[2025-08-24T15:38:34.306Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:34.407Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:34.407Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:36.408Z] Checking if port 4000 is free...
+[2025-08-24T15:38:36.409Z] Port 4000 is free
+[2025-08-24T15:38:36.409Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:36.510Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:36.510Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:38.511Z] Checking if port 4000 is free...
+[2025-08-24T15:38:38.512Z] Port 4000 is free
+[2025-08-24T15:38:38.513Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:38.616Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:38.616Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:40.617Z] Checking if port 4000 is free...
+[2025-08-24T15:38:40.617Z] Port 4000 is free
+[2025-08-24T15:38:40.617Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:40.709Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:40.709Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:42.710Z] Checking if port 4000 is free...
+[2025-08-24T15:38:42.711Z] Port 4000 is free
+[2025-08-24T15:38:42.711Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:42.814Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:42.814Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:44.816Z] Checking if port 4000 is free...
+[2025-08-24T15:38:44.818Z] Port 4000 is free
+[2025-08-24T15:38:44.818Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:44.917Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:44.917Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:46.918Z] Checking if port 4000 is free...
+[2025-08-24T15:38:46.919Z] Port 4000 is free
+[2025-08-24T15:38:46.919Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+[90m    at Server.setupListenHandle [as _listen2] (node:net:1937:16)[39m
+[90m    at listenInCluster (node:net:1994:12)[39m
+[90m    at node:net:2203:7[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)[39m {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-48[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'0.0.0.0'[39m,
+  port: [33m4000[39m
+}
+[SERVER] Port 4000 is already in use
+[2025-08-24T15:38:47.020Z] Server exited with code 1 and signal null
+[2025-08-24T15:38:47.020Z] Waiting 2000ms before restarting server...
+[2025-08-24T15:38:49.021Z] Server has restarted 10 times. Giving up.
+[2025-08-25T02:12:14.266Z] Checking if port 4000 is free...
+[2025-08-25T02:12:14.267Z] Port 4000 is free
+[2025-08-25T02:12:14.267Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[ENV] Detected PORT from environment; skipping .env override for PORT
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
+Default AI_PROVIDER: deepseek
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[EXPRESS] 404 - Route not found: POST /api/test
+{"level":30,"time":1756087991914,"pid":75175,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51688},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"81","etag":"W/\"51-xodeqrsWDR6X5d9u6ID4bbBmXzc\""}},"responseTime":3,"msg":"request completed"}
+[2025-08-25T02:13:36.783Z] Test endpoint called
+{"level":30,"time":1756088016784,"pid":75175,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":51690},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"284","etag":"W/\"11c-eEZPb4LGxqnsU0EFnoM7JsCJxAk\""}},"responseTime":1,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+{"level":30,"time":1756089192476,"pid":75175,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"420"},"remoteAddress":"127.0.0.1","remotePort":51922},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":6,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+{"level":30,"time":1756089206486,"pid":75175,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"420"},"remoteAddress":"127.0.0.1","remotePort":51924},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":0,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+{"level":30,"time":1756089243279,"pid":75175,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"420"},"remoteAddress":"127.0.0.1","remotePort":51932},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":0,"msg":"request completed"}
 [SHUTDOWN] Received SIGTERM. Shutting down gracefully...
-[2025-08-24T08:48:09.412Z] Server exited with code 0 and signal null
-[2025-08-24T08:48:09.412Z] Checking if port 4000 is free...
-[2025-08-24T08:48:09.413Z] Port 4000 is free
-[2025-08-24T08:48:09.413Z] Starting server (attempt 2/10)...
---- SERVER RESTARTED ---
---- Code version: 2.2 ---
-[2025-08-24T08:48:09.456Z] No processes found on port 4000
-[2025-08-24T08:48:25.490Z] Checking if port 4000 is free...
-[2025-08-24T08:48:25.495Z] Port 4000 is free
-[2025-08-24T08:48:25.495Z] Starting server (attempt 1/10)...
+[2025-08-25T02:34:53.718Z] Server exited with code 0 and signal null
+[2025-08-25T02:34:53.718Z] Checking if port 4000 is free...
+[2025-08-25T02:34:53.718Z] Port 4000 is free
+[2025-08-25T02:34:53.718Z] Starting server (attempt 2/10)...
 --- SERVER RESTARTED ---
 --- Code version: 2.2 ---
 [ENV] Detected PORT from environment; skipping .env override for PORT
 === API CONFIGURATION ===
 DeepSeek-only mode: DISABLED
 Strict mode (effective): DISABLED
-Available AI Providers: [ 'deepseek', 'fallback' ]
+Available AI Providers: [ [32m'deepseek'[39m, [32m'cloudflare'[39m, [32m'fallback'[39m ]
 Default AI_PROVIDER: deepseek
-Total providers available: 2
-- deepseek: ENABLED (deepseek-v3)
+Total providers available: [33m3[39m
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
 - fallback: ENABLED (rule-based)
 ========================
 Server running on port 4000
 Local IP: 192.168.0.100
 Server URL: http://192.168.0.100:4000
 Test API with: curl http://192.168.0.100:4000/api/test
-[PROFILE GET] Getting profile for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
-[PROFILE GET] Profile retrieved successfully
-{"level":30,"time":1756025316333,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/profile/2b7ea2b7-b739-47f1-b389-aba682ac8c5f","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":60647},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"410","etag":"W/\"19a-Ls6VwaKKuFk8iqqwBjNNbWSmvm4\""}},"responseTime":643,"msg":"request completed"}
-{"level":30,"time":1756025790033,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":60756},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"103","etag":"W/\"67-vw1y3HhrWv4/gO0ZJiK4pTyCzmc\""}},"responseTime":1,"msg":"request completed"}
-[EXPRESS] 404 - Route not found: HEAD /api/profile
-{"level":30,"time":1756027533621,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"HEAD","url":"/api/profile","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61540},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"84","etag":"W/\"54-ldDDtI4FZ+GNt/kStAT6jtX2BqI\""}},"responseTime":1,"msg":"request completed"}
-[PROFILE UPDATE] Updating profile for user: test
-[PROFILE UPDATE] Updates: { test: 'test' }
-[PROFILE UPDATE] Error updating profile: {
-  code: 'PGRST204',
-  details: null,
-  hint: null,
-  message: "Could not find the 'test' column of 'profiles' in the schema cache"
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: [33mfalse[39m, hasDescription: [33mfalse[39m, fileInfo: [1mnull[22m }
+[FOOD ANALYZE] Processing base64 image from request body
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image too small for vision analysis, using fallback
+[FOOD ANALYZE] Vision analysis failed, trying fallback: Image too small for vision analysis
+[FOOD ANALYZE] Vision error details: {
+  status: [90mundefined[39m,
+  statusText: [90mundefined[39m,
+  data: [90mundefined[39m,
+  headers: [90mundefined[39m
 }
-[PROFILE UPDATE] Error: Could not find the 'test' column of 'profiles' in the schema cache
-{"level":30,"time":1756027987509,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"PUT","url":"/api/profile","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"43"},"remoteAddress":"127.0.0.1","remotePort":61900},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"94","etag":"W/\"5e-qeEmoDecOjcHDWIYFGfy1/5y6Vg\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1191,"msg":"request errored"}
-[EXPRESS] 404 - Route not found: GET /api/profile
-{"level":30,"time":1756028668038,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/profile","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json"},"remoteAddress":"192.168.0.100","remotePort":62003},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"83","etag":"W/\"53-7UkMXpGn39TqM21zin8dIC+d4RQ\""}},"responseTime":0,"msg":"request completed"}
-[PROFILE UPDATE] Updating profile for user: test
-[PROFILE UPDATE] Updates: { training_level: 'beginner' }
-[PROFILE UPDATE] Error updating profile: {
-  code: '22P02',
-  details: null,
-  hint: null,
-  message: 'invalid input syntax for type uuid: "test"'
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: [33m401[39m {
+  error: {
+    message: [32m'Authentication Fails, Your api key: ****0d6a is invalid'[39m,
+    type: [32m'authentication_error'[39m,
+    param: [1mnull[22m,
+    code: [32m'invalid_request_error'[39m
+  }
 }
-[PROFILE UPDATE] Error: invalid input syntax for type uuid: "test"
-{"level":30,"time":1756028816536,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"PUT","url":"/api/profile","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"57"},"remoteAddress":"192.168.0.100","remotePort":62026},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"72","etag":"W/\"48-TI/WJq8/b7sNRlUEzG2/Y/lDEt4\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":954,"msg":"request errored"}
-[EXPRESS] 404 - Route not found: GET /api/profile
-{"level":30,"time":1756029156780,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/profile","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":62146},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"83","etag":"W/\"53-7UkMXpGn39TqM21zin8dIC+d4RQ\""}},"responseTime":0,"msg":"request completed"}
-[EXPRESS] 404 - Route not found: GET /api
-{"level":30,"time":1756029161277,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"GET","url":"/api","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":62147},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"75","etag":"W/\"4b-kmVo9MWk7dSSIdJ/l9ErGVO3tl4\""}},"responseTime":0,"msg":"request completed"}
-[PROFILE UPDATE] Updating profile for user: test-user-id
-[PROFILE UPDATE] Updates: { training_level: 'beginner' }
-[PROFILE UPDATE] Error updating profile: {
-  code: '22P02',
-  details: null,
-  hint: null,
-  message: 'invalid input syntax for type uuid: "test-user-id"'
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: cloudflare with model @cf/meta/llama-2-7b-chat-int8
+[AI] Calling cloudflare API with model @cf/meta/llama-2-7b-chat-int8
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+[FOOD ANALYZE] Fallback estimation successful
+[PARSE] Full content parse failed, trying to extract JSON...
+[PARSE] Successfully parsed JSON using strategy 1
+[FOOD ANALYZE] Analysis completed successfully
+[FOOD ANALYZE] Failed to cleanup uploaded file: foodImage is not defined
+{"level":30,"time":1756089370144,"pid":79089,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"420"},"remoteAddress":"127.0.0.1","remotePort":51971},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"425","etag":"W/\"1a9-MSyUIIiMJiv2vqxnO1lxptvpGnk\""}},"responseTime":7142,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: [33mfalse[39m, hasDescription: [33mtrue[39m, fileInfo: [1mnull[22m }
+[FOOD ANALYZE] Text-only analysis path
+[FOOD ANALYZE] Trying DeepSeek for text analysis
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: [33m401[39m {
+  error: {
+    message: [32m'Authentication Fails, Your api key: ****0d6a is invalid'[39m,
+    type: [32m'authentication_error'[39m,
+    param: [1mnull[22m,
+    code: [32m'invalid_request_error'[39m
+  }
 }
-[PROFILE UPDATE] Error: invalid input syntax for type uuid: "test-user-id"
-{"level":30,"time":1756029181646,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":9,"method":"PUT","url":"/api/profile","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"69"},"remoteAddress":"192.168.0.100","remotePort":62149},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"80","etag":"W/\"50-6jx2naprImJTNedkNgxj3HANC0E\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":798,"msg":"request errored"}
-[PROFILE UPDATE] Updating profile for user: 123e4567-e89b-12d3-a456-426614174000
-[PROFILE UPDATE] Updates: { training_level: 'beginner' }
-[PROFILE UPDATE] Error updating profile: {
-  code: 'PGRST116',
-  details: 'The result contains 0 rows',
-  hint: null,
-  message: 'JSON object requested, multiple (or no) rows returned'
+[AI] All providers failed
+[AI] Error with deepseek, trying next provider...
+[FOOD ANALYZE] All AI providers failed, using direct rule-based fallback
+[FALLBACK] Using rule-based nutrition analysis
+{"level":30,"time":1756089806796,"pid":79089,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"93"},"remoteAddress":"127.0.0.1","remotePort":52075},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"202","etag":"W/\"ca-EJS+iMsjvHbcqT09fkDDfG+d/Hg\""}},"responseTime":117,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: [33mtrue[39m,
+  hasDescription: [33mfalse[39m,
+  fileInfo: {
+    originalname: [32m'test_image.png'[39m,
+    filename: [32m'0175455f807f00aafe9778932c51b72f'[39m,
+    mimetype: [32m'image/png'[39m,
+    size: [33m70[39m
+  }
 }
-[PROFILE UPDATE] Error: JSON object requested, multiple (or no) rows returned
-{"level":30,"time":1756029187738,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":10,"method":"PUT","url":"/api/profile","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"93"},"remoteAddress":"192.168.0.100","remotePort":62151},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"81","etag":"W/\"51-N69pp2g/tBKsmxEy6L+G0JdO0zE\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":755,"msg":"request errored"}
-{"level":30,"time":1756029360016,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":11,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":62174},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":1,"msg":"request completed"}
-{"level":30,"time":1756029390402,"pid":10833,"hostname":"MacBook-Air-126.local","req":{"id":12,"method":"GET","url":"/ping","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","connection":"keep-alive","accept":"*/*","accept-language":"*","sec-fetch-mode":"cors","user-agent":"node","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.100","remotePort":62177},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","access-control-allow-methods":"GET","access-control-allow-headers":"Content-Type","content-type":"text/html; charset=utf-8","content-length":"4","etag":"W/\"4-DlFKBmK8tp3IY5U9HOJuPUDoGoc\""}},"responseTime":1,"msg":"request completed"}
+[FOOD ANALYZE] Processing uploaded image: test_image.png
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image too small for vision analysis, using fallback
+[FOOD ANALYZE] Vision analysis failed, trying fallback: Image too small for vision analysis
+[FOOD ANALYZE] Vision error details: {
+  status: [90mundefined[39m,
+  statusText: [90mundefined[39m,
+  data: [90mundefined[39m,
+  headers: [90mundefined[39m
+}
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: [33m401[39m {
+  error: {
+    message: [32m'Authentication Fails, Your api key: ****0d6a is invalid'[39m,
+    type: [32m'authentication_error'[39m,
+    param: [1mnull[22m,
+    code: [32m'invalid_request_error'[39m
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: cloudflare with model @cf/meta/llama-2-7b-chat-int8
+[AI] Calling cloudflare API with model @cf/meta/llama-2-7b-chat-int8
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+[FOOD ANALYZE] Fallback estimation successful
+[PARSE] Full content parse failed, trying to extract JSON...
+[PARSE] Successfully parsed JSON using strategy 1
+[FOOD ANALYZE] Analysis completed successfully
+[FOOD ANALYZE] Failed to cleanup uploaded file: foodImage is not defined
+{"level":30,"time":1756089835831,"pid":79089,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"278","content-type":"multipart/form-data; boundary=------------------------OAjdowVqHsMsZ2olMXtHL5"},"remoteAddress":"127.0.0.1","remotePort":52080},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"425","etag":"W/\"1a9-MSyUIIiMJiv2vqxnO1lxptvpGnk\""}},"responseTime":14141,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: [33mtrue[39m,
+  hasDescription: [33mfalse[39m,
+  fileInfo: {
+    originalname: [32m'test_image.png'[39m,
+    filename: [32m'eaee6a97b7d9787cc46503712d5b75a7'[39m,
+    mimetype: [32m'image/png'[39m,
+    size: [33m70[39m
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_image.png
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image too small for vision analysis, using fallback
+[FOOD ANALYZE] Vision analysis failed, trying fallback: Image too small for vision analysis
+[FOOD ANALYZE] Vision error details: {
+  status: [90mundefined[39m,
+  statusText: [90mundefined[39m,
+  data: [90mundefined[39m,
+  headers: [90mundefined[39m
+}
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: [33m401[39m {
+  error: {
+    message: [32m'Authentication Fails, Your api key: ****0d6a is invalid'[39m,
+    type: [32m'authentication_error'[39m,
+    param: [1mnull[22m,
+    code: [32m'invalid_request_error'[39m
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: cloudflare with model @cf/meta/llama-2-7b-chat-int8
+[AI] Calling cloudflare API with model @cf/meta/llama-2-7b-chat-int8
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+[FOOD ANALYZE] Fallback estimation successful
+[PARSE] Full content parse failed, trying to extract JSON...
+[PARSE] Successfully parsed JSON using strategy 1
+[FOOD ANALYZE] Analysis completed successfully
+[FOOD ANALYZE] Failed to cleanup uploaded file: foodImage is not defined
+{"level":30,"time":1756089947648,"pid":79089,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"278","content-type":"multipart/form-data; boundary=------------------------L0lb4yPDI3OoI7rnzBMB9g"},"remoteAddress":"127.0.0.1","remotePort":52088},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"425","etag":"W/\"1a9-MSyUIIiMJiv2vqxnO1lxptvpGnk\""}},"responseTime":13045,"msg":"request completed"}

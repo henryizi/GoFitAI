@@ -1,0 +1,62 @@
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'openrouter', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 4
+- deepseek: ENABLED (deepseek-v3)
+- openrouter: ENABLED (openai/gpt-4o-mini)
+- cloudflare: ENABLED (@cf/meta/llama-2-7b-chat-int8)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-24T06:00:04.741Z] Received recipe generation request
+[2025-08-24T06:00:04.742Z] Generating recipe for Dinner with 3 ingredients
+[2025-08-24T06:00:04.742Z] Strict mode: disabled
+[2025-08-24T06:00:04.742Z] Using callAI function with fallback providers...
+[AI] Trying provider: deepseek with model deepseek-v3
+[AI] Calling deepseek API with model deepseek-v3
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: 400 {
+  error: {
+    message: 'Model Not Exist',
+    type: 'invalid_request_error',
+    param: null,
+    code: 'invalid_request_error'
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: openrouter with model openai/gpt-4o-mini
+[AI] Calling openrouter API with model openai/gpt-4o-mini
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+{"level":30,"time":1756015219015,"pid":82366,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-recipe","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"147"},"remoteAddress":"127.0.0.1","remotePort":58662},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"3507","etag":"W/\"db3-iCBnHkZbLvPW3FaVeqTOfHOryNM\""}},"responseTime":14279,"msg":"request completed"}
+[2025-08-24T06:00:37.142Z] Received recipe generation request
+[2025-08-24T06:00:37.142Z] Generating recipe for Breakfast with 3 ingredients
+[2025-08-24T06:00:37.142Z] Strict mode: disabled
+[2025-08-24T06:00:37.142Z] Using callAI function with fallback providers...
+[AI] Trying provider: deepseek with model deepseek-v3
+[AI] Calling deepseek API with model deepseek-v3
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] Error with provider deepseek: 400 {
+  error: {
+    message: 'Model Not Exist',
+    type: 'invalid_request_error',
+    param: null,
+    code: 'invalid_request_error'
+  }
+}
+[AI] Error with deepseek, trying next provider...
+[AI] Trying provider: openrouter with model openai/gpt-4o-mini
+[AI] Calling openrouter API with model openai/gpt-4o-mini
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 2000
+{"level":30,"time":1756015257028,"pid":82366,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-recipe","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"141"},"remoteAddress":"127.0.0.1","remotePort":58667},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2903","etag":"W/\"b57-J2UzyOrIDvt9u7zdfhMutsMDa7Y\""}},"responseTime":19887,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...

@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "kill-server": "lsof -ti:4000 | xargs kill -9 || true",
+    "server": "cd server && node index.js",
     "start-server": "cd server && node start-server.js",
     "start-server-safe": "npm run kill-server && cd server && node start-server.js",
     "dev": "concurrently \"npm run start-server-safe\" \"expo start --clear\"",
