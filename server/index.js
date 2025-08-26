@@ -28,12 +28,15 @@ process.on('SIGINT', () => {
 });
 
 const express = require('express');
+const compression = require('compression');
+const http = require('http');
+const https = require('https');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const os = require('os');
-// const { exec } = require('child_process'); // Unused import
+const { exec } = require('child_process');
 const multer = require('multer');
 const fs = require('fs');
 const helmet = require('helmet');
@@ -393,10 +396,10 @@ function findAndParseJson(content) {
 }
 
 const dotenv = require('dotenv');
-// Load root .env if present
-dotenv.config();
+// Load root .env if present (from project root, not server subdirectory)
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 // Also try to load .env.development for development environment
-dotenv.config({ path: '../.env.development' });
+dotenv.config({ path: path.join(__dirname, '..', '.env.development') });
 
 // Import the extractNewPlan function
 const { extractNewPlan } = require('./extract-plan-fix.js');
@@ -404,11 +407,46 @@ const { extractNewPlan } = require('./extract-plan-fix.js');
 // Helper function to create a modified plan when extraction fails
 function createModifiedPlan(currentPlan) {
   try {
+    // Handle null/undefined currentPlan
+    if (!currentPlan) {
+      console.log('[CREATE MODIFIED PLAN] No current plan provided, creating default plan');
+      return {
+        name: "Default Workout Plan",
+        description: "A balanced workout plan for general fitness",
+        weeklySchedule: [
+          {
+            day: "Monday",
+            focus: "Cardio",
+            exercises: [
+              { name: "Running", sets: 1, reps: "20 minutes", notes: "Moderate pace" }
+            ]
+          },
+          {
+            day: "Wednesday", 
+            focus: "Strength",
+            exercises: [
+              { name: "Push-ups", sets: 3, reps: 10, notes: "Full body" }
+            ]
+          },
+          {
+            day: "Friday",
+            focus: "Flexibility", 
+            exercises: [
+              { name: "Stretching", sets: 1, reps: "15 minutes", notes: "Full body stretch" }
+            ]
+          }
+        ],
+        updated_at: new Date().toISOString(),
+        modified_from_original: true
+      };
+    }
+    
     // Create a basic modified plan based on the current plan
     const modifiedPlan = {
       ...currentPlan,
-      name: `${currentPlan.name} (Modified)`,
+      name: `${currentPlan.name || 'Workout Plan'} (Modified)`,
       updated_at: new Date().toISOString(),
+      modified_from_original: true,
       // Add any other modifications as needed
     };
     
@@ -442,13 +480,28 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
-app.use(pinoHttp({ logger }));
+// Enable gzip/deflate compression for JSON/text responses
+app.use(compression({ threshold: 1024 }));
+const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'warn' : 'info') });
+app.use(pinoHttp({
+  logger,
+  autoLogging: process.env.NODE_ENV === 'production' ? { ignore: req => req.url === '/api/health' || req.url === '/ping' } : true,
+  serializers: {
+    req: (req) => ({ method: req.method, url: req.url }),
+    res: (res) => ({ statusCode: res.statusCode }),
+  }
+}));
 // Basic rate limiting for AI endpoints
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30 });
 
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
+
+// Reuse TCP connections for outbound HTTP(S) requests (axios/fetch will use global agents)
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
+http.globalAgent.maxSockets = 100;
+https.globalAgent.maxSockets = 100;
 
 // Provider selection (OpenAI, DeepSeek, or Cloudflare)
 // AI Provider Configuration with Fallbacks
@@ -459,20 +512,35 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 // Vision-capable model for food analysis
 const resolveVisionModel = () => {
   // Use Cloudflare for vision analysis since DeepSeek doesn't support vision
-  const cloudflareVisionModel = process.env.CF_VISION_MODEL || '@cf/unum/uform-gen2-qwen-500m';
-  
-  // Check if user has specified a vision model
-  const userVisionModel = process.env.VISION_MODEL;
+  let cloudflareVisionModel = (process.env.CF_VISION_MODEL || '').trim();
+
+  // If not provided, default to working uform model
+  if (!cloudflareVisionModel) {
+    cloudflareVisionModel = '@cf/unum-cloud/uform-gen2-qwen-500m';
+  }
+
+  // Don't normalize valid model names - just use them as-is
+  // Valid models include:
+  // - @cf/unum-cloud/uform-gen2-qwen-500m
+  // - @cf/llava-hf/llava-1.5-7b-hf (if available)
+  // No normalization needed - use the exact model name provided
+
+  // Debug logging
+  console.log('[VISION MODEL DEBUG] CF_VISION_MODEL env var:', process.env.CF_VISION_MODEL);
+  console.log('[VISION MODEL DEBUG] Resolved model:', cloudflareVisionModel);
+
+  // Check if user has specified a vision model (takes precedence if set)
+  const userVisionModel = (process.env.VISION_MODEL || '').trim();
   if (userVisionModel) {
     return userVisionModel;
   }
-  
+
   // Default to Cloudflare vision model
   return cloudflareVisionModel;
 };
 
 // OpenRouter removed - using DeepSeek and Cloudflare only
-// const VISION_MODEL = resolveVisionModel(); // Unused variable
+const VISION_MODEL = resolveVisionModel();
 
 // DeepSeek native API
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
@@ -486,14 +554,14 @@ if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
 }
 
 // Cloudflare Workers AI (for fallbacks)
-const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID;
-const CF_API_TOKEN = process.env.CF_API_TOKEN;
-const CF_VISION_MODEL = process.env.CF_VISION_MODEL || '@cf/unum/uform-gen2-qwen-500m';
-// const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.EXPO_PUBLIC_FOOD_ANALYZE_PROVIDER; // Unused
+const CF_ACCOUNT_ID = (process.env.CF_ACCOUNT_ID || '').trim();
+const CF_API_TOKEN = (process.env.CF_API_TOKEN || '').trim();
+const CF_VISION_MODEL = (resolveVisionModel() || '').trim(); // Use the resolved vision model
+const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.EXPO_PUBLIC_FOOD_ANALYZE_PROVIDER;
 
 // Optional external services for higher accuracy
-// const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API - Unused
-const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central - Now Active!
+const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API
+const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
 // AI Provider Priority List (DeepSeek first)
 const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
@@ -518,8 +586,8 @@ const AI_PROVIDERS = [
   {
     name: 'cloudflare',
     apiKey: CF_API_TOKEN,
-    apiUrl: `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-2-7b-chat-int8`,
-    model: '@cf/meta/llama-2-7b-chat-int8',
+    apiUrl: `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
+    model: CF_VISION_MODEL,
     enabled: !!(CF_ACCOUNT_ID && CF_API_TOKEN)
   },
   {
@@ -655,6 +723,28 @@ function analyzeFoodWithFallback(imageDescription) {
       fiber: 0,
       confidence: 'medium'
     };
+  } else if (description.includes('mantou') || (description.includes('steamed') && description.includes('bread'))) {
+    if (description.includes('pork') && description.includes('vegetable')) {
+      nutritionInfo = {
+        food_name: 'Mantou with Pork and Vegetables',
+        calories: 420,
+        protein: 28,
+        carbs: 45,
+        fat: 12,
+        fiber: 4,
+        confidence: 'high'
+      };
+    } else {
+      nutritionInfo = {
+        food_name: 'Mantou (Chinese Steamed Bread)',
+        calories: 200,
+        protein: 6,
+        carbs: 40,
+        fat: 1,
+        fiber: 2,
+        confidence: 'high'
+      };
+    }
   } else if (description.includes('milk') || description.includes('dairy')) {
     nutritionInfo = {
       food_name: 'Milk',
@@ -686,20 +776,9 @@ function analyzeFoodWithFallback(imageDescription) {
       confidence: 'medium'
     };
   } else if (description.includes('meal') || description.includes('food') || description.includes('photo') || description.includes('dish')) {
-    // Try to create a better meal name from description
-    let mealName = 'Home-Cooked Meal';
-    if (description.includes('stir') || description.includes('wok')) {
-      mealName = 'Stir Fry Dish';
-    } else if (description.includes('rice') && description.includes('bowl')) {
-      mealName = 'Rice Bowl';
-    } else if (description.includes('noodle') || description.includes('pasta')) {
-      mealName = 'Noodle Dish';
-    } else if (description.includes('grilled') || description.includes('barbecue')) {
-      mealName = 'Grilled Dish';
-    }
-    
+    // Generic meal fallback for when specific food isn't recognized
     nutritionInfo = {
-      food_name: mealName,
+      food_name: 'Mixed Meal (estimated)',
       calories: 450,
       protein: 30,
       carbs: 50,
@@ -712,7 +791,7 @@ function analyzeFoodWithFallback(imageDescription) {
   // If we still have "Unknown Food", provide a better default for image analysis
   if (nutritionInfo.food_name === 'Unknown Food') {
     nutritionInfo = {
-      food_name: 'Home-Cooked Meal',
+      food_name: 'Mixed Meal (estimated)',
       calories: 450,
       protein: 30,
       carbs: 50,
@@ -866,7 +945,33 @@ try {
   console.warn('[SERVER] Could not ensure uploads directory:', dirErr.message);
 }
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ 
+  dest: 'uploads/',
+  fileFilter: (req, file, cb) => {
+    console.log('[MULTER] Uploaded file details:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
+    // Accept common image formats including HEIC/HEIF
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'image/heic', 'image/heif', 'image/HEIC', 'image/HEIF'
+    ];
+    
+    const isAllowedMime = allowedMimes.includes(file.mimetype);
+    const isHeicByExtension = /\.(heic|heif)$/i.test(file.originalname || '');
+    
+    if (isAllowedMime || isHeicByExtension) {
+      console.log('[MULTER] File accepted:', file.originalname);
+      cb(null, true);
+    } else {
+      console.log('[MULTER] File rejected - unsupported format:', file.mimetype);
+      cb(new Error('Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).'), false);
+    }
+  }
+});
 
 // Zod schemas for input validation
 const ChatMessageSchema = z.object({
@@ -1000,14 +1105,18 @@ INSTRUCTIONS:
 5. Always explain your changes clearly and provide encouragement.
 6. If this is a modified plan, consider previous changes and build upon them appropriately.
 
-IMPORTANT: When responding, give a brief, friendly message acknowledging the changes made to the plan. Do NOT show the full JSON plan in your response. Just say something like "I've adjusted your workout plan based on your request! The new plan has been modified with your changes."
+CRITICAL RESPONSE FORMAT:
+You MUST respond with ONLY a JSON object in this exact format:
+{
+  "message": "Brief friendly message about changes made (max 2 sentences)",
+  "newPlan": { ... modified plan structure ... }
+}
 
-CRITICAL: Do NOT include any JSON code blocks or backtick formatting in your text response. Only provide a simple, friendly message about the changes made. Keep it concise and end with something like "You can preview the updated plan using the button below."
+The message should be brief and friendly, like "I've adjusted your workout plan based on your request! The new plan has been modified with your changes."
 
-Then include a JSON object with the modified plan in the following format:
-{"newPlan": { ... modified plan structure ... }}
+The newPlan should maintain the same structure as the original plan with weeklySchedule array.
 
-The modified plan should maintain the same structure as the original plan with weeklySchedule array.`;
+DO NOT include any other text, explanations, or formatting outside the JSON object.`;
 }
 
 // Helper function to call AI API with appropriate parameters
@@ -1128,8 +1237,7 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
           provider.apiUrl,
           { 
             prompt: messages.map(m => `${m.role}: ${m.content}`).join('\n'),
-            max_tokens: max_tokens,
-            agree: true  // Required license agreement for Cloudflare models
+            max_tokens: max_tokens
           },
           { 
             headers: { 
@@ -1171,9 +1279,9 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
   } catch (error) {
       console.error(`[AI] Error with provider ${provider.name}:`, error.response?.status, error.response?.data || error.message);
       
-      // Check for timeout and abort errors
-      if (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error.message.includes('aborted') || error.name === 'AbortError') {
-        console.log(`[AI] Request aborted/timeout with ${provider.name}, trying next provider...`);
+      // Check for timeout errors
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        console.log(`[AI] Timeout error with ${provider.name}, trying next provider...`);
         continue;
       }
       
@@ -1317,20 +1425,38 @@ app.post('/api/ai-chat', async (req, res) => {
     });
     
     const aiResponse = await Promise.race([
-      callAI(messages),
+      callAI(messages, { type: 'json_object' }),
       timeoutPromise
     ]);
       if (aiResponse.error) {
         throw new Error(aiResponse.message);
       }
     const aiMessage = aiResponse.choices[0].message.content;
-      newPlan = extractNewPlan(aiMessage);
     
-      // If no plan extracted but message suggests changes, create a modified plan
-    if (!newPlan && aiMessage.includes('plan') && aiMessage.includes('change')) {
-      newPlan = createModifiedPlan(currentPlan);
+    // Try to parse the AI response as JSON
+    let aiData = null;
+    try {
+      aiData = JSON.parse(aiMessage);
+      console.log('[AI-CHAT] Successfully parsed AI response as JSON');
+    } catch (_parseError) {
+      console.log('[AI-CHAT] Failed to parse AI response as JSON, trying extractNewPlan');
+      aiData = null;
     }
+    
+    if (aiData && aiData.newPlan) {
+      // AI returned proper JSON with newPlan
+      newPlan = aiData.newPlan;
+      cleanMessage = aiData.message || "I've adjusted your workout plan based on your request!";
+    } else {
+      // Fallback to old extraction method
+      newPlan = extractNewPlan(aiMessage);
       cleanMessage = aiMessage;
+      
+      // If no plan extracted but message suggests changes, create a modified plan
+      if (!newPlan && aiMessage.includes('plan') && aiMessage.includes('change')) {
+        newPlan = createModifiedPlan(currentPlan);
+      }
+    }
       
       // Clean up the message for display
       cleanMessage = cleanMessage.replace(/```json\s*\{[\s\S]*?\}\s*```[\s\S]*/g, '');
@@ -1741,6 +1867,50 @@ app.post('/api/save-plan', async (req, res) => {
       success: false, 
       error: 'Failed to save plan' 
     });
+  }
+});
+
+// Add endpoint to set a plan as active
+app.post('/api/set-active-plan', async (req, res) => {
+  const { userId, planId } = req.body;
+  console.log('[SET ACTIVE PLAN] Setting plan as active for user:', userId, 'plan:', planId);
+
+  try {
+    if (supabase) {
+      // First, deactivate all existing active plans for this user
+      const { error: deactivateError } = await supabase
+        .from('workout_plans')
+        .update({ status: 'archived' })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      if (deactivateError) {
+        console.error('[SET ACTIVE PLAN] Error deactivating existing plans:', deactivateError);
+        return res.status(500).json({ success: false, error: 'Failed to deactivate existing plans' });
+      }
+
+      // Then, activate the specified plan
+      const { error: activateError } = await supabase
+        .from('workout_plans')
+        .update({ status: 'active' })
+        .eq('id', planId)
+        .eq('user_id', userId);
+
+      if (activateError) {
+        console.error('[SET ACTIVE PLAN] Error activating plan:', activateError);
+        return res.status(500).json({ success: false, error: 'Failed to activate plan' });
+      }
+
+      console.log('[SET ACTIVE PLAN] Successfully set plan as active');
+      return res.json({ success: true });
+    }
+
+    // Fallback for when supabase is not available
+    console.log('[SET ACTIVE PLAN] Supabase not available, using fallback');
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[SET ACTIVE PLAN] Unexpected error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'An unexpected error occurred' });
   }
 });
 
@@ -4392,7 +4562,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 });
 
 // ===================
-// IMAGE COMPRESSION HELPER
+// IMAGE PROCESSING HELPERS
 // ===================
 
 async function compressImageForCloudflare(imageBuffer, maxSizeBytes = 800000) { // 800KB target
@@ -4447,109 +4617,114 @@ async function compressImageForCloudflare(imageBuffer, maxSizeBytes = 800000) { 
   }
 }
 
+async function validateImageForTensor(imageBuffer) {
+  try {
+    const metadata = await sharp(imageBuffer).metadata();
+    
+    // Basic validation checks
+    const issues = [];
+    
+    if (!metadata.width || !metadata.height) {
+      issues.push('Missing image dimensions');
+    }
+    
+    if (metadata.width < 32 || metadata.height < 32) {
+      issues.push('Image too small (minimum 32x32)');
+    }
+    
+    if (metadata.width > 4096 || metadata.height > 4096) {
+      issues.push('Image too large (maximum 4096x4096)');
+    }
+    
+    // Check for supported formats
+    const supportedFormats = ['jpeg', 'jpg', 'png', 'webp', 'tiff', 'gif'];
+    if (metadata.format && !supportedFormats.includes(metadata.format.toLowerCase())) {
+      issues.push(`Unsupported format: ${metadata.format}`);
+    }
+    
+    if (issues.length > 0) {
+      console.warn('[IMAGE VALIDATE] Issues found:', issues);
+      return { valid: false, issues };
+    }
+    
+    console.log('[IMAGE VALIDATE] Image passed validation');
+    return { valid: true, issues: [] };
+    
+  } catch (error) {
+    console.error('[IMAGE VALIDATE] Validation error:', error.message);
+    return { valid: false, issues: [`Validation failed: ${error.message}`] };
+  }
+}
+
+async function standardizeImageForTensor(imageBuffer) {
+  try {
+    console.log('[IMAGE STANDARDIZE] Standardizing image for tensor processing');
+    
+    // First validate the image
+    const validation = await validateImageForTensor(imageBuffer);
+    if (!validation.valid) {
+      console.warn('[IMAGE STANDARDIZE] Image validation failed:', validation.issues);
+      // Continue anyway but with extra caution
+    }
+    
+    const metadata = await sharp(imageBuffer).metadata();
+    console.log('[IMAGE STANDARDIZE] Original:', {
+      format: metadata.format,
+      width: metadata.width,
+      height: metadata.height,
+      channels: metadata.channels,
+      density: metadata.density
+    });
+    
+    // Cloudflare tensor processing works best with:
+    // - Standard RGB channels (no alpha, no exotic color spaces)
+    // - Square or reasonable aspect ratios
+    // - Moderate resolution (512-1024px range)
+    // - Standard JPEG encoding
+    
+    const standardizedBuffer = await sharp(imageBuffer)
+      .resize(768, 768, { 
+        fit: 'inside', 
+        withoutEnlargement: true,
+        background: { r: 255, g: 255, b: 255, alpha: 1 } // White background for transparency
+      })
+      .removeAlpha() // Remove alpha channel that can cause tensor issues
+      .normalise() // Normalize brightness/contrast
+      .jpeg({ 
+        quality: 95,
+        progressive: false, // Non-progressive for better compatibility
+        mozjpeg: true,
+        chromaSubsampling: '4:4:4' // Preserve color information
+      })
+      .toBuffer();
+    
+    const newMetadata = await sharp(standardizedBuffer).metadata();
+    console.log('[IMAGE STANDARDIZE] Standardized:', {
+      format: newMetadata.format,
+      width: newMetadata.width,
+      height: newMetadata.height,
+      channels: newMetadata.channels,
+      sizeBytes: standardizedBuffer.length
+    });
+    
+    return standardizedBuffer;
+    
+  } catch (error) {
+    console.error('[IMAGE STANDARDIZE] Error standardizing image:', error);
+    return imageBuffer; // Return original if standardization fails
+  }
+}
+
 // ===================
 // FOOD ANALYSIS ENDPOINT
 // ===================
-
-// Import USDA service
-const USDAService = require('./services/usdaService');
-const usdaService = new USDAService();
-
-/**
- * Enhance AI-detected food items with USDA nutritional data
- * @param {Array} foodItems - Array of food items from AI analysis
- * @returns {Promise<Array>} Enhanced food items with USDA data
- */
-async function enhanceFoodItemsWithUSDA(foodItems) {
-  if (!foodItems || !Array.isArray(foodItems)) {
-    return foodItems;
-  }
-
-  const enhancedItems = [];
-  
-  for (const item of foodItems) {
-    try {
-      // Extract estimated serving size from AI analysis
-      let estimatedGrams = 100; // default
-      
-      // Try to parse quantity/serving info from AI
-      if (item.quantity) {
-        const quantityMatch = item.quantity.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|oz|ounce|ounces|cup|cups|tbsp|tsp)/i);
-        if (quantityMatch) {
-          const amount = parseFloat(quantityMatch[1]);
-          const unit = quantityMatch[2].toLowerCase();
-          
-          // Convert to grams
-          switch (unit) {
-            case 'oz': case 'ounce': case 'ounces':
-              estimatedGrams = amount * 28.35;
-              break;
-            case 'cup': case 'cups':
-              estimatedGrams = amount * 240; // approximate for most foods
-              break;
-            case 'tbsp':
-              estimatedGrams = amount * 15;
-              break;
-            case 'tsp':
-              estimatedGrams = amount * 5;
-              break;
-            case 'g': case 'gram': case 'grams':
-              estimatedGrams = amount;
-              break;
-          }
-        }
-      }
-      
-      // Try to get USDA data for this food item
-      const usdaNutrition = await usdaService.getNutritionByName(item.name, estimatedGrams);
-      
-      if (usdaNutrition) {
-        // Use USDA data as primary source
-        enhancedItems.push({
-          name: `${item.name} (USDA verified)`,
-          quantity: item.quantity || `${estimatedGrams}g`,
-          calories: usdaNutrition.calories,
-          protein: usdaNutrition.protein,
-          carbs: usdaNutrition.carbs,
-          fat: usdaNutrition.fat,
-          fiber: usdaNutrition.fiber,
-          sugar: usdaNutrition.sugar,
-          sodium: usdaNutrition.sodium,
-          source: 'USDA FoodData Central',
-          confidence: 'high',
-          fdcId: usdaNutrition.fdcId
-        });
-        
-        console.log(`[FOOD ANALYZE] Enhanced "${item.name}" with USDA data (FDC ID: ${usdaNutrition.fdcId})`);
-      } else {
-        // Keep AI estimation if USDA data not available
-        enhancedItems.push({
-          ...item,
-          source: 'AI estimation',
-          confidence: item.confidence || 'medium'
-        });
-        
-        console.log(`[FOOD ANALYZE] No USDA match for "${item.name}", using AI estimation`);
-      }
-    } catch (error) {
-      console.error(`[FOOD ANALYZE] Error enhancing "${item.name}" with USDA:`, error.message);
-      
-      // Fallback to original AI data
-      enhancedItems.push({
-        ...item,
-        source: 'AI estimation',
-        confidence: item.confidence || 'medium'
-      });
-    }
-  }
-  
-  return enhancedItems;
-}
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
   console.log('[FOOD ANALYZE] Received food analysis request');
   
   try {
+    // Ensure aiResponse is declared in the handler scope for both vision and text paths
+    let aiResponse = null;
     // Check if we have a file upload, base64 image, or text description
     if (!req.file && !req.body.image && !req.body.imageDescription) {
       return res.status(400).json({ 
@@ -4573,17 +4748,74 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
     if (req.body.imageDescription && !req.file) {
       console.log('[FOOD ANALYZE] Text-only analysis path');
       const description = String(req.body.imageDescription).slice(0, 2000);
+      console.log('[FOOD ANALYZE] Processing description:', description);
       const messages = [
         {
           role: 'system',
-          content: 'You are an expert nutritionist. Return ONLY valid JSON, no prose.'
+          content: `You are an expert nutritionist and culinary AI specialist with deep knowledge of global cuisines, cooking methods, and dish recognition. Analyze this food description and provide detailed nutritional information.
+
+CRITICAL INSTRUCTIONS FOR DISH RECOGNITION:
+1. FIRST identify the SPECIFIC DISH NAME (e.g., "French Toast", "Pad Thai", "Sushi Roll", "Beef Tacos", "Margherita Pizza")
+2. Identify the CUISINE TYPE (e.g., "American Breakfast", "Thai", "Japanese", "Mexican", "Italian")
+3. Recognize COOKING METHODS (e.g., "grilled", "fried", "baked", "steamed", "roasted")
+4. Identify ALL visible food items and ingredients
+5. Estimate portion sizes as accurately as possible
+6. Provide detailed nutritional breakdown including:
+   - Total calories
+   - Protein (grams)
+   - Carbohydrates (grams)
+   - Fat (grams)
+   - Fiber (grams)
+   - Sugar (grams)
+   - Sodium (mg)
+   - Any other relevant nutrients
+
+7. Be SPECIFIC about dish names, not generic descriptions:
+   - ✅ CORRECT: "French Toast with maple syrup and butter"
+   - ❌ WRONG: "triangular pieces of bread with toppings"
+   - ✅ CORRECT: "Pad Thai with shrimp, tofu, and peanuts"
+   - ❌ WRONG: "noodles with vegetables and meat"
+
+8. If the description is unclear or contains multiple items, make your best estimate
+9. Return ONLY a valid JSON object with the following structure:
+
+{
+  "dishName": "Specific dish name (e.g., 'French Toast', 'Pad Thai')",
+  "cuisineType": "Cuisine category (e.g., 'American Breakfast', 'Thai')",
+  "cookingMethod": "How it was prepared (e.g., 'pan-fried', 'grilled')",
+  "foodItems": [
+    {
+      "name": "Specific ingredient name",
+      "quantity": "Estimated portion (e.g., '2 slices', '1 cup')",
+      "calories": 100,
+      "protein": 5,
+      "carbs": 20,
+      "fat": 2,
+      "fiber": 3,
+      "sugar": 15,
+      "sodium": 50
+    }
+  ],
+  "totalNutrition": {
+    "calories": 500,
+    "protein": 25,
+    "carbs": 60,
+    "fat": 15,
+    "fiber": 8,
+    "sugar": 30,
+    "sodium": 200
+  },
+  "confidence": "high|medium|low",
+  "notes": "Specific observations about the dish, presentation, and analysis"
+}
+
+IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just describing what you see. Think like a chef or food critic who knows specific dish names. Return ONLY valid JSON, no prose.`
         },
         {
           role: 'user',
-          content: `Analyze this food description and estimate nutrition as JSON with keys: foodItems[], totals{calories,protein,carbs,fat,fiber,sugar,sodium}. If unknown, estimate sensible values. Description: "${description}"`
+          content: `Analyze this food description: "${description}"`
         }
       ];
-      let aiResponse = null;
       const deepseekAvailable = !!getProviderConfig('deepseek');
       try {
         if (deepseekAvailable) {
@@ -4594,16 +4826,20 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
           console.log('[FOOD ANALYZE] All AI providers failed, using direct rule-based fallback');
           // Use direct fallback function instead of callAI with 'fallback' provider
           const fallbackResult = analyzeFoodWithFallback(description);
-          const content = fallbackResult.choices[0].message.content;
           try {
-            const nutritionData = JSON.parse(content);
-            return res.json({ success: true, ...nutritionData });
+            // Extract the nutrition data from the fallback result
+            const fallbackContent = fallbackResult.choices[0].message.content;
+            const nutritionData = JSON.parse(fallbackContent);
+            return res.json({
+              success: true,
+              data: nutritionData.nutrition
+            });
           } catch (parseError) {
-            console.error('[FOOD ANALYZE] Fallback JSON parse error:', parseError);
+            console.error('[FOOD ANALYZE] Fallback error:', parseError);
             // Return a safe fallback response
-        return res.json({
-          success: true,
-              nutrition: {
+            return res.json({
+              success: true,
+              data: {
                 food_name: description || "Unknown Food",
                 calories: 0,
                 protein: 0,
@@ -4611,13 +4847,11 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
                 fat: 0,
                 fiber: 0,
                 confidence: "low"
-              },
-              fallback: true,
-              warning: "Analysis temporarily unavailable"
+              }
             });
           }
         }
-        
+
         // Handle different response formats
         let content;
         if (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
@@ -4630,27 +4864,7 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
           throw new Error('Invalid AI response format');
         }
         
-        let nutritionData = JSON.parse(content);
-        
-        // Enhance with USDA data if available
-        if (nutritionData.foodItems) {
-          console.log('[FOOD ANALYZE] Enhancing text analysis with USDA data...');
-          nutritionData.foodItems = await enhanceFoodItemsWithUSDA(nutritionData.foodItems);
-          
-          // Recalculate totals
-          if (nutritionData.foodItems.length > 0) {
-            nutritionData.totals = {
-              calories: nutritionData.foodItems.reduce((sum, item) => sum + (item.calories || 0), 0),
-              protein: nutritionData.foodItems.reduce((sum, item) => sum + (item.protein || 0), 0),
-              carbs: nutritionData.foodItems.reduce((sum, item) => sum + (item.carbs || 0), 0),
-              fat: nutritionData.foodItems.reduce((sum, item) => sum + (item.fat || 0), 0),
-              fiber: nutritionData.foodItems.reduce((sum, item) => sum + (item.fiber || 0), 0),
-              sugar: nutritionData.foodItems.reduce((sum, item) => sum + (item.sugar || 0), 0),
-              sodium: nutritionData.foodItems.reduce((sum, item) => sum + (item.sodium || 0), 0)
-            };
-          }
-        }
-        
+        const nutritionData = JSON.parse(content);
         return res.json({ success: true, ...nutritionData });
       } catch (err) {
         console.error('[FOOD ANALYZE] Error in text-only analysis:', err);
@@ -4705,7 +4919,26 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
 
     // Convert image to base64 for AI analysis
     let imageBuffer = fs.readFileSync(foodImage.path);
-      
+
+      // If HEIC/HEIF, convert to JPEG for compatibility
+      const isHeic = (foodImage.mimetype || '').toLowerCase().includes('heic') || (foodImage.mimetype || '').toLowerCase().includes('heif') || /\.heic$|\.heif$/i.test(foodImage.originalname || '');
+      if (isHeic) {
+        console.log('[FOOD ANALYZE] Converting HEIC/HEIF to JPEG for iOS compatibility');
+        console.log('[FOOD ANALYZE] Original HEIC file details:', {
+          originalname: foodImage.originalname,
+          mimetype: foodImage.mimetype,
+          size: foodImage.size
+        });
+        try {
+          imageBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
+          mimeType = 'image/jpeg';
+          console.log('[FOOD ANALYZE] HEIC conversion successful, new size:', imageBuffer.length);
+        } catch (convErr) {
+          console.warn('[FOOD ANALYZE] HEIC conversion failed, proceeding with original buffer:', convErr.message);
+          // Fallback to original buffer and detected mimetype
+        }
+      }
+
       // Compress image if it's too large for Cloudflare
       if (imageBuffer.length > 800000) { // 800KB threshold for compression
         console.log('[FOOD ANALYZE] Image too large, compressing...');
@@ -4713,7 +4946,7 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       }
       
       base64Image = imageBuffer.toString('base64');
-      mimeType = foodImage.mimetype || 'image/jpeg';
+      mimeType = mimeType || foodImage.mimetype || 'image/jpeg';
     } else {
       return res.status(400).json({ 
         success: false, 
@@ -4721,43 +4954,41 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       });
     }
 
-    // Prepare the AI prompt for food analysis
+    // Prepare the AI prompt for food analysis using Llava 1.5
     const prompt = `
-You are an expert nutritionist and food recognition AI. Analyze this food image and identify ALL visible food items with realistic nutrition estimates.
+You are an expert nutritionist and culinary AI specialist. Analyze this food image and provide accurate nutritional information and dish recognition.
 
-CRITICAL FOOD NAMING RULES:
-1. NEVER use generic names like "Mixed meal", "Food item", "Detected meal", or "Unknown food"
-2. Give SPECIFIC, descriptive names for dishes (e.g., "Scrambled Eggs with Toast", "Chicken Teriyaki Bowl", "Beef Stir Fry")
-3. If it's a combination dish, name it as a recognizable meal (e.g., "Fried Rice with Vegetables", "Grilled Salmon with Quinoa")
-4. For single items, be specific about preparation (e.g., "Grilled Chicken Breast", "Steamed Broccoli", "Whole Wheat Toast")
-5. If you can't identify the exact dish, describe what you can see (e.g., "Pan-Seared Fish with Vegetables", "Rice Bowl with Protein")
+CRITICAL INSTRUCTIONS:
+1. FIRST identify the SPECIFIC DISH NAME (e.g., "Scrambled Eggs", "Bowl of Cereal", "French Toast", "Oatmeal")
+2. Identify the CUISINE TYPE (e.g., "American Breakfast", "Continental", "Asian")
+3. Recognize COOKING METHODS (e.g., "scrambled", "fried", "baked", "steamed")
+4. Identify ALL visible food items and ingredients
+5. Estimate portion sizes accurately
+6. Provide detailed nutritional breakdown including:
+   - Total calories
+   - Protein (grams)
+   - Carbohydrates (grams)
+   - Fat (grams)
+   - Fiber (grams)
+   - Sugar (grams)
+   - Sodium (mg)
 
-FOOD IDENTIFICATION GUIDELINES:
-1. Look carefully at the image and identify EVERY food item you can see
-2. Be specific with food names - describe cooking method, ingredients, and style
-3. Include side dishes, vegetables, sauces, and condiments if visible
-4. If you see multiple similar items, count them (e.g., "2 steamed buns", "3 pieces of grilled chicken")
-5. Estimate portion sizes based on what's actually visible in the image
-6. Set confidence to "high" if you can clearly identify foods, "medium" if somewhat clear, "low" only if very unclear
+7. Be SPECIFIC about dish names:
+   - ✅ CORRECT: "Scrambled Eggs with Toast"
+   - ❌ WRONG: "eggs and bread"
+   - ✅ CORRECT: "Bowl of Cereal with Berries"
+   - ❌ WRONG: "breakfast food"
 
-MEAL NAMING EXAMPLES:
-- Instead of "Mixed meal with egg" → "Scrambled Eggs with Toast"
-- Instead of "Food with rice" → "Chicken Fried Rice" or "Vegetable Rice Bowl"
-- Instead of "Detected meal" → "Grilled Chicken Salad" or "Pasta with Marinara Sauce"
-- Instead of "Mixed dish" → "Beef and Broccoli Stir Fry"
+8. Return ONLY a valid JSON object with this structure:
 
-NUTRITION ESTIMATION:
-1. Provide realistic nutrition data for each identified food item
-2. Use typical serving sizes and nutrition values for the foods you identify
-3. Include all macronutrients: calories, protein, carbs, fat, fiber, sugar, sodium
-4. If you're unsure about exact values, provide reasonable estimates
-
-RESPONSE FORMAT - Return ONLY valid JSON:
 {
+  "dishName": "Specific dish name",
+  "cuisineType": "Cuisine category",
+  "cookingMethod": "How it was prepared",
   "foodItems": [
     {
-      "name": "Specific descriptive food name (e.g., 'Scrambled Eggs with Whole Wheat Toast', 'Grilled Chicken Caesar Salad', 'Beef and Vegetable Stir Fry')",
-      "quantity": "Realistic portion (e.g., '1 medium serving', '1/2 cup', '2 pieces')",
+      "name": "Specific ingredient name",
+      "quantity": "Estimated portion",
       "calories": 100,
       "protein": 5,
       "carbs": 20,
@@ -4777,12 +5008,10 @@ RESPONSE FORMAT - Return ONLY valid JSON:
     "sodium": 200
   },
   "confidence": "high|medium|low",
-  "notes": "Brief description of what you see in the image"
+  "notes": "Specific observations about the dish"
 }
 
-IMPORTANT: Be thorough and identify ALL visible foods. Give each food item a SPECIFIC, descriptive name that users would recognize. Avoid vague or generic names at all costs.
-
-Analyze the following food image and provide comprehensive nutrition information for what you can see.
+Analyze the following food image:
 `;
 
     // Use vision-capable AI to analyze the actual image content
@@ -4797,9 +5026,15 @@ Analyze the following food image and provide comprehensive nutrition information
         throw new Error('Image too large for vision analysis');
       }
       
-      // Check if image is too small (more reasonable threshold)
-      if (base64Image.length < 100) {
+      // Check if image is too small
+      if (base64Image.length < 1000) {
         console.warn('[FOOD ANALYZE] Image too small for vision analysis, using fallback');
+        console.log('[FOOD ANALYZE] Image size details:', {
+          base64Length: base64Image.length,
+          originalSize: req.file?.size,
+          filename: req.file?.originalname,
+          mimetype: req.file?.mimetype
+        });
         throw new Error('Image too small for vision analysis');
       }
 
@@ -4812,54 +5047,106 @@ Analyze the following food image and provide comprehensive nutrition information
       // Check if Cloudflare credentials are configured
       if (!CF_ACCOUNT_ID || !CF_API_TOKEN || CF_ACCOUNT_ID === 'your_cloudflare_account_id_here' || CF_API_TOKEN === 'your_cloudflare_api_token_here') {
         console.log('[FOOD ANALYZE] Cloudflare credentials not configured, skipping vision analysis');
-        console.log('[FOOD ANALYZE] CF_ACCOUNT_ID present:', !!CF_ACCOUNT_ID);
-        console.log('[FOOD ANALYZE] CF_API_TOKEN present:', !!CF_API_TOKEN);
-        throw new Error('Cloudflare credentials not configured');
+        throw new Error('Cloudflare credentials not configured. Please set CF_ACCOUNT_ID and CF_API_TOKEN with Workers AI permissions.');
       }
       
-      console.log('[FOOD ANALYZE] Using Cloudflare Account ID:', CF_ACCOUNT_ID?.substring(0, 8) + '...');
-      console.log('[FOOD ANALYZE] Using Cloudflare API Token (first 8 chars):', CF_API_TOKEN?.substring(0, 8) + '...');
+      // Add detailed debugging for Cloudflare configuration
+      console.log('[FOOD ANALYZE] Cloudflare Debug Info:');
+      console.log('- CF_ACCOUNT_ID length:', CF_ACCOUNT_ID.length);
+      console.log('- CF_API_TOKEN length:', CF_API_TOKEN.length);
+      console.log('- CF_VISION_MODEL:', CF_VISION_MODEL);
       
       // DeepSeek doesn't support vision, so use Cloudflare for image analysis
       console.log('[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis');
       console.log('[FOOD ANALYZE] Using vision model:', CF_VISION_MODEL);
       
-      // Convert base64 to byte array for Cloudflare API
-      const imageBuffer = Buffer.from(base64Image, 'base64');
-      const imageArray = Array.from(imageBuffer);
+      // Standardize image for tensor processing to prevent decode errors
+      console.log('[FOOD ANALYZE] Standardizing image for tensor processing');
+      try {
+        const originalBuffer = Buffer.from(base64Image, 'base64');
+        const standardizedBuffer = await standardizeImageForTensor(originalBuffer);
+        base64Image = standardizedBuffer.toString('base64');
+        mimeType = 'image/jpeg';
+        console.log('[FOOD ANALYZE] Image standardized, new size:', base64Image.length);
+      } catch (standardizeErr) {
+        console.warn('[FOOD ANALYZE] Image standardization failed, using original:', standardizeErr.message);
+        
+        // Fallback: basic JPEG conversion
+        if (!mimeType.includes('jpeg') && !mimeType.includes('jpg')) {
+          console.log('[FOOD ANALYZE] Converting image to JPEG for LLaVA compatibility');
+          try {
+            const jpegBuffer = await sharp(Buffer.from(base64Image, 'base64'))
+              .jpeg({ quality: 85, mozjpeg: true })
+              .toBuffer();
+            base64Image = jpegBuffer.toString('base64');
+            mimeType = 'image/jpeg';
+            console.log('[FOOD ANALYZE] Image converted to JPEG, new size:', base64Image.length);
+          } catch (conversionErr) {
+            console.warn('[FOOD ANALYZE] Image conversion failed:', conversionErr.message);
+          }
+        }
+      }
+
+      // Use data URI for Cloudflare API (recommended payload format)
+      const dataUri = `data:${mimeType};base64,${base64Image}`;
       
-      // Cloudflare vision API format - Fixed for correct API structure
-      const visionRequestBody = {
-        prompt: prompt,
-        image: imageArray,
-        max_tokens: 1000,
-        agree: true  // Required license agreement for Cloudflare models
-      };
+      // Build request body according to Cloudflare model
+      const isLlavaModel = /llava/i.test(CF_VISION_MODEL);
+      const isUformModel = /uform/i.test(CF_VISION_MODEL);
+      let visionRequestBody;
+      if (isLlavaModel) {
+        visionRequestBody = {
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: dataUri }
+              ]
+            }
+          ],
+          max_tokens: 1000
+        };
+        console.log('[FOOD ANALYZE] Using LLaVA request format');
+      } else if (isUformModel) {
+        visionRequestBody = {
+          input_text: prompt,
+          input_image: dataUri
+        };
+        console.log('[FOOD ANALYZE] Using UForm request format');
+      } else {
+        // Generic format fallback
+        visionRequestBody = {
+          prompt: prompt,
+          image: dataUri,
+          stream: false,
+          max_tokens: 1000
+        };
+        console.log('[FOOD ANALYZE] Using generic request format');
+      }
       
-      console.log('[FOOD ANALYZE] Making Cloudflare API call to:', `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`);
+      // Define cloudflareUrl outside try block scope for retry access
+      const cloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
+      console.log('[FOOD ANALYZE] Making Cloudflare API call to:', cloudflareUrl);
+      console.log('[FOOD ANALYZE] Cloudflare URL details:', {
+        accountIdLength: CF_ACCOUNT_ID.length,
+        modelSlug: CF_VISION_MODEL,
+        modelSlugLength: CF_VISION_MODEL.length,
+      });
       console.log('[FOOD ANALYZE] Request body keys:', Object.keys(visionRequestBody));
-      console.log('[FOOD ANALYZE] Image array length:', imageArray.length);
       
-      // Make Cloudflare vision API call with proper timeout from environment
-      const VISION_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default
-      console.log('[FOOD ANALYZE] Using vision timeout:', VISION_TIMEOUT, 'ms');
-      
-      const visionResponse = await axios.post(
-        `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
+      // Make Cloudflare vision API call
+      let visionResponse = await axios.post(
+        cloudflareUrl,
         visionRequestBody,
         {
           headers: {
             'Authorization': `Bearer ${CF_API_TOKEN}`,
             'Content-Type': 'application/json'
           },
-          timeout: VISION_TIMEOUT
+          timeout: 60000 // 1 minute timeout for vision analysis
         }
-      ).catch(error => {
-        console.error('[FOOD ANALYZE] Cloudflare API error:', error.response?.status, error.response?.statusText);
-        console.error('[FOOD ANALYZE] Cloudflare API error data:', JSON.stringify(error.response?.data, null, 2));
-        console.error('[FOOD ANALYZE] Request URL:', `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`);
-        throw error;
-      });
+      );
       
       console.log('[FOOD ANALYZE] Cloudflare API response status:', visionResponse.status);
       console.log('[FOOD ANALYZE] Cloudflare API response keys:', Object.keys(visionResponse.data || {}));
@@ -4900,6 +5187,9 @@ Analyze the following food image and provide comprehensive nutrition information
       };
       
       console.log('[FOOD ANALYZE] Vision analysis successful');
+      
+
+      
     } catch (visionError) {
       console.log('[FOOD ANALYZE] Vision analysis failed:', visionError.message);
       console.log('[FOOD ANALYZE] Vision error details:', {
@@ -4908,18 +5198,256 @@ Analyze the following food image and provide comprehensive nutrition information
         data: visionError.response?.data,
         headers: visionError.response?.headers
       });
-      
-      // Handle specific error cases
-      if (visionError.response?.status === 413) {
-        throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
-      } else if (visionError.response?.status === 400) {
-        throw new Error('Invalid image format. Please use a clear photo of food.');
-      } else if (visionError.response?.status === 429) {
-        throw new Error('Too many requests. Please try again in a moment.');
+
+      // Provide clearer guidance for common Cloudflare API errors
+      try {
+        const errData = visionError.response?.data;
+        const cfErrors = Array.isArray(errData?.errors) ? errData.errors : [];
+        const cfCode = cfErrors[0]?.code;
+        const cfMessage = cfErrors[0]?.message;
+        
+        if (visionError.response?.status === 400 && cfCode === 7000) {
+          console.warn('[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:');
+          console.warn('- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI');
+          console.warn('- Model slug is unavailable for this account');
+          console.warn('- API token permissions are insufficient (needs Workers AI access)');
+        } else if (visionError.response?.status === 403 && cfCode === 9109) {
+          console.warn('[FOOD ANALYZE] Cloudflare returned code 9109 (Unauthorized). This indicates:');
+          console.warn('- API token does not have Workers AI permissions');
+          console.warn('- Account may not have Workers AI enabled');
+          console.warn('- Token may be incorrect or expired');
+        } else if (visionError.response?.status === 405 && cfCode === 10000) {
+          console.warn('[FOOD ANALYZE] Cloudflare returned code 10000 (Method not allowed). This indicates:');
+          console.warn('- Using wrong authentication method for Workers AI');
+          console.warn('- API token type may be incorrect');
+        }
+        
+        console.warn('[FOOD ANALYZE] Cloudflare error details:', {
+          status: visionError.response?.status,
+          code: cfCode,
+          message: cfMessage
+        });
+        
+        // Check for specific tensor errors and attempt fix
+        if (cfMessage && cfMessage.includes('failed to build tensor image')) {
+          console.log('[FOOD ANALYZE] Tensor error detected - attempting advanced image fix');
+          
+          try {
+            // Reconstruct variables in retry scope (ensure they're accessible)
+            const retryCloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
+            const retryPrompt = `You are an expert nutritionist analyzing food images. Analyze this food image and provide detailed nutritional information.
+
+CRITICAL: You must identify the SPECIFIC DISH NAME and cuisine type, not just describe what you see.
+
+RESPONSE FORMAT: Return ONLY a valid JSON object with this structure:
+
+{
+  "dishName": "Specific dish name (e.g., 'Scrambled Eggs with Toast')",
+  "cuisineType": "Cuisine category (e.g., 'American Breakfast')",
+  "cookingMethod": "How it was prepared (e.g., 'scrambled', 'fried')",
+  "foodItems": [
+    {
+      "name": "Specific ingredient name",
+      "quantity": "Estimated portion",
+      "calories": 100,
+      "protein": 5,
+      "carbs": 20,
+      "fat": 2,
+      "fiber": 3,
+      "sugar": 15,
+      "sodium": 50
+    }
+  ],
+  "totalNutrition": {
+    "calories": 500,
+    "protein": 25,
+    "carbs": 60,
+    "fat": 15,
+    "fiber": 8,
+    "sugar": 30,
+    "sodium": 200
+  },
+  "confidence": "high|medium|low",
+  "notes": "Specific observations about the dish"
+}
+
+Analyze the following food image:
+`;
+            
+            // Use enhanced standardization for tensor error recovery
+            console.log('[FOOD ANALYZE] Applying advanced tensor-safe image processing');
+            const originalBuffer = Buffer.from(base64Image, 'base64');
+            const fixedBuffer = await standardizeImageForTensor(originalBuffer);
+            
+            const fixedBase64 = fixedBuffer.toString('base64');
+            const fixedDataUri = `data:image/jpeg;base64,${fixedBase64}`;
+            
+            console.log('[FOOD ANALYZE] Retrying with tensor-safe standardized image');
+            
+            const retryRequestBody = {
+              prompt: retryPrompt,
+              image: fixedDataUri,
+              stream: false,
+              max_tokens: 1000
+            };
+            
+            const retryResponse = await axios.post(
+              retryCloudflareUrl,
+              retryRequestBody,
+              {
+                headers: {
+                  'Authorization': `Bearer ${CF_API_TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 60000
+              }
+            );
+            
+            console.log('[FOOD ANALYZE] Tensor error fix successful');
+            
+            // Extract the actual content from Cloudflare retry response
+            let cloudflareContent = retryResponse.data.result;
+            
+            // If result is an object, try to extract the response text
+            if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
+              console.log('[FOOD ANALYZE] Cloudflare result is object, keys:', Object.keys(cloudflareContent));
+              cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.content || JSON.stringify(cloudflareContent);
+            }
+            
+            // If still no content, try other response fields
+            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+              cloudflareContent = retryResponse.data.response || retryResponse.data.text || retryResponse.data.content;
+            }
+            
+            // If still no string content, use the full response data
+            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+              console.log('[FOOD ANALYZE] No string content found, using full response data');
+              cloudflareContent = JSON.stringify(retryResponse.data);
+            }
+            
+            console.log('[FOOD ANALYZE] Final content type:', typeof cloudflareContent);
+            console.log('[FOOD ANALYZE] Final content preview:', String(cloudflareContent).slice(0, 200) + '...');
+            
+            aiResponse = {
+              data: {
+                choices: [{
+                  message: {
+                    content: cloudflareContent
+                  }
+                }]
+              }
+            };
+            
+            console.log('[FOOD ANALYZE] Vision analysis successful after tensor fix');
+            
+            // Skip to content processing (don't throw error)
+            // Continue with normal flow below
+            
+          } catch (retryError) {
+            console.warn('[FOOD ANALYZE] Image fix retry also failed:', retryError.message);
+            // Continue to normal error handling below
+          }
+        }
+      } catch (_) {
+        // noop
       }
       
-      // NO FALLBACK - Fail fast and return error
-      throw new Error(`Vision analysis failed: ${visionError.message}`);
+      // Handle specific error cases (only if retry didn't succeed)
+      if (!aiResponse) {
+        // Auto-fallback: if LLaVA route is unavailable for this account, retry with UForm vision model
+        try {
+          const errData = visionError.response?.data;
+          const cfErrors = Array.isArray(errData?.errors) ? errData.errors : [];
+          const cfCode = cfErrors[0]?.code;
+          const isLlava = /llava/i.test(CF_VISION_MODEL);
+          if (visionError.response?.status === 400 && cfCode === 7000 && isLlava) {
+            console.warn('[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model');
+            const fallbackModel = '@cf/unum-cloud/uform-gen2-qwen-500m';
+            const retryCloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${fallbackModel}`;
+            const dataUri = `data:${mimeType};base64,${base64Image}`;
+            const retryBody = { input_text: prompt, input_image: dataUri };
+            console.log('[FOOD ANALYZE] UForm fallback request URL:', retryCloudflareUrl);
+            console.log('[FOOD ANALYZE] UForm fallback body keys:', Object.keys(retryBody));
+            const retryResponse = await axios.post(
+              retryCloudflareUrl,
+              retryBody,
+              {
+                headers: {
+                  'Authorization': `Bearer ${CF_API_TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 60000
+              }
+            );
+            console.log('[FOOD ANALYZE] UForm fallback response status:', retryResponse.status);
+            let cloudflareContent = retryResponse.data.result;
+            if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
+              cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.description || cloudflareContent.content || JSON.stringify(cloudflareContent);
+            }
+            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+              cloudflareContent = retryResponse.data.response || retryResponse.data.text || retryResponse.data.description || retryResponse.data.content;
+            }
+            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
+              cloudflareContent = JSON.stringify(retryResponse.data);
+            }
+            aiResponse = {
+              data: {
+                choices: [{ message: { content: cloudflareContent } }]
+              }
+            };
+            console.log('[FOOD ANALYZE] Vision analysis successful using UForm fallback');
+          }
+        } catch (fallbackErr) {
+          console.warn('[FOOD ANALYZE] UForm fallback failed:', fallbackErr.message);
+        }
+
+        if (aiResponse) {
+          // Fallback succeeded; continue normally
+        } else {
+          // Do NOT throw here. Leave aiResponse as null so that downstream unified fallback can handle gracefully.
+          console.warn('[FOOD ANALYZE] Vision analysis did not produce a response. Falling back to safe placeholder.');
+        }
+      }
+    }
+    
+    // If we get here, aiResponse should be set either from successful vision analysis or retry
+    if (!aiResponse) {
+      console.error('[FOOD ANALYZE] Error: aiResponse is not defined - this should not happen');
+      // Provide a fallback response instead of throwing an error
+      const fallbackResult = {
+        dishName: "Unknown Food",
+        cuisineType: "Unknown",
+        cookingMethod: "Unknown",
+        foodItems: [
+          {
+            name: "Unknown Food",
+            quantity: "1 serving",
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            fiber: 0,
+            sugar: 0,
+            sodium: 0
+          }
+        ],
+        totalNutrition: {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          fiber: 0,
+          sugar: 0,
+          sodium: 0
+        },
+        confidence: "low",
+        notes: "Analysis failed - please try again"
+      };
+      
+      return res.json({
+        success: true,
+        data: fallbackResult
+      });
     }
 
     const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
@@ -4929,160 +5457,49 @@ Analyze the following food image and provide comprehensive nutrition information
     }
 
     // Parse the AI response
-    let analysisResult = findAndParseJson(aiContent);
+    const analysisResult = findAndParseJson(aiContent);
     if (!analysisResult) {
       console.error('[FOOD ANALYZE] Failed to parse AI response. Preview:', String(aiContent).slice(0, 500) + '...');
       throw new Error('Failed to parse AI response');
     }
 
-    // Apply confidence filtering and accuracy validation
-    if (analysisResult.confidence === 'low') {
-      console.warn('[FOOD ANALYZE] Low confidence result, applying gentle filtering');
-      // For low confidence, be more lenient - only remove obviously invalid items
-      analysisResult.foodItems = analysisResult.foodItems.filter(item => {
-        // Keep items that have a reasonable name and nutrition data
-        const hasValidName = item.name && item.name.length > 2;
-        const hasNutritionData = (item.calories || 0) > 0 || (item.protein || 0) > 0 || (item.carbs || 0) > 0 || (item.fat || 0) > 0;
-        const isNotGeneric = !item.name.toLowerCase().includes('unknown') && 
-                           !item.name.toLowerCase().includes('unclear') && 
-                           !item.name.toLowerCase().includes('food item') &&
-                           !item.name.toLowerCase().includes('generic');
+    // Now verify food items with USDA (for verification only, not nutrition)
+    try {
+      if (USDA_FDC_API_KEY && analysisResult?.foodItems) {
+        console.log('[FOOD ANALYZE] Verifying food items with USDA...');
         
-        return hasValidName && (hasNutritionData || isNotGeneric);
-      });
-      
-      // Recalculate totals after filtering
-      if (analysisResult.foodItems.length > 0) {
-        analysisResult.totalNutrition = {
-          calories: analysisResult.foodItems.reduce((sum, item) => sum + (item.calories || 0), 0),
-          protein: analysisResult.foodItems.reduce((sum, item) => sum + (item.protein || 0), 0),
-          carbs: analysisResult.foodItems.reduce((sum, item) => sum + (item.carbs || 0), 0),
-          fat: analysisResult.foodItems.reduce((sum, item) => sum + (item.fat || 0), 0),
-          fiber: analysisResult.foodItems.reduce((sum, item) => sum + (item.fiber || 0), 0),
-          sugar: analysisResult.foodItems.reduce((sum, item) => sum + (item.sugar || 0), 0),
-          sodium: analysisResult.foodItems.reduce((sum, item) => sum + (item.sodium || 0), 0)
-        };
-      }
-    }
-
-    // Validate we have reasonable results - but provide fallback instead of failing
-    if (!analysisResult.foodItems || analysisResult.foodItems.length === 0) {
-      console.log('[FOOD ANALYZE] No specific foods identified, creating intelligent meal name from AI response');
-      
-      // Create intelligent meal name based on detected ingredients
-      let mealName = "Home-Cooked Meal";
-      let estimatedCalories = 350;
-      let estimatedProtein = 20;
-      let estimatedCarbs = 40;
-      let estimatedFat = 12;
-      
-      if (aiContent && typeof aiContent === 'string') {
-        const lowerContent = aiContent.toLowerCase();
-        
-        // Detect specific meal types and ingredients
-        const mealPatterns = [
-          { keywords: ['egg', 'scrambled', 'fried egg'], name: 'Scrambled Eggs', calories: 280, protein: 18, carbs: 2, fat: 22 },
-          { keywords: ['rice', 'fried rice'], name: 'Fried Rice', calories: 380, protein: 12, carbs: 55, fat: 12 },
-          { keywords: ['chicken', 'grilled chicken'], name: 'Grilled Chicken Dish', calories: 420, protein: 35, carbs: 15, fat: 18 },
-          { keywords: ['beef', 'stir fry'], name: 'Beef Stir Fry', calories: 450, protein: 28, carbs: 25, fat: 25 },
-          { keywords: ['fish', 'salmon'], name: 'Fish Dish', calories: 320, protein: 30, carbs: 8, fat: 18 },
-          { keywords: ['pasta', 'noodle'], name: 'Pasta Dish', calories: 400, protein: 15, carbs: 60, fat: 12 },
-          { keywords: ['salad', 'lettuce', 'greens'], name: 'Fresh Salad', calories: 180, protein: 8, carbs: 15, fat: 12 },
-          { keywords: ['soup', 'broth'], name: 'Homemade Soup', calories: 220, protein: 12, carbs: 20, fat: 8 },
-          { keywords: ['sandwich', 'bread', 'toast'], name: 'Sandwich', calories: 350, protein: 18, carbs: 35, fat: 15 },
-          { keywords: ['pizza'], name: 'Pizza Slice', calories: 420, protein: 18, carbs: 45, fat: 18 },
-          { keywords: ['curry'], name: 'Curry Dish', calories: 380, protein: 22, carbs: 35, fat: 18 },
-          { keywords: ['bowl', 'rice bowl'], name: 'Rice Bowl', calories: 400, protein: 25, carbs: 45, fat: 15 }
-        ];
-        
-        // Find the best matching meal pattern
-        for (const pattern of mealPatterns) {
-          if (pattern.keywords.some(keyword => lowerContent.includes(keyword))) {
-            mealName = pattern.name;
-            estimatedCalories = pattern.calories;
-            estimatedProtein = pattern.protein;
-            estimatedCarbs = pattern.carbs;
-            estimatedFat = pattern.fat;
-            break;
-          }
-        }
-        
-        // If still generic, try to create a better name from multiple ingredients
-        if (mealName === "Home-Cooked Meal") {
-          const ingredients = [];
-          const ingredientMap = {
-            'chicken': 'Chicken', 'beef': 'Beef', 'pork': 'Pork', 'fish': 'Fish', 'salmon': 'Salmon',
-            'rice': 'Rice', 'noodle': 'Noodles', 'pasta': 'Pasta', 'bread': 'Bread',
-            'egg': 'Egg', 'vegetable': 'Vegetables', 'broccoli': 'Broccoli', 'carrot': 'Carrots'
-          };
-          
-          for (const [keyword, ingredient] of Object.entries(ingredientMap)) {
-            if (lowerContent.includes(keyword)) {
-              ingredients.push(ingredient);
-            }
-          }
-          
-          if (ingredients.length > 0) {
-            if (ingredients.length === 1) {
-              mealName = `${ingredients[0]} Dish`;
-            } else if (ingredients.length === 2) {
-              mealName = `${ingredients[0]} and ${ingredients[1]}`;
+        for (const foodItem of analysisResult.foodItems) {
+          try {
+            // Search USDA for this food item
+            const usdaSearchUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_FDC_API_KEY}&query=${encodeURIComponent(foodItem.name)}&pageSize=1`;
+            const usdaResponse = await axios.get(usdaSearchUrl, { timeout: 10000 });
+            
+            if (usdaResponse.data?.foods?.length > 0) {
+              // Mark as USDA verified
+              foodItem.usdaVerified = true;
+              foodItem.usdaFdcId = usdaResponse.data.foods[0].fdcId;
+              console.log(`[FOOD ANALYZE] USDA verified: ${foodItem.name}`);
             } else {
-              mealName = `${ingredients[0]} with ${ingredients[1]} and More`;
+              foodItem.usdaVerified = false;
+              console.log(`[FOOD ANALYZE] USDA not found: ${foodItem.name}`);
             }
+          } catch (usdaError) {
+            console.warn(`[FOOD ANALYZE] USDA verification failed for ${foodItem.name}:`, usdaError.message);
+            foodItem.usdaVerified = false;
           }
         }
+        
+        // Count verified items
+        const verifiedCount = analysisResult.foodItems.filter(item => item.usdaVerified).length;
+        analysisResult.usdaVerifiedCount = verifiedCount;
+        console.log(`[FOOD ANALYZE] USDA verification complete: ${verifiedCount}/${analysisResult.foodItems.length} items verified`);
       }
-      
-      analysisResult = {
-        foodItems: [
-          {
-            name: mealName,
-            quantity: "1 serving",
-            calories: estimatedCalories,
-            protein: estimatedProtein,
-            carbs: estimatedCarbs,
-            fat: estimatedFat,
-            fiber: Math.round(estimatedCarbs * 0.1), // Estimate 10% of carbs as fiber
-            sugar: Math.round(estimatedCarbs * 0.2), // Estimate 20% of carbs as sugar
-            sodium: 300
-          }
-        ],
-        totalNutrition: {
-          calories: estimatedCalories,
-          protein: estimatedProtein,
-          carbs: estimatedCarbs,
-          fat: estimatedFat,
-          fiber: Math.round(estimatedCarbs * 0.1),
-          sugar: Math.round(estimatedCarbs * 0.2),
-          sodium: 300
-        },
-        confidence: "medium",
-        notes: `AI identified this as "${mealName}". Nutrition values are estimated based on visual analysis. Please adjust if needed based on actual ingredients and portions.`
-      };
+    } catch (usdaError) {
+      console.warn('[FOOD ANALYZE] USDA verification failed:', usdaError.message);
+      // Don't fail the entire request - USDA verification is optional
     }
 
-    // Enhance food items with USDA nutritional data
-    console.log('[FOOD ANALYZE] Enhancing food items with USDA data...');
-    analysisResult.foodItems = await enhanceFoodItemsWithUSDA(analysisResult.foodItems);
-    
-    // Recalculate totals after USDA enhancement
-    if (analysisResult.foodItems && analysisResult.foodItems.length > 0) {
-      analysisResult.totalNutrition = {
-        calories: analysisResult.foodItems.reduce((sum, item) => sum + (item.calories || 0), 0),
-        protein: analysisResult.foodItems.reduce((sum, item) => sum + (item.protein || 0), 0),
-        carbs: analysisResult.foodItems.reduce((sum, item) => sum + (item.carbs || 0), 0),
-        fat: analysisResult.foodItems.reduce((sum, item) => sum + (item.fat || 0), 0),
-        fiber: analysisResult.foodItems.reduce((sum, item) => sum + (item.fiber || 0), 0),
-        sugar: analysisResult.foodItems.reduce((sum, item) => sum + (item.sugar || 0), 0),
-        sodium: analysisResult.foodItems.reduce((sum, item) => sum + (item.sodium || 0), 0)
-      };
-    }
-
-    // Add accuracy metadata
-    analysisResult.accuracy_note = "Analysis enhanced with USDA FoodData Central for verified nutrition data";
-    
-    console.log('[FOOD ANALYZE] Analysis completed successfully with', analysisResult.foodItems.length, 'food items detected (USDA enhanced)');
+    console.log('[FOOD ANALYZE] Analysis completed successfully');
     
     // Clean up the uploaded file
     try {
@@ -5100,55 +5517,35 @@ Analyze the following food image and provide comprehensive nutrition information
     });
 
   } catch (error) {
-    const errorDetails = error?.response?.data || error?.message || String(error);
-    console.error('[FOOD ANALYZE] Analysis failed:', errorDetails);
+    const statusFromUpstream = error?.response?.status;
+    const messageFromUpstream = error?.response?.data || error?.message || String(error);
+    console.error('[FOOD ANALYZE] Error:', messageFromUpstream);
 
-    // Check if this is an abort/timeout error and provide helpful fallback
-    if (errorDetails.includes('Aborted') || errorDetails.includes('timeout') || errorDetails.includes('aborted')) {
-      console.log('[FOOD ANALYZE] Request was aborted/timed out, providing fallback response');
-      
-      // Provide a helpful fallback response
-      const fallbackResult = {
-        foodItems: [
-          {
-            name: "Mixed meal (analysis interrupted)",
-            quantity: "1 serving",
-            calories: 400,
-            protein: 25,
-            carbs: 45,
-            fat: 15,
-            fiber: 5,
-            sugar: 10,
-            sodium: 350
-          }
-        ],
-        totalNutrition: {
-          calories: 400,
-          protein: 25,
-          carbs: 45,
-          fat: 15,
-          fiber: 5,
-          sugar: 10,
-          sodium: 350
-        },
-        confidence: "low",
-        notes: "Food analysis was interrupted due to network issues. Please try again or manually adjust the nutrition values based on what you ate."
-      };
+    // Map known cases to client errors
+    let httpStatus = 500;
+    let clientMessage = 'Vision analysis failed';
 
-      return res.json({
-        success: true,
-        data: fallbackResult,
-        fallback: true
-      });
+    if (typeof messageFromUpstream === 'string') {
+      if (messageFromUpstream.includes('Invalid base64 image') || messageFromUpstream.includes('Invalid image format')) {
+        httpStatus = 400; clientMessage = 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).';
+      } else if (messageFromUpstream.includes('Image too large')) {
+        httpStatus = 413; clientMessage = 'Image too large. Please use a smaller image (max ~1MB).';
+      } else if (messageFromUpstream.includes('Too many requests')) {
+        httpStatus = 429; clientMessage = 'Too many requests. Please try again shortly.';
+      } else if (messageFromUpstream.includes('Cloudflare credentials not configured')) {
+        httpStatus = 503; clientMessage = 'Vision service temporarily unavailable.';
+      }
     }
+    if (statusFromUpstream === 400) httpStatus = 400;
+    if (statusFromUpstream === 413) httpStatus = 413;
+    if (statusFromUpstream === 429) httpStatus = 429;
 
-    // For other errors, return error response
-    res.status(500).json({
+    res.status(httpStatus).json({
         success: false,
-      error: 'Food analysis failed',
-      message: errorDetails,
+      error: clientMessage,
+      message: typeof messageFromUpstream === 'string' ? messageFromUpstream : undefined,
       details: {
-        status: error?.response?.status,
+        status: statusFromUpstream,
         statusText: error?.response?.statusText
       }
     });
