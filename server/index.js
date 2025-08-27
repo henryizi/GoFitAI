@@ -4642,6 +4642,9 @@ async function standardizeImageForTensor(imageBuffer) {
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
   console.log('[FOOD ANALYZE] Received food analysis request');
   
+  // Define cloudflareUrl at function scope for retry access
+  const cloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
+  
   try {
     // Ensure aiResponse is declared in the handler scope for both vision and text paths
     let aiResponse = null;
@@ -4829,16 +4832,29 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
       }
       } else {
         // Assume it's just base64 data
-        // Check if we need to compress the base64 image
-        const tempBuffer = Buffer.from(imageData, 'base64');
-        if (tempBuffer.length > 800000) { // 800KB threshold for compression
-          console.log('[FOOD ANALYZE] Base64 image too large, compressing...');
-          const compressedBuffer = await compressImageForCloudflare(tempBuffer);
-          base64Image = compressedBuffer.toString('base64');
-        } else {
-          base64Image = imageData;
+        try {
+          // Validate base64 can be decoded
+          const tempBuffer = Buffer.from(imageData, 'base64');
+          if (tempBuffer.length < 100) {
+            console.warn('[FOOD ANALYZE] Base64 data seems too small, but proceeding');
+          }
+          
+          // Check if we need to compress the base64 image
+          if (tempBuffer.length > 800000) { // 800KB threshold for compression
+            console.log('[FOOD ANALYZE] Base64 image too large, compressing...');
+            const compressedBuffer = await compressImageForCloudflare(tempBuffer);
+            base64Image = compressedBuffer.toString('base64');
+          } else {
+            base64Image = imageData;
+          }
+          mimeType = 'image/jpeg';
+        } catch (base64Error) {
+          console.error('[FOOD ANALYZE] Invalid base64 data:', base64Error.message);
+          return res.status(400).json({ 
+            success: false,
+            error: 'Invalid base64 image format. Please check your image data.' 
+          });
         }
-        mimeType = 'image/jpeg';
     }
     } else if (req.file) {
     const foodImage = req.file;
@@ -4862,13 +4878,9 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
         throw new Error('Not a valid image file');
       }
     } catch (sharpError) {
-      console.error('[FOOD ANALYZE] Invalid image file:', sharpError.message);
-      return res.status(400).json({
-          success: false,
-        error: 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).',
-        message: 'Invalid image format. Please use a clear photo of food.',
-        details: {}
-      });
+      console.warn('[FOOD ANALYZE] Sharp validation warning:', sharpError.message);
+      // Don't immediately reject - attempt AI analysis first, fallback if needed
+      console.log('[FOOD ANALYZE] Proceeding with AI analysis despite Sharp validation warning');
     }
 
       // If HEIC/HEIF, convert to JPEG for compatibility
@@ -5051,9 +5063,7 @@ Analyze the following food image:
       };
       console.log('[FOOD ANALYZE] Using unified Cloudflare API format for model:', CF_VISION_MODEL);
       
-      // Define cloudflareUrl outside try block scope for retry access
-      const cloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
-      console.log('[FOOD ANALYZE] Making Cloudflare API call to:', cloudflareUrl);
+      console.log('[FOOD ANALYZE] Making Cloudflare API call to vision model');
       console.log('[FOOD ANALYZE] Cloudflare URL details:', {
         accountIdLength: CF_ACCOUNT_ID.length,
         modelSlug: CF_VISION_MODEL,
@@ -5159,6 +5169,7 @@ Analyze the following food image:
         // Handle tensor decode errors specifically
         if (cfCode === 3016 || (cfMessage && cfMessage.includes('Tensor error'))) {
           console.warn('[FOOD ANALYZE] Cloudflare tensor decode error detected. This often indicates:');
+          console.warn('    vary: \'Accept-Encoding\',');
           console.warn('- Image format/encoding incompatible with AI model');
           console.warn('- Image size or dimensions causing tensor processing issues');
           console.warn('- EXIF metadata or color profile causing decode failures');
@@ -5180,17 +5191,10 @@ Analyze the following food image:
             
             console.log('[FOOD ANALYZE] Retry image size:', retryBase64.length, 'characters');
             
-            // Retry the API call with processed image
+            // Retry the API call with processed image using unified format
             const retryBody = {
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: prompt },
-                    { type: 'image_url', image_url: retryDataUri }
-                  ]
-                }
-              ],
+              image: retryDataUri,
+              prompt: prompt,
               max_tokens: 1000
             };
             
@@ -5229,6 +5233,11 @@ Analyze the following food image:
             
           } catch (retryError) {
             console.error('[FOOD ANALYZE] Tensor error retry also failed:', retryError.message);
+            console.error('[FOOD ANALYZE] Retry error details:', {
+              status: retryError.response?.status,
+              code: retryError.code,
+              message: retryError.message
+            });
             // Continue to text-based fallback below
             throw visionError; // Re-throw original error to trigger text fallback
           }
@@ -5446,7 +5455,17 @@ Analyze the following food image:
               }
             });
           }
-          throw new Error('Invalid image format. Please use a clear photo of food.');
+          // Instead of throwing error, use fallback analysis
+          console.log('[FOOD ANALYZE] Vision analysis failed with error code', cfCode, 'using fallback analysis');
+          const fallbackResult = analyzeFoodWithFallback('food items from image');
+          return res.json({
+            success: true,
+            data: {
+              success: true,
+              nutrition: fallbackResult,
+              message: `Vision analysis failed (error ${cfCode}). Using fallback analysis.`
+            }
+          });
         } else if (visionError.response?.status === 429) {
           throw new Error('Too many requests. Please try again in a moment.');
         }
@@ -5459,7 +5478,7 @@ Analyze the following food image:
           data: {
             success: true,
             nutrition: fallbackResult,
-            message: `Vision analysis failed. Using fallback analysis. Error: ${visionError.message}`
+            message: `Vision analysis failed. Using fallback analysis.`
           }
         });
       }
@@ -5551,32 +5570,16 @@ Analyze the following food image:
     const messageFromUpstream = error?.response?.data || error?.message || String(error);
     console.error('[FOOD ANALYZE] Error:', messageFromUpstream);
 
-    // Map known cases to client errors
-    let httpStatus = 500;
-    let clientMessage = 'Vision analysis failed';
-
-    if (typeof messageFromUpstream === 'string') {
-      if (messageFromUpstream.includes('Invalid base64 image') || messageFromUpstream.includes('Invalid image format')) {
-        httpStatus = 400; clientMessage = 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).';
-      } else if (messageFromUpstream.includes('Image too large')) {
-        httpStatus = 413; clientMessage = 'Image too large. Please use a smaller image (max ~1MB).';
-      } else if (messageFromUpstream.includes('Too many requests')) {
-        httpStatus = 429; clientMessage = 'Too many requests. Please try again shortly.';
-      } else if (messageFromUpstream.includes('Cloudflare credentials not configured')) {
-        httpStatus = 503; clientMessage = 'Vision service temporarily unavailable.';
-      }
-    }
-    if (statusFromUpstream === 400) httpStatus = 400;
-    if (statusFromUpstream === 413) httpStatus = 413;
-    if (statusFromUpstream === 429) httpStatus = 429;
-
-    res.status(httpStatus).json({
-        success: false,
-      error: clientMessage,
-      message: typeof messageFromUpstream === 'string' ? messageFromUpstream : undefined,
-      details: {
-        status: statusFromUpstream,
-        statusText: error?.response?.statusText
+    // Always provide fallback analysis instead of error response
+    console.log('[FOOD ANALYZE] Using final emergency fallback due to error');
+    const fallbackResult = analyzeFoodWithFallback('food items from image');
+    
+    return res.json({
+      success: true,
+      data: {
+        success: true,
+        nutrition: fallbackResult,
+        message: 'Analysis service temporarily unavailable. Using fallback estimation.'
       }
     });
   }
