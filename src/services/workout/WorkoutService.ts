@@ -97,14 +97,7 @@ const tryMultipleServers = async (endpoint: string, options: any) => {
       fallbackOptions.push(railwayUrl);
     }
 
-    // Optionally try a globally detected working URL if one was set elsewhere
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const globalUrl = (global as any)?.API_URL as string | undefined;
-      if (globalUrl && !fallbackOptions.includes(globalUrl) && !/localhost|127\.0\.0\.1/.test(globalUrl)) {
-        fallbackOptions.unshift(globalUrl);
-      }
-    } catch {}
+    // Removed global URL fallback to enforce env/Railway-only bases
 
     for (const fallbackUrl of fallbackOptions) {
       try {
@@ -270,7 +263,7 @@ export class WorkoutService {
             }
             
             // Use a React Native-compatible timeout approach with retry logic
-            const timeoutMs = 180000; // 180 seconds (3 minutes) for AI generation
+            const timeoutMs = 240000; // 240 seconds (4 minutes) for AI generation
             console.log(`[WORKOUT] Using timeout of ${timeoutMs}ms for AI generation`);
             
             // Helper function for React Native-compatible fetch with timeout
@@ -1189,6 +1182,27 @@ export class WorkoutService {
               console.error('[WorkoutService] Error fetching plan by ID:', error);
             }
             return null;
+          }
+          
+          if (data) {
+            console.log('[WorkoutService] Found plan in database, syncing to local storage');
+            // Convert database plan to local storage format and save it
+            try {
+              const planForLocalStorage = {
+                ...data,
+                weekly_schedule: data.weekly_schedule || data.weeklySchedule,
+                weeklySchedule: data.weeklySchedule || data.weekly_schedule,
+                is_active: data.status === 'active',
+                user_id: data.user_id
+              };
+              
+              // Add to local storage for future access
+              await WorkoutLocalStore.addPlan(data.user_id, planForLocalStorage);
+              console.log('[WorkoutService] Successfully synced plan to local storage');
+            } catch (syncError) {
+              console.warn('[WorkoutService] Failed to sync plan to local storage:', syncError);
+              // Continue anyway, the plan is still available from database
+            }
           }
           
           return data;

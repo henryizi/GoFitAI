@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, SafeAreaView } from 'react-native';
+import { View, StyleSheet, TextInput } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
-import { Appbar } from 'react-native-paper';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
 import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 
 const NameScreen = () => {
   const { user } = useAuth();
@@ -26,22 +26,18 @@ const NameScreen = () => {
 
   const handleClose = () => {
     try { analyticsTrack('onboarding_step_close', { step: 'name' }); } catch {}
-    router.replace('/(main)/dashboard');
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '8%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={handleClose} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="What's your name?"
+      subtitle="Let's get to know you better"
+      progress={8}
+      showBackButton={false}
+      showCloseButton={true}
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>What's your name?</Text>
-        <Text style={styles.subtitle}>Let's get to know you better</Text>
-        
         <View style={styles.inputContainer}>
           <TextInput
             value={name}
@@ -54,7 +50,6 @@ const NameScreen = () => {
           />
         </View>
       </View>
-      
       <View style={styles.footer}>
         <Button 
           mode="contained" 
@@ -68,29 +63,11 @@ const NameScreen = () => {
           Continue
         </Button>
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
     alignItems: 'center',

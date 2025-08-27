@@ -40,7 +40,20 @@ export default function FoodResultScreen() {
   // Extract nutrition data from the correct API response structure
   const nutritionData = parsed?.data?.totalNutrition || parsed?.totalNutrition || {};
   const foodItems = parsed?.data?.foodItems || parsed?.foodItems || [];
-  const foodName = foodItems?.[0]?.name || parsed?.data?.food_name || parsed?.food_name || 'Detected Food';
+  
+  // Use AI-generated meal name from backend or fall back to first food item
+  const mealName = parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
+  const foodName = mealName || foodItems?.[0]?.name || 'Detected Food';
+  
+  // Create display name for verified foods in bubble
+  const verifiedItems = foodItems?.filter(item => item.usdaVerified) || [];
+  const bubbleDisplayName = verifiedItems.length > 0 
+    ? verifiedItems.map(item => item.name).join(' + ')
+    : foodName;
+  
+  // Check if any food items are USDA verified
+  const hasUSDAData = foodItems?.some(item => item.usdaVerified);
+  const usdaVerifiedCount = foodItems?.filter(item => item.usdaVerified).length || 0;
 
   const proteinG = Number(nutritionData?.protein || 0);
   const carbsG = Number(nutritionData?.carbs || 0);
@@ -106,9 +119,15 @@ export default function FoodResultScreen() {
         ) : (
           <View style={[styles.heroImage, { backgroundColor: '#000' }]} />
         )}
-        {foodName && foodName !== 'Detected Food' ? (
+        {bubbleDisplayName && bubbleDisplayName !== 'Detected Food' ? (
           <View style={[styles.bubbleTag, { left: 16, top: 16 }]}>
-            <Text style={styles.bubbleText}>{String(foodName)}</Text>
+            <Text style={styles.bubbleText}>{String(bubbleDisplayName)}</Text>
+          </View>
+        ) : null}
+        {hasUSDAData ? (
+          <View style={[styles.usdaBadge, { left: 16, top: 60 }]}>
+            <Icon name="shield-check" size={14} color="#4CAF50" style={{ marginRight: 4 }} />
+            <Text style={styles.usdaBadgeText}>{verifiedItems.length} USDA Verified</Text>
           </View>
         ) : null}
         <View style={[styles.bubbleTag, { right: 16, top: 24 }]}>
@@ -122,7 +141,7 @@ export default function FoodResultScreen() {
 
           <View style={styles.topRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.foodTitle} numberOfLines={2}>{parsed?.food_name || 'Detected Food'}</Text>
+              <Text style={styles.foodTitle} numberOfLines={2}>{foodName}</Text>
               <Text style={styles.subtitle}>AI captured nutrition</Text>
             </View>
             <View style={styles.calorieBadge}>
@@ -186,6 +205,15 @@ export default function FoodResultScreen() {
             <View style={styles.noticeBox}>
               <Icon name="alert-circle-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.noticeText}>{parsed.notice}</Text>
+            </View>
+          ) : null}
+          
+          {hasUSDAData ? (
+            <View style={styles.usdaNoticeBox}>
+              <Icon name="shield-check" size={18} color="#4CAF50" />
+              <Text style={styles.usdaNoticeText}>
+                {usdaVerifiedCount} of {foodItems.length} food items verified with USDA FoodData Central.
+              </Text>
             </View>
           ) : null}
 
@@ -399,5 +427,39 @@ const styles = StyleSheet.create({
   },
   logFoodButtonDisabled: {
     opacity: 0.6,
+  },
+  usdaBadge: {
+    position: 'absolute',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    borderColor: '#4CAF50',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  usdaBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4CAF50',
+    letterSpacing: 0.3,
+  },
+  usdaNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 16,
+  },
+  usdaNoticeText: {
+    fontSize: 13,
+    color: '#4CAF50',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
   },
 }); 

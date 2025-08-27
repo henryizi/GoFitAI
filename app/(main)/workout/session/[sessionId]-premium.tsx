@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../../src/services/supabase/client';
 import { Database } from '../../../../src/types/database';
 import { ExerciseService } from '../../../../src/services/workout/ExerciseService';
+import { WorkoutHistoryService } from '../../../../src/services/workout/WorkoutHistoryService';
 import { colors } from '../../../../src/styles/colors';
 import { theme } from '../../../../src/styles/theme';
 import RestTimer from '../../../../src/components/workout/RestTimer';
@@ -48,6 +49,7 @@ export default function SessionExecutionScreen() {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(0)).current;
+  const sessionStartTime = useRef(Date.now()).current;
 
   const handleBackButtonPress = () => {
     console.log('Back button pressed in session screen');
@@ -331,9 +333,10 @@ export default function SessionExecutionScreen() {
         try {
           console.log(`[Session] Marking session ${sessionId} as completed`);
           
+          const completedAt = new Date().toISOString();
           const updateData = { 
             status: 'completed', 
-            completed_at: new Date().toISOString() 
+            completed_at: completedAt
           };
           
           const { error: updateError } = await supabase
@@ -345,6 +348,51 @@ export default function SessionExecutionScreen() {
             console.error('[Session] Error updating session status:', updateError);
           } else {
             console.log('[Session] Session marked as completed successfully');
+            
+            // Save workout history to Supabase
+            try {
+              // Get user ID from session data
+              const { data: sessionData } = await supabase
+                .from('workout_sessions')
+                .select('plan_id')
+                .eq('id', sessionId)
+                .single();
+              
+              if (sessionData?.plan_id) {
+                const { data: planData } = await supabase
+                  .from('workout_plans')
+                  .select('user_id')
+                  .eq('id', sessionData.plan_id)
+                  .single();
+                
+                if (planData?.user_id) {
+                  // Calculate workout statistics
+                  const totalSets = sets.length;
+                  const totalExercises = new Set(sets.map(set => set.exercise_id)).size;
+                  const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
+                  
+                  // Save workout history entry
+                  const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+                    user_id: planData.user_id,
+                    plan_id: sessionData.plan_id,
+                    session_id: sessionId,
+                    completed_at: completedAt,
+                    duration_minutes: durationMinutes,
+                    total_sets: totalSets,
+                    total_exercises: totalExercises,
+                    notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
+                  });
+                  
+                  if (historySaved) {
+                    console.log('[Session] Workout history saved successfully');
+                  } else {
+                    console.warn('[Session] Failed to save workout history');
+                  }
+                }
+              }
+            } catch (historyError) {
+              console.error('[Session] Error saving workout history:', historyError);
+            }
           }
         } catch (err) {
           console.error('[Session] Exception while updating session status:', err);
@@ -912,6 +960,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 140, // Increased padding to account for bottom navigation bar (60px + safe area) + extra space for comfort
   },
   centered: {
     flex: 1,
@@ -1133,6 +1182,7 @@ const styles = StyleSheet.create({
   restContainer: {
     flex: 1,
     padding: 16,
+    paddingBottom: 120, // Increased bottom padding to prevent overlap with bottom navigation (60px + safe area)
     justifyContent: 'center',
   },
   restBlur: {
@@ -1266,7 +1316,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 100, // Increased from 20 to avoid overlap with bottom navigation
     right: 20,
     width: 60,
     height: 60,

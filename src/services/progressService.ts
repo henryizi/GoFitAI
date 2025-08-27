@@ -1,15 +1,48 @@
 import { supabase } from './supabase/client';
 import { PhotoStorageService } from './storage/photoStorage';
 import { Database } from '../types/database';
-import { NutritionService } from './nutrition/NutritionService'; // Assuming API_URL is exported from here
+import { environment } from '../config/environment';
 import { mockMetrics, mockPrediction, mockMetricsStore } from '../mock-data';
 
-const API_URL = NutritionService.API_URL;
+// Resolve API base URL at call time (Railway/env only)
+const resolveApiBaseUrl = (): string => {
+  const candidates = [
+    environment.apiUrl,
+    'https://gofitai-production.up.railway.app',
+  ].filter(Boolean) as string[];
+  const chosen = candidates[0];
+  if (__DEV__) {
+    console.log('[ProgressService] Resolved API base URL:', chosen);
+  }
+  return chosen;
+};
 
 type ProgressEntry = Database['public']['Tables']['progress_entries']['Row'];
 type DailyMetric = Database['public']['Tables']['daily_user_metrics']['Row'];
 
 export class ProgressService {
+  private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
+    const bases = [
+      environment.apiUrl,
+      'https://gofitai-production.up.railway.app',
+    ].filter(Boolean) as string[];
+
+    let lastError: unknown = null;
+    for (const base of bases) {
+      const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+      try {
+        if (__DEV__) console.log('[ProgressService] Trying base:', base, '→', url);
+        const response = await fetch(url, init);
+        // Consider any network-level success a success path; status handling is done by callers
+        return { base, response };
+      } catch (err) {
+        lastError = err;
+        if (__DEV__) console.warn('[ProgressService] Fetch failed on base', base, err);
+        continue;
+      }
+    }
+    throw lastError ?? new Error('Network request failed');
+  }
   /**
    * Create or update a progress entry for a specific date.
    */
@@ -105,7 +138,7 @@ export class ProgressService {
   }
 
   static async predictProgress(userId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/api/predict-progress`, {
+    const { response } = await ProgressService.fetchWithBaseFallback('/api/predict-progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -172,7 +205,7 @@ export class ProgressService {
   }
 
   static async analyzeBehavior(userId: string): Promise<{ success: boolean; insight?: any; message?: string }> {
-    const response = await fetch(`${API_URL}/api/analyze-behavior`, {
+    const { response } = await ProgressService.fetchWithBaseFallback('/api/analyze-behavior', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -185,7 +218,7 @@ export class ProgressService {
   }
 
   static async generateMotivationalMessage(userId: string, triggerEvent: string): Promise<{ success: boolean; message?: any }> {
-    const response = await fetch(`${API_URL}/api/generate-motivational-message`, {
+    const { response } = await ProgressService.fetchWithBaseFallback('/api/generate-motivational-message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, triggerEvent }),
@@ -256,12 +289,13 @@ export class ProgressService {
     weight_kg: number;
     metric_date: string;
     notes?: string | null;
+    body_fat_percentage?: number | null;
   }) {
     try {
       console.log('Adding weight entry to database:', data);
       
-      // Send to the real database via API
-      const response = await fetch(`${API_URL}/api/log-daily-metric`, {
+      // Send to the real database via API with base fallback
+      const { response } = await ProgressService.fetchWithBaseFallback('/api/log-daily-metric', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,7 +303,8 @@ export class ProgressService {
           metricDate: data.metric_date,
           metrics: {
             weight_kg: data.weight_kg,
-            notes: data.notes
+            notes: data.notes,
+            ...(data.body_fat_percentage !== undefined && data.body_fat_percentage !== null && { body_fat_percentage: data.body_fat_percentage })
           }
         }),
       });
@@ -293,6 +328,7 @@ export class ProgressService {
         stress_level: 3,
         activity_calories: 0,
         notes: data.notes || null,
+        body_fat_percentage: data.body_fat_percentage || null,
         created_at: new Date().toISOString()
       };
       

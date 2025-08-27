@@ -4,6 +4,7 @@
  */
 
 import { Platform, Alert } from 'react-native';
+import { environment } from '../src/config/environment';
 
 // Flag to prevent showing the alert multiple times
 let hasShownServerAlert = false;
@@ -14,7 +15,7 @@ const checkServerStatus = async () => {
   
   // List of URLs to try - prefer env first, then production
   const serverUrls = [
-    process.env.EXPO_PUBLIC_API_URL,
+    environment.apiUrl,
     'https://gofitai-production.up.railway.app'
   ].filter(Boolean);
   
@@ -36,8 +37,6 @@ const checkServerStatus = async () => {
       
       if (response.ok) {
         console.log(`Server is running at: ${url}`);
-        // Store the working URL in memory for future use
-        global.API_URL = url;
         return true;
       }
     } catch (error) {

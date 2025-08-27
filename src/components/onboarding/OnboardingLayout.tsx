@@ -15,6 +15,7 @@ interface OnboardingLayoutProps {
   showCloseButton?: boolean;
   onBack?: () => void;
   previousScreen?: string;
+  onClose?: () => void;
 }
 
 export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
@@ -26,6 +27,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
   showCloseButton = true,
   onBack,
   previousScreen,
+  onClose,
 }) => {
   return (
     <SafeAreaView style={styles.container}>
@@ -84,7 +86,12 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
             {showCloseButton && (
               <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => router.replace('/(main)/dashboard')}
+                onPress={() => {
+                  if (onClose) {
+                    try { onClose(); } catch (e) {}
+                  }
+                  router.replace('/(main)/dashboard');
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons name="close" size={24} color={colors.text} />

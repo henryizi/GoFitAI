@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# 🚂 Deploy SnapBodyAI to Railway with Cloudflare Photo Analysis
+# 🚂 Deploy GoFitAI to Railway with Cloudflare Photo Analysis
 # This script sets up all environment variables and deploys to Railway
 
 set -e
 
-echo "🚂 SnapBodyAI Railway Deployment with Cloudflare"
+echo "🚂 GoFitAI Railway Deployment with Cloudflare"
 echo "=================================================="
 
 # Check if Railway CLI is installed

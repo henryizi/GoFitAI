@@ -17,13 +17,11 @@ export type FoodSuggestion = {
 // Import environment configuration
 import { environment } from '../../config/environment';
 
-// Resolve API URL with Railway first preference
+// Resolve API URL with proper Expo environment configuration (Railway/env only)
 const resolveApiUrl = () => {
   const candidates = [
-    'https://gofitai-production.up.railway.app',
-    typeof global !== 'undefined' ? (global as any).API_URL : undefined,
-    process.env.EXPO_PUBLIC_API_URL,
-    environment.apiUrl
+    environment.apiUrl,
+    'https://gofitai-production.up.railway.app'
   ].filter(Boolean) as string[];
   const chosen = candidates[0];
   console.log('[NUTRITION] Resolved API URL:', chosen);
@@ -454,7 +452,7 @@ export class NutritionService {
       }
 
       // Use a React Native-compatible timeout approach with retry logic
-      const timeoutMs = 180000; // 180 seconds (3 minutes) for AI generation
+      const timeoutMs = 240000; // 240 seconds (4 minutes) for AI generation
       console.log(`[NUTRITION] Using timeout of ${timeoutMs}ms for AI generation`);
       
       // Helper function to create a fetch with proper timeout handling for React Native
@@ -782,7 +780,7 @@ export class NutritionService {
       // Only send to server if not a guest user (guest users don't have valid UUIDs for database)
       if (userId !== 'guest') {
         // Then send to server
-        const response = await fetch(`${API_URL}/api/log-food-entry`, {
+        const response = await fetch(`${environment.apiUrl}/api/log-food-entry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, entry }),
@@ -1402,15 +1400,11 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     try {
       console.log('[NUTRITION] Testing connection to API at:', this.API_URL);
       
-      // Use the global API_URL if available (set by server status context)
-      const workingApiUrl = global.API_URL || this.API_URL;
-      console.log('[NUTRITION] Using working API URL:', workingApiUrl);
-      
-      // Try multiple URLs with the simple ping endpoint
+      // Try multiple URLs with the simple ping endpoint (env first, then Railway)
       const baseUrls = [
-        'https://gofitai-production.up.railway.app',
-        workingApiUrl,
-        process.env.EXPO_PUBLIC_API_URL || undefined
+        environment.apiUrl,
+        this.API_URL,
+        'https://gofitai-production.up.railway.app'
       ].filter(Boolean) as string[];
       
       for (const baseUrl of baseUrls) {
@@ -1443,9 +1437,6 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
               console.log(`[NUTRITION] Updating API_URL from ${this.API_URL} to ${baseUrl}`);
               NutritionService.API_URL = baseUrl;
             }
-            
-            // Set global API_URL for other services to use
-            global.API_URL = baseUrl;
             
             return true;
           } else {

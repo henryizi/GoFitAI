@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
-import { Appbar } from 'react-native-paper';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
 import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 
 type Gender = 'male' | 'female';
 
@@ -32,7 +32,6 @@ const GenderScreen = () => {
 
   const handleClose = () => {
     try { analyticsTrack('onboarding_step_close', { step: 'gender' }); } catch {}
-    router.replace('/(main)/dashboard');
   };
 
   const options = [
@@ -49,19 +48,17 @@ const GenderScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={handleBack} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '17%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={handleClose} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="What's your gender?"
+      subtitle="This helps us tailor your workout and nutrition plans"
+      progress={17}
+      showBackButton={true}
+      showCloseButton={true}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/name"
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>What's your gender?</Text>
-        <Text style={styles.subtitle}>This helps us tailor your workout and nutrition plans</Text>
-        
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -79,7 +76,6 @@ const GenderScreen = () => {
           ))}
         </View>
       </View>
-      
       <View style={styles.footer}>
         <Button 
           mode="contained" 
@@ -93,29 +89,11 @@ const GenderScreen = () => {
           Continue
         </Button>
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
     alignItems: 'center',

@@ -151,13 +151,58 @@ const PlansScreen = () => {
 
   // Fetch food entries from local storage
   const fetchFoodEntries = useCallback(async () => {
-    // Set all nutrition data to 0 as requested
-    setTodayIntake({
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0
-    });
+    try {
+      const uid = user?.id || 'guest';
+      const todayDate = new Date().toISOString().split('T')[0];
+      const storageKey = `nutrition_log_${uid}_${todayDate}`;
+      
+      // Get existing entries for today
+      const savedEntries = await AsyncStorage.getItem(storageKey);
+      
+      if (savedEntries) {
+        const entries = JSON.parse(savedEntries);
+        
+        // Calculate totals from entries
+        let totalCalories = 0;
+        let totalProtein = 0;
+        let totalCarbs = 0;
+        let totalFat = 0;
+
+        entries.forEach((entry: any) => {
+          totalCalories += entry.calories || 0;
+          totalProtein += entry.protein_grams || 0;
+          totalCarbs += entry.carbs_grams || 0;
+          totalFat += entry.fat_grams || 0;
+        });
+
+        setTodayIntake({
+          calories: totalCalories,
+          protein: totalProtein,
+          carbs: totalCarbs,
+          fat: totalFat
+        });
+        
+        console.log('[NUTRITION] Loaded food entries:', entries.length, 'entries, total calories:', totalCalories);
+      } else {
+        // No entries for today, set to 0
+        setTodayIntake({
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0
+        });
+        console.log('[NUTRITION] No food entries found for today');
+      }
+    } catch (error) {
+      console.error('[NUTRITION] Error fetching food entries:', error);
+      // Fallback to 0 if there's an error
+      setTodayIntake({
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      });
+    }
   }, [user]);
   
   // Fetch food entries on focus

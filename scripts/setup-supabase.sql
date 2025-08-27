@@ -330,6 +330,29 @@ CREATE POLICY "Users can manage their own progression tracking"
     ON progression_tracking FOR ALL
     USING (auth.uid() = progression_tracking.user_id);
 
+-- Create workout_history table
+CREATE TABLE IF NOT EXISTS workout_history (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    plan_id UUID REFERENCES workout_plans(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES workout_sessions(id) ON DELETE CASCADE,
+    completed_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    duration_minutes INTEGER,
+    total_sets INTEGER,
+    total_exercises INTEGER,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for workout_history
+ALTER TABLE workout_history ENABLE ROW LEVEL SECURITY;
+
+-- Policies for workout_history
+DROP POLICY IF EXISTS "Users can manage their own workout history" ON workout_history;
+CREATE POLICY "Users can manage their own workout history"
+    ON workout_history FOR ALL
+    USING (auth.uid() = workout_history.user_id);
+
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_workout_plans_user_id ON workout_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_splits_plan_id ON training_splits(plan_id);
@@ -338,6 +361,8 @@ CREATE INDEX IF NOT EXISTS idx_exercise_sets_session_id ON exercise_sets(session
 CREATE INDEX IF NOT EXISTS idx_exercise_logs_set_id ON exercise_logs(set_id);
 CREATE INDEX IF NOT EXISTS idx_volume_tracking_plan_id ON volume_tracking(plan_id);
 CREATE INDEX IF NOT EXISTS idx_progression_tracking_user_id ON progression_tracking(user_id);
+CREATE INDEX IF NOT EXISTS idx_workout_history_user_id ON workout_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_workout_history_completed_at ON workout_history(completed_at);
 
 -- Verify tables were created
 SELECT 'body_photos' as table_name, COUNT(*) as row_count FROM body_photos

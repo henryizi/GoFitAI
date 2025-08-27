@@ -6,13 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ProgressService } from '../../../src/services/progressService';
-import { HabitScoreService } from '../../../src/services/HabitScoreService';
 import { supabase } from '../../../src/services/supabase/client';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import WeightProgressChart from '../../../src/components/progress/WeightProgressChart';
 import TodayCard from '../../../src/components/progress/TodayCard';
-import HabitScoreBreakdown from '../../../src/components/progress/HabitScoreBreakdown';
 import BeforeAfterComparison from '../../../src/components/progress/BeforeAfterComparison';
 import { BlurView } from 'expo-blur';
 
@@ -466,8 +464,6 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [motivation, setMotivation] = useState<any | null>(null);
-  const [habitScore, setHabitScore] = useState<number | null>(null);
-  const [loadingHabitScore, setLoadingHabitScore] = useState(false);
 
   const weightToday = React.useMemo(() => {
     if (!entries || entries.length === 0) return null;
@@ -551,37 +547,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
     return () => { active = false; };
   }, [user?.id]);
 
-  // Load habit score for today
-  useEffect(() => {
-    let active = true;
-    
-    const loadHabitScore = async () => {
-      try {
-        if (!user) return;
-        
-        const today = new Date().toISOString().split('T')[0];
-        const scoreData = await HabitScoreService.calculateHabitScore(user.id, today);
-        
-        if (active) {
-          // Extract the total score from the habit score object
-          const totalScore = scoreData.total;
-          console.log('[DashboardTab] Habit score calculated:', { totalScore, fullData: scoreData });
-          setHabitScore(totalScore);
-        }
-      } catch (error) {
-        console.error('[DashboardTab] Error loading habit score:', error);
-        if (active) {
-          setHabitScore(null);
-        }
-      }
-    };
-    
-    loadHabitScore();
-    
-    return () => {
-      active = false;
-    };
-  }, [user?.id, entries]); // Recalculate when entries change
+  // Habit score removed per request
 
   return (
     <FlatList
@@ -609,22 +575,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
       <TodayCard
         weightToday={weightToday}
         streakDays={streakDays}
-        habitScore={habitScore}
         onLogProgress={() => router.push('/(main)/progress/log-progress')}
-      />
-
-      {/* Habit Score Breakdown */}
-      <HabitScoreBreakdown 
-        habitScore={habitScore}
-        onRefresh={() => {
-          // Trigger habit score recalculation
-          if (user) {
-            const today = HabitScoreService.getTodayDateKey();
-            HabitScoreService.calculateAndStoreHabitScore(user.id, today)
-              .then(score => setHabitScore(score))
-              .catch(error => console.error('Error refreshing habit score:', error));
-          }
-        }}
       />
 
       {/* Enhanced hero stats card with better design */}
@@ -697,7 +648,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
             <Text style={styles.chartTitle}>Weight Progress</Text>
             <View style={styles.chartBadge}><Text style={styles.chartBadgeText}>TREND</Text></View>
           </View>
-          <WeightProgressChart data={entries} />
+          <WeightProgressChart data={entries} showAllValueLabels />
         </LinearGradient>
       </View>
       
@@ -814,6 +765,16 @@ const EnhancedHistoryItem = ({ item, index }) => (
             <Text style={styles.historyMetricUnitLarge}>kg</Text>
           </View>
           <Text style={styles.historyMetricLabelSingle}>BODY WEIGHT</Text>
+          {typeof item.body_fat_percentage === 'number' && (
+            <View style={{ marginTop: 10, alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.white }}>
+                {item.body_fat_percentage.toFixed(1)}%
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textTertiary, marginTop: 4, letterSpacing: 1, fontWeight: '600' }}>
+                BODY FAT
+              </Text>
+            </View>
+          )}
         </View>
       </View>
       
@@ -894,6 +855,44 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
                 >
                   <Icon name="camera-plus" size={16} color={colors.white} style={styles.buttonIcon} />
                   <Text style={styles.createButtonText}>Add First Photo</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </View>
+    );
+  }
+
+  if (photos.length === 1) {
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyCard}>
+          <LinearGradient
+            colors={[colors.glassStrong, colors.glass]}
+            style={styles.emptyCardGradient}
+          >
+            <View style={styles.emptyCardContent}>
+              <View style={styles.emptyIconContainer}>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  style={styles.emptyIconGradient}
+                >
+                  <Icon name="camera-plus" size={32} color={colors.white} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.emptyText}>One Photo Uploaded</Text>
+              <Text style={styles.emptySubText}>Upload at least 2 photos to compare your progress</Text>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/(main)/progress/photo-upload' })}
+                style={styles.createButtonContainer}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  style={styles.createButton}
+                >
+                  <Icon name="camera-plus" size={16} color={colors.white} style={styles.buttonIcon} />
+                  <Text style={styles.createButtonText}>Add Another Photo</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>

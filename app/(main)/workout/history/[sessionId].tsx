@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -9,6 +9,8 @@ import {
   Image,
   Animated
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import ViewShot from 'react-native-view-shot';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { WorkoutHistoryService, SessionDetails } from '../../../../src/services/workout/WorkoutHistoryService';
@@ -57,6 +59,7 @@ export default function WorkoutHistoryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<SessionDetails | null>(null);
   const insets = useSafeAreaInsets();
+  const viewShotRef = useRef<ViewShot>(null);
   const scrollY = new Animated.Value(0);
   
   // Header animation values
@@ -123,6 +126,8 @@ export default function WorkoutHistoryDetailScreen() {
     });
   };
 
+  const getSplitGradient = (): readonly [string, string] => colors.cardGradient;
+
   const formatTime = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -146,6 +151,23 @@ export default function WorkoutHistoryDetailScreen() {
     if (lowerName.includes('cardio') || lowerName.includes('run')) return 'run-fast';
     
     return 'dumbbell';
+  };
+
+  const shareWorkout = async () => {
+    try {
+      if (!viewShotRef.current) return;
+      const uri = await viewShotRef.current.capture?.();
+      if (!uri) return;
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, { dialogTitle: 'Share your workout', mimeType: 'image/png' });
+      } else {
+        // Fallback: open the image or alert with location
+        console.log('[WorkoutHistoryDetail] Sharing not available, image at:', uri);
+      }
+    } catch (e) {
+      console.error('[WorkoutHistoryDetail] Share failed', e);
+    }
   };
 
   if (loading) {
@@ -268,6 +290,97 @@ export default function WorkoutHistoryDetailScreen() {
           { useNativeDriver: true }
         )}
       >
+        {/* Hidden share card to capture as an image */}
+        <View style={{ position: 'absolute', left: -10000 }}>
+          <ViewShot ref={viewShotRef} style={styles.shareCardContainer}>
+            <LinearGradient colors={getSplitGradient()} style={styles.shareCardContent}>
+              {/* Accent orbs */}
+              <LinearGradient
+                colors={["rgba(255,107,53,0.18)", "rgba(255,107,53,0.06)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.shareAccentOrbOne}
+              />
+              <LinearGradient
+                colors={["rgba(90,200,250,0.16)", "rgba(90,200,250,0.04)"]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.shareAccentOrbTwo}
+              />
+
+              <View style={styles.shareHeaderRow}>
+                <Text style={styles.shareTitle}>Workout Summary</Text>
+              </View>
+              <Text style={styles.shareSubtitle}>{formatDate(details.completed_at || '')}</Text>
+              <View style={styles.shareStatsRow}>
+                <View style={styles.shareStatBox}>
+                  <View style={styles.shareStatIconCircle}>
+                    <LinearGradient colors={["rgba(255,107,53,0.25)", "rgba(255,107,53,0.1)"]} style={styles.shareStatIconGradient}>
+                      <Icon name="dumbbell" size={36} color={colors.primary} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.shareStatValue}>{details.exercises.length}</Text>
+                  <Text style={styles.shareStatLabel}>Exercises</Text>
+                </View>
+                <View style={styles.shareStatBox}>
+                  <View style={styles.shareStatIconCircle}>
+                    <LinearGradient colors={["rgba(255,107,53,0.25)", "rgba(255,107,53,0.1)"]} style={styles.shareStatIconGradient}>
+                      <Icon name="repeat" size={36} color={colors.primary} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.shareStatValue}>{details.exercises.reduce((t, ex) => t + ex.logs.length, 0)}</Text>
+                  <Text style={styles.shareStatLabel}>Sets</Text>
+                </View>
+                <View style={styles.shareStatBox}>
+                  <View style={styles.shareStatIconCircle}>
+                    <LinearGradient colors={["rgba(255,107,53,0.25)", "rgba(255,107,53,0.1)"]} style={styles.shareStatIconGradient}>
+                      <Icon name="chart-bar" size={36} color={colors.primary} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.shareStatValue}>{Math.round(details.exercises.reduce((t, ex) => t + ex.total_volume, 0))}</Text>
+                  <Text style={styles.shareStatLabel}>Volume</Text>
+                </View>
+              </View>
+              <View style={styles.shareExercisesList}>
+                {details.exercises.slice(0, 4).map((ex) => (
+                  <View key={ex.exercise_set_id} style={styles.shareExerciseRow}>
+                    <Text style={styles.shareExerciseName} numberOfLines={1}>{ex.exercise_name}</Text>
+                    <View style={styles.shareExerciseChips}>
+                      <View style={styles.shareChip}>
+                        <Icon name="repeat" size={26} color={colors.text} style={styles.shareChipIcon} />
+                        <Text style={styles.shareChipText}>{ex.logs.length} sets</Text>
+                      </View>
+                      <View style={styles.shareChip}>
+                        <Icon name="chart-bar" size={26} color={colors.text} style={styles.shareChipIcon} />
+                        <Text style={styles.shareChipText}>{Math.round(ex.total_volume)} vol</Text>
+                      </View>
+                      {ex.top_set_weight != null && (
+                        <View style={styles.shareChip}>
+                          <Icon name="weight-kilogram" size={26} color={colors.text} style={styles.shareChipIcon} />
+                          <Text style={styles.shareChipText}>top {ex.top_set_weight} kg</Text>
+                        </View>
+                      )}
+                      {ex.comparison && (
+                        <View style={[styles.shareChip, ex.comparison.volume_delta >= 0 ? styles.shareChipPositive : styles.shareChipNegative]}>
+                          <Icon
+                            name={ex.comparison.volume_delta >= 0 ? 'trending-up' : 'trending-down'}
+                            size={26}
+                            color={ex.comparison.volume_delta >= 0 ? colors.success : colors.error}
+                            style={styles.shareChipIcon}
+                          />
+                          <Text style={[styles.shareChipText, { color: ex.comparison.volume_delta >= 0 ? colors.success : colors.error }]}>
+                            {ex.comparison.volume_delta >= 0 ? '+' : ''}{Math.round(ex.comparison.volume_delta)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <Image source={require('../../../../assets/branding/gofitai-watermark.png')} style={styles.shareWatermark} resizeMode="contain" />
+            </LinearGradient>
+          </ViewShot>
+        </View>
         {/* Session Date Banner */}
         <View style={styles.dateBanner}>
           <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFill} />
@@ -478,7 +591,7 @@ export default function WorkoutHistoryDetailScreen() {
         
         {/* Share & Export Button */}
         <View style={styles.actionButtonContainer}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={shareWorkout}>
             <LinearGradient
               colors={colors.primaryGradient}
               style={styles.actionButtonGradient}
@@ -562,7 +675,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 120, // Increased padding to account for bottom navigation bar (60px + safe area) + extra space
   },
   dateBanner: {
     height: 60,
@@ -964,5 +1077,153 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  shareCardContainer: {
+    width: 1080,
+    height: 1350,
+  },
+  shareCardContent: {
+    flex: 1,
+    backgroundColor: '#0E0E10',
+    padding: 64,
+    borderRadius: 48,
+    overflow: 'hidden',
+  },
+  shareAccentOrbOne: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+    borderRadius: 260,
+    top: -140,
+    right: -120,
+    opacity: 1,
+    transform: [{ rotate: '15deg' }],
+  },
+  shareAccentOrbTwo: {
+    position: 'absolute',
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    bottom: -120,
+    left: -100,
+    opacity: 1,
+    transform: [{ rotate: '-10deg' }],
+  },
+  shareHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  shareTitle: {
+    color: '#FFFFFF',
+    fontSize: 72,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  shareSubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 40,
+    marginBottom: 48,
+  },
+  // shareLogo removed from header to avoid duplicate watermark in capture
+  shareStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 40,
+  },
+  shareStatIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    marginBottom: 20,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  shareStatIconGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareStatBox: {
+    width: (1080 - 64 * 2 - 40 * 2) / 3,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 40,
+    borderRadius: 32,
+    alignItems: 'center',
+  },
+  shareStatValue: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    fontWeight: '800',
+  },
+  shareStatLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 32,
+    marginTop: 8,
+  },
+  shareExercisesList: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 32,
+    padding: 32,
+    marginBottom: 40,
+  },
+  shareExerciseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  shareExerciseName: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 16,
+  },
+  shareExerciseChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  shareChipIcon: {
+    marginRight: 8,
+  },
+  shareChipText: {
+    color: '#FFFFFF',
+    fontSize: 28,
+  },
+  shareChipPositive: {
+    backgroundColor: 'rgba(52,199,89,0.15)',
+    borderColor: 'rgba(52,199,89,0.35)',
+  },
+  shareChipNegative: {
+    backgroundColor: 'rgba(255,59,48,0.15)',
+    borderColor: 'rgba(255,59,48,0.35)',
+  },
+  shareWatermark: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 160,
+    height: 160,
+    opacity: 0.9,
   },
 }); 

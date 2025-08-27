@@ -331,23 +331,33 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
     );
   };
 
-  const renderNoPhotosMessage = () => (
-    <View style={styles.noPhotosContainer}>
-      <Icon name="camera-plus" size={64} color={colors.textSecondary} />
-      <Text style={styles.noPhotosTitle}>No Photos Yet</Text>
-      <Text style={styles.noPhotosSubtitle}>
-        Upload your first photos to start tracking your progress
-      </Text>
-      <Button
-        mode="contained"
-        onPress={onPhotoUpload}
-        style={styles.uploadButton}
-        icon="camera"
-      >
-        <Text>Upload Photos</Text>
-      </Button>
-    </View>
-  );
+  const renderNoPhotosMessage = () => {
+    // Check if we have exactly 1 photo
+    const hasOnePhoto = sortedEntries.length === 1;
+    
+    return (
+      <View style={styles.noPhotosContainer}>
+        <Icon name="camera-plus" size={64} color={colors.textSecondary} />
+        <Text style={styles.noPhotosTitle}>
+          {hasOnePhoto ? "One Photo Uploaded" : "No Photos Yet"}
+        </Text>
+        <Text style={styles.noPhotosSubtitle}>
+          {hasOnePhoto 
+            ? "Upload at least 2 photos to compare your progress"
+            : "Upload your first photos to start tracking your progress"
+          }
+        </Text>
+        <Button
+          mode="contained"
+          onPress={onPhotoUpload}
+          style={styles.uploadButton}
+          icon="camera"
+        >
+          <Text>{hasOnePhoto ? "Add Another Photo" : "Upload Photos"}</Text>
+        </Button>
+      </View>
+    );
+  };
 
   const renderViewToggle = () => (
     <View style={styles.segmentContainer}>

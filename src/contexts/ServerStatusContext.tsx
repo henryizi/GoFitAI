@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alert } from 'react-native';
+import { environment } from '../config/environment';
 
 interface ServerStatusContextType {
   isServerConnected: boolean;
@@ -26,17 +27,16 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
     setIsChecking(true);
     
     try {
-      // Prefer env URL first (developer-controlled), then production, then common local
+      // Prefer env URL first (developer-controlled), then production Railway
       const DEFAULT_TIMEOUT_MS = 12000;
       const MAX_ATTEMPTS_PER_URL = 2;
-      const envUrl = process.env.EXPO_PUBLIC_API_URL;
+      const envUrl = environment.apiUrl;
       const serverUrls = [
         envUrl,
-        'https://gofitai-production.up.railway.app',
-        'http://localhost:4000'
+        'https://gofitai-production.up.railway.app'
       ].filter(Boolean);
       
-      console.log(`[SERVER STATUS] Environment variable EXPO_PUBLIC_API_URL: ${process.env.EXPO_PUBLIC_API_URL}`);
+      console.log(`[SERVER STATUS] Environment variable EXPO_PUBLIC_API_URL: ${environment.apiUrl}`);
       console.log(`[SERVER STATUS] Server URLs to test: ${JSON.stringify(serverUrls)}`);
       console.log(`[SERVER STATUS] __DEV__ mode: ${__DEV__}`);
       
@@ -63,7 +63,6 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
             if (response.ok) {
               const data = await response.json();
               console.log(`[SERVER STATUS] ✅ Server is healthy at: ${url}`, data);
-              global.API_URL = url;
               connected = true;
               break;
             } else {
@@ -87,7 +86,7 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
         setTimeout(() => {
           Alert.alert(
             "Server Connection Issue",
-            `Unable to connect to the AI server at ${process.env.EXPO_PUBLIC_API_URL}. Some features may not work properly.\n\nTested URLs:\n${serverUrls.join('\n')}\n\nPlease check your internet connection.`,
+            `Unable to connect to the AI server at ${environment.apiUrl}. Some features may not work properly.\n\nTested URLs:\n${serverUrls.join('\n')}\n\nPlease check your internet connection.`,
             [
               { text: "OK" },
               { text: "Don't Show Again", onPress: () => setSuppressAlerts(true) },

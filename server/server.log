@@ -1069,3 +1069,3053 @@ Test API with: curl http://192.168.0.100:4000/api/test
 [FOOD ANALYZE] Analysis completed successfully
 [FOOD ANALYZE] Failed to cleanup uploaded file: foodImage is not defined
 {"level":30,"time":1756089947648,"pid":79089,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"278","content-type":"multipart/form-data; boundary=------------------------L0lb4yPDI3OoI7rnzBMB9g"},"remoteAddress":"127.0.0.1","remotePort":52088},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"425","etag":"W/\"1a9-MSyUIIiMJiv2vqxnO1lxptvpGnk\""}},"responseTime":13045,"msg":"request completed"}
+[2025-08-25T14:50:16.240Z] Checking if port 4000 is free...
+[2025-08-25T14:50:16.244Z] Port 4000 is free
+[2025-08-25T14:50:16.244Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-25T14:53:06.942Z] Received SIGINT. Shutting down gracefully...
+[2025-08-25T14:53:15.790Z] Checking if port 4000 is free...
+[2025-08-25T14:53:15.793Z] Port 4000 is free
+[2025-08-25T14:53:15.793Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: '22130e819f019a07e4ab3af491ce8f8e',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'prompt', 'image', 'stream', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 14:53:27 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974beb46ed2d10ac-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1b8-4867-78ef-b055-90ae45cc92a0',
+    'set-cookie': [
+      '__cf_bm=7xQQnifvdorUb8K1MjElRsnyVnObWwbEE6Zf9qP2zrI-1756133607-1.0.1.1-skS8IX6zXd3EJ9pn3rchiFESPub8wjf0aJqB_yCTjI2uFAGPNiLgaTyuAHz6QfxYIEPy_2eYjWrG44hP4jWrow9yyIp5qkiUrgfcbo97bw8; path=/; expires=Mon, 25-Aug-25 15:23:27 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756133607389,"pid":45656,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------1rOvBc7YN7yrQFmE4MY9l2"},"remoteAddress":"127.0.0.1","remotePort":61065},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":168,"msg":"request completed"}
+[2025-08-25T14:56:35.372Z] Server exited with code null and signal SIGKILL
+[2025-08-25T14:56:35.372Z] Checking if port 4000 is free...
+[2025-08-25T14:56:35.373Z] Port 4000 is free
+[2025-08-25T14:56:35.373Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-25T14:56:35.390Z] Checking if port 4000 is free...
+[2025-08-25T14:56:35.393Z] Port 4000 is free
+[2025-08-25T14:56:35.393Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+Server running on port 4000
+[SERVER] Port 4000 is already in use
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-25T14:56:35.536Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:35.536Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:37.537Z] Checking if port 4000 is free...
+[2025-08-25T14:56:37.538Z] Port 4000 is free
+[2025-08-25T14:56:37.538Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:37.647Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:37.647Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:39.649Z] Checking if port 4000 is free...
+[2025-08-25T14:56:39.650Z] Port 4000 is free
+[2025-08-25T14:56:39.650Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:39.763Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:39.763Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:41.765Z] Checking if port 4000 is free...
+[2025-08-25T14:56:41.765Z] Port 4000 is free
+[2025-08-25T14:56:41.766Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:41.881Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:41.881Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:43.882Z] Checking if port 4000 is free...
+[2025-08-25T14:56:43.883Z] Port 4000 is free
+[2025-08-25T14:56:43.884Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:43.997Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:43.997Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:45.998Z] Checking if port 4000 is free...
+[2025-08-25T14:56:45.999Z] Port 4000 is free
+[2025-08-25T14:56:45.999Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:46.112Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:46.112Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:48.113Z] Checking if port 4000 is free...
+[2025-08-25T14:56:48.114Z] Port 4000 is free
+[2025-08-25T14:56:48.114Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:48.226Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:48.226Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:50.228Z] Checking if port 4000 is free...
+[2025-08-25T14:56:50.230Z] Port 4000 is free
+[2025-08-25T14:56:50.230Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:50.343Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:50.343Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:52.345Z] Checking if port 4000 is free...
+[2025-08-25T14:56:52.346Z] Port 4000 is free
+[2025-08-25T14:56:52.346Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T14:56:52.460Z] Server exited with code 1 and signal null
+[2025-08-25T14:56:52.460Z] Waiting 2000ms before restarting server...
+[2025-08-25T14:56:54.462Z] Server has restarted 10 times. Giving up.
+[2025-08-25T14:59:55.167Z] Received SIGINT. Shutting down gracefully...
+[2025-08-25T15:00:14.832Z] Checking if port 4000 is free...
+[2025-08-25T15:00:14.836Z] Port 4000 is free
+[2025-08-25T15:00:14.836Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'cdb918fabe7694e23eaa13c445bd4cd0',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 15:00:23 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974bf56b5a4eb929-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1be-9f47-7246-b62a-d5c414de61ab',
+    'set-cookie': [
+      '__cf_bm=LEKuHYFre0KbToKuV4p6vGB8xF5gEdzjxiAXcyVkt4A-1756134023-1.0.1.1-YJ3OfNYIY0bI5xTVwai4catHsO13HBXtMEUC7Og0f.6bjd0WhtzK2ejHExiV0_oR8GAesnLUs1oFeRLdWzAyLaumVGf3S.kqfBMbBg.buJw; path=/; expires=Mon, 25-Aug-25 15:30:23 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756134022859,"pid":46285,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------WRXOlnZzhPAvWMLezOSBM7"},"remoteAddress":"127.0.0.1","remotePort":61137},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":185,"msg":"request completed"}
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: '6a42f1104ba739a5f45a632160fe7bf7',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 15:02:25 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974bf8678a2b9b44-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1c0-7ccd-7287-a707-ae6cd0519db9',
+    'set-cookie': [
+      '__cf_bm=XcHxNGkriTS5YrwXFQI040Oakd65SYq8xoR_VdL2UdE-1756134145-1.0.1.1-K_iiECgNrNRKtUx6crz.W8A0sLHxMtO7psON28jIEbbVjtvL46suyQOn4bSejOWfs98Y04Ie09eBX2rvPumH57RNlUXEMLfrqPOz9evftyg; path=/; expires=Mon, 25-Aug-25 15:32:25 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756134145109,"pid":46285,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------ENEIEbJzVxTTVkGCh8yZIe"},"remoteAddress":"127.0.0.1","remotePort":61152},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":144,"msg":"request completed"}
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: '23289a4bd12aa9d4798ebd9f0f7108fc',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 15:03:39 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974bfa37aa2edd48-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1c1-9ede-7bd9-93c2-ce81ab427a88',
+    'set-cookie': [
+      '__cf_bm=C0TTbiH5GSfgTXFUi0l_MtrKh4VqyVb86t_2fnclQgQ-1756134219-1.0.1.1-0BvjkJrW8JpzS_wIKHalhOTP0WnQzyTdpvWtkO8ZtNxeO0S78oUPkCJEQjdn8yOK7pdqpcDOJMGEtNjuRxIC3P22VJl.mi5.XiQiIwMfCcM; path=/; expires=Mon, 25-Aug-25 15:33:39 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756134219361,"pid":46285,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------MPvThNALbi9CpbF2se2pz5"},"remoteAddress":"127.0.0.1","remotePort":61164},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":145,"msg":"request completed"}
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'e37a9d5e933f4e30237c8bc5cd09cfb6',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 15:05:10 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974bfc71ee9f853e-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1c3-035d-7eea-b298-1e5a4c57d277',
+    'set-cookie': [
+      '__cf_bm=VGMlxaNWwDRuwmvwukm4F57DiXTr3MKI7P9eCYj4eWc-1756134310-1.0.1.1-Re0gsuXIMMUAVcmUG1NqyGnPGY22YldFN2gs5jKUOYc5hIOygiOPMsP_x6DHNFH6QxGlUdPTM7aXQ9iNVdbIHNSKM6N1xfU60jldZS0j4Fk; path=/; expires=Mon, 25-Aug-25 15:35:10 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756134310653,"pid":46285,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------4L4XzoAq7HbKav7lHK0jWZ"},"remoteAddress":"127.0.0.1","remotePort":61179},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":169,"msg":"request completed"}
+[2025-08-25T15:05:45.171Z] Checking if port 4000 is free...
+[2025-08-25T15:05:45.172Z] Port 4000 is free
+[2025-08-25T15:05:45.172Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:45.334Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:45.334Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:47.335Z] Checking if port 4000 is free...
+[2025-08-25T15:05:47.336Z] Port 4000 is free
+[2025-08-25T15:05:47.336Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:47.436Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:47.436Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:49.436Z] Checking if port 4000 is free...
+[2025-08-25T15:05:49.437Z] Port 4000 is free
+[2025-08-25T15:05:49.437Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:49.539Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:49.539Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:51.540Z] Checking if port 4000 is free...
+[2025-08-25T15:05:51.541Z] Port 4000 is free
+[2025-08-25T15:05:51.541Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:51.652Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:51.652Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:53.653Z] Checking if port 4000 is free...
+[2025-08-25T15:05:53.654Z] Port 4000 is free
+[2025-08-25T15:05:53.654Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:53.764Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:53.764Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:55.765Z] Checking if port 4000 is free...
+[2025-08-25T15:05:55.767Z] Port 4000 is free
+[2025-08-25T15:05:55.767Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:55.877Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:55.877Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:05:57.878Z] Checking if port 4000 is free...
+[2025-08-25T15:05:57.879Z] Port 4000 is free
+[2025-08-25T15:05:57.879Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:05:57.982Z] Server exited with code 1 and signal null
+[2025-08-25T15:05:57.982Z] Waiting 2000ms before restarting server...
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'e497e21ab97483360afbb734a11f9140',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/8c26e107035a372a9fe1369f111766a9/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Mon, 25 Aug 2025 15:06:00 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '974bfdab39228b5d-HKG',
+    'api-version': '2025-08-25',
+    'cf-auditlog-id': '0198e1c3-c72d-723d-a649-7730fdac6adc',
+    'set-cookie': [
+      '__cf_bm=nJadtj2l.zQ86EYHvuy4SRakwygDF4BNwbgCQVU3y1A-1756134360-1.0.1.1-EPTDIeDUoKO12fYoE8uS5wY4uAQBxdVV_4gm2jtP3StBQKQDSsSAbZPU_uUCKnT1dbxYeRtotANnK3i.jdpElFbeZY98zxZ6yG.GKIUdkRk; path=/; expires=Mon, 25-Aug-25 15:36:00 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Error: Invalid image format. Please use a clear photo of food.
+{"level":30,"time":1756134358827,"pid":46285,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------l3TTCAWLUF7Dcphc2Il3Qc"},"remoteAddress":"127.0.0.1","remotePort":61200},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"184","etag":"W/\"b8-Xu+/YSnahvgf1n+qOKRDhZ9iGYI\""}},"responseTime":170,"msg":"request completed"}
+[2025-08-25T15:05:59.983Z] Checking if port 4000 is free...
+[2025-08-25T15:05:59.983Z] Port 4000 is free
+[2025-08-25T15:05:59.983Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:00.088Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:00.088Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:06:02.088Z] Checking if port 4000 is free...
+[2025-08-25T15:06:02.089Z] Port 4000 is free
+[2025-08-25T15:06:02.090Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:02.197Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:02.197Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:06:04.199Z] Checking if port 4000 is free...
+[2025-08-25T15:06:04.199Z] Port 4000 is free
+[2025-08-25T15:06:04.199Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:04.304Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:04.304Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:06:06.305Z] Server has restarted 10 times. Giving up.
+[2025-08-25T15:06:53.850Z] Server exited with code null and signal SIGKILL
+[2025-08-25T15:06:53.850Z] Checking if port 4000 is free...
+[2025-08-25T15:06:53.851Z] Port 4000 is free
+[2025-08-25T15:06:53.851Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:53.956Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:53.956Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:06:55.957Z] Checking if port 4000 is free...
+[2025-08-25T15:06:55.957Z] Port 4000 is free
+[2025-08-25T15:06:55.957Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:56.086Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:56.086Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:06:58.087Z] Checking if port 4000 is free...
+[2025-08-25T15:06:58.087Z] Port 4000 is free
+[2025-08-25T15:06:58.087Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:06:58.188Z] Server exited with code 1 and signal null
+[2025-08-25T15:06:58.188Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:00.189Z] Checking if port 4000 is free...
+[2025-08-25T15:07:00.190Z] Port 4000 is free
+[2025-08-25T15:07:00.190Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:00.302Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:00.302Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:02.303Z] Checking if port 4000 is free...
+[2025-08-25T15:07:02.304Z] Port 4000 is free
+[2025-08-25T15:07:02.304Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:02.413Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:02.413Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:04.415Z] Checking if port 4000 is free...
+[2025-08-25T15:07:04.416Z] Port 4000 is free
+[2025-08-25T15:07:04.416Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:04.530Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:04.530Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:06.532Z] Checking if port 4000 is free...
+[2025-08-25T15:07:06.533Z] Port 4000 is free
+[2025-08-25T15:07:06.533Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:06.644Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:06.644Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:08.645Z] Checking if port 4000 is free...
+[2025-08-25T15:07:08.646Z] Port 4000 is free
+[2025-08-25T15:07:08.646Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:08.757Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:08.757Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:10.758Z] Checking if port 4000 is free...
+[2025-08-25T15:07:10.760Z] Port 4000 is free
+[2025-08-25T15:07:10.760Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: ENABLED
+Strict mode (effective): ENABLED
+Available AI Providers: [ 'deepseek' ]
+Default AI_PROVIDER: deepseek
+Total providers available: 1
+- deepseek: ENABLED (deepseek-chat)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-25T15:07:10.871Z] Server exited with code 1 and signal null
+[2025-08-25T15:07:10.871Z] Waiting 2000ms before restarting server...
+[2025-08-25T15:07:12.872Z] Server has restarted 10 times. Giving up.
+[2025-08-25T15:56:30.746Z] Checking if port 4000 is free...
+[2025-08-25T15:56:30.750Z] Port 4000 is free
+[2025-08-25T15:56:30.750Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+{"level":30,"time":1756137437836,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61763},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-k31D9S5qkxN96i9unQa+F3vqh/g\""}},"responseTime":4,"msg":"request completed"}
+{"level":30,"time":1756137451018,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/debug-env","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61766},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"234","etag":"W/\"ea-g+bj3W5lxbKCbcjEZSwDVXwuM5c\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1756137484847,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/test-supabase-connection","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61770},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"71","etag":"W/\"47-+NB7GIvM8/H3oPJb5nWlItnrBOI\""}},"responseTime":1207,"msg":"request completed"}
+{"level":30,"time":1756137671981,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61842},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-uFfHual1w4OzdKR6TQkY7VaghHc\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1756137685861,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/test-supabase-connection","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61844},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"71","etag":"W/\"47-+NB7GIvM8/H3oPJb5nWlItnrBOI\""}},"responseTime":304,"msg":"request completed"}
+{"level":30,"time":1756137744029,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"192.168.0.100","remotePort":61851},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-via8MnuWw48ythuhkuE3k7HzGR0\""}},"responseTime":1,"msg":"request completed"}
+[LOG METRIC] Error fetching recent metrics for trend weight: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test"'
+}
+[LOG METRIC] Error upserting metric: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test"'
+}
+{"level":30,"time":1756137863981,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"POST","url":"/api/log-daily-metric","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"87"},"remoteAddress":"192.168.0.100","remotePort":61877},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"72","etag":"W/\"48-TI/WJq8/b7sNRlUEzG2/Y/lDEt4\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":4231,"msg":"request errored"}
+[LOG METRIC] Error upserting metric: {
+  code: '23503',
+  details: 'Key (user_id)=(123e4567-e89b-12d3-a456-426614174000) is not present in table "users".',
+  hint: null,
+  message: 'insert or update on table "daily_user_metrics" violates foreign key constraint "daily_user_metrics_user_id_fkey"'
+}
+{"level":30,"time":1756137902385,"pid":52148,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"POST","url":"/api/log-daily-metric","query":{},"params":{},"headers":{"host":"192.168.0.100:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"119"},"remoteAddress":"192.168.0.100","remotePort":61882},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"144","etag":"W/\"90-s9TTxXYNyLxrWS1K0hHo3vno/RI\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":3324,"msg":"request errored"}
+[2025-08-27T06:08:05.970Z] Checking if port 4000 is free...
+[2025-08-27T06:08:05.973Z] Port 4000 is free
+[2025-08-27T06:08:05.973Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: true, fileInfo: null }
+[FOOD ANALYZE] Text-only analysis path
+[FOOD ANALYZE] Processing description: A bowl of cereal with milk and strawberries
+[FOOD ANALYZE] Trying DeepSeek for text analysis
+[AI] Trying provider: deepseek with model deepseek-chat
+[AI] Calling deepseek API with model deepseek-chat
+[AI] Request contains 2 messages
+[AI] Using max_tokens: 4000
+{"level":30,"time":1756274998247,"pid":92327,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"66"},"remoteAddress":"127.0.0.1","remotePort":58404},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"986","etag":"W/\"3da-pgH7ocb1PX/HUGm/pWKkkL8ytq0\""}},"responseTime":22618,"msg":"request completed"}
+[MULTER] Uploaded file details: {
+  originalname: '47c31044db6169ec91bfff920688e153',
+  mimetype: 'application/octet-stream',
+  size: undefined
+}
+[MULTER] File rejected - unsupported format: application/octet-stream
+[EXPRESS] Unhandled error in request: {
+  url: '/api/analyze-food',
+  method: 'POST',
+  error: 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).',
+  stack: 'Error: Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).\n' +
+    '    at fileFilter (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:918:10)\n' +
+    '    at wrappedFileFilter (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/multer/index.js:44:7)\n' +
+    '    at Multipart.<anonymous> (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/multer/lib/make-middleware.js:109:7)\n' +
+    '    at Multipart.emit (node:events:518:28)\n' +
+    '    at HeaderParser.cb (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:358:14)\n' +
+    '    at HeaderParser.push (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:162:20)\n' +
+    '    at SBMH.ssCb [as _cb] (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:394:37)\n' +
+    '    at feed (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/streamsearch/lib/sbmh.js:219:14)\n' +
+    '    at SBMH.push (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/streamsearch/lib/sbmh.js:104:16)\n' +
+    '    at Multipart._write (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:567:19)'
+}
+{"level":30,"time":1756275148350,"pid":92327,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"14982","content-type":"multipart/form-data; boundary=------------------------S3EUq15QA9Ek7uZ4XZVUa0"},"remoteAddress":"127.0.0.1","remotePort":58474},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"49","etag":"W/\"31-jrOlckaYaDhvBZMPW9vviWDtnUY\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":3,"msg":"request errored"}
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'dc52af4821669d1b76c41a862c240751',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 06:13:39 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '97596c997b4af0b4-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea29-1bf7-789f-9d81-1133eb46d205',
+    'set-cookie': [
+      '__cf_bm=5QpahDLYnTcEVlP19CjLMFEnoIEyLewoERLsKO_xqG4-1756275219-1.0.1.1-QBzNxkwR04JM442O0jYaKZO1MBuUlamSSVmsWPlC7h7s5St4tPXBbbuxrir8XjV5rDEd135RXCynxkJVuKkpxF4mHk6AdFY51MEaX3QOn5I; path=/; expires=Wed, 27-Aug-25 06:43:39 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Error: Vision model unavailable for this account. Please enable Workers AI vision or configure a supported model.
+{"level":30,"time":1756275219600,"pid":92327,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------3zJJuCRJMdFgxMRjCkAxIT"},"remoteAddress":"127.0.0.1","remotePort":58480},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"182","etag":"W/\"b6-CZVN4smUq139JdToUn5kYqAnm9Q\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1281,"msg":"request errored"}
+[2025-08-27T06:17:34.974Z] Server exited with code null and signal SIGKILL
+[2025-08-27T06:17:34.974Z] Checking if port 4000 is free...
+[2025-08-27T06:17:34.975Z] Port 4000 is free
+[2025-08-27T06:17:34.975Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-27T06:17:34.992Z] Checking if port 4000 is free...
+[2025-08-27T06:17:34.996Z] Port 4000 is free
+[2025-08-27T06:17:34.996Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:35.150Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:35.150Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:37.152Z] Checking if port 4000 is free...
+[2025-08-27T06:17:37.153Z] Port 4000 is free
+[2025-08-27T06:17:37.154Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:37.265Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:37.266Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:39.267Z] Checking if port 4000 is free...
+[2025-08-27T06:17:39.268Z] Port 4000 is free
+[2025-08-27T06:17:39.268Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:39.378Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:39.378Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:41.379Z] Checking if port 4000 is free...
+[2025-08-27T06:17:41.380Z] Port 4000 is free
+[2025-08-27T06:17:41.380Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:41.489Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:41.489Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:43.490Z] Checking if port 4000 is free...
+[2025-08-27T06:17:43.491Z] Port 4000 is free
+[2025-08-27T06:17:43.491Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:43.606Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:43.606Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:45.607Z] Checking if port 4000 is free...
+[2025-08-27T06:17:45.607Z] Port 4000 is free
+[2025-08-27T06:17:45.607Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:45.708Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:45.708Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:47.709Z] Checking if port 4000 is free...
+[2025-08-27T06:17:47.710Z] Port 4000 is free
+[2025-08-27T06:17:47.710Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:47.819Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:47.819Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:49.820Z] Checking if port 4000 is free...
+[2025-08-27T06:17:49.821Z] Port 4000 is free
+[2025-08-27T06:17:49.821Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:49.932Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:49.932Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:51.933Z] Checking if port 4000 is free...
+[2025-08-27T06:17:51.935Z] Port 4000 is free
+[2025-08-27T06:17:51.935Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:52.039Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:52.039Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:54.040Z] Checking if port 4000 is free...
+[2025-08-27T06:17:54.041Z] Port 4000 is free
+[2025-08-27T06:17:54.041Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:17:54.147Z] Server exited with code 1 and signal null
+[2025-08-27T06:17:54.147Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:17:56.149Z] Server has restarted 10 times. Giving up.
+[2025-08-27T06:21:28.819Z] Server exited with code null and signal SIGKILL
+[2025-08-27T06:21:28.819Z] Checking if port 4000 is free...
+[2025-08-27T06:21:28.819Z] Port 4000 is free
+[2025-08-27T06:21:28.819Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-27T06:21:29.006Z] Server exited with code null and signal SIGKILL
+[2025-08-27T06:21:29.006Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:29.023Z] Checking if port 4000 is free...
+[2025-08-27T06:21:29.026Z] Port 4000 is free
+[2025-08-27T06:21:29.026Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-27T06:21:31.007Z] Checking if port 4000 is free...
+[2025-08-27T06:21:31.008Z] Port 4000 is free
+[2025-08-27T06:21:31.008Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:31.121Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:31.121Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:33.122Z] Checking if port 4000 is free...
+[2025-08-27T06:21:33.123Z] Port 4000 is free
+[2025-08-27T06:21:33.123Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:33.235Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:33.235Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:35.237Z] Checking if port 4000 is free...
+[2025-08-27T06:21:35.237Z] Port 4000 is free
+[2025-08-27T06:21:35.237Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:35.349Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:35.349Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:37.351Z] Checking if port 4000 is free...
+[2025-08-27T06:21:37.351Z] Port 4000 is free
+[2025-08-27T06:21:37.352Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:37.464Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:37.464Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:39.465Z] Checking if port 4000 is free...
+[2025-08-27T06:21:39.465Z] Port 4000 is free
+[2025-08-27T06:21:39.465Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:39.566Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:39.566Z] Waiting 2000ms before restarting server...
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'd73388211f02810d83dd978eb6869d91',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[2025-08-27T06:21:41.566Z] Checking if port 4000 is free...
+[2025-08-27T06:21:41.568Z] Port 4000 is free
+[2025-08-27T06:21:41.568Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:41.681Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:41.681Z] Waiting 2000ms before restarting server...
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 06:21:42 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '97597863bbb92e5b-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea30-7a67-778c-bfd4-60217e226e77',
+    'set-cookie': [
+      '__cf_bm=KeFOpzr5cLkjllVsIg3Le2gOTgcuI7rHQLVa4okzPRQ-1756275702-1.0.1.1-.TtLhgK87URc1IDxn1rjd2QCZN6Uqtjz4JLWx_OPHPKi1CZNdyoFY8zxmrqo13y5kZFotpW0baOgdmjjd7XQLZCrsZCFJRHiq4OcJeBYP2k; path=/; expires=Wed, 27-Aug-25 06:51:42 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Error: Vision model unavailable for this account. Please enable Workers AI vision or configure a supported model.
+{"level":30,"time":1756275702884,"pid":94502,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------IOi60h3ag8Vcb9bA2zmJvS"},"remoteAddress":"127.0.0.1","remotePort":58542},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"182","etag":"W/\"b6-CZVN4smUq139JdToUn5kYqAnm9Q\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1731,"msg":"request errored"}
+[2025-08-27T06:21:43.682Z] Checking if port 4000 is free...
+[2025-08-27T06:21:43.683Z] Port 4000 is free
+[2025-08-27T06:21:43.683Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:21:43.796Z] Server exited with code 1 and signal null
+[2025-08-27T06:21:43.796Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:21:45.797Z] Server has restarted 10 times. Giving up.
+[2025-08-27T06:22:42.212Z] Server exited with code null and signal SIGKILL
+[2025-08-27T06:22:42.212Z] Checking if port 4000 is free...
+[2025-08-27T06:22:42.212Z] Port 4000 is free
+[2025-08-27T06:22:42.212Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-27T06:22:42.392Z] Server exited with code null and signal SIGKILL
+[2025-08-27T06:22:42.392Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:42.410Z] Checking if port 4000 is free...
+[2025-08-27T06:22:42.414Z] Port 4000 is free
+[2025-08-27T06:22:42.414Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[2025-08-27T06:22:44.394Z] Checking if port 4000 is free...
+[2025-08-27T06:22:44.395Z] Port 4000 is free
+[2025-08-27T06:22:44.395Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:44.508Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:44.508Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:46.510Z] Checking if port 4000 is free...
+[2025-08-27T06:22:46.510Z] Port 4000 is free
+[2025-08-27T06:22:46.511Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:46.616Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:46.617Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:48.618Z] Checking if port 4000 is free...
+[2025-08-27T06:22:48.619Z] Port 4000 is free
+[2025-08-27T06:22:48.619Z] Starting server (attempt 5/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:48.725Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:48.725Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:50.725Z] Checking if port 4000 is free...
+[2025-08-27T06:22:50.726Z] Port 4000 is free
+[2025-08-27T06:22:50.726Z] Starting server (attempt 6/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:50.837Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:50.837Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:52.838Z] Checking if port 4000 is free...
+[2025-08-27T06:22:52.838Z] Port 4000 is free
+[2025-08-27T06:22:52.838Z] Starting server (attempt 7/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:52.943Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:52.943Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:54.944Z] Checking if port 4000 is free...
+[2025-08-27T06:22:54.945Z] Port 4000 is free
+[2025-08-27T06:22:54.945Z] Starting server (attempt 8/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:55.055Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:55.055Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:57.055Z] Checking if port 4000 is free...
+[2025-08-27T06:22:57.057Z] Port 4000 is free
+[2025-08-27T06:22:57.057Z] Starting server (attempt 9/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:57.168Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:57.168Z] Waiting 2000ms before restarting server...
+[2025-08-27T06:22:59.168Z] Checking if port 4000 is free...
+[2025-08-27T06:22:59.169Z] Port 4000 is free
+[2025-08-27T06:22:59.169Z] Starting server (attempt 10/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Server error: Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at node:net:2203:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+[SERVER] Port 4000 is already in use
+[2025-08-27T06:22:59.276Z] Server exited with code 1 and signal null
+[2025-08-27T06:22:59.276Z] Waiting 2000ms before restarting server...
+[MULTER] Uploaded file details: {
+  originalname: 'test_food.jpg',
+  mimetype: 'image/jpeg',
+  size: undefined
+}
+[MULTER] File accepted: test_food.jpg
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: {
+  hasFile: true,
+  hasDescription: false,
+  fileInfo: {
+    originalname: 'test_food.jpg',
+    filename: 'a8e096788db32ae2bd5926b8333d2af5',
+    mimetype: 'image/jpeg',
+    size: 24554
+  }
+}
+[FOOD ANALYZE] Processing uploaded image: test_food.jpg
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 32740 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Image passed validation
+[IMAGE STANDARDIZE] Original: { format: 'jpeg', width: 1024, height: 768, channels: 3, density: 72 }
+[IMAGE STANDARDIZE] Standardized: {
+  format: 'jpeg',
+  width: 768,
+  height: 576,
+  channels: 3,
+  sizeBytes: 19557
+}
+[FOOD ANALYZE] Image standardized, new size: 26076
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[2025-08-27T06:23:01.277Z] Server has restarted 10 times. Giving up.
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 06:23:01 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '97597a52c8a4f063-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea31-afd0-720e-b831-4c101c1209c1',
+    'set-cookie': [
+      '__cf_bm=XZhM7x54X0e.eDYh0vEoj3JxP1uDA8pqhQ5JCo496nY-1756275781-1.0.1.1-Jp0gUXdlD2hLyTqM3AP4qXgVUb.3QeMLfMInfn0AEM.CbxjbsiJCT5R4DQzKLUBoJIF3UnEmtqNeMpwgpULHcjegQMcXOK3QyB3xPA7OqFM; path=/; expires=Wed, 27-Aug-25 06:53:01 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Vision route unavailable (7000). Using rule-based fallback
+[FALLBACK] Using rule-based nutrition analysis
+{"level":30,"time":1756275781868,"pid":95144,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"24762","content-type":"multipart/form-data; boundary=------------------------5gEDLY8dMZpUBAQ26w51A3"},"remoteAddress":"127.0.0.1","remotePort":58551},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"226","etag":"W/\"e2-FD98kxbD86ZRvazKrsb8rMarcI4\""}},"responseTime":1316,"msg":"request completed"}
+[2025-08-27T07:06:18.142Z] Checking if port 4000 is free...
+[2025-08-27T07:06:18.145Z] Port 4000 is free
+[2025-08-27T07:06:18.145Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[FOOD ANALYZE] Received food analysis request
+{"level":30,"time":1756278699733,"pid":96675,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"423"},"remoteAddress":"127.0.0.1","remotePort":59964},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":9,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+{"level":30,"time":1756278749678,"pid":96675,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"49"},"remoteAddress":"127.0.0.1","remotePort":60001},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] Unhandled error in request: {
+  url: '/api/analyze-food',
+  method: 'POST',
+  error: 'Unexpected field',
+  stack: 'MulterError: Unexpected field\n' +
+    '    at wrappedFileFilter (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/multer/index.js:40:19)\n' +
+    '    at Multipart.<anonymous> (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/multer/lib/make-middleware.js:109:7)\n' +
+    '    at Multipart.emit (node:events:518:28)\n' +
+    '    at HeaderParser.cb (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:358:14)\n' +
+    '    at HeaderParser.push (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:162:20)\n' +
+    '    at SBMH.ssCb [as _cb] (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:394:37)\n' +
+    '    at feed (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/streamsearch/lib/sbmh.js:219:14)\n' +
+    '    at SBMH.push (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/streamsearch/lib/sbmh.js:104:16)\n' +
+    '    at Multipart._write (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/busboy/lib/types/multipart.js:567:19)\n' +
+    '    at writeOrBuffer (node:internal/streams/writable:572:12)'
+}
+{"level":30,"time":1756278814173,"pid":96675,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-length":"224","content-type":"multipart/form-data; boundary=------------------------L5iXJZs1UsBAH6wPmOuL4f"},"remoteAddress":"127.0.0.1","remotePort":60018},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"49","etag":"W/\"31-jrOlckaYaDhvBZMPW9vviWDtnUY\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":3,"msg":"request errored"}
+[LOG METRIC] Error fetching recent metrics for trend weight: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test-user-123"'
+}
+[LOG METRIC] Error upserting metric: {
+  code: 'PGRST204',
+  details: null,
+  hint: null,
+  message: "Could not find the 'body_fat_percentage' column of 'daily_user_metrics' in the schema cache"
+}
+{"level":30,"time":1756279467634,"pid":96675,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/log-daily-metric","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"143","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60174},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"119","etag":"W/\"77-QZppMH0vrvwkMTpyXFY3BPMFqeQ\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1932,"msg":"request errored"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-27T07:33:14.619Z] Server exited with code 0 and signal null
+[2025-08-27T07:33:14.619Z] Checking if port 4000 is free...
+[2025-08-27T07:33:14.620Z] Port 4000 is free
+[2025-08-27T07:33:14.620Z] Starting server (attempt 2/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+{"level":30,"time":1756280004641,"pid":2279,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"HEAD","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":60419},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"105","etag":"W/\"69-CH+JdrRNSvUpaOTjfLs4RY9reOw\""}},"responseTime":2,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-27T07:40:26.084Z] Server exited with code 0 and signal null
+[2025-08-27T07:40:26.084Z] Checking if port 4000 is free...
+[2025-08-27T07:40:26.085Z] Port 4000 is free
+[2025-08-27T07:40:26.085Z] Starting server (attempt 3/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] CF_VISION_MODEL env var: @cf/llava-1.5-7b-hf
+[VISION MODEL DEBUG] Resolved model: @cf/llava-1.5-7b-hf
+=== API CONFIGURATION ===
+DeepSeek-only mode: DISABLED
+Strict mode (effective): DISABLED
+Available AI Providers: [ 'deepseek', 'cloudflare', 'fallback' ]
+Default AI_PROVIDER: openrouter
+Total providers available: 3
+- deepseek: ENABLED (deepseek-chat)
+- cloudflare: ENABLED (@cf/llava-1.5-7b-hf)
+- fallback: ENABLED (rule-based)
+========================
+Server running on port 4000
+Local IP: 192.168.0.100
+Server URL: http://192.168.0.100:4000
+Test API with: curl http://192.168.0.100:4000/api/test
+[EXPRESS] 404 - Route not found: POST /api/food/analyze
+{"level":30,"time":1756280967070,"pid":2739,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/food/analyze","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"131","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60567},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"89","etag":"W/\"59-hhR9OF6uTwLyJVoZlzPnl7nMGuc\""}},"responseTime":9,"msg":"request completed"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: false, fileInfo: null }
+[FOOD ANALYZE] Processing base64 image from request body
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image too small for vision analysis, using fallback
+[FOOD ANALYZE] Image size details: {
+  base64Length: 96,
+  originalSize: undefined,
+  filename: undefined,
+  mimetype: undefined
+}
+[FOOD ANALYZE] Vision analysis failed: Image too small for vision analysis
+[FOOD ANALYZE] Vision error details: {
+  status: undefined,
+  statusText: undefined,
+  data: undefined,
+  headers: undefined
+}
+[FOOD ANALYZE] Cloudflare error details: { status: undefined, code: undefined, message: undefined }
+[FOOD ANALYZE] Cloudflare error details: { status: undefined, code: undefined, message: undefined }
+[FOOD ANALYZE] Error: Vision analysis failed: Image too small for vision analysis
+{"level":30,"time":1756280989642,"pid":2739,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"131","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60571},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"135","etag":"W/\"87-XfNYUls+9GD4aFLK1/Twp80gaNM\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":2,"msg":"request errored"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: false, fileInfo: null }
+[FOOD ANALYZE] Processing base64 image from request body
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 4101 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Validation error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+[IMAGE STANDARDIZE] Image validation failed: [
+  'Validation failed: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum'
+]
+[IMAGE STANDARDIZE] Error standardizing image: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.metadata (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/input.js:639:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4554:47)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[IMAGE STANDARDIZE] Attempting fallback minimal processing...
+[IMAGE STANDARDIZE] Fallback processing also failed: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.toBuffer (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/output.js:163:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4617:10)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[FOOD ANALYZE] Image standardization failed, using original: Image processing completely failed - image may be corrupted
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 07:50:46 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '9759fade095ca915-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea82-06df-74fe-927f-64ac0d1fa347',
+    'set-cookie': [
+      '__cf_bm=VPrORVKeVsIWNWIvoK2W0aNe3PnMnB5IDc0JhTqjRwU-1756281046-1.0.1.1-xtgtqnK7ns9L.BINHNZNfh6KKaHr1YKr6ymQDBh9.zTRJYQT3BUk3QaLTbXi8Bnq1WQOgoDmVWKq55IlM.GCJfuOQNLuPVV_OioJ3DXD.Og; path=/; expires=Wed, 27-Aug-25 08:20:46 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Error: Vision model unavailable for this account. Please enable Workers AI vision or configure a supported model.
+{"level":30,"time":1756281046754,"pid":2739,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"4136","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60576},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"182","etag":"W/\"b6-CZVN4smUq139JdToUn5kYqAnm9Q\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1609,"msg":"request errored"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: false, fileInfo: null }
+[FOOD ANALYZE] Processing base64 image from request body
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 4113 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Validation error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+[IMAGE STANDARDIZE] Image validation failed: [
+  'Validation failed: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum'
+]
+[IMAGE STANDARDIZE] Error standardizing image: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.metadata (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/input.js:639:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4554:47)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[IMAGE STANDARDIZE] Attempting fallback minimal processing...
+[IMAGE STANDARDIZE] Fallback processing also failed: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.toBuffer (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/output.js:163:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4617:10)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[FOOD ANALYZE] Image standardization failed, using original: Image processing completely failed - image may be corrupted
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 07:54:37 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '975a007f38704780-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea85-8ba5-7afc-8be7-54ed64181b10',
+    'set-cookie': [
+      '__cf_bm=WQQa_bUAdbLDTfBN.TFoIdGwaBFul.BraTXqhykzpMQ-1756281277-1.0.1.1-Ny3DDxU4QMM4VYHFWaLTIoM7MjuDb8DYIx5W52PYLQmp5DBRHrm0zFPW32jRqt0SVsT8Vs0YP6Ckd7c3sNQg.M.bmNAg7fuSCrOiC9nRTNE; path=/; expires=Wed, 27-Aug-25 08:24:37 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Error: Vision model unavailable for this account. Please enable Workers AI vision or configure a supported model.
+{"level":30,"time":1756281277705,"pid":2739,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"4148","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60694},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"182","etag":"W/\"b6-CZVN4smUq139JdToUn5kYqAnm9Q\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1342,"msg":"request errored"}
+[FOOD ANALYZE] Received food analysis request
+[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: false, fileInfo: null }
+[FOOD ANALYZE] Processing base64 image from request body
+[FOOD ANALYZE] Using vision AI to analyze food image
+[FOOD ANALYZE] Image size: 4113 characters
+[FOOD ANALYZE] MIME type: image/jpeg
+[FOOD ANALYZE] Calling vision AI service with model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare Debug Info:
+- CF_ACCOUNT_ID length: 32
+- CF_API_TOKEN length: 40
+- CF_VISION_MODEL: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] DeepSeek does not support vision - using Cloudflare for image analysis
+[FOOD ANALYZE] Using vision model: @cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Standardizing image for tensor processing
+[IMAGE STANDARDIZE] Standardizing image for tensor processing
+[IMAGE VALIDATE] Validation error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+[IMAGE STANDARDIZE] Image validation failed: [
+  'Validation failed: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum'
+]
+[IMAGE STANDARDIZE] Error standardizing image: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.metadata (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/input.js:639:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4554:47)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[IMAGE STANDARDIZE] Attempting fallback minimal processing...
+[IMAGE STANDARDIZE] Fallback processing also failed: Error: Input buffer has corrupt header: pngload_buffer: invalid chunk checksum
+    at Sharp.toBuffer (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/sharp/lib/output.js:163:17)
+    at standardizeImageForTensor (/Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4617:10)
+    at async /Users/ngkwanho/Desktop/SnapBodyAI/server/index.js:4984:36
+[FOOD ANALYZE] Image standardization failed, using original: Image processing completely failed - image may be corrupted
+[FOOD ANALYZE] Using LLaVA request format
+[FOOD ANALYZE] Making Cloudflare API call to: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/llava-1.5-7b-hf
+[FOOD ANALYZE] Cloudflare URL details: {
+  accountIdLength: 32,
+  modelSlug: '@cf/llava-1.5-7b-hf',
+  modelSlugLength: 19
+}
+[FOOD ANALYZE] Request body keys: [ 'messages', 'max_tokens' ]
+[FOOD ANALYZE] Vision analysis failed: Request failed with status code 400
+[FOOD ANALYZE] Vision error details: {
+  status: 400,
+  statusText: 'Bad Request',
+  data: { success: false, errors: [ [Object] ], messages: [], result: null },
+  headers: Object [AxiosHeaders] {
+    date: 'Wed, 27 Aug 2025 07:55:08 GMT',
+    'content-type': 'application/json',
+    'content-length': '104',
+    connection: 'keep-alive',
+    'cf-ray': '975a0142ab16f0aa-DFW',
+    'api-version': '2025-08-27',
+    'cf-auditlog-id': '0198ea86-05b8-7f83-9cb8-23b38874d6f7',
+    'set-cookie': [
+      '__cf_bm=i4FoAUC1wND4qDDmbu6sUr6Hsijji6Nf.1PmY0W6qb0-1756281308-1.0.1.1-lyw8yR6agL8BUxwD0fSbIPsbdKblMVCfyfz2fE9IsYIaIvnKd1uME5nmPUH5ZJ4Hu3R9J.EDNW51fNsAr8O2iC2cpdUsoyONZ8lmSBUHpDA; path=/; expires=Wed, 27-Aug-25 08:25:08 GMT; domain=.api.cloudflare.com; HttpOnly; Secure; SameSite=None'
+    ],
+    vary: 'Accept-Encoding',
+    server: 'cloudflare'
+  }
+}
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:
+- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI
+- Model slug is unavailable for this account
+- API token permissions are insufficient (needs Workers AI access)
+[FOOD ANALYZE] Cloudflare error details: { status: 400, code: 7000, message: 'No route for that URI' }
+[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model
+[FOOD ANALYZE] UForm fallback request URL: https://api.cloudflare.com/client/v4/accounts/b250a9011545cb1ec917651da27c0594/ai/run/@cf/unum-cloud/uform-gen2-qwen-500m
+[FOOD ANALYZE] UForm fallback body keys: [ 'input_text', 'input_image' ]
+[FOOD ANALYZE] UForm fallback failed: Request failed with status code 400
+[FOOD ANALYZE] Error: Vision model unavailable for this account. Please enable Workers AI vision or configure a supported model.
+{"level":30,"time":1756281308697,"pid":2739,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"accept":"application/json, text/plain, */*","content-type":"application/json","user-agent":"axios/1.11.0","content-length":"4148","accept-encoding":"gzip, compress, deflate, br","host":"localhost:4000","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":60699},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"182","etag":"W/\"b6-CZVN4smUq139JdToUn5kYqAnm9Q\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/SnapBodyAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1067,"msg":"request errored"}
+[2025-08-27T07:57:57.350Z] Received SIGTERM. Shutting down gracefully...
+[2025-08-27T07:57:57.351Z] Terminating server process...
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-08-27T07:57:57.355Z] Server exited with code 0 and signal null
+[2025-08-27T07:57:57.355Z] Checking if port 4000 is free...
+[2025-08-27T07:57:57.356Z] Port 4000 is free
+[2025-08-27T07:57:57.356Z] Starting server (attempt 4/10)...
+--- SERVER RESTARTED ---
+--- Code version: 2.2 ---
+[2025-08-27T07:57:57.393Z] No processes found on port 4000

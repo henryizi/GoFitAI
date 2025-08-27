@@ -17,11 +17,10 @@ const colors = {
 export type TodayCardProps = {
   weightToday?: number;
   streakDays: number;
-  habitScore?: number;
   onLogProgress: () => void;
 };
 
-export default function TodayCard({ weightToday, streakDays, habitScore, onLogProgress }: TodayCardProps) {
+export default function TodayCard({ weightToday, streakDays, onLogProgress }: TodayCardProps) {
   return (
     <View style={styles.container}>
       <LinearGradient colors={[colors.glassStrong, colors.glass]} style={styles.gradient}>
@@ -45,15 +44,6 @@ export default function TodayCard({ weightToday, streakDays, habitScore, onLogPr
               <Icon name="scale-bathroom" size={18} color={colors.primary} />
               <Text style={styles.statValue}>{typeof weightToday === 'number' ? weightToday.toFixed(1) : '--'}</Text>
               <Text style={styles.statUnit}>kg</Text>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>HABIT SCORE</Text>
-            <View style={styles.statValueRow}>
-              <Icon name="star-circle" size={18} color={colors.primary} />
-              <Text style={styles.statValue}>{typeof habitScore === 'number' ? Math.round(habitScore) : '--'}</Text>
-              <Text style={styles.statUnit}>/100</Text>
             </View>
           </View>
         </View>

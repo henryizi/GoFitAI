@@ -10,8 +10,12 @@ const getApiUrl = (): string => {
   const configUrl = (Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL as string | undefined) || undefined;
 
   if (configUrl) {
-    console.log('[ENVIRONMENT] Using configured API URL from Expo config:', configUrl);
-    return configUrl;
+    const sanitized = /localhost|127\.0\.0\.1/.test(configUrl) ? 'https://gofitai-production.up.railway.app' : configUrl;
+    console.log('[ENVIRONMENT] Using configured API URL from Expo config:', sanitized);
+    if (sanitized !== configUrl) {
+      console.warn('[ENVIRONMENT] Replaced localhost API URL with Railway production URL');
+    }
+    return sanitized;
   }
 
   // Final fallback to production Railway URL
@@ -34,10 +38,10 @@ export const environment = {
   enableProductionServer: true,
   
   // Timeouts
-  apiTimeout: 45000,
+  apiTimeout: 240000, // Increased to 240 seconds (4 minutes) for AI processing
   
   // Logging
-  enableVerboseLogging: isDevelopment,
+  enableVerboseLogging: Boolean(Number((Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_AI_VERBOSE)) || isDevelopment,
 };
 
 // Log current environment (only in development)

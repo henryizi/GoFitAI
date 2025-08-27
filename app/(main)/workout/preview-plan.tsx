@@ -12,6 +12,7 @@ import { WorkoutService as RealWorkoutService } from '../../../src/services/work
 import { WorkoutLocalStore } from '../../../src/services/workout/WorkoutLocalStore';
 import { useAuth } from '../../../src/hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { environment } from '../../../src/config/environment';
 
 // Modern Dark Design System
 const { width } = Dimensions.get('window');
@@ -50,6 +51,50 @@ export default function PreviewPlanScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
+  // Helper: wrap a partial/single exercise response into a minimal valid plan
+  const coerceToPlan = (maybePlan: any) => {
+    // If it already looks like a plan, return as-is
+    if (maybePlan && (maybePlan.weeklySchedule || maybePlan.weekly_schedule)) {
+      return maybePlan;
+    }
+
+    // If it looks like a single exercise suggestion, wrap it
+    const candidate = maybePlan?.newPlan || maybePlan;
+    const looksLikeExercise = candidate && (
+      typeof candidate.name === 'string' &&
+      (candidate.sets != null || candidate.reps != null || candidate.rest != null || candidate.restBetweenSets != null)
+    );
+
+    if (looksLikeExercise) {
+      const exercise = {
+        name: candidate.name || 'Exercise',
+        sets: typeof candidate.sets === 'number' ? candidate.sets : 3,
+        reps: candidate.reps || '8-12',
+        rest: candidate.rest || candidate.restBetweenSets || '60s',
+      };
+
+      const wrapped = {
+        id: candidate.id || `preview-${Date.now()}`,
+        name: candidate.plan_name || 'AI Suggested Update',
+        training_level: candidate.training_level || 'intermediate',
+        weekly_schedule: [
+          {
+            day: 'Day 1',
+            focus: 'Updated Session',
+            exercises: [exercise],
+          },
+        ],
+      } as any;
+
+      // Maintain both snake_case and camelCase for downstream compatibility
+      wrapped.weeklySchedule = wrapped.weekly_schedule;
+      return wrapped;
+    }
+
+    // Unknown structure → return as-is, validation will handle
+    return maybePlan;
+  };
+
   // Update the useEffect to better handle planObject parsing and logging
   useEffect(() => {
     try {
@@ -87,10 +132,12 @@ export default function PreviewPlanScreen() {
         return;
       }
       
-      console.log('[PREVIEW] Successfully parsed plan:', parsedPlan?.name || 'unnamed plan');
+      // Coerce partial structures into a valid plan
+      const normalized = coerceToPlan(parsedPlan);
+      console.log('[PREVIEW] Successfully parsed plan:', normalized?.name || 'unnamed plan');
       
       // Validate the plan structure
-      if (!parsedPlan || (!parsedPlan.weeklySchedule && !parsedPlan.weekly_schedule)) {
+      if (!normalized || (!normalized.weeklySchedule && !normalized.weekly_schedule)) {
         console.error('[PREVIEW] Invalid plan structure, creating emergency plan');
         setPlan(createEmergencyPlan());
         setIsLoading(false);
@@ -98,7 +145,7 @@ export default function PreviewPlanScreen() {
       }
       
       // Check if weekly schedule exists and has items
-      const schedule = parsedPlan.weeklySchedule || parsedPlan.weekly_schedule;
+      const schedule = normalized.weeklySchedule || normalized.weekly_schedule;
       if (!Array.isArray(schedule) || schedule.length === 0) {
         console.error('[PREVIEW] Plan has empty weekly schedule, creating emergency plan');
         setPlan(createEmergencyPlan());
@@ -107,7 +154,7 @@ export default function PreviewPlanScreen() {
       }
       
       // All validations passed, set the plan
-      setPlan(parsedPlan);
+      setPlan(normalized);
       setIsLoading(false);
     } catch (e) {
       console.error("[PREVIEW] Unexpected error processing planObject:", e);
@@ -187,10 +234,12 @@ export default function PreviewPlanScreen() {
         return;
       }
       
-      // Normalize the plan structure
+      // Normalize the plan structure - ensure both weekly_schedule and weeklySchedule are set
+      const weeklySchedule = plan.weeklySchedule || plan.weekly_schedule || [];
       const normalizedPlan = {
         ...plan,
-        weekly_schedule: plan.weeklySchedule || plan.weekly_schedule || [],
+        weekly_schedule: weeklySchedule,
+        weeklySchedule: weeklySchedule, // Ensure both properties exist
         is_active: true // Explicitly set as active
       };
       
@@ -222,9 +271,8 @@ export default function PreviewPlanScreen() {
         // Try multiple API URLs in sequence
         const API_URLS = [
           'https://gofitai-production.up.railway.app',
-          global.API_URL,
-          process.env.EXPO_PUBLIC_API_URL
-        ].filter(Boolean); // Prefer Railway first
+          environment.apiUrl
+        ].filter(Boolean);
         
         for (const apiUrl of API_URLS) {
           try {
@@ -250,12 +298,7 @@ export default function PreviewPlanScreen() {
                 newPlanId = data.newPlanId;
                 console.log('[STEP 6] Plan saved successfully with ID:', newPlanId);
                 
-                // Store the working API URL for future use
-                if (global) {
-                  global.API_URL = apiUrl;
-                  console.log('[STEP 7] Stored working API URL:', apiUrl);
-                }
-                
+                // Working URL detected
                 break; // Exit the loop on success
               }
             }

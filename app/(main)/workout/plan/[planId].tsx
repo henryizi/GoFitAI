@@ -12,6 +12,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { WorkoutService as RealWorkoutService } from '../../../../src/services/workout/WorkoutService';
 import { WorkoutLocalStore } from '../../../../src/services/workout/WorkoutLocalStore';
 import { useAuth } from '../../../../src/hooks/useAuth';
+import { environment } from '../../../../src/config/environment';
+import Constants from 'expo-constants';
 
 // Modern Dark Design System
 const { width } = Dimensions.get('window');
@@ -105,15 +107,6 @@ export default function PlanDetailScreen() {
   const deletePlan = async () => {
     try {
       if (!plan) return;
-      // Remove from mock store immediately for UI
-      try {
-        const before = mockWorkoutPlansStore.plans.length;
-        mockWorkoutPlansStore.plans = mockWorkoutPlansStore.plans.filter((p: any) => p.id !== plan.id);
-        const after = mockWorkoutPlansStore.plans.length;
-        console.log(`[PlanDetail] Removed from mock store: ${before} -> ${after}`);
-      } catch (e) {
-        console.log('[PlanDetail] Failed to update mock store on delete:', e);
-      }
 
       // Best-effort real deletion
       try {
@@ -216,68 +209,74 @@ export default function PlanDetailScreen() {
       }
     };
 
-    const CHAT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 180000; // Increased to 180 seconds (3 minutes) for complex AI reasoning
+    const CHAT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 240000; // Increased to 240 seconds (4 minutes) for complex AI reasoning
 
     try {
-      console.log('--- SENDING CHAT TO AI ---');
-      console.log('[STEP 1] Sending chat history to backend:', JSON.stringify(fullChatHistory, null, 2));
+      if (environment.enableVerboseLogging) {
+        console.log('--- SENDING CHAT TO AI ---');
+        console.log('[STEP 1] Sending chat history to backend:', JSON.stringify(fullChatHistory, null, 2));
+      }
 
-      // Resolve API base: prefer working global, then env, then production default
+      // Resolve API base: env first, then production Railway
       const resolveApiBase = () => {
         const candidates = [
-          (global as any)?.API_URL,
-          process.env.EXPO_PUBLIC_API_URL,
+          environment.apiUrl,
           'https://gofitai-production.up.railway.app',
         ].filter(Boolean) as string[];
         const chosen = candidates[0];
-        console.log('[WORKOUT CHAT] Resolved API base:', chosen);
+        if (environment.enableVerboseLogging) {
+          console.log('[WORKOUT CHAT] Resolved API base:', chosen);
+        }
         return chosen;
       };
+      const resolveLanBase = () => undefined; // Force Railway-only base resolution
       const apiBase = resolveApiBase();
       // const url = `${apiBase}/api/ai-chat`; // Unused variable
 
       let res: Response | null = null;
       let lastError: unknown = null;
-      // Reduced retry logic to save API credits - only try primary base with single timeout
-      const attemptTimeouts = [CHAT_TIMEOUT_MS] as const;
-      const baseCandidates = [
+      // Build candidate list and try each sequentially until one succeeds
+      const baseCandidates = Array.from(new Set([
         apiBase,
+        environment.apiUrl,
         'https://gofitai-production.up.railway.app',
-      ].filter(Boolean) as string[];
+      ].filter(Boolean) as string[]));
 
-      for (let attemptIndex = 0; attemptIndex < attemptTimeouts.length; attemptIndex++) {
-        const timeoutMs = attemptTimeouts[attemptIndex];
-        const basesToTry = attemptIndex === 0 ? [apiBase] : baseCandidates;
-        for (const base of basesToTry) {
-          const attemptUrl = `${base}/api/ai-chat`;
-          try {
-            console.log(`[WORKOUT CHAT] Attempt ${attemptIndex + 1} using base: ${base}`);
-            res = await fetchWithTimeout(
-              attemptUrl,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  planId: planId,
-                  message: fullChatHistory[fullChatHistory.length - 1]?.text || '',
-                  currentPlan: pendingNewPlan || plan, // Use modified plan if available
-                }),
-              },
-              timeoutMs
-            );
-            console.log(`[STEP 2] Received response from backend with status:`, res.status, `(base ${base})`);
-            if (base && base !== (global as any)?.API_URL) {
-              (global as any).API_URL = base;
-            }
-            break;
-          } catch (err) {
-            lastError = err;
-            const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message?.toLowerCase?.().includes('timeout'));
-            console.warn(`[SEND CHAT] Attempt ${attemptIndex + 1} failed on base ${base}${isAbort ? ' due to timeout' : ''}.`, err);
-            continue;
+      for (const base of baseCandidates) {
+        const attemptUrl = `${base}/api/ai-chat`;
+        try {
+          if (environment.enableVerboseLogging) {
+            console.log(`[WORKOUT CHAT] Trying base: ${base}`);
           }
+          res = await fetchWithTimeout(
+            attemptUrl,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                planId: planId,
+                message: fullChatHistory[fullChatHistory.length - 1]?.text || '',
+                currentPlan: pendingNewPlan || plan, // Use modified plan if available
+              }),
+            },
+            CHAT_TIMEOUT_MS
+          );
+          if (environment.enableVerboseLogging) {
+            console.log(`[STEP 2] Received response from backend with status:`, res.status, `(base ${base})`);
+          }
+          break;
+        } catch (err) {
+          lastError = err;
+          const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message?.toLowerCase?.().includes('timeout'));
+          if (environment.enableVerboseLogging) {
+            console.warn(`[SEND CHAT] Failed on base ${base}${isAbort ? ' due to timeout' : ''}.`, err);
+          }
+          // Add a small delay before trying the next base to avoid overwhelming the server
+          if (baseCandidates.indexOf(base) < baseCandidates.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          continue;
         }
-        if (res) break;
       }
 
       if (!res) throw lastError ?? new Error('Network request failed');
@@ -289,7 +288,9 @@ export default function PlanDetailScreen() {
       }
 
       const data = await res.json();
-      console.log('[STEP 3] Parsed response data:', JSON.stringify(data, null, 2));
+      if (environment.enableVerboseLogging) {
+        console.log('[STEP 3] Parsed response data:', JSON.stringify(data, null, 2));
+      }
 
       if (!data.success) {
         throw new Error(data.error || 'AI chat failed');
@@ -300,26 +301,37 @@ export default function PlanDetailScreen() {
         { sender: 'ai', text: data.message, hasNewPlan: !!data.newPlan },
       ]);
       if (data.newPlan) {
-        console.log('[INFO] AI suggested a new plan.');
-        console.log('[DEBUG] New plan data:', JSON.stringify(data.newPlan, null, 2));
+        if (environment.enableVerboseLogging) {
+          console.log('[INFO] AI suggested a new plan.');
+          console.log('[DEBUG] New plan data:', JSON.stringify(data.newPlan, null, 2));
+        }
         setPendingNewPlan(data.newPlan);
         
         // Save the modified plan to AsyncStorage for debugging
         try {
           const modifiedPlanKey = `modified_plan_${planId}`;
           await AsyncStorage.setItem(modifiedPlanKey, JSON.stringify(data.newPlan));
-          console.log('[DEBUG] Saved modified plan to AsyncStorage');
+          if (environment.enableVerboseLogging) {
+            console.log('[DEBUG] Saved modified plan to AsyncStorage');
+          }
         } catch (e) {
-          console.error('[DEBUG] Failed to save modified plan:', e);
+          if (environment.enableVerboseLogging) {
+            console.error('[DEBUG] Failed to save modified plan:', e);
+          }
         }
       }
     } catch (err) {
-      console.error('--- SEND CHAT FAILED ---');
-      console.error('Full error object:', err);
+      if (environment.enableVerboseLogging) {
+        console.error('--- SEND CHAT FAILED ---');
+        console.error('Full error object:', err);
+      }
       const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.message?.includes('Network request timed out') || err.message?.toLowerCase?.().includes('timeout'));
+      const errorMessage = isTimeout 
+        ? 'The AI is taking longer than expected to respond. This might be due to high server load. Please try again in a moment.' 
+        : 'Sorry, there was a problem contacting the AI. Please check your connection and try again.';
       setChatHistory((prev) => [
         ...prev,
-        { sender: 'ai', text: isTimeout ? 'Connection timed out. Ensure the server is reachable and try again.' : 'Sorry, there was a problem contacting the AI.' },
+        { sender: 'ai', text: errorMessage },
       ]);
     } finally {
       setChatLoading(false);
@@ -343,7 +355,7 @@ export default function PlanDetailScreen() {
       console.log('--- APPLYING NEW PLAN ---');
       console.log('[STEP 1] Sending new plan to backend:', JSON.stringify(pendingNewPlan, null, 2));
       
-      const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/save-plan`;
+      const API_URL = `${environment.apiUrl}/api/save-plan`;
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
@@ -390,7 +402,6 @@ export default function PlanDetailScreen() {
           
           // Clear states first
           setPendingNewPlan(null);
-          setPreviewVisible(false);
           setChatVisible(false);
           
           // Show success message first
@@ -654,9 +665,47 @@ export default function PlanDetailScreen() {
             }).filter((session): session is WorkoutSession => session !== null);
             
             setSessions(processedSessions);
+            
+            // Also update the plan's weekly schedule to match the sessions for consistency
+            const updatedPlan = {
+              ...realPlanData,
+              weekly_schedule: processedSessions,
+              weeklySchedule: processedSessions
+            };
+            setPlan(updatedPlan);
           } else {
-            console.log('[PlanDetail] No weekly schedule found in plan');
-            setSessions([]);
+            console.log('[PlanDetail] No weekly schedule found in plan, attempting to reconstruct from database');
+            
+            // Try to reconstruct weekly schedule from database sessions
+            try {
+              const reconstructedSessions = await RealWorkoutService.getSessionsForPlan(realPlanData.id);
+              if (reconstructedSessions && reconstructedSessions.length > 0) {
+                console.log('[PlanDetail] Reconstructed weekly schedule from database sessions:', reconstructedSessions.length);
+                
+                // Convert database sessions back to weekly schedule format
+                const weeklyScheduleFromDB = reconstructedSessions.map((session: any, index: number) => ({
+                  id: session.id,
+                  day: session.day || `Day ${index + 1}`,
+                  focus: session.training_splits?.name || 'Workout',
+                  exercises: [] // Will be populated when session is expanded
+                }));
+                
+                // Update plan with reconstructed weekly schedule
+                const updatedPlan = {
+                  ...realPlanData,
+                  weekly_schedule: weeklyScheduleFromDB,
+                  weeklySchedule: weeklyScheduleFromDB
+                };
+                setPlan(updatedPlan);
+                setSessions(weeklyScheduleFromDB);
+              } else {
+                console.log('[PlanDetail] No sessions found in database either');
+                setSessions([]);
+              }
+            } catch (reconstructError) {
+              console.error('[PlanDetail] Error reconstructing weekly schedule:', reconstructError);
+              setSessions([]);
+            }
           }
         }
       } catch (error) {
@@ -681,6 +730,157 @@ export default function PlanDetailScreen() {
         if (fetchedPlan) {
           console.log('[PlanDetail] Found plan with RealWorkoutService:', fetchedPlan.id);
           setPlan(fetchedPlan);
+          
+          // Load sessions for this plan
+          try {
+            const realSessionData = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+            if (realSessionData && realSessionData.length > 0) {
+              console.log(`[PlanDetail] Found ${realSessionData.length} sessions from database`);
+              
+              // Normalize sessions from DB format
+              const normalizedSessions = await Promise.all(realSessionData.map(async (s: any) => {
+                const sessionObj = {
+                  id: s.id,
+                  day: typeof s.day === 'string' ? s.day : `Day ${s.day_number ?? ''}`,
+                  focus: s.training_splits?.name || (Array.isArray(s.training_splits?.focus_areas) ? s.training_splits?.focus_areas.join(', ') : 'Workout'),
+                  exercises: [] as ExerciseSet[]
+                };
+                
+                try {
+                  // Fetch exercise sets for this session
+                  console.log(`[PlanDetail] Fetching exercise sets for session ${s.id}`);
+                  
+                  // Check if this is a valid UUID session ID
+                  const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.id);
+                  
+                  if (!isValidUUID) {
+                    console.log(`[PlanDetail] Session ID ${s.id} is not a valid UUID, will use fallback approach`);
+                    // For non-UUID sessions, we'll try to find exercises directly in the plan's weekly_schedule
+                    const weeklySchedule = fetchedPlan.weekly_schedule || fetchedPlan.weeklySchedule;
+                    if (weeklySchedule && Array.isArray(weeklySchedule)) {
+                      // Find the matching session in the weekly schedule
+                      const matchingDay = weeklySchedule.find(day => day.id === s.id);
+                      if (matchingDay && matchingDay.exercises && Array.isArray(matchingDay.exercises)) {
+                        console.log(`[PlanDetail] Found ${matchingDay.exercises.length} exercises in weekly schedule for session ${s.id}`);
+                        sessionObj.exercises = matchingDay.exercises.map((ex: any, exIndex: number) => ({
+                          id: ex.id || `ex-${s.id}-${exIndex}`,
+                          name: ex.name || 'Exercise',
+                          sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                          reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                          rest: ex.rest || ex.restBetweenSets || '60s',
+                          restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                        }));
+                      }
+                    }
+                  } else {
+                    // For valid UUID sessions, fetch from database
+                    const sets = await RealWorkoutService.getExerciseSetsForSession(s.id);
+                    
+                    if (sets && sets.length > 0) {
+                      console.log(`[PlanDetail] Found ${sets.length} exercise sets for session ${s.id}`);
+                      // Map exercise sets to exercises
+                      sessionObj.exercises = sets.map((set: any) => ({
+                        id: set.id,
+                        name: set.exercise?.name || 'Exercise',
+                        sets: set.target_sets || 3,
+                        reps: set.target_reps || '8-12',
+                        rest: set.rest_period || '60s',
+                        restBetweenSets: set.rest_period || '60s'
+                      }));
+                    } else {
+                      console.log(`[PlanDetail] No exercise sets found for session ${s.id}`);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`[PlanDetail] Error fetching exercise sets for session ${s.id}:`, error);
+                }
+                
+                return sessionObj;
+              }));
+              
+              console.log(`[PlanDetail] Loaded ${normalizedSessions.length} sessions with exercises`);
+              setSessions(normalizedSessions);
+              
+              // Also update the plan's weekly schedule to match the sessions
+              const updatedPlan = {
+                ...fetchedPlan,
+                weekly_schedule: normalizedSessions,
+                weeklySchedule: normalizedSessions
+              };
+              setPlan(updatedPlan);
+            } else {
+              console.log('[PlanDetail] No sessions found in database for plan:', fetchedPlan.id);
+              
+              // If no sessions in database, try to use the weekly schedule from the plan
+              const weeklySchedule = fetchedPlan.weekly_schedule || fetchedPlan.weeklySchedule;
+              if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
+                console.log('[PlanDetail] Using weekly schedule from plan:', weeklySchedule.length, 'days');
+                
+                // Ensure each session has a unique ID and exercises array
+                const processedSessions = weeklySchedule.map((day: any, index: number) => {
+                  if (!day) return null;
+                  
+                  // Ensure day has exercises array
+                  const exercises = Array.isArray(day.exercises) 
+                    ? day.exercises.map((ex: any, exIndex: number) => ({
+                        id: ex.id || `ex-${index}-${exIndex}`,
+                        name: ex.name || 'Exercise',
+                        sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                        reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                        rest: ex.rest || ex.restBetweenSets || '60s',
+                        restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                      }))
+                    : [];
+                  
+                  return {
+                    id: day.id || `session-${index + 1}`,
+                    day: day.day || `Day ${index + 1}`,
+                    focus: day.focus || 'Workout',
+                    exercises
+                  };
+                }).filter((session): session is WorkoutSession => session !== null);
+                
+                setSessions(processedSessions);
+              } else {
+                console.log('[PlanDetail] No weekly schedule found in plan, attempting to reconstruct from database');
+                
+                // Try to reconstruct weekly schedule from database sessions
+                try {
+                  const reconstructedSessions = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+                  if (reconstructedSessions && reconstructedSessions.length > 0) {
+                    console.log('[PlanDetail] Reconstructed weekly schedule from database sessions:', reconstructedSessions.length);
+                    
+                    // Convert database sessions back to weekly schedule format
+                    const weeklyScheduleFromDB = reconstructedSessions.map((session: any, index: number) => ({
+                      id: session.id,
+                      day: session.day || `Day ${index + 1}`,
+                      focus: session.training_splits?.name || 'Workout',
+                      exercises: [] // Will be populated when session is expanded
+                    }));
+                    
+                    // Update plan with reconstructed weekly schedule
+                    const updatedPlan = {
+                      ...fetchedPlan,
+                      weekly_schedule: weeklyScheduleFromDB,
+                      weeklySchedule: weeklyScheduleFromDB
+                    };
+                    setPlan(updatedPlan);
+                    setSessions(weeklyScheduleFromDB);
+                  } else {
+                    console.log('[PlanDetail] No sessions found in database either');
+                    setSessions([]);
+                  }
+                } catch (reconstructError) {
+                  console.error('[PlanDetail] Error reconstructing weekly schedule:', reconstructError);
+                  setSessions([]);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('[PlanDetail] Error fetching sessions:', error);
+            setSessions([]);
+          }
+          
           setIsLoading(false);
           return;
         }
@@ -690,6 +890,34 @@ export default function PlanDetailScreen() {
         if (mockPlan) {
           console.log('[PlanDetail] Found plan with mock service:', mockPlan.id);
           setPlan(mockPlan);
+          
+          // Try to load sessions from the mock plan
+          const weeklySchedule = mockPlan.weekly_schedule || mockPlan.weeklySchedule;
+          if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
+            const processedSessions = weeklySchedule.map((day: any, index: number) => {
+              if (!day) return null;
+              
+              const exercises = Array.isArray(day.exercises) 
+                ? day.exercises.map((ex: any, exIndex: number) => ({
+                    id: ex.id || `ex-${index}-${exIndex}`,
+                    name: ex.name || 'Exercise',
+                    sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                    reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                    rest: ex.rest || ex.restBetweenSets || '60s',
+                    restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                  }))
+                : [];
+              
+              return {
+                id: day.id || `session-${index + 1}`,
+                day: day.day || `Day ${index + 1}`,
+                focus: day.focus || 'Workout',
+                exercises
+              };
+            }).filter((session): session is WorkoutSession => session !== null);
+            
+            setSessions(processedSessions);
+          }
         } else {
           console.error('[PlanDetail] Plan not found:', planId);
           Alert.alert('Error', 'Could not find the workout plan.');
@@ -706,26 +934,133 @@ export default function PlanDetailScreen() {
     loadPlan();
   }, [planId, router, refresh]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      const initialLoad = async () => {
-        setIsLoading(true);
-        await loadPlanDetails();
-        if (isActive) {
-          setIsLoading(false);
-        }
-      };
-      initialLoad();
-      return () => { isActive = false; };
-    }, [loadPlanDetails])
-  );
-
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await loadPlanDetails();
+    // Reload the plan and sessions
+    const loadPlan = async () => {
+      if (!planId) return;
+      
+      try {
+        setIsLoading(true);
+        
+        // First try to get the plan from the real service
+        const fetchedPlan = await RealWorkoutService.getPlanById(planId as string);
+        if (fetchedPlan) {
+          console.log('[PlanDetail] Refreshing plan with RealWorkoutService:', fetchedPlan.id);
+          setPlan(fetchedPlan);
+          
+          // Load sessions for this plan
+          try {
+            const realSessionData = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+            if (realSessionData && realSessionData.length > 0) {
+              console.log(`[PlanDetail] Refreshed ${realSessionData.length} sessions from database`);
+              
+              // Normalize sessions from DB format
+              const normalizedSessions = await Promise.all(realSessionData.map(async (s: any) => {
+                const sessionObj = {
+                  id: s.id,
+                  day: typeof s.day === 'string' ? s.day : `Day ${s.day_number ?? ''}`,
+                  focus: s.training_splits?.name || (Array.isArray(s.training_splits?.focus_areas) ? s.training_splits?.focus_areas.join(', ') : 'Workout'),
+                  exercises: [] as ExerciseSet[]
+                };
+                
+                try {
+                  // Fetch exercise sets for this session
+                  const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.id);
+                  
+                  if (!isValidUUID) {
+                    // For non-UUID sessions, use weekly schedule
+                    const weeklySchedule = fetchedPlan.weekly_schedule || fetchedPlan.weeklySchedule;
+                    if (weeklySchedule && Array.isArray(weeklySchedule)) {
+                      const matchingDay = weeklySchedule.find(day => day.id === s.id);
+                      if (matchingDay && matchingDay.exercises && Array.isArray(matchingDay.exercises)) {
+                        sessionObj.exercises = matchingDay.exercises.map((ex: any, exIndex: number) => ({
+                          id: ex.id || `ex-${s.id}-${exIndex}`,
+                          name: ex.name || 'Exercise',
+                          sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                          reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                          rest: ex.rest || ex.restBetweenSets || '60s',
+                          restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                        }));
+                      }
+                    }
+                  } else {
+                    // For valid UUID sessions, fetch from database
+                    const sets = await RealWorkoutService.getExerciseSetsForSession(s.id);
+                    
+                    if (sets && sets.length > 0) {
+                      sessionObj.exercises = sets.map((set: any) => ({
+                        id: set.id,
+                        name: set.exercise?.name || 'Exercise',
+                        sets: set.target_sets || 3,
+                        reps: set.target_reps || '8-12',
+                        rest: set.rest_period || '60s',
+                        restBetweenSets: set.rest_period || '60s'
+                      }));
+                    }
+                  }
+                } catch (error) {
+                  console.error(`[PlanDetail] Error fetching exercise sets for session ${s.id}:`, error);
+                }
+                
+                return sessionObj;
+              }));
+              
+              setSessions(normalizedSessions);
+              
+              // Update the plan's weekly schedule to match the sessions
+              const updatedPlan = {
+                ...fetchedPlan,
+                weekly_schedule: normalizedSessions,
+                weeklySchedule: normalizedSessions
+              };
+              setPlan(updatedPlan);
+            } else {
+              // If no sessions in database, try to use the weekly schedule from the plan
+              const weeklySchedule = fetchedPlan.weekly_schedule || fetchedPlan.weeklySchedule;
+              if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
+                const processedSessions = weeklySchedule.map((day: any, index: number) => {
+                  if (!day) return null;
+                  
+                  const exercises = Array.isArray(day.exercises) 
+                    ? day.exercises.map((ex: any, exIndex: number) => ({
+                        id: ex.id || `ex-${index}-${exIndex}`,
+                        name: ex.name || 'Exercise',
+                        sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                        reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                        rest: ex.rest || ex.restBetweenSets || '60s',
+                        restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                      }))
+                    : [];
+                  
+                  return {
+                    id: day.id || `session-${index + 1}`,
+                    day: day.day || `Day ${index + 1}`,
+                    focus: day.focus || 'Workout',
+                    exercises
+                  };
+                }).filter((session): session is WorkoutSession => session !== null);
+                
+                setSessions(processedSessions);
+              } else {
+                setSessions([]);
+              }
+            }
+          } catch (error) {
+            console.error('[PlanDetail] Error refreshing sessions:', error);
+            setSessions([]);
+          }
+        }
+      } catch (error) {
+        console.error('[PlanDetail] Error refreshing plan:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    await loadPlan();
     setIsRefreshing(false);
-  }, [loadPlanDetails]);
+  }, [planId]);
 
   const toggleSession = (sessionId: string) => {
     setExpandedSession(expandedSession === sessionId ? null : sessionId);
@@ -981,7 +1316,7 @@ export default function PlanDetailScreen() {
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 140 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -1299,7 +1634,7 @@ export default function PlanDetailScreen() {
                 {chatHistory.map((msg, idx) => (
                   <View key={idx} style={msg.sender === 'user' ? styles.userMsg : styles.aiMsg}>
                     <Text style={msg.sender === 'user' ? styles.userMsgText : styles.aiMsgText}>{msg.text}</Text>
-                    {msg.sender === 'ai' && msg.hasNewPlan && pendingNewPlan && (
+                    {msg.sender === 'ai' && pendingNewPlan && (
                       <TouchableOpacity
                         onPress={() => {
                           setPreviewLoading(true);
@@ -1334,7 +1669,7 @@ export default function PlanDetailScreen() {
                 ))}
                 {chatLoading && (
                   <View style={styles.aiMsg}>
-                    <View style={styles.loadingMessageContainer}>
+                    <View style={styles.loadingMessageSpinnerContainer}>
                       <ActivityIndicator size="small" color={colors.primary} style={styles.loadingMessageSpinner} />
                       <Text style={styles.aiMsgText}>AI is thinking...</Text>
                     </View>
@@ -1903,13 +2238,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(28, 28, 30, 1)',
     transform: [{ scale: 1.02 }],
   },
-  loadingContainer: {
+  loadingMessageContainer: {
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingMessageContainer: {
+  loadingMessageSpinnerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { usePhotoUpload } from '../../../src/hooks/usePhotoUpload';
 import { BlurView } from 'expo-blur';
+import { supabase } from '../../../src/services/supabase/client';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ export default function LogProgressScreen() {
   const [weight, setWeight] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const [bodyFat, setBodyFat] = useState<string>('');
   
   // Photo state
   const [frontPhotoUri, setFrontPhotoUri] = useState<string | null>(null);
@@ -80,6 +82,16 @@ export default function LogProgressScreen() {
   const weightNum = weight ? parseFloat(weight) : NaN;
   const isWeightInvalid = Number.isNaN(weightNum) || weightNum <= 0;
   const todayLabel = new Date().toLocaleDateString();
+
+  const handleBodyFatChange = (value: string) => {
+    const withDot = value.replace(/,/g, '.');
+    const cleaned = withDot.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : parts[0];
+    setBodyFat(normalized);
+  };
+  const bodyFatNum = bodyFat ? parseFloat(bodyFat) : NaN;
+  const isBodyFatInvalid = bodyFat.length > 0 && (Number.isNaN(bodyFatNum) || bodyFatNum < 0 || bodyFatNum > 100);
  
   const convertWeight = (value: number, fromUnit: 'kg' | 'lbs', toUnit: 'kg' | 'lbs') => {
     if (fromUnit === toUnit) return value;
@@ -172,6 +184,7 @@ export default function LogProgressScreen() {
           weight_kg: weightToSave,
           metric_date: selectedDate,
           notes: notes || null,
+          body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
         });
       }
 
@@ -202,6 +215,19 @@ export default function LogProgressScreen() {
           frontPhotoId ? undefined : undefined, // We'll use the photo IDs directly
           backPhotoId ? undefined : undefined
         );
+      }
+
+      // Optionally update profile body fat percentage
+      if (bodyFat && !isBodyFatInvalid) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ body_fat: bodyFatNum })
+            .eq('id', user.id);
+        } catch (e) {
+          console.warn('Failed to update body fat percentage:', e);
+          // Non-blocking: do not prevent success if this fails
+        }
       }
 
       showSuccessAlert();
@@ -263,10 +289,14 @@ export default function LogProgressScreen() {
       <KeyboardAvoidingView 
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={insets.top + 64}
       >
         <ScrollView 
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+          contentInset={{ bottom: insets.bottom }}
+          contentInsetAdjustmentBehavior="automatic"
         >
           {/* Section Tabs */}
           <View style={styles.tabContainer}>
@@ -348,6 +378,23 @@ export default function LogProgressScreen() {
                   >
                     <Icon name="plus" size={24} color={colors.white} />
                   </TouchableOpacity>
+                </View>
+
+                <View style={styles.bodyFatContainer}>
+                  <Text style={styles.bodyFatLabel}>Body Fat % (optional)</Text>
+                  <TextInput
+                    style={styles.bodyFatInput}
+                    value={bodyFat}
+                    onChangeText={handleBodyFatChange}
+                    placeholder="e.g. 18.5"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                  {isBodyFatInvalid && (
+                    <HelperText type="error" visible={true}>
+                      Enter a value between 0 and 100
+                    </HelperText>
+                  )}
                 </View>
 
                 <TextInput
@@ -733,6 +780,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
+  },
+  bodyFatContainer: {
+    marginBottom: 16,
+  },
+  bodyFatLabel: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  bodyFatInput: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: colors.white,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
 });
 

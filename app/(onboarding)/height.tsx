@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, FlatList } from 'react-native';
-import { Text, Button, IconButton } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, Dimensions, FlatList } from 'react-native';
+import { Text, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
-import { Appbar } from 'react-native-paper';
 import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 
 const { height: screenHeight } = Dimensions.get('window');
 const ITEM_HEIGHT = 60;
@@ -86,7 +86,6 @@ const HeightScreen = () => {
 
   const handleClose = () => {
     try { analyticsTrack('onboarding_step_close', { step: 'height' }); } catch {}
-    router.replace('/(main)/dashboard');
   };
 
   const ProgressDots = () => (
@@ -98,17 +97,17 @@ const HeightScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={handleBack} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '60%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={handleClose} />
-      </Appbar.Header>
+    <OnboardingLayout
+      title="Your Height"
+      subtitle="We use your height to personalize your fitness and nutrition plan"
+      progress={60}
+      showBackButton={true}
+      showCloseButton={true}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/birthday"
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>Your Height</Text>
-        <Text style={styles.subtitle}>We use your height to personalize your fitness and nutrition plan</Text>
         <View style={styles.unitSelector}>
           <TouchableOpacity style={[styles.unitButton, unit==='cm'&&styles.unitButtonSelected]} onPress={()=>setUnit('cm')}>
             <Text style={[styles.unitText,unit==='cm'&&styles.unitTextSelected]}>cm</Text>
@@ -144,13 +143,10 @@ const HeightScreen = () => {
       <View style={styles.footer}>
         <Button mode="contained" onPress={handleNext} style={styles.nextButton} labelStyle={{color:'white'}}>Next</Button>
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 const styles=StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background},
-  header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:16},
-  dotsContainer:{flexDirection:'row'},dot:{width:8,height:8,borderRadius:4,backgroundColor:colors.border,margin:4},dotActive:{backgroundColor:colors.text},
   content:{alignItems:'center',paddingHorizontal:40,marginTop:8},
   title:{fontSize:24,fontWeight:'bold',color:colors.text,marginBottom:8},
   subtitle:{fontSize:16,color:colors.textSecondary,textAlign:'center',marginBottom:32},
@@ -167,9 +163,6 @@ const styles=StyleSheet.create({
   selectionOverlay:{position:'absolute',left:0,right:0,height:ITEM_HEIGHT,borderTopWidth:1,borderBottomWidth:1,borderColor:colors.primary},
   footer:{padding:24},
   nextButton:{backgroundColor:colors.accent,borderRadius:24,paddingVertical:16,minHeight:56},
-  appbar:{backgroundColor:colors.background,elevation:0,borderBottomWidth:0},
-  progressBar:{flex:1,alignItems:'center'},
-  progress:{height:4,backgroundColor:colors.primary,borderRadius:2},
 });
 
 export default HeightScreen; 

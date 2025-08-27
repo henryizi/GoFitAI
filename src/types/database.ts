@@ -327,6 +327,7 @@ export interface Database {
           activity_calories: number | null;
           notes: string | null;
           habit_score: number | null;
+          body_fat_percentage: number | null;
           created_at: string;
         };
         Insert: Omit<

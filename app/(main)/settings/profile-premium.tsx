@@ -222,8 +222,8 @@ export default function ProfileSettingsScreen() {
 
   const handleAbout = () => {
     Alert.alert(
-      'About SnapBody AI',
-      `Version: ${appVersion}\n\nSnapBody AI is your AI-powered fitness companion, helping you achieve your health and fitness goals through personalized workout plans, nutrition guidance, and progress tracking.\n\n© 2024 SnapBody AI. All rights reserved.`,
+      'About GoFitAI',
+      `Version: ${appVersion}\n\nGoFitAI is your AI-powered fitness companion, helping you achieve your health and fitness goals through personalized workout plans, nutrition guidance, and progress tracking.\n\n© 2024 GoFitAI. All rights reserved.`,
       [{ text: 'OK' }]
     );
   };
@@ -231,7 +231,7 @@ export default function ProfileSettingsScreen() {
   const handleRateApp = async () => {
     try {
       if (Platform.OS === 'ios') {
-        const iosStoreUrl = 'https://apps.apple.com/app/snapbody-ai/id1234567890';
+        const iosStoreUrl = 'https://apps.apple.com/app/gofitai/id1234567890';
         Linking.openURL(iosStoreUrl);
       } else {
         const androidStoreUrl = 'https://play.google.com/store/apps/details?id=com.gofitai';
@@ -543,7 +543,7 @@ export default function ProfileSettingsScreen() {
 
         {/* App Version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>SnapBody AI v{appVersion}</Text>
+          <Text style={styles.versionText}>GoFitAI v{appVersion}</Text>
         </View>
       </ScrollView>
     </View>

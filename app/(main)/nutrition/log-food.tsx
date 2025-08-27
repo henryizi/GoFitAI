@@ -24,6 +24,7 @@ import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 import { ServerStatusIndicator } from '../../../src/components/ui/ServerStatusIndicator';
+import { environment } from '../../../src/config/environment';
 
 const { width } = Dimensions.get('window');
 
@@ -112,7 +113,7 @@ const LogFoodScreen = () => {
           <BlurView intensity={20} tint={Platform.OS === 'ios' ? 'dark' : 'default'} style={styles.blurOverlay} />
           <View style={styles.analysisHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.foodTitle} numberOfLines={2}>{analysisResult.food_name || 'Detected Food'}</Text>
+              <Text style={styles.foodTitle} numberOfLines={2}>{analysisResult.food_name || analysisResult.meal_name || 'Detected Food'}</Text>
               <Text style={styles.foodSubtitle}>AI captured nutrition</Text>
             </View>
             <View style={styles.calorieBadge}>
@@ -310,6 +311,8 @@ const LogFoodScreen = () => {
       }
     }
     
+    let controller: AbortController | null = null;
+    let timeoutId: any = null;
     try {
       setIsLoading(true); // Use isLoading for the overlay
       setAnalyzeElapsedMs(0);
@@ -334,11 +337,11 @@ const LogFoodScreen = () => {
       });
       
       // Set a timeout to abort the request if it takes too long
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      controller = new AbortController();
+      timeoutId = setTimeout(() => controller?.abort(), 60000); // 60 second timeout
       
-      // Use working API URL (ServerStatus sets Railway first if available), then env, then Railway
-      const apiUrl = (global as any).API_URL || process.env.EXPO_PUBLIC_API_URL || 'https://gofitai-production.up.railway.app';
+      // Use env URL first, then Railway fallback
+      const apiUrl = environment.apiUrl || 'https://gofitai-production.up.railway.app';
       console.log('[FOOD ANALYZE] Using API URL:', apiUrl);
       
       const response = await fetch(`${apiUrl}/api/analyze-food`, {
@@ -367,6 +370,10 @@ const LogFoodScreen = () => {
       });
       
     } catch (error: any) {
+      if (error?.name === 'AbortError' || error?.message === 'Aborted' || String(error?.message || '').toLowerCase().includes('aborted')) {
+        console.warn('[FOOD ANALYZE] Request aborted by timeout/cancel.');
+        return;
+      }
       console.error('[FOOD ANALYZE] Analysis failed:', error.message);
       
       // Show a more helpful error message based on the error type
@@ -393,6 +400,10 @@ const LogFoodScreen = () => {
         ]
       );
     } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       setIsLoading(false);
       if (analyzeInterval) {
         clearInterval(analyzeInterval);

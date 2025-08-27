@@ -7,14 +7,18 @@ import { ProgressService } from '../../../src/services/progressService';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../../src/services/supabase/client';
 
 export default function LogMetricsScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [weight, setWeight] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [bodyFat, setBodyFat] = useState<string>('');
   
   // Animations
   const scaleAnim = new Animated.Value(1);
@@ -56,6 +60,16 @@ export default function LogMetricsScreen() {
     if (Number.isNaN(weightNum)) return weight;
     return unit === 'kg' ? weightNum.toFixed(1) : convertWeight(weightNum, 'kg', 'lbs').toFixed(1);
   };
+
+  const handleBodyFatChange = (value: string) => {
+    const withDot = value.replace(/,/g, '.');
+    const cleaned = withDot.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : parts[0];
+    setBodyFat(normalized);
+  };
+  const bodyFatNum = bodyFat ? parseFloat(bodyFat) : NaN;
+  const isBodyFatInvalid = bodyFat.length > 0 && (Number.isNaN(bodyFatNum) || bodyFatNum < 0 || bodyFatNum > 100);
 
   const adjustWeight = (delta: number) => {
     const current = Number.isNaN(weightNum) ? 0 : weightNum;
@@ -111,7 +125,19 @@ export default function LogMetricsScreen() {
         weight_kg: weightNum, // Always store in kg
         metric_date: today,
         notes: notes || null,
+        body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
       });
+      // Optionally update profile body fat percentage; non-blocking
+      if (bodyFat && !isBodyFatInvalid) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ body_fat: bodyFatNum })
+            .eq('id', user.id);
+        } catch (e) {
+          console.warn('Failed to update body fat percentage:', e);
+        }
+      }
       if (result) {
         Vibration.vibrate([100, 50, 100]); // Success vibration pattern
         showSuccessAlert();
@@ -130,9 +156,19 @@ export default function LogMetricsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 64 : 0}
+    >
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={[styles.scroll, { paddingBottom: (styles.scroll as any).paddingBottom + insets.bottom }]}
+          keyboardShouldPersistTaps="handled"
+          contentInset={{ bottom: insets.bottom }}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Enhanced Header */}
           <Animated.View 
             style={[
@@ -234,6 +270,33 @@ export default function LogMetricsScreen() {
                 />
                 <HelperText type="error" visible={!!weight && isWeightInvalid}>
                   Please enter a positive number.
+                </HelperText>
+
+                {/* Optional Body Fat % */}
+                <TextInput
+                  label="Body Fat % (optional)"
+                  value={bodyFat}
+                  onChangeText={handleBodyFatChange}
+                  inputMode="decimal"
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  mode="outlined"
+                  style={styles.weightInput}
+                  error={isBodyFatInvalid}
+                  left={<TextInput.Icon icon="human-male" />}
+                  right={<TextInput.Affix text="%" />}
+                  outlineColor={'rgba(255,255,255,0.2)'}
+                  activeOutlineColor={colors.primary}
+                  theme={{ 
+                    roundness: 16,
+                    colors: {
+                      onSurfaceVariant: colors.textSecondary,
+                      primary: colors.primary,
+                    }
+                  }}
+                />
+                <HelperText type="error" visible={isBodyFatInvalid}>
+                  Enter a value between 0 and 100
                 </HelperText>
               </View>
 
