@@ -5042,40 +5042,14 @@ Analyze the following food image:
       const dataUri = `data:${mimeType};base64,${base64Image}`;
       
       // Build request body according to Cloudflare model
-      const isLlavaModel = /llava/i.test(CF_VISION_MODEL);
-      const isUformModel = /uform/i.test(CF_VISION_MODEL);
-      let visionRequestBody;
-      if (isLlavaModel) {
-        visionRequestBody = {
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: dataUri }
-              ]
-            }
-          ],
-          max_tokens: 1000
-        };
-        console.log('[FOOD ANALYZE] Using LLaVA request format');
-      } else if (isUformModel) {
-        visionRequestBody = {
-          image: dataUri,
-          prompt: prompt,
-          max_tokens: 1000
-        };
-        console.log('[FOOD ANALYZE] Using UForm request format');
-      } else {
-        // Generic format fallback
-        visionRequestBody = {
-          prompt: prompt,
-          image: dataUri,
-          stream: false,
-          max_tokens: 1000
-        };
-        console.log('[FOOD ANALYZE] Using generic request format');
-      }
+      // Cloudflare now uses unified format for ALL vision models including LLaVA
+      // All models now expect { image: dataUri, prompt: prompt } format
+      visionRequestBody = {
+        image: dataUri,
+        prompt: prompt,
+        max_tokens: 1000
+      };
+      console.log('[FOOD ANALYZE] Using unified Cloudflare API format for model:', CF_VISION_MODEL);
       
       // Define cloudflareUrl outside try block scope for retry access
       const cloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
