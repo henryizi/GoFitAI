@@ -907,14 +907,24 @@ const upload = multer({
       'image/heic', 'image/heif', 'image/HEIC', 'image/HEIF'
     ];
     
+    // Check file extension for image types (handles cases where mimetype is application/octet-stream)
+    const imageExtensions = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i;
+    const hasImageExtension = imageExtensions.test(file.originalname || '');
+    
     const isAllowedMime = allowedMimes.includes(file.mimetype);
     const isHeicByExtension = /\.(heic|heif)$/i.test(file.originalname || '');
     
-    if (isAllowedMime || isHeicByExtension) {
-      console.log('[MULTER] File accepted:', file.originalname);
+    // Accept if:
+    // 1. Has proper image MIME type, OR
+    // 2. Has image file extension (handles application/octet-stream), OR
+    // 3. Is HEIC/HEIF by extension, OR
+    // 4. MIME type is application/octet-stream but has image extension
+    if (isAllowedMime || hasImageExtension || isHeicByExtension || 
+        (file.mimetype === 'application/octet-stream' && hasImageExtension)) {
+      console.log('[MULTER] File accepted:', file.originalname, 'MIME:', file.mimetype);
       cb(null, true);
     } else {
-      console.log('[MULTER] File rejected - unsupported format:', file.mimetype);
+      console.log('[MULTER] File rejected - unsupported format:', file.mimetype, 'filename:', file.originalname);
       cb(new Error('Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).'), false);
     }
   }
@@ -4836,6 +4846,30 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
 
     // Convert image to base64 for AI analysis
     let imageBuffer = fs.readFileSync(foodImage.path);
+    
+    // Additional validation: check if the file is actually an image using sharp
+    try {
+      const metadata = await sharp(imageBuffer).metadata();
+      console.log('[FOOD ANALYZE] Image metadata:', {
+        format: metadata.format,
+        width: metadata.width,
+        height: metadata.height,
+        size: metadata.size
+      });
+      
+      // If sharp can't read it, it's not a valid image
+      if (!metadata.format) {
+        throw new Error('Not a valid image file');
+      }
+    } catch (sharpError) {
+      console.error('[FOOD ANALYZE] Invalid image file:', sharpError.message);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).',
+        message: 'Invalid image format. Please use a clear photo of food.',
+        details: {}
+      });
+    }
 
       // If HEIC/HEIF, convert to JPEG for compatibility
       const isHeic = (foodImage.mimetype || '').toLowerCase().includes('heic') || (foodImage.mimetype || '').toLowerCase().includes('heif') || /\.heic$|\.heif$/i.test(foodImage.originalname || '');
@@ -5189,7 +5223,7 @@ Analyze the following food image:
               cloudflareUrl,
               retryBody,
               {
-                headers: {
+          headers: {
                   'Authorization': `Bearer ${CF_API_TOKEN}`,
                   'Content-Type': 'application/json'
                 },
