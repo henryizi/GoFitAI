@@ -4864,7 +4864,7 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
     } catch (sharpError) {
       console.error('[FOOD ANALYZE] Invalid image file:', sharpError.message);
       return res.status(400).json({
-        success: false,
+          success: false,
         error: 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).',
         message: 'Invalid image format. Please use a clear photo of food.',
         details: {}
@@ -5061,8 +5061,9 @@ Analyze the following food image:
         console.log('[FOOD ANALYZE] Using LLaVA request format');
       } else if (isUformModel) {
         visionRequestBody = {
-          input_text: prompt,
-          input_image: dataUri
+          image: dataUri,
+          prompt: prompt,
+          max_tokens: 1000
         };
         console.log('[FOOD ANALYZE] Using UForm request format');
       } else {
@@ -5416,7 +5417,7 @@ Analyze the following food image:
             const fallbackModel = '@cf/unum-cloud/uform-gen2-qwen-500m';
             const retryCloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${fallbackModel}`;
             const dataUri = `data:${mimeType};base64,${base64Image}`;
-            const retryBody = { input_text: prompt, input_image: dataUri };
+            const retryBody = { image: dataUri, prompt: prompt, max_tokens: 1000 };
             console.log('[FOOD ANALYZE] UForm fallback request URL:', retryCloudflareUrl);
             console.log('[FOOD ANALYZE] UForm fallback body keys:', Object.keys(retryBody));
             const retryResponse = await axios.post(
