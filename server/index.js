@@ -28,15 +28,12 @@ process.on('SIGINT', () => {
 });
 
 const express = require('express');
-const compression = require('compression');
-const http = require('http');
-const https = require('https');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const os = require('os');
-const { exec } = require('child_process');
+// const { exec } = require('child_process');
 const multer = require('multer');
 const fs = require('fs');
 const helmet = require('helmet');
@@ -407,46 +404,11 @@ const { extractNewPlan } = require('./extract-plan-fix.js');
 // Helper function to create a modified plan when extraction fails
 function createModifiedPlan(currentPlan) {
   try {
-    // Handle null/undefined currentPlan
-    if (!currentPlan) {
-      console.log('[CREATE MODIFIED PLAN] No current plan provided, creating default plan');
-      return {
-        name: "Default Workout Plan",
-        description: "A balanced workout plan for general fitness",
-        weeklySchedule: [
-          {
-            day: "Monday",
-            focus: "Cardio",
-            exercises: [
-              { name: "Running", sets: 1, reps: "20 minutes", notes: "Moderate pace" }
-            ]
-          },
-          {
-            day: "Wednesday", 
-            focus: "Strength",
-            exercises: [
-              { name: "Push-ups", sets: 3, reps: 10, notes: "Full body" }
-            ]
-          },
-          {
-            day: "Friday",
-            focus: "Flexibility", 
-            exercises: [
-              { name: "Stretching", sets: 1, reps: "15 minutes", notes: "Full body stretch" }
-            ]
-          }
-        ],
-        updated_at: new Date().toISOString(),
-        modified_from_original: true
-      };
-    }
-    
     // Create a basic modified plan based on the current plan
     const modifiedPlan = {
       ...currentPlan,
-      name: `${currentPlan.name || 'Workout Plan'} (Modified)`,
+      name: `${currentPlan.name} (Modified)`,
       updated_at: new Date().toISOString(),
-      modified_from_original: true,
       // Add any other modifications as needed
     };
     
@@ -480,28 +442,13 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
-// Enable gzip/deflate compression for JSON/text responses
-app.use(compression({ threshold: 1024 }));
-const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'warn' : 'info') });
-app.use(pinoHttp({
-  logger,
-  autoLogging: process.env.NODE_ENV === 'production' ? { ignore: req => req.url === '/api/health' || req.url === '/ping' } : true,
-  serializers: {
-    req: (req) => ({ method: req.method, url: req.url }),
-    res: (res) => ({ statusCode: res.statusCode }),
-  }
-}));
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+app.use(pinoHttp({ logger }));
 // Basic rate limiting for AI endpoints
-const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30 });
+// const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30 });
 
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
-
-// Reuse TCP connections for outbound HTTP(S) requests (axios/fetch will use global agents)
-http.globalAgent.keepAlive = true;
-https.globalAgent.keepAlive = true;
-http.globalAgent.maxSockets = 100;
-https.globalAgent.maxSockets = 100;
 
 // Provider selection (OpenAI, DeepSeek, or Cloudflare)
 // AI Provider Configuration with Fallbacks
@@ -1105,18 +1052,14 @@ INSTRUCTIONS:
 5. Always explain your changes clearly and provide encouragement.
 6. If this is a modified plan, consider previous changes and build upon them appropriately.
 
-CRITICAL RESPONSE FORMAT:
-You MUST respond with ONLY a JSON object in this exact format:
-{
-  "message": "Brief friendly message about changes made (max 2 sentences)",
-  "newPlan": { ... modified plan structure ... }
-}
+IMPORTANT: When responding, give a brief, friendly message acknowledging the changes made to the plan. Do NOT show the full JSON plan in your response. Just say something like "I've adjusted your workout plan based on your request! The new plan has been modified with your changes."
 
-The message should be brief and friendly, like "I've adjusted your workout plan based on your request! The new plan has been modified with your changes."
+CRITICAL: Do NOT include any JSON code blocks or backtick formatting in your text response. Only provide a simple, friendly message about the changes made. Keep it concise and end with something like "You can preview the updated plan using the button below."
 
-The newPlan should maintain the same structure as the original plan with weeklySchedule array.
+Then include a JSON object with the modified plan in the following format:
+{"newPlan": { ... modified plan structure ... }}
 
-DO NOT include any other text, explanations, or formatting outside the JSON object.`;
+The modified plan should maintain the same structure as the original plan with weeklySchedule array.`;
 }
 
 // Helper function to call AI API with appropriate parameters
@@ -1425,38 +1368,20 @@ app.post('/api/ai-chat', async (req, res) => {
     });
     
     const aiResponse = await Promise.race([
-      callAI(messages, { type: 'json_object' }),
+      callAI(messages),
       timeoutPromise
     ]);
       if (aiResponse.error) {
         throw new Error(aiResponse.message);
       }
     const aiMessage = aiResponse.choices[0].message.content;
-    
-    // Try to parse the AI response as JSON
-    let aiData = null;
-    try {
-      aiData = JSON.parse(aiMessage);
-      console.log('[AI-CHAT] Successfully parsed AI response as JSON');
-    } catch (_parseError) {
-      console.log('[AI-CHAT] Failed to parse AI response as JSON, trying extractNewPlan');
-      aiData = null;
-    }
-    
-    if (aiData && aiData.newPlan) {
-      // AI returned proper JSON with newPlan
-      newPlan = aiData.newPlan;
-      cleanMessage = aiData.message || "I've adjusted your workout plan based on your request!";
-    } else {
-      // Fallback to old extraction method
       newPlan = extractNewPlan(aiMessage);
-      cleanMessage = aiMessage;
-      
+    
       // If no plan extracted but message suggests changes, create a modified plan
-      if (!newPlan && aiMessage.includes('plan') && aiMessage.includes('change')) {
-        newPlan = createModifiedPlan(currentPlan);
-      }
+    if (!newPlan && aiMessage.includes('plan') && aiMessage.includes('change')) {
+      newPlan = createModifiedPlan(currentPlan);
     }
+      cleanMessage = aiMessage;
       
       // Clean up the message for display
       cleanMessage = cleanMessage.replace(/```json\s*\{[\s\S]*?\}\s*```[\s\S]*/g, '');
@@ -1867,50 +1792,6 @@ app.post('/api/save-plan', async (req, res) => {
       success: false, 
       error: 'Failed to save plan' 
     });
-  }
-});
-
-// Add endpoint to set a plan as active
-app.post('/api/set-active-plan', async (req, res) => {
-  const { userId, planId } = req.body;
-  console.log('[SET ACTIVE PLAN] Setting plan as active for user:', userId, 'plan:', planId);
-
-  try {
-    if (supabase) {
-      // First, deactivate all existing active plans for this user
-      const { error: deactivateError } = await supabase
-        .from('workout_plans')
-        .update({ status: 'archived' })
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
-      if (deactivateError) {
-        console.error('[SET ACTIVE PLAN] Error deactivating existing plans:', deactivateError);
-        return res.status(500).json({ success: false, error: 'Failed to deactivate existing plans' });
-      }
-
-      // Then, activate the specified plan
-      const { error: activateError } = await supabase
-        .from('workout_plans')
-        .update({ status: 'active' })
-        .eq('id', planId)
-        .eq('user_id', userId);
-
-      if (activateError) {
-        console.error('[SET ACTIVE PLAN] Error activating plan:', activateError);
-        return res.status(500).json({ success: false, error: 'Failed to activate plan' });
-      }
-
-      console.log('[SET ACTIVE PLAN] Successfully set plan as active');
-      return res.json({ success: true });
-    }
-
-    // Fallback for when supabase is not available
-    console.log('[SET ACTIVE PLAN] Supabase not available, using fallback');
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('[SET ACTIVE PLAN] Unexpected error:', err);
-    return res.status(500).json({ success: false, error: err.message || 'An unexpected error occurred' });
   }
 });
 
@@ -4664,7 +4545,10 @@ async function standardizeImageForTensor(imageBuffer) {
     const validation = await validateImageForTensor(imageBuffer);
     if (!validation.valid) {
       console.warn('[IMAGE STANDARDIZE] Image validation failed:', validation.issues);
-      // Continue anyway but with extra caution
+      // For critical validation failures, throw error instead of continuing
+      if (validation.issues.some(issue => issue.includes('Missing image dimensions') || issue.includes('Unsupported format'))) {
+        throw new Error(`Critical image validation failure: ${validation.issues.join(', ')}`);
+      }
     }
     
     const metadata = await sharp(imageBuffer).metadata();
@@ -4676,26 +4560,32 @@ async function standardizeImageForTensor(imageBuffer) {
       density: metadata.density
     });
     
-    // Cloudflare tensor processing works best with:
-    // - Standard RGB channels (no alpha, no exotic color spaces)
-    // - Square or reasonable aspect ratios
-    // - Moderate resolution (512-1024px range)
-    // - Standard JPEG encoding
+    // Enhanced tensor processing for Cloudflare AI:
+    // - RGB channels only (3 channels exactly)
+    // - Standard square resolution (512x512 is optimal for LLaVA)
+    // - JPEG with specific settings to avoid tensor decode errors
+    // - Remove any EXIF data that might cause issues
     
     const standardizedBuffer = await sharp(imageBuffer)
-      .resize(768, 768, { 
+      .rotate() // Auto-rotate based on EXIF orientation
+      .resize(512, 512, { 
         fit: 'inside', 
-        withoutEnlargement: true,
-        background: { r: 255, g: 255, b: 255, alpha: 1 } // White background for transparency
+        withoutEnlargement: false, // Allow enlargement for small images
+        background: { r: 255, g: 255, b: 255, alpha: 1 } // White background
       })
       .removeAlpha() // Remove alpha channel that can cause tensor issues
-      .normalise() // Normalize brightness/contrast
+      .toColorspace('srgb') // Ensure standard sRGB colorspace
+      .flatten({ background: { r: 255, g: 255, b: 255 } }) // Flatten to RGB
       .jpeg({ 
-        quality: 95,
-        progressive: false, // Non-progressive for better compatibility
-        mozjpeg: true,
-        chromaSubsampling: '4:4:4' // Preserve color information
+        quality: 85, // Lower quality to reduce potential encoding issues
+        progressive: false, // Non-progressive JPEG for tensor compatibility
+        mozjpeg: false, // Use standard libjpeg for better compatibility
+        chromaSubsampling: '4:4:4', // Preserve color information
+        optimiseScans: false, // Disable scan optimization
+        overshootDeringing: false, // Disable deringing
+        trellisQuantisation: false // Disable trellis quantization
       })
+      .withMetadata({}) // Remove all metadata including EXIF
       .toBuffer();
     
     const newMetadata = await sharp(standardizedBuffer).metadata();
@@ -4707,11 +4597,31 @@ async function standardizeImageForTensor(imageBuffer) {
       sizeBytes: standardizedBuffer.length
     });
     
+    // Final validation of the standardized image
+    if (newMetadata.channels !== 3) {
+      throw new Error(`Image standardization failed: Expected 3 channels, got ${newMetadata.channels}`);
+    }
+    
     return standardizedBuffer;
     
   } catch (error) {
     console.error('[IMAGE STANDARDIZE] Error standardizing image:', error);
-    return imageBuffer; // Return original if standardization fails
+    console.log('[IMAGE STANDARDIZE] Attempting fallback minimal processing...');
+    
+    // Fallback: Minimal processing to avoid tensor issues
+    try {
+      const fallbackBuffer = await sharp(imageBuffer)
+        .resize(512, 512, { fit: 'inside' })
+        .removeAlpha()
+        .jpeg({ quality: 85, progressive: false })
+        .toBuffer();
+      
+      console.log('[IMAGE STANDARDIZE] Fallback processing successful');
+      return fallbackBuffer;
+    } catch (fallbackError) {
+      console.error('[IMAGE STANDARDIZE] Fallback processing also failed:', fallbackError);
+      throw new Error('Image processing completely failed - image may be corrupted');
+    }
   }
 }
 
@@ -4816,6 +4726,7 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
           content: `Analyze this food description: "${description}"`
         }
       ];
+      // Use outer-scoped aiResponse to avoid shadowing and ReferenceErrors
       const deepseekAvailable = !!getProviderConfig('deepseek');
       try {
         if (deepseekAvailable) {
@@ -4827,30 +4738,36 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
           // Use direct fallback function instead of callAI with 'fallback' provider
           const fallbackResult = analyzeFoodWithFallback(description);
           try {
-            // Extract the nutrition data from the fallback result
-            const fallbackContent = fallbackResult.choices[0].message.content;
-            const nutritionData = JSON.parse(fallbackContent);
-            return res.json({
-              success: true,
-              data: nutritionData.nutrition
-            });
-          } catch (parseError) {
+            // Return the fallback result directly since it's already in the right format
+        return res.json({
+          success: true,
+              data: {
+                success: true,
+                nutrition: fallbackResult,
+                message: `Analyzed using fallback system. Confidence: ${fallbackResult.confidence}`
+              }
+        });
+      } catch (parseError) {
             console.error('[FOOD ANALYZE] Fallback error:', parseError);
             // Return a safe fallback response
             return res.json({
               success: true,
               data: {
-                food_name: description || "Unknown Food",
-                calories: 0,
-                protein: 0,
-                carbs: 0,
-                fat: 0,
-                fiber: 0,
-                confidence: "low"
+                success: true,
+                nutrition: {
+                  food_name: description || "Unknown Food",
+                  calories: 0,
+                  protein: 0,
+                  carbs: 0,
+                  fat: 0,
+                  fiber: 0,
+                  confidence: "low"
+                },
+                message: "Analysis temporarily unavailable"
               }
-            });
-          }
-        }
+        });
+      }
+    }
 
         // Handle different response formats
         let content;
@@ -5202,11 +5119,111 @@ Analyze the following food image:
       // Provide clearer guidance for common Cloudflare API errors
       try {
         const errData = visionError.response?.data;
-        const cfErrors = Array.isArray(errData?.errors) ? errData.errors : [];
-        const cfCode = cfErrors[0]?.code;
-        const cfMessage = cfErrors[0]?.message;
         
-        if (visionError.response?.status === 400 && cfCode === 7000) {
+        // Handle multiple possible error structures from Cloudflare
+        let cfCode, cfMessage;
+        
+        // Structure 1: errData.errors[].code (nested errors array)
+        if (Array.isArray(errData?.errors)) {
+          const cfErrors = errData.errors;
+          cfCode = cfErrors[0]?.code;
+          cfMessage = cfErrors[0]?.message;
+        }
+        // Structure 2: errData.code direct (flat structure)
+        else if (errData?.code) {
+          cfCode = errData.code;
+          cfMessage = errData.message;
+        }
+        // Structure 3: Check the main error for direct properties
+        else if (visionError.code) {
+          cfCode = visionError.code;
+          cfMessage = visionError.message;
+        }
+        
+        // Enhanced logging for debugging
+        console.log('[FOOD ANALYZE] Cloudflare error details:', {
+          status: visionError.response?.status || visionError.status,
+          code: cfCode,
+          message: cfMessage
+        });
+        
+        // Handle tensor decode errors specifically
+        if (cfCode === 3016 || (cfMessage && cfMessage.includes('Tensor error'))) {
+          console.warn('[FOOD ANALYZE] Cloudflare tensor decode error detected. This often indicates:');
+          console.warn('- Image format/encoding incompatible with AI model');
+          console.warn('- Image size or dimensions causing tensor processing issues');
+          console.warn('- EXIF metadata or color profile causing decode failures');
+          console.warn('Attempting alternative image processing...');
+          
+          // Retry with minimal image processing
+          try {
+            console.log('[FOOD ANALYZE] Retrying with minimal image processing for tensor compatibility');
+            const minimalBuffer = await sharp(Buffer.from(base64Image, 'base64'))
+              .resize(224, 224, { fit: 'cover' }) // Smaller, fixed size
+              .removeAlpha()
+              .flatten({ background: { r: 255, g: 255, b: 255 } })
+              .jpeg({ quality: 80, progressive: false, optimiseScans: false })
+              .withMetadata({}) // Strip all metadata
+              .toBuffer();
+            
+            const retryBase64 = minimalBuffer.toString('base64');
+            const retryDataUri = `data:image/jpeg;base64,${retryBase64}`;
+            
+            console.log('[FOOD ANALYZE] Retry image size:', retryBase64.length, 'characters');
+            
+            // Retry the API call with processed image
+            const retryBody = {
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: retryDataUri }
+                  ]
+                }
+              ],
+              max_tokens: 1000
+            };
+            
+            const retryResponse = await axios.post(
+              cloudflareUrl,
+              retryBody,
+              {
+                headers: {
+                  'Authorization': `Bearer ${CF_API_TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 30000
+              }
+            );
+            
+            console.log('[FOOD ANALYZE] Tensor error retry successful!');
+            let retryContent = retryResponse.data.result;
+            if (typeof retryContent === 'object' && retryContent !== null) {
+              retryContent = retryContent.response || retryContent.text || retryContent.content || JSON.stringify(retryContent);
+            }
+            
+            aiResponse = {
+              data: {
+                choices: [{
+                  message: {
+                    content: retryContent
+                  }
+                }]
+              },
+              success: true
+            };
+            
+            // Skip the fallback since retry worked
+            console.log('[FOOD ANALYZE] Tensor error resolved with retry');
+            // Don't throw the original error since retry succeeded
+            
+          } catch (retryError) {
+            console.error('[FOOD ANALYZE] Tensor error retry also failed:', retryError.message);
+            // Continue to text-based fallback below
+            throw visionError; // Re-throw original error to trigger text fallback
+          }
+        } else if (visionError.response?.status === 400 && cfCode === 7000) {
           console.warn('[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:');
           console.warn('- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI');
           console.warn('- Model slug is unavailable for this account');
@@ -5402,51 +5419,55 @@ Analyze the following food image:
         }
 
         if (aiResponse) {
-          // Fallback succeeded; continue normally
-        } else {
-          // Do NOT throw here. Leave aiResponse as null so that downstream unified fallback can handle gracefully.
-          console.warn('[FOOD ANALYZE] Vision analysis did not produce a response. Falling back to safe placeholder.');
+          // Fallback succeeded; do not throw here
+        } else if (visionError.response?.status === 413) {
+          throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
+        } else if (visionError.response?.status === 400) {
+          // If route not found, use fallback instead of throwing
+          const cfCode = Array.isArray(visionError.response?.data?.errors) ? visionError.response.data.errors[0]?.code : undefined;
+          if (cfCode === 7000) {
+            console.log('[FOOD ANALYZE] Vision model unavailable (code 7000), using fallback');
+            const fallbackResult = analyzeFoodWithFallback('food items from image');
+            return res.json({
+              success: true,
+              data: {
+                success: true,
+                nutrition: fallbackResult,
+                message: 'Vision model unavailable for this account. Using fallback analysis.'
+              }
+            });
+          }
+          throw new Error('Invalid image format. Please use a clear photo of food.');
+        } else if (visionError.response?.status === 429) {
+          throw new Error('Too many requests. Please try again in a moment.');
         }
+        
+        // If vision analysis fails, provide final fallback
+        console.log('[FOOD ANALYZE] All vision methods failed, using rule-based fallback');
+        const fallbackResult = analyzeFoodWithFallback('food items from image');
+        return res.json({
+          success: true,
+          data: {
+            success: true,
+            nutrition: fallbackResult,
+            message: `Vision analysis failed. Using fallback analysis. Error: ${visionError.message}`
+          }
+        });
       }
     }
     
     // If we get here, aiResponse should be set either from successful vision analysis or retry
     if (!aiResponse) {
-      console.error('[FOOD ANALYZE] Error: aiResponse is not defined - this should not happen');
-      // Provide a fallback response instead of throwing an error
-      const fallbackResult = {
-        dishName: "Unknown Food",
-        cuisineType: "Unknown",
-        cookingMethod: "Unknown",
-        foodItems: [
-          {
-            name: "Unknown Food",
-            quantity: "1 serving",
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            fiber: 0,
-            sugar: 0,
-            sodium: 0
-          }
-        ],
-        totalNutrition: {
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-          fiber: 0,
-          sugar: 0,
-          sodium: 0
-        },
-        confidence: "low",
-        notes: "Analysis failed - please try again"
-      };
-      
+      console.error('[FOOD ANALYZE] Error: aiResponse is not defined');
+      console.log('[FOOD ANALYZE] Using final fallback due to undefined aiResponse');
+      const fallbackResult = analyzeFoodWithFallback('food items from image');
       return res.json({
         success: true,
-        data: fallbackResult
+        data: {
+          success: true,
+          nutrition: fallbackResult,
+          message: 'Vision analysis failed and no fallback available - using basic estimation'
+        }
       });
     }
 
