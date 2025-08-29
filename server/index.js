@@ -44,6 +44,7 @@ const pinoHttp = require('pino-http');
 const { z } = require('zod');
 const path = require('path');
 const VisionService = require('./services/visionService.js');
+const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 
 // Helper function to get local IP address
 function getLocalIpAddress() {
@@ -513,6 +514,7 @@ const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
 // Initialize Vision Service (Cloudflare as primary, Hugging Face as fallback)
 const visionService = (CF_ACCOUNT_ID && CF_API_TOKEN) ? new VisionService() : null;
+const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // AI Provider Priority List (DeepSeek first)
 const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
@@ -590,179 +592,137 @@ function getChatModel(providerName = AI_PROVIDER) {
 
 // Fallback rule-based nutrition analysis
 function analyzeFoodWithFallback(imageDescription) {
-  console.log('[FALLBACK] Using rule-based nutrition analysis');
-  
-  const description = imageDescription.toLowerCase();
-  let nutritionInfo = {
-    food_name: 'Unknown Food',
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fat: 0,
-    fiber: 0,
-    confidence: 'low'
-  };
-  
-  // Basic food recognition patterns
-  if (description.includes('apple') || description.includes('red fruit')) {
-    nutritionInfo = {
-      food_name: 'Apple',
-      calories: 95,
-      protein: 0.5,
-      carbs: 25,
-      fat: 0.3,
-      fiber: 4.4,
-      confidence: 'medium'
+  console.log('[FALLBACK] Using enhanced basic food analyzer');
+
+  try {
+    // Use the BasicFoodAnalyzer for comprehensive analysis
+    const analysisResult = basicFoodAnalyzer.analyzeFood(imageDescription);
+
+    // Convert to the expected format for compatibility with existing code
+    return {
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            success: true,
+            nutrition: {
+              dishName: analysisResult.dishName,
+              cuisineType: analysisResult.cuisineType,
+              cookingMethod: analysisResult.cookingMethod,
+              foodItems: analysisResult.foodItems,
+              totalNutrition: analysisResult.totalNutrition,
+              confidence: analysisResult.confidence,
+              notes: analysisResult.notes
+            },
+            message: `Analyzed using basic food analyzer. Confidence: ${analysisResult.confidence}`
+          })
+        }
+      }]
     };
-  } else if (description.includes('banana') || description.includes('yellow fruit')) {
-    nutritionInfo = {
-      food_name: 'Banana',
-      calories: 105,
-      protein: 1.3,
-      carbs: 27,
-      fat: 0.4,
-      fiber: 3.1,
-      confidence: 'medium'
-    };
-  } else if (description.includes('chicken') || description.includes('poultry') || description.includes('meat')) {
-    nutritionInfo = {
-      food_name: 'Chicken Breast',
-      calories: 165,
-      protein: 31,
-      carbs: 0,
-      fat: 3.6,
-      fiber: 0,
-      confidence: 'medium'
-    };
-  } else if (description.includes('rice') || description.includes('grain')) {
-    nutritionInfo = {
-      food_name: 'White Rice',
-      calories: 130,
-      protein: 2.7,
-      carbs: 28,
-      fat: 0.3,
-      fiber: 0.4,
-      confidence: 'medium'
-    };
-  } else if (description.includes('salad') || description.includes('vegetables') || description.includes('greens')) {
-    nutritionInfo = {
-      food_name: 'Mixed Salad',
-      calories: 20,
-      protein: 2,
-      carbs: 4,
-      fat: 0.2,
-      fiber: 2,
-      confidence: 'medium'
-    };
-  } else if (description.includes('bread') || description.includes('toast')) {
-    nutritionInfo = {
-      food_name: 'Bread Slice',
-      calories: 80,
-      protein: 3,
-      carbs: 15,
-      fat: 1,
-      fiber: 1,
-      confidence: 'medium'
-    };
-  } else if (description.includes('egg') || description.includes('eggs')) {
-    nutritionInfo = {
-      food_name: 'Egg',
-      calories: 70,
-      protein: 6,
-      carbs: 0.6,
-      fat: 5,
-      fiber: 0,
-      confidence: 'medium'
-    };
-  } else if (description.includes('mantou') || (description.includes('steamed') && description.includes('bread'))) {
-    if (description.includes('pork') && description.includes('vegetable')) {
-      nutritionInfo = {
-        food_name: 'Mantou with Pork and Vegetables',
-        calories: 420,
-        protein: 28,
-        carbs: 45,
-        fat: 12,
-        fiber: 4,
-        confidence: 'high'
-      };
-    } else {
-      nutritionInfo = {
-        food_name: 'Mantou (Chinese Steamed Bread)',
+  } catch (error) {
+    console.error('[FALLBACK] Error in basic food analyzer:', error);
+
+    // Ultimate fallback if even the basic analyzer fails
+    const fallbackNutrition = {
+      dishName: "Unknown Food",
+      cuisineType: "Unknown",
+      cookingMethod: "Unknown",
+      foodItems: [{
+        name: "Unknown Food Item",
+        quantity: "1 serving",
         calories: 200,
-        protein: 6,
-        carbs: 40,
-        fat: 1,
+        protein: 10,
+        carbs: 25,
+        fat: 8,
         fiber: 2,
-        confidence: 'high'
-      };
-    }
-  } else if (description.includes('milk') || description.includes('dairy')) {
-    nutritionInfo = {
-      food_name: 'Milk',
-      calories: 103,
-      protein: 8,
-      carbs: 12,
-      fat: 2.4,
-      fiber: 0,
-      confidence: 'medium'
+        sugar: 5,
+        sodium: 300
+      }],
+      totalNutrition: {
+        calories: 200,
+        protein: 10,
+        carbs: 25,
+        fat: 8,
+        fiber: 2,
+        sugar: 5,
+        sodium: 300
+      },
+      confidence: "low",
+      notes: "Basic analysis failed - using generic nutritional estimate"
     };
-  } else if (description.includes('fish') || description.includes('salmon')) {
-    nutritionInfo = {
-      food_name: 'Fish',
-      calories: 120,
-      protein: 22,
-      carbs: 0,
-      fat: 3,
-      fiber: 0,
-      confidence: 'medium'
-    };
-  } else if (description.includes('pasta') || description.includes('noodles')) {
-    nutritionInfo = {
-      food_name: 'Pasta',
-      calories: 131,
-      protein: 5,
-      carbs: 25,
-      fat: 1.1,
-      fiber: 1.8,
-      confidence: 'medium'
-    };
-  } else if (description.includes('meal') || description.includes('food') || description.includes('photo') || description.includes('dish')) {
-    // Generic meal fallback for when specific food isn't recognized
-    nutritionInfo = {
-      food_name: 'Mixed Meal (estimated)',
-      calories: 450,
-      protein: 30,
-      carbs: 50,
-      fat: 18,
-      fiber: 8,
-      confidence: 'medium'
+
+    return {
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            success: true,
+            nutrition: fallbackNutrition,
+            message: "Analysis temporarily unavailable - using generic estimate"
+          })
+        }
+      }]
     };
   }
-  
-  // If we still have "Unknown Food", provide a better default for image analysis
-  if (nutritionInfo.food_name === 'Unknown Food') {
-    nutritionInfo = {
-      food_name: 'Mixed Meal (estimated)',
-      calories: 450,
-      protein: 30,
-      carbs: 50,
-      fat: 18,
-      fiber: 8,
-      confidence: 'medium'
+}
+
+// Function to analyze food using BasicFoodAnalyzer with image data
+async function analyzeFoodWithBasicAnalyzer(base64Image) {
+  console.log('[BASIC ANALYZER] Using BasicFoodAnalyzer for image analysis');
+
+  try {
+    // For now, we'll create a generic description since BasicFoodAnalyzer expects text
+    // In the future, we could enhance BasicFoodAnalyzer to handle images directly
+    const imageDescription = "A food image uploaded for nutritional analysis";
+
+    // Use the BasicFoodAnalyzer for comprehensive analysis
+    const analysisResult = basicFoodAnalyzer.analyzeFood(imageDescription);
+
+    console.log('[BASIC ANALYZER] Analysis completed with confidence:', analysisResult.confidence);
+
+    // Return in the format expected by the API response
+    return {
+      dishName: analysisResult.dishName,
+      cuisineType: analysisResult.cuisineType,
+      cookingMethod: analysisResult.cookingMethod,
+      foodItems: analysisResult.foodItems,
+      totalNutrition: analysisResult.totalNutrition,
+      confidence: analysisResult.confidence,
+      notes: analysisResult.notes
     };
+
+  } catch (error) {
+    console.error('[BASIC ANALYZER] Error in BasicFoodAnalyzer:', error);
+
+    // Ultimate fallback if even the basic analyzer fails
+    const fallbackNutrition = {
+      dishName: "Food Image",
+      cuisineType: "Unknown",
+      cookingMethod: "Unknown",
+      foodItems: [{
+        name: "Mixed Food Items",
+        quantity: "1 serving",
+        calories: 300,
+        protein: 15,
+        carbs: 35,
+        fat: 12,
+        fiber: 3,
+        sugar: 8,
+        sodium: 400
+      }],
+      totalNutrition: {
+        calories: 300,
+        protein: 15,
+        carbs: 35,
+        fat: 12,
+        fiber: 3,
+        sugar: 8,
+        sodium: 400
+      },
+      confidence: "low",
+      notes: "Basic analyzer failed - using generic nutritional estimate for food image"
+    };
+
+    return fallbackNutrition;
   }
-  
-  return {
-    choices: [{
-      message: {
-        content: JSON.stringify({
-          success: true,
-          nutrition: nutritionInfo,
-          message: `Analyzed using fallback system. Confidence: ${nutritionInfo.confidence}`
-        })
-      }
-    }]
-  };
 }
 
 // Fallback rule-based nutrition plan generation
@@ -3590,6 +3550,142 @@ function buildContextualFallback(mealType, ingredients, targets) {
 }
 
 // Add this function before the app.post('/api/generate-recipe') endpoint
+// Generate a high-quality fallback recipe when AI fails
+function generateHighQualityRecipe(mealType, ingredients, targets) {
+  console.log(`[${new Date().toISOString()}] Generating high-quality fallback recipe`);
+  
+  // Basic recipe structure
+  const recipe = {
+    name: `${mealType} with ${ingredients.slice(0, 2).join(' and ')}`,
+    meal_type: mealType.toLowerCase(),
+    prep_time: 15,
+    cook_time: 20,
+    servings: 1,
+    ingredients: [],
+    instructions: [],
+    nutrition: {
+      calories: targets.calories || 400,
+      protein: targets.protein || 25,
+      carbs: targets.carbs || 40,
+      fat: targets.fat || 15,
+      fiber: 5,
+      sugar: 8
+    }
+  };
+
+  // Generate ingredients with estimated amounts
+  const ingredientEstimates = {
+    eggs: { amount: '2 large', calories: 140, protein: 12, carbs: 1, fat: 10 },
+    chicken: { amount: '4 oz', calories: 185, protein: 35, carbs: 0, fat: 4 },
+    rice: { amount: '1/2 cup dry', calories: 160, protein: 3, carbs: 35, fat: 0.5 },
+    bread: { amount: '2 slices', calories: 160, protein: 6, carbs: 30, fat: 2 },
+    bacon: { amount: '2 strips', calories: 90, protein: 6, carbs: 0, fat: 7 },
+    cheese: { amount: '1 oz', calories: 110, protein: 7, carbs: 1, fat: 9 },
+    butter: { amount: '1 tbsp', calories: 100, protein: 0, carbs: 0, fat: 11 },
+    milk: { amount: '1 cup', calories: 150, protein: 8, carbs: 12, fat: 8 },
+    oats: { amount: '1/2 cup dry', calories: 150, protein: 5, carbs: 27, fat: 3 },
+    banana: { amount: '1 medium', calories: 105, protein: 1, carbs: 27, fat: 0.5 }
+  };
+
+  // Add ingredients that match the provided ingredients
+  ingredients.forEach(ingredient => {
+    const lowerIngredient = ingredient.toLowerCase();
+    const match = Object.keys(ingredientEstimates).find(key => 
+      lowerIngredient.includes(key) || key.includes(lowerIngredient)
+    );
+    
+    if (match) {
+      recipe.ingredients.push({
+        ingredient: ingredient,
+        amount: ingredientEstimates[match].amount,
+        calories: ingredientEstimates[match].calories,
+        protein: ingredientEstimates[match].protein,
+        carbs: ingredientEstimates[match].carbs,
+        fat: ingredientEstimates[match].fat
+      });
+    } else {
+      // Default values for unknown ingredients
+      recipe.ingredients.push({
+        ingredient: ingredient,
+        amount: '1 serving',
+        calories: Math.round(targets.calories / ingredients.length),
+        protein: Math.round(targets.protein / ingredients.length),
+        carbs: Math.round(targets.carbs / ingredients.length),
+        fat: Math.round(targets.fat / ingredients.length)
+      });
+    }
+  });
+
+  // Generate basic instructions
+  if (mealType.toLowerCase() === 'breakfast') {
+    recipe.instructions = [
+      'Heat a non-stick pan over medium heat',
+      'Prepare your ingredients as listed',
+      'Cook ingredients in order of cooking time required',
+      'Combine ingredients and serve hot',
+      'Enjoy your nutritious breakfast!'
+    ];
+  } else if (mealType.toLowerCase() === 'lunch' || mealType.toLowerCase() === 'dinner') {
+    recipe.instructions = [
+      'Preheat cooking surface to medium heat',
+      'Prepare all ingredients according to amounts listed',
+      'Cook protein first if applicable',
+      'Add remaining ingredients in order of cooking time',
+      'Season to taste and serve'
+    ];
+  } else {
+    recipe.instructions = [
+      'Gather all ingredients',
+      'Prepare ingredients as indicated',
+      'Combine or cook as appropriate for meal type',
+      'Serve and enjoy'
+    ];
+  }
+
+  return recipe;
+}
+
+// Attach individual ingredient macros to recipe
+function attachPerIngredientMacros(recipe) {
+  if (!recipe || !recipe.ingredients) {
+    return recipe;
+  }
+
+  // Ensure each ingredient has macro information
+  recipe.ingredients = recipe.ingredients.map(ingredient => {
+    if (!ingredient.calories) {
+      // Estimate macros if missing
+      ingredient.calories = 50;
+      ingredient.protein = 2;
+      ingredient.carbs = 5;
+      ingredient.fat = 2;
+    }
+    return ingredient;
+  });
+
+  // Calculate total macros from ingredients
+  const totalMacros = recipe.ingredients.reduce((total, ingredient) => {
+    return {
+      calories: total.calories + (ingredient.calories || 0),
+      protein: total.protein + (ingredient.protein || 0),
+      carbs: total.carbs + (ingredient.carbs || 0),
+      fat: total.fat + (ingredient.fat || 0)
+    };
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  // Update recipe nutrition to match ingredients
+  if (recipe.nutrition) {
+    recipe.nutrition = {
+      ...recipe.nutrition,
+      ...totalMacros,
+      fiber: recipe.nutrition.fiber || 5,
+      sugar: recipe.nutrition.sugar || 8
+    };
+  }
+
+  return recipe;
+}
+
 function validateRecipeAgainstInputs(providedIngredients, recipe) {
   // Normalize text for comparison
   const normalizeText = (text) => {
@@ -5149,6 +5245,21 @@ Analyze the following food image:
 
         } catch (cfError) {
           console.warn('[FOOD ANALYZE] Cloudflare vision failed:', cfError.message);
+
+          // Handle specific Cloudflare configuration errors
+          if (cfError.message === 'CLOUDFLARE_NOT_CONFIGURED') {
+            console.log('[FOOD ANALYZE] Cloudflare not configured, using BasicFoodAnalyzer fallback');
+            const fallbackResult = await analyzeFoodWithBasicAnalyzer(base64Image);
+            return res.json({
+              success: true,
+              data: {
+                success: true,
+                nutrition: fallbackResult,
+                message: 'Cloudflare Workers AI not configured. Using BasicFoodAnalyzer for analysis.',
+                analysisProvider: 'basic_analyzer'
+              }
+            });
+          }
           // Fall back to basic text analysis if Cloudflare fails
         }
       }
