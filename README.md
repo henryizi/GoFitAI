@@ -4,10 +4,33 @@ A mobile fitness application built with React Native and Expo that uses AI to cr
 
 ## Features
 
-- AI-powered workout plan generation
-- Workout tracking and history
-- Nutrition planning
-- Progress tracking
+- 🤖 **AI-powered workout plan generation** - DeepSeek integration for personalized fitness plans
+- 📊 **Workout tracking and history** - Complete exercise logging and progress monitoring
+- 🥗 **Nutrition planning** - Hugging Face Qwen vision AI for food analysis
+- 📈 **Progress tracking** - Body measurements, photos, and performance metrics
+- 🖼️ **Food photo analysis** - Upload photos for instant nutritional analysis
+- 💪 **Bodybuilding specialization** - Expert-level training routines
+
+## 🏗️ Project Structure
+
+```
+SnapBodyAI/
+├── 📱 app/                    # React Native app (Expo)
+├── 🖥️ server/                 # Node.js backend server
+├── 📚 docs/                   # Documentation (organized by category)
+│   ├── setup/                # Installation & deployment guides
+│   ├── features/             # Feature documentation
+│   ├── fixes/                # Bug fixes & troubleshooting
+│   └── migration/            # Database migrations
+├── 🛠️ scripts/               # Utility scripts
+│   ├── database/             # SQL migrations & DB tools
+│   ├── deployment/           # Deployment scripts
+│   └── tests/                # Test utilities
+├── 🧪 tests/                 # Test suites
+├── 📦 assets/                # Images, icons, videos
+├── 🔧 temp/                  # Temporary files (safe to clean)
+└── ⚙️ Config files           # package.json, app.json, etc.
+```
 
 ## Getting Started
 

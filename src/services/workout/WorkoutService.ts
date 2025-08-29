@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { WorkoutHistoryService } from './WorkoutHistoryService';
 import { ExerciseVarietyService } from './ExerciseVarietyService';
+import { bodybuilderWorkouts } from '../../data/bodybuilder-workouts';
 
 type WorkoutPlan = Database['public']['Tables']['workout_plans']['Row'];
 type TrainingSplit = Database['public']['Tables']['training_splits']['Row'];
@@ -31,11 +32,12 @@ interface CreatePlanInput {
   muscleGainGoal: number;
   trainingLevel: 'beginner' | 'intermediate' | 'advanced';
   emulateBodybuilder?: string; // Optional parameter to emulate a famous bodybuilder's workout style
-  
+
   // Enhanced onboarding data - will be fetched from database if not provided
   bodyFat?: number;
   weightTrend?: 'losing' | 'gaining' | 'stable' | 'unsure';
   exerciseFrequency?: '0' | '1-3' | '4-6' | '7+';
+  workoutFrequency?: '2_3' | '4_5' | '6';
   activityLevel?: 'sedentary' | 'moderate' | 'very-active';
   bodyAnalysis?: {
     chest_rating?: number;
@@ -186,6 +188,19 @@ export class WorkoutService {
    */
   static async createAIPlan(input: CreatePlanInput): Promise<WorkoutPlan | null> {
     try {
+      // EARLY DETECTION: Check if this is a bodybuilder template - handle completely offline
+      const bodybuilderTemplates = [
+        'cbum', 'platz', 'ronnie', 'arnold', 'dorian', 'jay', 'phil', 'kai',
+        'franco', 'frank', 'lee', 'derek', 'hadi', 'nick', 'flex', 'sergio'
+      ];
+
+      const isBodybuilderTemplate = input.emulateBodybuilder && bodybuilderTemplates.includes(input.emulateBodybuilder);
+
+      if (isBodybuilderTemplate) {
+        console.log(`[WorkoutService] Detected bodybuilder template: ${input.emulateBodybuilder} - using offline mode`);
+        return await this.createBodybuilderPlanOffline(input);
+      }
+
       const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
         return await Promise.race([
           promise,
@@ -311,6 +326,7 @@ export class WorkoutService {
                 goal_fat_reduction: input.fatLossGoal,
                 goal_muscle_gain: input.muscleGainGoal,
                 exercise_frequency: enhancedInput.exerciseFrequency,
+                workout_frequency: enhancedInput.workoutFrequency,
                 activity_level: enhancedInput.activityLevel,
                 body_fat: enhancedInput.bodyFat,
                 weight_trend: enhancedInput.weightTrend,
@@ -412,6 +428,7 @@ export class WorkoutService {
                 bodyFat: enhancedInput.bodyFat,
                 weightTrend: enhancedInput.weightTrend,
                 exerciseFrequency: enhancedInput.exerciseFrequency,
+                workoutFrequency: enhancedInput.workoutFrequency,
                 activityLevel: enhancedInput.activityLevel,
                 bodyAnalysis: enhancedInput.bodyAnalysis,
               });
@@ -477,24 +494,14 @@ export class WorkoutService {
           case 'lee':
             planName = `Lee Haney's Training Plan`;
             break;
-          case 'derek':
-            planName = `Derek Lunsford's Training Plan`;
-            break;
-          case 'hadi':
-            planName = `Hadi Choopan's Training Plan`;
-            break;
+
           case 'nick':
             planName = `Nick Walker's Training Plan`;
             break;
           case 'platz':
             planName = `Tom Platz's Training Plan`;
             break;
-          case 'flex':
-            planName = `Flex Wheeler's Training Plan`;
-            break;
-          case 'sergio':
-            planName = `Sergio Oliva's Training Plan`;
-            break;
+
         }
       }
 
@@ -674,12 +681,10 @@ export class WorkoutService {
           case 'franco': fallbackPlanName = `Franco Columbu's Training Plan`; break;
           case 'frank': fallbackPlanName = `Frank Zane's Training Plan`; break;
           case 'lee': fallbackPlanName = `Lee Haney's Training Plan`; break;
-          case 'derek': fallbackPlanName = `Derek Lunsford's Training Plan`; break;
-          case 'hadi': fallbackPlanName = `Hadi Choopan's Training Plan`; break;
+
           case 'nick': fallbackPlanName = `Nick Walker's Training Plan`; break;
           case 'platz': fallbackPlanName = `Tom Platz's Training Plan`; break;
-          case 'flex': fallbackPlanName = `Flex Wheeler's Training Plan`; break;
-          case 'sergio': fallbackPlanName = `Sergio Oliva's Training Plan`; break;
+
         }
       }
 
@@ -811,6 +816,236 @@ export class WorkoutService {
   }
 
   /**
+   * Create a bodybuilder workout plan completely offline without any network calls
+   */
+  private static async createBodybuilderPlanOffline(input: CreatePlanInput): Promise<WorkoutPlan | null> {
+    try {
+      console.log(`[WorkoutService] Creating offline bodybuilder plan for: ${input.emulateBodybuilder}`);
+
+      // Get the local bodybuilder workout data
+      const bodybuilderData = this.getBodybuilderWorkoutData(input.emulateBodybuilder!, input.trainingLevel);
+
+      console.log(`DEBUG: Bodybuilder data received:`, {
+        totalDays: bodybuilderData.weeklySchedule.length,
+        trainingDays: bodybuilderData.weeklySchedule.filter(day => day.exercises.length > 0).length,
+        estimatedTime: bodybuilderData.estimatedTimePerSession,
+        sampleDays: bodybuilderData.weeklySchedule.slice(0, 3).map(day => ({
+          day: day.day,
+          focus: day.focus,
+          exerciseCount: day.exercises.length
+        }))
+      });
+
+      // Create a plan name based on the bodybuilder
+      let planName = `${input.fullName}'s Plan`;
+      switch (input.emulateBodybuilder) {
+        case 'cbum': planName = `Chris Bumstead's Training Plan`; break;
+        case 'platz': planName = `Tom Platz's Training Plan`; break;
+        case 'ronnie': planName = `Ronnie Coleman's Training Plan`; break;
+        case 'arnold': planName = `Arnold Schwarzenegger's Training Plan`; break;
+        case 'dorian': case 'dorian-yates': planName = `Dorian Yates's Training Plan`; break;
+        case 'jay': case 'jay-cutler': planName = `Jay Cutler's Training Plan`; break;
+        case 'phil': planName = `Phil Heath's Training Plan`; break;
+        case 'kai': planName = `Kai Greene's Training Plan`; break;
+        case 'franco': planName = `Franco Columbu's Training Plan`; break;
+        case 'frank': planName = `Frank Zane's Training Plan`; break;
+        case 'lee': planName = `Lee Haney's Training Plan`; break;
+
+        case 'nick': planName = `Nick Walker's Training Plan`; break;
+
+      }
+
+      // Create the plan structure
+      const planWithWeeklySchedule = {
+        id: `bb-${Date.now().toString(36)}-${input.emulateBodybuilder}`,
+        user_id: input.userId,
+        name: planName,
+        training_level: input.trainingLevel || 'intermediate',
+        mesocycle_length_weeks: 4,
+        current_week: 1,
+        deload_week: false,
+        is_active: true,
+        status: 'active' as const,
+        weekly_schedule: bodybuilderData.weeklySchedule,
+        weeklySchedule: bodybuilderData.weeklySchedule,
+        goal_fat_loss: input.fatLossGoal || 0,
+        goal_muscle_gain: input.muscleGainGoal || 0,
+        estimatedTimePerSession: bodybuilderData.estimatedTimePerSession,
+        image_url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2000&auto=format&fit=crop',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log(`[WorkoutService] Created offline bodybuilder plan:`, {
+        id: planWithWeeklySchedule.id,
+        name: planWithWeeklySchedule.name,
+        bodybuilder: input.emulateBodybuilder,
+        days: bodybuilderData.weeklySchedule.length,
+        trainingDays: bodybuilderData.weeklySchedule.filter(day => day.exercises.length > 0).length,
+        training_level: planWithWeeklySchedule.training_level,
+        weeklyScheduleSample: bodybuilderData.weeklySchedule.slice(0, 3).map(day => ({
+          day: day.day,
+          focus: day.focus,
+          exercises: day.exercises.length
+        }))
+      });
+
+      // Save to local storage only
+      try {
+        console.log('[WorkoutService] Attempting to save bodybuilder plan:', {
+          id: planWithWeeklySchedule.id,
+          name: planWithWeeklySchedule.name,
+          userId: input.userId
+        });
+
+        if (typeof WorkoutLocalStore?.addPlan === 'function') {
+          await WorkoutLocalStore.addPlan(input.userId, planWithWeeklySchedule);
+          console.log('[WorkoutService] Successfully added bodybuilder plan to local storage');
+
+          // Verify the plan was saved
+          const savedPlans = await WorkoutLocalStore.getPlans(input.userId);
+          const savedPlan = savedPlans.find(p => p.id === planWithWeeklySchedule.id);
+          if (savedPlan) {
+            console.log('[WorkoutService] ✅ Bodybuilder plan verified in local storage:', {
+              id: savedPlan.id,
+              name: savedPlan.name,
+              is_active: savedPlan.is_active,
+              status: savedPlan.status
+            });
+          } else {
+            console.error('[WorkoutService] ❌ Bodybuilder plan not found after saving');
+            console.log('[WorkoutService] All plans in storage:', savedPlans.map(p => ({ id: p.id, name: p.name })));
+          }
+        } else if (typeof WorkoutLocalStore?.savePlans === 'function') {
+          const existingPlans = await WorkoutLocalStore.getPlans(input.userId) || [];
+          existingPlans.push(planWithWeeklySchedule);
+          await WorkoutLocalStore.savePlans(input.userId, existingPlans);
+          console.log('[WorkoutService] Successfully saved bodybuilder plan using fallback savePlans method');
+        }
+      } catch (localStorageError) {
+        console.error('[WorkoutService] Error saving bodybuilder plan to local storage (continuing):', localStorageError);
+      }
+
+      // Track analytics for bodybuilder plan creation
+      analyticsTrack('bodybuilder_plan_created', {
+        user_id: input.userId,
+        bodybuilder: input.emulateBodybuilder,
+        training_level: input.trainingLevel,
+        method: 'offline_local'
+      });
+
+      console.log(`[WorkoutService] RETURNING bodybuilder plan with:`, {
+        name: planWithWeeklySchedule.name,
+        totalDays: planWithWeeklySchedule.weeklySchedule.length,
+        trainingDays: planWithWeeklySchedule.weeklySchedule.filter(day => day.exercises.length > 0).length,
+        firstDay: planWithWeeklySchedule.weeklySchedule[0]?.day,
+        firstDayExercises: planWithWeeklySchedule.weeklySchedule[0]?.exercises.length
+      });
+
+      return planWithWeeklySchedule as any;
+
+    } catch (error) {
+      console.error('[WorkoutService] Error creating offline bodybuilder plan:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get local workout data for a specific bodybuilder template
+   */
+  private static getBodybuilderWorkoutData(bodybuilder: string, trainingLevel: string) {
+    // Map bodybuilder keys to the data structure
+    const bodybuilderKeyMap: Record<string, string> = {
+      'cbum': 'cbum',
+      'platz': 'platz',
+      'ronnie': 'coleman',
+      'arnold': 'arnold',
+      'dorian': 'dorian-yates',
+      'jay': 'jay-cutler',
+      'phil': 'phil',
+      'kai': 'kai',
+      'franco': 'franco',
+      'frank': 'frank',
+      'lee': 'lee',
+      'derek': 'derek',
+      'hadi': 'hadi',
+      'nick': 'nick',
+      'flex': 'flex',
+      'sergio': 'sergio'
+    };
+
+    const mappedKey = bodybuilderKeyMap[bodybuilder];
+
+    if (mappedKey && bodybuilderWorkouts[mappedKey]) {
+      const workoutData = bodybuilderWorkouts[mappedKey];
+      console.log(`DEBUG: Found bodybuilder data for ${bodybuilder} -> ${mappedKey}`);
+      console.log(`DEBUG: Weekly schedule has ${workoutData.weeklySchedule.length} days`);
+      console.log(`DEBUG: Training days:`, workoutData.weeklySchedule.filter(day => day.exercises.length > 0).length);
+
+      return {
+        weeklySchedule: workoutData.weeklySchedule.map(day => ({
+          day: day.day,
+          focus: day.bodyParts.join(' & '),
+          exercises: day.exercises.map(exercise => ({
+            name: exercise.name,
+            sets: parseInt(exercise.sets),
+            reps: exercise.reps,
+            restBetweenSets: exercise.restTime || '60s'
+          }))
+        })),
+        estimatedTimePerSession: workoutData.estimatedTimePerSession
+      };
+    }
+
+    // Fallback to a generic intermediate program if bodybuilder not found
+    return {
+      weeklySchedule: [
+        {
+          day: 'Monday',
+          focus: 'Chest & Triceps',
+          exercises: [
+            { name: 'Bench Press', sets: 4, reps: '8-10', restBetweenSets: '90s' },
+            { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', restBetweenSets: '75s' },
+            { name: 'Cable Flyes', sets: 3, reps: '12-15', restBetweenSets: '60s' },
+            { name: 'Tricep Pushdowns', sets: 3, reps: '12-15', restBetweenSets: '60s' }
+          ]
+        },
+        {
+          day: 'Tuesday',
+          focus: 'Back & Biceps',
+          exercises: [
+            { name: 'Pull-ups', sets: 4, reps: '8-10', restBetweenSets: '90s' },
+            { name: 'Barbell Rows', sets: 3, reps: '10-12', restBetweenSets: '75s' },
+            { name: 'Cable Rows', sets: 3, reps: '12-15', restBetweenSets: '60s' },
+            { name: 'Barbell Curls', sets: 3, reps: '10-12', restBetweenSets: '60s' }
+          ]
+        },
+        {
+          day: 'Thursday',
+          focus: 'Legs',
+          exercises: [
+            { name: 'Squats', sets: 4, reps: '8-10', restBetweenSets: '2min' },
+            { name: 'Romanian Deadlifts', sets: 3, reps: '10-12', restBetweenSets: '90s' },
+            { name: 'Leg Press', sets: 3, reps: '12-15', restBetweenSets: '75s' },
+            { name: 'Calf Raises', sets: 4, reps: '15-20', restBetweenSets: '60s' }
+          ]
+        },
+        {
+          day: 'Friday',
+          focus: 'Shoulders & Core',
+          exercises: [
+            { name: 'Overhead Press', sets: 4, reps: '8-10', restBetweenSets: '90s' },
+            { name: 'Lateral Raises', sets: 3, reps: '12-15', restBetweenSets: '60s' },
+            { name: 'Rear Delt Flyes', sets: 3, reps: '12-15', restBetweenSets: '60s' },
+            { name: 'Plank', sets: 3, reps: '60s', restBetweenSets: '60s' }
+          ]
+        }
+      ],
+      estimatedTimePerSession: '60-75 minutes'
+    };
+  }
+
+  /**
    * Updates multiple exercise sets in a single transaction.
    */
   static async batchUpdateExerciseSets(
@@ -899,6 +1134,7 @@ export class WorkoutService {
         bodyFat: input.bodyFat || profile.body_fat || undefined,
         weightTrend: input.weightTrend || profile.weight_trend || undefined,
         exerciseFrequency: input.exerciseFrequency || profile.exercise_frequency || undefined,
+        workoutFrequency: input.workoutFrequency || profile.workout_frequency || undefined,
         activityLevel: input.activityLevel || profile.activity_level || undefined,
         bodyAnalysis: input.bodyAnalysis || (bodyAnalysis ? {
           chest_rating: bodyAnalysis.chest_rating,
@@ -1164,6 +1400,21 @@ export class WorkoutService {
       const localPlan = localPlans.find(p => p.id === planId);
       if (localPlan) {
         console.log('[WorkoutService] Found plan in local storage:', localPlan.id);
+        console.log('[WorkoutService] Plan details:', {
+          name: localPlan.name,
+          weeklyScheduleLength: localPlan.weeklySchedule?.length || 0,
+          weekly_scheduleLength: localPlan.weekly_schedule?.length || 0,
+          trainingDays: localPlan.weeklySchedule?.filter(day => day.exercises?.length > 0)?.length || 0,
+          firstDay: localPlan.weeklySchedule?.[0]?.day,
+          firstDayExercises: localPlan.weeklySchedule?.[0]?.exercises?.length || 0,
+          sampleDays: localPlan.weeklySchedule?.slice(0, 3)?.map(day => ({
+            day: day.day,
+            focus: day.focus,
+            exercises: day.exercises?.length || 0
+          })) || [],
+          hasWeeklySchedule: !!localPlan.weeklySchedule,
+          hasWeekly_schedule: !!localPlan.weekly_schedule
+        });
         return localPlan;
       }
       
@@ -1225,6 +1476,14 @@ export class WorkoutService {
    */
   static async getTrainingSplits(planId: string): Promise<TrainingSplit[]> {
     try {
+      // Check if planId is a valid UUID before querying database
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+
+      if (!supabase || !isValidUUID) {
+        console.log(`[WorkoutService] Skipping database query for training splits with plan ${planId} (${!supabase ? 'no supabase' : 'invalid UUID'})`);
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('training_splits')
         .select('*')
@@ -1510,17 +1769,17 @@ export class WorkoutService {
     }
   }
 
-  /**
+    /**
    * Deletes a workout plan and all its related data.
    */
   static async deletePlan(planId: string): Promise<boolean> {
     try {
       console.log(`[WorkoutService] Deleting plan with ID: ${planId}`);
 
-      // Check if this is a local plan (starts with "local-" or "ai-")
-      if (planId.startsWith('local-') || planId.startsWith('ai-')) {
+      // Check if this is a local plan (starts with "local-", "ai-", or "bb-" for bodybuilder plans)
+      if (planId.startsWith('local-') || planId.startsWith('ai-') || planId.startsWith('bb-')) {
         console.log(`[WorkoutService] Deleting local plan: ${planId}`);
-        
+
         // Remove from WorkoutLocalStore
         try {
           await WorkoutLocalStore.deletePlan(planId);
@@ -1528,9 +1787,15 @@ export class WorkoutService {
         } catch (localStoreErr) {
           console.warn(`[WorkoutService] Error removing plan from local store: ${localStoreErr}`);
         }
-        
+
         console.log(`[WorkoutService] Successfully deleted local plan.`);
         return true;
+      }
+
+      // Check if this is a valid UUID format before attempting database deletion
+      if (!this.isValidUUID(planId)) {
+        console.warn(`[WorkoutService] Plan ID "${planId}" is not a valid UUID and not a recognized local plan format. Cannot delete.`);
+        return false;
       }
 
       // For database plans, use Supabase
@@ -1560,6 +1825,14 @@ export class WorkoutService {
     muscleGroup?: string
   ): Promise<VolumeTracking[]> {
     try {
+      // Check if planId is a valid UUID before querying database
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+
+      if (!supabase || !isValidUUID) {
+        console.log(`[WorkoutService] Skipping database query for volume data with plan ${planId} (${!supabase ? 'no supabase' : 'invalid UUID'})`);
+        return [];
+      }
+
       let query = supabase
         .from('volume_tracking')
         .select('*')
@@ -1904,11 +2177,30 @@ export class WorkoutService {
   static async getNextWorkoutSession(userId: string): Promise<any | null> {
     try {
       console.log('[WorkoutService] Getting next workout session for user:', userId);
-      
+
       // Get active plan
       const activePlan = await this.getActivePlan(userId);
       if (!activePlan) {
         console.log('[WorkoutService] No active plan found');
+        return null;
+      }
+
+      // Check if active plan has a valid UUID (skip database queries for bodybuilder plans)
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activePlan.id);
+
+      if (!supabase || !isValidUUID) {
+        console.log(`[WorkoutService] Skipping database queries for next workout session with plan ${activePlan.id} (${!supabase ? 'no supabase' : 'invalid UUID'})`);
+        // For bodybuilder plans, return a simple next session based on the local plan data
+        if (activePlan.weeklySchedule && activePlan.weeklySchedule.length > 0) {
+          return {
+            sessionId: `bb-session-${Date.now()}`,
+            splitName: activePlan.weeklySchedule[0].focus,
+            focusAreas: [activePlan.weeklySchedule[0].focus],
+            dayNumber: 1,
+            weekNumber: 1,
+            estimatedTime: activePlan.estimatedTimePerSession || '60 minutes'
+          };
+        }
         return null;
       }
 

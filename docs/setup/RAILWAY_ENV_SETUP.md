@@ -15,12 +15,16 @@ SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### **🤖 AI Provider Variables**
+### **🤖 AI Provider Variables (Simplified Architecture)**
 ```bash
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
-DEEPSEEK_MODEL=deepseek-chat
-AI_PROVIDER=deepseek
+# Primary AI Provider (Hugging Face)
+HUGGINGFACE_API_TOKEN=your_huggingface_api_token
+
+# Legacy providers (now removed from simplified backend)
+# DEEPSEEK_API_KEY=your_deepseek_api_key
+# DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
+# DEEPSEEK_MODEL=deepseek-chat
+# AI_PROVIDER=deepseek
 ```
 
 ### **🔧 App Configuration**
@@ -51,11 +55,15 @@ EXPO_PUBLIC_API_URL=https://gofitai-production.up.railway.app
    - **anon public** key → use for `EXPO_PUBLIC_SUPABASE_ANON_KEY`
    - **service_role** key → use for `SUPABASE_SERVICE_KEY`
 
-### **Step 4: Get Your DeepSeek API Key**
-1. Go to [platform.deepseek.com](https://platform.deepseek.com)
+### **Step 4: Get Your Hugging Face API Token**
+1. Go to [huggingface.co](https://huggingface.co)
 2. Sign in to your account
-3. Go to **API Keys**
-4. Copy your API key → use for `DEEPSEEK_API_KEY`
+3. Go to **Settings** → **Access Tokens**
+4. Click **"New token"**
+5. Name it "SnapBodyAI" and select **"Read"** permissions
+6. Copy your token → use for `HUGGINGFACE_API_TOKEN`
+
+**Note**: The Hugging Face token is optional. The simplified backend will work without it using rule-based fallbacks.
 
 ### **Step 5: Redeploy**
 After setting all environment variables:
@@ -90,9 +98,12 @@ railway login
 railway variables set EXPO_PUBLIC_SUPABASE_URL="your_url_here"
 railway variables set SUPABASE_SERVICE_KEY="your_service_key_here"
 railway variables set EXPO_PUBLIC_SUPABASE_ANON_KEY="your_anon_key_here"
-railway variables set DEEPSEEK_API_KEY="your_deepseek_key_here"
-railway variables set DEEPSEEK_API_URL="https://api.deepseek.com/chat/completions"
-railway variables set AI_PROVIDER="deepseek"
+railway variables set HUGGINGFACE_API_TOKEN="your_hf_token_here"
+
+# Legacy variables (no longer needed with simplified backend)
+# railway variables set DEEPSEEK_API_KEY="your_deepseek_key_here"
+# railway variables set DEEPSEEK_API_URL="https://api.deepseek.com/chat/completions"
+# railway variables set AI_PROVIDER="deepseek"
 
 # Redeploy
 railway up

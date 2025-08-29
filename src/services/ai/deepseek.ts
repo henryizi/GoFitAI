@@ -7,6 +7,8 @@ import {
   getExerciseInfo,
   ExerciseInfo 
 } from '../../constants/exerciseNames';
+import { bodybuilderWorkouts, BodybuilderWorkout } from '../../data/bodybuilder-workouts';
+import { WorkoutPlan as AppWorkoutPlan, WorkoutDay as AppWorkoutDay, ExerciseItem } from '../../types/chat';
 import axios from 'axios';
 
 interface WorkoutPlanInput {
@@ -20,11 +22,12 @@ interface WorkoutPlanInput {
   trainingLevel: 'beginner' | 'intermediate' | 'advanced';
   availableEquipment?: ('Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Cable Machine' | 'Plate')[];
   emulateBodybuilder?: string; // Optional parameter to emulate a famous bodybuilder's workout style
-  
+
   // Enhanced onboarding data
   bodyFat?: number; // Body fat percentage
   weightTrend?: 'losing' | 'gaining' | 'stable' | 'unsure'; // Current weight trend
   exerciseFrequency?: '0' | '1-3' | '4-6' | '7+'; // Current exercise frequency
+  workoutFrequency?: '2_3' | '4_5' | '6'; // Preferred workout frequency per week
   activityLevel?: 'sedentary' | 'moderate' | 'very-active'; // Daily activity level
   bodyAnalysis?: {
     chest_rating?: number;
@@ -72,6 +75,94 @@ export class DeepSeekService {
   private static MODEL = DEEPSEEK_MODEL;
   private static TIMEOUT_MS = AI_TIMEOUT_MS;
   private static VERBOSE = AI_VERBOSE_LOGGING;
+
+  static {
+    // Debug configuration on class load
+    if (this.VERBOSE) {
+      console.log('[DeepSeekService] Configuration loaded:', {
+        apiUrl: this.API_URL,
+        model: this.MODEL,
+        hasApiKey: !!this.API_KEY,
+        timeout: this.TIMEOUT_MS
+      });
+    }
+  }
+
+  /**
+   * Converts static bodybuilder workout template to AppWorkoutPlan format
+   */
+  private static convertBodybuilderWorkoutToAppWorkoutPlan(
+    bodybuilderWorkout: BodybuilderWorkout,
+    input: WorkoutPlanInput
+  ): AppWorkoutPlan {
+    // Convert bodybuilder exercises to app format
+    const weeklySchedule: AppWorkoutDay[] = bodybuilderWorkout.weeklySchedule.map(day => ({
+      day: day.day,
+      focus: day.bodyParts.join(' + '), // Convert bodyParts array to focus string
+      exercises: day.exercises.map(exercise => ({
+        name: exercise.name,
+        sets: typeof exercise.sets === 'string' ?
+          (exercise.sets.includes('-') ? parseInt(exercise.sets.split('-')[1]) : parseInt(exercise.sets)) :
+          exercise.sets,
+        reps: exercise.reps,
+        restBetweenSets: exercise.restTime || '60-90 seconds'
+      } as ExerciseItem))
+    }));
+
+    // Filter out rest days and abs-only days from main schedule
+    let mainWorkoutDays = weeklySchedule.filter(day =>
+      !day.day.toLowerCase().includes('rest') &&
+      !day.focus.toLowerCase().includes('abs only')
+    );
+
+    // ADAPT FOR USER'S WORKOUT FREQUENCY PREFERENCE
+    if (input.workoutFrequency && input.workoutFrequency !== '6') {
+      const targetFrequency = input.workoutFrequency === '2_3' ? 2.5 : input.workoutFrequency === '4_5' ? 4.5 : parseInt(input.workoutFrequency);
+      const currentTrainingDays = mainWorkoutDays.length;
+
+      console.log(`[DEEPSEEK] Adapting ${bodybuilderWorkout.name} from ${currentTrainingDays} days to ${targetFrequency} days (user preference)`);
+
+      if (targetFrequency < currentTrainingDays) {
+        // Need to reduce training days - select the most important ones
+        if (targetFrequency <= 3) {
+          // For 2-3 days: Prioritize compound movements and major muscle groups
+          const priorityOrder = [
+            'chest', 'back', 'legs', 'shoulders', 'arms',
+            'chest and back', 'upper body', 'lower body', 'full body'
+          ];
+
+          mainWorkoutDays = mainWorkoutDays
+            .sort((a, b) => {
+              const aPriority = priorityOrder.findIndex(p =>
+                a.focus.toLowerCase().includes(p)
+              );
+              const bPriority = priorityOrder.findIndex(p =>
+                b.focus.toLowerCase().includes(p)
+              );
+              return (aPriority === -1 ? 999 : aPriority) - (bPriority === -1 ? 999 : bPriority);
+            })
+            .slice(0, Math.floor(targetFrequency));
+        } else {
+          // For 4-5 days: Keep most days but combine some sessions
+          mainWorkoutDays = mainWorkoutDays.slice(0, Math.floor(targetFrequency));
+        }
+      } else if (targetFrequency > currentTrainingDays) {
+        // Need to add training days - this is less common but could happen
+        console.log(`[DEEPSEEK] User requested more days (${targetFrequency}) than template has (${currentTrainingDays}). Keeping all available days.`);
+      }
+
+      console.log(`[DEEPSEEK] ✅ Adapted schedule: ${mainWorkoutDays.length} training days`);
+    }
+
+    return {
+      name: `${bodybuilderWorkout.name}'s Training Plan (Adapted for ${input.workoutFrequency ? input.workoutFrequency.replace('_', '-') : '6'} days/week)`,
+      training_level: input.trainingLevel as 'beginner' | 'intermediate' | 'advanced',
+      goal_fat_loss: input.fatLossGoal,
+      goal_muscle_gain: input.muscleGainGoal,
+      mesocycle_length_weeks: 8, // Standard 8-week cycle
+      weeklySchedule: mainWorkoutDays
+    };
+  }
 
   /**
    * Generates AI-powered real-time bodybuilder training instructions
@@ -201,16 +292,7 @@ Return only the instruction text, no other commentary.`;
         style: 'Stimulate, Don\'t Annihilate', 
         description: '4-day split, 10-15 sets per muscle group, recovery focus and pre-exhaustion techniques'
       },
-      'derek': {
-        name: 'Derek Lunsford',
-        style: 'Modern Open',
-        description: '6-day split, 12-15 sets per muscle group, back width focus and conditioning emphasis'
-      },
-      'hadi': {
-        name: 'Hadi Choopan',
-        style: 'Modern Open',
-        description: '5-day split, 12-15 sets per muscle group, high intensity and dense muscle focus'
-      },
+
       'nick': {
         name: 'Nick Walker',
         style: 'Mass Monster',
@@ -221,16 +303,7 @@ Return only the instruction text, no other commentary.`;
         style: 'Golden Era Legs',
         description: '4-day split with leg emphasis, 15-20 sets for legs, legendary high-rep squats and leg specialization'
       },
-      'flex': {
-        name: 'Flex Wheeler',
-        style: 'Aesthetic & Symmetrical',
-        description: '5-day split, 12-15 sets per muscle group, focus on symmetry, aesthetics, and flexibility'
-      },
-      'sergio': {
-        name: 'Sergio Oliva',
-        style: 'The Myth',
-        description: '4-day split, 10-15 sets per muscle group, unmatched genetics focus and V-taper development'
-      }
+
     };
 
     return bodybuilders[key] || null;
@@ -314,11 +387,24 @@ Return only the instruction text, no other commentary.`;
   /**
    * Generates a personalized workout plan based on user data and goals
    */
-  static async generateWorkoutPlan(input: WorkoutPlanInput): Promise<WorkoutPlan> {
+  static async generateWorkoutPlan(input: WorkoutPlanInput): Promise<AppWorkoutPlan> {
     try {
       if (this.VERBOSE || __DEV__) {
         console.log('[DeepSeekService] Generating workout plan with input:', input);
         console.log('[DeepSeekService] API Key available:', !!this.API_KEY);
+      }
+
+      // Check for static bodybuilder workout templates first
+      if (input.emulateBodybuilder) {
+        const bodybuilderKey = input.emulateBodybuilder.toLowerCase().replace(/\s+/g, '-');
+        const staticWorkout = bodybuilderWorkouts[bodybuilderKey];
+        
+        if (staticWorkout) {
+          console.log(`[DeepSeekService] ✅ Using STATIC template for ${input.emulateBodybuilder}`);
+          return this.convertBodybuilderWorkoutToAppWorkoutPlan(staticWorkout, input);
+        } else {
+          console.log(`[DeepSeekService] ⚠️ No static template found for ${input.emulateBodybuilder}, falling back to AI generation`);
+        }
       }
 
       // Get available exercises based on equipment
@@ -338,84 +424,375 @@ Return only the instruction text, no other commentary.`;
       // Enhanced bodybuilder-specific instructions with exercise variety
       let bodybuilderInstructions = '';
       if (input.emulateBodybuilder) {
+        console.log(`[DEEPSEEK] Attempting AI generation for bodybuilder: ${input.emulateBodybuilder}`);
+        
         // AI-generated real-time bodybuilder instructions
         bodybuilderInstructions = await this.generateBodybuilderInstructions(input.emulateBodybuilder);
+        
+        if (bodybuilderInstructions) {
+          console.log(`[DEEPSEEK] ✅ AI generation SUCCESS for ${input.emulateBodybuilder} (${bodybuilderInstructions.length} chars)`);
+        } else {
+          console.log(`[DEEPSEEK] ❌ AI generation FAILED for ${input.emulateBodybuilder}, using static fallback`);
+        }
         
         // Fallback to static instructions if AI generation fails
         if (!bodybuilderInstructions) {
         switch (input.emulateBodybuilder) {
           case 'dorian':
             bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Dorian Yates's REAL HIT methodology with EXERCISE VARIETY:
+              CRITICAL: Create a workout plan that authentically emulates Dorian Yates's REAL HIT (High Intensity Training) methodology:
 
-              TRAINING SPLIT: 4-day split
-              - Monday: Chest & Triceps
-              - Tuesday: Back & Biceps
-              - Wednesday: Rest
-              - Thursday: Shoulders & Arms
-              - Friday: Legs
-              - Saturday: Rest
-              - Sunday: Rest
+              TRAINING SPLIT: 4-day HIT split (Dorian's actual split)
+              - Monday: Shoulders, Triceps, Abs
+              - Tuesday: Back, Rear Delts, Traps  
+              - Wednesday: REST
+              - Thursday: Chest, Biceps, Abs
+              - Friday: Legs (Quads, Hams, Calves)
+              - Saturday: REST
+              - Sunday: REST
               
-              EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
-
-              - CHEST: Choose 3-4 from: Incline Barbell Press, Flat Dumbbell Press, Incline Flyes, Decline Press, Cable Flyes, Dips, Incline Dumbbell Press, Decline Dumbbell Press
-              - BACK: Choose 3-4 from: Deadlifts, Barbell Rows, Lat Pulldowns, T-Bar Rows, Seated Rows, One-Arm Rows, Wide Grip Pull-ups, Close Grip Pull-ups
-              - SHOULDERS: Choose 3-4 from: Military Press, Lateral Raises, Rear Delt Flyes, Front Raises, Arnold Press, Cable Lateral Raises, Upright Rows
-              - ARMS: Choose 4-5 from: Barbell Curls, Preacher Curls, Hammer Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Concentration Curls
-              - LEGS: Choose 4-5 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Romanian Deadlifts, Walking Lunges
+              AUTHENTIC DORIAN YATES METHODOLOGY:
+              - ONLY 1-2 ALL-OUT WORKING SETS per exercise (after warm-ups)
+              - Train to ABSOLUTE FAILURE on every working set
+              - Use forced reps, negatives, and rest-pause techniques
+              - 4-7 days rest between training same muscle group
+              - Maximum intensity, minimum volume
+              - Focus on basic compound movements
+              - NO supersets or circuits - single exercises only
               
-              TRAINING TECHNIQUES:
-              - Volume: 6-9 sets per muscle group
-              - Reps: 6-8 for compounds, 8-10 for isolations
-              - 1-2 all-out working sets after warm-up
-              - Training to absolute failure
-              - Forced reps and negatives
-              - 3-5 minute rest between exercises
-              - HIT philosophy: maximum intensity
-              - IMPORTANT: Rotate exercises every 2-3 weeks to prevent adaptation
+              EXERCISE SELECTION (Dorian's favorites):
+              - CHEST: Incline Barbell Press, Flat Dumbbell Press, Dips
+              - BACK: Deadlifts, Reverse-Grip Pulldowns, Machine Rows, Hammer Strength
+              - SHOULDERS: Machine Shoulder Press, One-Arm Lateral Raises
+              - LEGS: Leg Press (Dorian rarely squatted), Leg Extensions, Leg Curls, Calf Press
+              - ARMS: Barbell Curls, Hammer Curls, Close-Grip Bench, Tricep Dips
+              
+              TRAINING PARAMETERS:
+              - Working sets: 1-2 per exercise maximum
+              - Reps: 6-10 for compounds, 8-15 for isolations  
+              - Rest: 2-4 minutes between exercises
+              - Workout duration: 30-45 minutes maximum
+              - Failure point: Cannot complete another rep with good form
             `;
             break;
           case 'jay':
             bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Jay Cutler's REAL training methodology with EXERCISE VARIETY:
+              CRITICAL: Create a workout plan that authentically emulates Jay Cutler's REAL FST-7 methodology with Hany Rambod:
 
-              TRAINING SPLIT: 5-day body part split
+              TRAINING SPLIT: 5-day body part split (Jay's actual split)
               - Monday: Chest
               - Tuesday: Back
               - Wednesday: Shoulders
-              - Thursday: Arms
+              - Thursday: Arms (Biceps & Triceps)
               - Friday: Legs
               - Saturday: Rest
               - Sunday: Rest
               
-              EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
-
-              - CHEST: Choose 4-5 from: Flat Bench Press, Incline Press, Decline Press, Dumbbell Flyes, Cable Flyes, Dips, Incline Dumbbell Press, Decline Dumbbell Press, Cable Crossovers, Incline Flyes
-              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, T-Bar Rows, Lat Pulldowns, Pull-ups, Seated Rows, One-Arm Rows, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Pendlay Rows
-              - SHOULDERS: Choose 4-5 from: Military Press, Lateral Raises, Rear Delt Flyes, Upright Rows, Front Raises, Cable Lateral Raises, Arnold Press, Cable Rear Delt Flyes, Dumbbell Shoulder Press
-              - ARMS: Choose 5-6 from: Barbell Curls, Hammer Curls, Preacher Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Incline Dumbbell Curl, Concentration Curl, Overhead Dumbbell Extension
-              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Lunges, Romanian Deadlifts, Walking Lunges, Goblet Squats
+              AUTHENTIC JAY CUTLER FST-7 METHODOLOGY:
+              - FST-7 (Fascia Stretch Training): 7 sets of 15 reps with 30-45 second rest
+              - Apply FST-7 to final exercise of each body part
+              - High volume: 18-25 total sets per body part
+              - Focus on weak point training and symmetry
+              - Heavy compound movements followed by isolation work
+              - Train each muscle from multiple angles
               
-              TRAINING TECHNIQUES:
-              - Volume: 15-20 sets per muscle group
-              - Reps: 8-12 for compounds, 10-15 for isolations
-              - FST-7 technique (7 sets with short rest)
-              - Focus on weak points
-              - Balanced development approach
-              - High volume training
-              - Progressive overload
-              - IMPORTANT: Rotate exercises every 3-4 weeks to prevent adaptation
+              EXERCISE SELECTION (Jay's actual preferences):
+              - CHEST: Incline Barbell Press, Flat Dumbbell Press, Decline Smith Machine, Cable Flyes (FST-7)
+              - BACK: T-Bar Rows, Wide-Grip Pulldowns, Barbell Rows, Cable Rows (FST-7)
+              - SHOULDERS: Smith Machine Press, Dumbbell Laterals, Rear Delt Machine, Cable Laterals (FST-7)  
+              - ARMS: Barbell Curls, Hammer Curls, Cable Curls (FST-7), Close-Grip Bench, Dips, Overhead Extensions
+              - LEGS: Leg Press, Squats, Leg Extensions (FST-7), Leg Curls, Romanian Deads, Calf Raises (FST-7)
+              
+              TRAINING PARAMETERS:
+              - Standard sets: 4-5 sets of 8-12 reps
+              - FST-7 sets: 7 sets of 15 reps, 30-45 sec rest
+              - Heavy weight on compounds, moderate on FST-7
+              - Rest: 90-120 seconds between standard sets
+              - Workout duration: 60-75 minutes
+              - Focus on mind-muscle connection and pump
             `;
             break;
           case 'phil':
             bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Phil Heath's REAL training methodology with EXERCISE VARIETY:
+              CRITICAL: Create a workout plan that authentically emulates Phil Heath's REAL precision training methodology:
 
-              TRAINING SPLIT: 5-day split
+              TRAINING SPLIT: 5-day precision split (Phil's actual approach)
               - Monday: Chest & Triceps
               - Tuesday: Back & Biceps
               - Wednesday: Shoulders
+              - Thursday: Legs (Quads focus)
+              - Friday: Legs (Hams/Glutes focus)
+              - Saturday: Rest
+              - Sunday: Rest
+              
+              AUTHENTIC PHIL HEATH METHODOLOGY:
+              - "Precision training" - perfect form and muscle isolation
+              - Multiple angles to hit every muscle fiber
+              - Drop sets and rest-pause techniques
+              - Focus on muscle detail and conditioning
+              - Higher rep ranges for muscle maturity
+              - Time under tension emphasis
+              - Mind-muscle connection paramount
+              
+              EXERCISE SELECTION (Phil's signature moves):
+              - CHEST: Incline Dumbbell Press, Cable Flyes, Machine Press, Dips for detail
+              - BACK: Wide-Grip Pulldowns, Cable Rows, Machine Rows, Single-Arm work
+              - SHOULDERS: Dumbbell Press, Cable Laterals, Rear Delt Machine, Partials
+              - TRICEPS: Rope Pushdowns, Overhead Extensions, Close-Grip variations
+              - BICEPS: Cable Curls, Hammer Curls, Preacher variations, Peak contractions
+              - LEGS: Leg Press variations, Extensions, Curls, Single-leg work
+              
+              TRAINING PARAMETERS:
+              - Volume: 16-20 sets per body part
+              - Reps: 10-15 for compounds, 12-20 for isolations
+              - Drop sets: 2-3 per workout
+              - Rest-pause: On final set of isolation exercises
+              - Rest: 60-90 seconds between sets
+              - Workout duration: 75-90 minutes
+              - Focus: Quality over quantity, perfect execution
+            `;
+            break;
+          case 'arnold':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Arnold Schwarzenegger's REAL Golden Era methodology:
+
+              TRAINING SPLIT: 6-day double split (Arnold's actual split)
+              - Day 1: Chest & Back (AM/PM or combined)
+              - Day 2: Shoulders & Arms  
+              - Day 3: Legs & Lower Back
+              - Day 4: Chest & Back
+              - Day 5: Shoulders & Arms
+              - Day 6: Legs & Lower Back
+              - Day 7: Rest
+              
+              AUTHENTIC ARNOLD METHODOLOGY:
+              - Train antagonistic muscles together (chest/back, biceps/triceps)
+              - Very high volume: 20-30 sets per body part
+              - Supersets between opposing muscle groups
+              - "Pump" philosophy - chase the feeling
+              - Basic compound movements with barbells/dumbbells
+              - Train each body part twice per week
+              - 60-75 minute sessions
+              
+              EXERCISE SELECTION (Arnold's favorites):
+              - CHEST: Bench Press, Incline Barbell Press, Dumbbell Flyes, Dips, Pullovers
+              - BACK: Wide-Grip Chins, T-Bar Rows, Bent Barbell Rows, Lat Machine
+              - SHOULDERS: Behind-Neck Press, Lateral Raises, Bent Laterals, Front Raises
+              - BICEPS: Barbell Curls, Dumbbell Curls, Concentration Curls, Preacher Curls
+              - TRICEPS: Close-Grip Bench, French Press, Tricep Dips, Overhead Extensions
+              - LEGS: Squats, Front Squats, Leg Curls, Leg Extensions, Calf Raises
+              
+              TRAINING PARAMETERS:
+              - Volume: 20-30 sets per body part
+              - Reps: 8-12 for mass, 6-10 for strength
+              - Supersets: Chest/Back, Biceps/Triceps
+              - Rest: 60-90 seconds between exercises
+              - Workout duration: 60-75 minutes
+              - Philosophy: "Go for the pump" and train with passion
+            `;
+            break;
+          case 'ronnie':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Ronnie Coleman's REAL powerlifting-bodybuilding methodology:
+
+              TRAINING SPLIT: 6-day powerlifting split (Ronnie's actual split)
+              - Monday: Back & Rear Delts
+              - Tuesday: Quads & Calves
+              - Wednesday: Chest & Triceps
+              - Thursday: Biceps & Hamstrings  
+              - Friday: Shoulders & Traps
+              - Saturday: Legs (light) or Rest
+              - Sunday: Rest
+              
+              AUTHENTIC RONNIE COLEMAN METHODOLOGY:
+              - HEAVY powerlifting movements as base
+              - "Yeah buddy! Light weight!" mentality with heavy weights
+              - Deadlifts up to 800lbs, Squats 800lbs+
+              - Volume: 15-25 sets per body part
+              - Train through pain and intensity
+              - Basic movements, heavy weights, high volume
+              - Multiple warm-up sets building to working weight
+              
+              EXERCISE SELECTION (Ronnie's signature lifts):
+              - BACK: Deadlifts (signature), T-Bar Rows, Lat Pulldowns, Cable Rows
+              - LEGS: Free Weight Squats (signature), Leg Press, Leg Extensions, Leg Curls
+              - CHEST: Barbell Bench Press, Incline Press, Dumbbell Press, Dips
+              - SHOULDERS: Behind-Neck Press, Lateral Raises, Upright Rows, Front Raises
+              - ARMS: Barbell Curls, Preacher Curls, Close-Grip Bench, Tricep Extensions
+              
+              TRAINING PARAMETERS:
+              - Volume: 15-25 sets per body part
+              - Reps: 10-15 for compounds, 12-20 for isolations
+              - Working weight: 85-95% max after warm-ups
+              - Rest: 2-3 minutes between sets
+              - Workout duration: 90-120 minutes
+              - Philosophy: "Everybody wants to be a bodybuilder, but nobody wants to lift heavy-ass weights!"
+            `;
+            break;
+          case 'cbum':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Chris Bumstead's REAL Classic Physique methodology:
+
+              TRAINING SPLIT: 6-day Classic Physique split (CBum's actual approach)
+              - Monday: Chest & Light Triceps
+              - Tuesday: Back & Light Biceps
+              - Wednesday: Shoulders & Arms
+              - Thursday: Legs (Quads focus)
+              - Friday: Legs (Glutes/Hams focus) 
+              - Saturday: Weak Points/Posing
+              - Sunday: Rest
+              
+              AUTHENTIC CHRIS BUMSTEAD METHODOLOGY:
+              - Classic Physique proportions and flow
+              - Emphasis on V-taper and waist control
+              - Moderate volume with perfect execution
+              - Focus on muscle maturity and conditioning
+              - Posing practice integrated into training
+              - Mind-muscle connection over ego lifting
+              - Aesthetic over mass approach
+              
+              EXERCISE SELECTION (CBum's preferences):
+              - CHEST: Incline Dumbbell Press, Cable Flyes, Dips, Machine Press
+              - BACK: Lat Pulldowns, Cable Rows, Pull-ups, Single-Arm Rows
+              - SHOULDERS: Lateral Raises (signature), Rear Delt Flyes, Cable Work, Machine Press
+              - LEGS: Leg Press, Leg Extensions, Romanian Deads, Leg Curls, Hip Thrusts
+              - ARMS: Cable Curls, Rope Pushdowns, Preacher Curls, Overhead Extensions
+              
+              TRAINING PARAMETERS:
+              - Volume: 14-18 sets per body part
+              - Reps: 10-15 for compounds, 12-20 for isolations
+              - Focus on time under tension and control
+              - Rest: 60-90 seconds between sets
+              - Workout duration: 60-75 minutes
+              - Philosophy: "Train for the physique you want, not the weight you can lift"
+            `;
+            break;
+          case 'franco':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Franco Columbu's REAL powerlifting-bodybuilding hybrid methodology:
+
+              TRAINING SPLIT: 4-day powerbuilding split (Franco's actual approach)
+              - Monday: Chest & Back (Powerlifting focus)
+              - Tuesday: Shoulders & Arms
+              - Wednesday: Rest
+              - Thursday: Legs (Powerlifting focus)
+              - Friday: Power Training (Bench/Squat/Dead variations)
+              - Saturday: Rest
+              - Sunday: Rest
+              
+              AUTHENTIC FRANCO COLUMBU METHODOLOGY:
+              - Powerlifting meets bodybuilding
+              - Strongman training influence
+              - Compact, powerful physique focus
+              - Heavy compound movements as foundation
+              - Short, intense workouts (45-60 minutes)
+              - Functional strength emphasis
+              - Mediterranean training philosophy
+              
+              EXERCISE SELECTION (Franco's powerlifting favorites):
+              - CHEST: Bench Press (competition style), Incline Press, Dips, Dumbbell Press
+              - BACK: Deadlifts (competition style), Bent Rows, Pull-ups, T-Bar Rows
+              - SHOULDERS: Standing Military Press, Behind-Neck Press, Lateral Raises
+              - ARMS: Barbell Curls, Close-Grip Bench, Tricep Dips, Hammer Curls
+              - LEGS: Competition Squats, Romanian Deadlifts, Leg Press, Calf Raises
+              - POWER: Heavy singles, doubles, and triples on big 3 lifts
+              
+              TRAINING PARAMETERS:
+              - Volume: 10-16 sets per body part
+              - Reps: 3-6 for power, 8-12 for hypertrophy
+              - Power sets: 85-95% 1RM for 1-3 reps
+              - Rest: 3-5 minutes for power sets, 90 seconds for bodybuilding
+              - Workout duration: 45-60 minutes
+              - Philosophy: "Strong and aesthetic - function with form"
+            `;
+            break;
+          case 'frank':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Frank Zane's REAL aesthetic methodology:
+
+              TRAINING SPLIT: 3-day quality split (Frank's actual approach)
+              - Monday: Chest, Shoulders, Triceps, Abs
+              - Tuesday: Back, Biceps, Forearms
+              - Wednesday: Legs, Calves, Abs
+              - Thursday: Rest or Light Posing
+              - Friday: Chest, Shoulders, Triceps, Abs
+              - Saturday: Back, Biceps, Forearms
+              - Sunday: Legs, Calves, Abs (lighter)
+              
+              AUTHENTIC FRANK ZANE METHODOLOGY:
+              - "Quality over quantity" philosophy
+              - Perfect symmetry and proportion focus
+              - Moderate weights with perfect form
+              - Vacuum poses and core control
+              - Aesthetic lines over mass
+              - Mind-muscle connection paramount
+              - Mathematics of muscle development
+              
+              EXERCISE SELECTION (Frank's aesthetic choices):
+              - CHEST: Incline Dumbbell Press, Dumbbell Flyes, Cable Crossovers, Pullovers
+              - BACK: Pull-ups, Cable Rows, Lat Pulldowns, One-Arm Rows
+              - SHOULDERS: Dumbbell Press, Lateral Raises, Rear Delt Flyes, Front Raises
+              - ARMS: Dumbbell Curls, Tricep Extensions, Concentration Curls, Cable Work
+              - LEGS: Leg Press, Leg Extensions, Leg Curls, Lunges, Calf Raises
+              - ABS: Vacuum Poses, Crunches, Leg Raises, Side Bends, Planks
+              
+              TRAINING PARAMETERS:
+              - Volume: 9-12 sets per body part
+              - Reps: 10-15 for all exercises
+              - Focus on peak contraction and control
+              - Rest: 60-90 seconds between sets
+              - Workout duration: 45-60 minutes
+              - Philosophy: "The body is a work of art - sculpt it with precision"
+            `;
+            break;
+          case 'lee':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Lee Haney's REAL "Stimulate, Don't Annihilate" methodology:
+
+              TRAINING SPLIT: 4-day intelligent split (Lee's actual philosophy)
+              - Monday: Chest & Triceps
+              - Tuesday: Back & Biceps
+              - Wednesday: Rest
+              - Thursday: Shoulders & Traps
+              - Friday: Legs
+              - Saturday: Rest
+              - Sunday: Rest
+              
+              AUTHENTIC LEE HANEY METHODOLOGY:
+              - "Stimulate, don't annihilate" philosophy
+              - Smart training over hardcore training
+              - Injury prevention paramount
+              - Controlled tempo and perfect form
+              - Balanced development approach
+              - Conservative but consistent progression
+              - 8-time Mr. Olympia longevity mindset
+              
+              EXERCISE SELECTION (Lee's intelligent choices):
+              - CHEST: Incline Barbell Press, Dumbbell Press, Cable Flyes, Dips
+              - BACK: Lat Pulldowns, Cable Rows, T-Bar Rows, Pull-ups (controlled)
+              - SHOULDERS: Dumbbell Press, Lateral Raises, Rear Delt Flyes, Upright Rows
+              - ARMS: Barbell Curls, Preacher Curls, Close-Grip Bench, Tricep Extensions
+              - LEGS: Leg Press (safer than squats), Leg Extensions, Leg Curls, Calf Raises
+              - TRAPS: Dumbbell Shrugs, Upright Rows
+              
+              TRAINING PARAMETERS:
+              - Volume: 12-16 sets per body part
+              - Reps: 8-12 for compounds, 10-15 for isolations
+              - Controlled tempo: 2-1-2-1 (eccentric-pause-concentric-pause)
+              - Rest: 90-120 seconds between sets
+              - Workout duration: 60-75 minutes
+              - Philosophy: "Train smart, not just hard - longevity is key"
+            `;
+            break;
+
+          case 'nick':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Nick Walker's REAL training methodology with EXERCISE VARIETY:
+
+              TRAINING SPLIT: 5-day split (Mass monster approach)
+              - Monday: Chest & Triceps
+              - Tuesday: Back & Biceps
+              - Wednesday: Shoulders & Traps
               - Thursday: Legs
               - Friday: Arms
               - Saturday: Rest
@@ -423,119 +800,99 @@ Return only the instruction text, no other commentary.`;
               
               EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
 
-              - CHEST: Choose 4-5 from: Incline Barbell Press, Flat Dumbbell Press, Incline Flyes, Cable Flyes, Dips, Decline Press, Cable Crossovers, Incline Dumbbell Press, Decline Dumbbell Press, Dumbbell Flyes
-              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, T-Bar Rows, Pull-ups, Seated Rows, One-Arm Rows, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Pendlay Rows
-              - SHOULDERS: Choose 4-5 from: Military Press, Lateral Raises, Rear Delt Flyes, Upright Rows, Front Raises, Cable Lateral Raises, Arnold Press, Cable Rear Delt Flyes, Dumbbell Shoulder Press
-              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Incline Dumbbell Curl, Concentration Curl, Overhead Dumbbell Extension
-              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Lunges, Romanian Deadlifts, Walking Lunges, Goblet Squats
+              - CHEST: Choose 4-5 from: Incline Barbell Press, Flat Dumbbell Press, Machine Press, Cable Flyes, Dips, Incline Dumbbell Press, Cable Crossovers, Decline Press
+              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, T-Bar Rows, Pull-ups, Seated Rows, Machine Rows, Cable Rows
+              - SHOULDERS: Choose 4-5 from: Machine Press, Lateral Raises, Rear Delt Flyes, Dumbbell Press, Cable Lateral Raises, Front Raises, Smith Machine Press
+              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Machine Curls, Tricep Extensions, Rope Pushdowns, Skull Crushers, Overhead Extensions
+              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Romanian Deadlifts, Walking Lunges
+              - TRAPS: Choose 2-3 from: Barbell Shrugs, Dumbbell Shrugs, Machine Shrugs
               
               TRAINING TECHNIQUES:
-              - Volume: 10-12 sets per muscle group
+              - Volume: 18-22 sets per muscle group
               - Reps: 8-12 for compounds, 10-15 for isolations
-              - Perfect form on every rep
-              - Drop sets and rest-pause
-              - Muscle isolation focus
-              - Multiple angles for muscle detail
-              - Precision training approach
+              - Mass building focus
+              - Heavy progressive overload
+              - Machine emphasis for safety
+              - High training frequency
+              - Multiple angles per muscle
               - IMPORTANT: Rotate exercises every 3-4 weeks to prevent adaptation
             `;
             break;
-          case 'arnold':
+          case 'platz':
             bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Arnold Schwarzenegger's REAL training methodology with EXERCISE VARIETY:
+              CRITICAL: Create a workout plan that authentically emulates Tom Platz's REAL training methodology:
 
-              TRAINING SPLIT: 6-day split (double split)
-              - Monday AM: Chest, PM: Back
-              - Tuesday AM: Shoulders, PM: Arms
-              - Wednesday AM: Legs, PM: Core
-              - Thursday AM: Chest, PM: Back
-              - Friday AM: Shoulders, PM: Arms
-              - Saturday AM: Legs, PM: Core
-              - Sunday: Rest
+              TRAINING SPLIT: 5-day authentic Tom Platz split
+              - Day 1: Chest and Back (combined session)
+              - Day 2: Shoulders (dedicated shoulder day)
+              - Day 3: Arms (biceps and triceps specialization)
+              - Day 4: Legs (legendary quad-focused sessions)
+              - Day 5: Rest and recovery
+              - Abs: Integrated into any training day with high intensity
               
-              EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
+              EXERCISE SELECTION AND TRAINING APPROACH:
 
-              - CHEST: Choose 4-5 from: Bench Press, Incline Press, Decline Press, Dumbbell Press, Dumbbell Flyes, Cable Flyes, Dips, Incline Dumbbell Press, Decline Dumbbell Press, Cable Crossovers
-              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, Pull-ups, Seated Rows, One-Arm Rows, T-Bar Rows, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Pendlay Rows
-              - SHOULDERS: Choose 4-5 from: Military Press, Lateral Raises, Rear Delt Flyes, Front Raises, Arnold Press, Cable Lateral Raises, Upright Rows, Cable Rear Delt Flyes, Dumbbell Shoulder Press
-              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Incline Dumbbell Curl, Concentration Curl, Overhead Dumbbell Extension
-              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Lunges, Romanian Deadlifts, Walking Lunges, Goblet Squats
-              - CORE: Choose 3-4 from: Plank, Side Plank, Crunch, Sit Up, Leg Raise, Russian Twist, Cable Crunch, Cable Woodchop
+              - CHEST & BACK (Day 1): Bench Press, Incline Press, Dumbbell Flyes, Barbell Rows, Lat Pulldowns, Cable Rows + Abs exercise
+              - SHOULDERS (Day 2): Military Press, Dumbbell Press, Lateral Raises (4 sets), Rear Delt Flyes, Front Raises, Upright Rows + Abs exercise
+              - ARMS (Day 3): Barbell Curls (4 sets), Close-Grip Bench, Dumbbell Curls, Tricep Extensions, Hammer Curls, Tricep Pushdowns, Preacher Curls + Abs exercise
+              - LEGS (Day 4): LEGENDARY session - Back Squats (5 sets including 20+ rep breathing squats), Front Squats, Leg Press (4 sets), Leg Extensions (4 sets), Hack Squats, Leg Curls, Calf Raises + Abs exercise
+              - REST (Day 5): Light stretching and active recovery
               
               TRAINING TECHNIQUES:
-              - Volume: 20-25 sets per muscle group
-              - Reps: 8-12 for compounds, 10-15 for isolations
-              - High intensity training
-              - Supersets and giant sets
-              - Multiple angles for muscle detail
-              - Progressive overload
-              - IMPORTANT: Rotate exercises every 2-3 weeks to prevent adaptation
+              - Legs: Ultra-high volume (20+ sets), high reps (15-30), legendary breathing squats protocol
+              - Upper body: Moderate volume (8-15 sets per muscle group)
+              - Dedicated body part specialization each day
+              - Mind-muscle connection paramount
+              - Abs integrated into every training day with high intensity
+              - Tom Platz philosophy: Perfect form, high intensity, legendary leg development
             `;
             break;
-          case 'ronnie':
-            bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Ronnie Coleman's REAL training methodology with EXERCISE VARIETY:
 
-              TRAINING SPLIT: 6-day split
+          case 'kai':
+            bodybuilderInstructions = `
+              CRITICAL: Create a workout plan that authentically emulates Kai Greene's REAL training methodology with EXERCISE VARIETY:
+
+              TRAINING SPLIT: 6-day split (Artistic bodybuilding)
               - Monday: Chest & Triceps
               - Tuesday: Back & Biceps
-              - Wednesday: Shoulders & Traps
-              - Thursday: Legs
-              - Friday: Arms
-              - Saturday: Core & Cardio
+              - Wednesday: Shoulders
+              - Thursday: Legs (Quads focus)
+              - Friday: Arms & Abs
+              - Saturday: Legs (Hamstrings & Calves)
               - Sunday: Rest
               
               EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
 
-              - CHEST: Choose 4-5 from: Bench Press, Incline Press, Decline Press, Dumbbell Press, Dumbbell Flyes, Cable Flyes, Dips, Incline Dumbbell Press, Decline Dumbbell Press, Cable Crossovers
-              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, Pull-ups, Seated Rows, One-Arm Rows, T-Bar Rows, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Pendlay Rows
-              - SHOULDERS: Choose 4-5 from: Military Press, Lateral Raises, Rear Delt Flyes, Front Raises, Arnold Press, Cable Lateral Raises, Upright Rows, Cable Rear Delt Flyes, Dumbbell Shoulder Press
-              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Incline Dumbbell Curl, Concentration Curl, Overhead Dumbbell Extension
-              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Lunges, Romanian Deadlifts, Walking Lunges, Goblet Squats
-              - TRAPS: Choose 2-3 from: Barbell Shrug, Dumbbell Shrug, Cable Shrug, Upright Row
+              - CHEST: Choose 4-5 from: Incline Dumbbell Press, Flat Dumbbell Press, Incline Flyes, Cable Flyes, Dips, Machine Press, Cable Crossovers, Decline Press
+              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, T-Bar Rows, Pull-ups, Seated Rows, One-Arm Rows, Cable Rows
+              - SHOULDERS: Choose 4-5 from: Dumbbell Press, Lateral Raises, Rear Delt Flyes, Machine Press, Cable Lateral Raises, Front Raises, Arnold Press
+              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Concentration Curls, Tricep Extensions, Rope Pushdowns, Skull Crushers, Cable Curls
+              - LEGS: Choose 6-7 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Romanian Deadlifts, Walking Lunges, Front Squats
+              - ABS: Choose 3-4 from: Cable Crunches, Leg Raises, Plank, Russian Twists, Bicycle Crunches
               
               TRAINING TECHNIQUES:
-              - Volume: 15-20 sets per muscle group
-              - Reps: 8-12 for compounds, 10-15 for isolations
-              - Heavy compound movements
-              - Progressive overload
-              - Multiple angles for muscle detail
-              - High intensity training
+              - Volume: 16-20 sets per muscle group
+              - Reps: 8-12 for compounds, 12-15 for isolations
+              - Artistic expression through training
+              - Mind-muscle connection mastery
+              - Unique exercise variations
+              - Dramatic muscle shaping
+              - Creative training approach
               - IMPORTANT: Rotate exercises every 3-4 weeks to prevent adaptation
             `;
             break;
-          case 'cbum':
-            bodybuilderInstructions = `
-              CRITICAL: Create a workout plan that authentically emulates Chris Bumstead's REAL training methodology with EXERCISE VARIETY:
+          }
+        }
+        
+        if (bodybuilderInstructions) {
+          const instructionType = bodybuilderInstructions.includes('CRITICAL: Create a workout plan that authentically emulates') ? 'STATIC' : 'AI-GENERATED';
+          console.log(`[DEEPSEEK] Using ${instructionType} instructions for ${input.emulateBodybuilder}`);
 
-              TRAINING SPLIT: 6-day split (Classic Physique focus)
-              - Monday: Chest & Triceps
-              - Tuesday: Back & Biceps
-              - Wednesday: Shoulders & Traps
-              - Thursday: Legs
-              - Friday: Arms
-              - Saturday: Core & Cardio
-              - Sunday: Rest
-              
-              EXERCISE SELECTION (MUST VARY THESE EXERCISES EACH WEEK):
-
-              - CHEST: Choose 4-5 from: Bench Press, Incline Press, Decline Press, Dumbbell Press, Dumbbell Flyes, Cable Flyes, Dips, Incline Dumbbell Press, Decline Dumbbell Press, Cable Crossovers
-              - BACK: Choose 4-5 from: Deadlifts, Barbell Rows, Lat Pulldowns, Pull-ups, Seated Rows, One-Arm Rows, T-Bar Rows, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Pendlay Rows
-              - SHOULDERS: Choose 4-5 from: Military Press, Lateral Raises, Rear Delt Flyes, Front Raises, Arnold Press, Cable Lateral Raises, Upright Rows, Cable Rear Delt Flyes, Dumbbell Shoulder Press
-              - ARMS: Choose 5-6 from: Barbell Curls, Preacher Curls, Hammer Curls, Tricep Extensions, Dips, Skull Crushers, Rope Pushdowns, Incline Dumbbell Curl, Concentration Curl, Overhead Dumbbell Extension
-              - LEGS: Choose 5-6 from: Squats, Leg Press, Leg Extensions, Leg Curls, Calf Raises, Hack Squats, Lunges, Romanian Deadlifts, Walking Lunges, Goblet Squats
-              - TRAPS: Choose 2-3 from: Barbell Shrug, Dumbbell Shrug, Cable Shrug, Upright Row
-              
-              TRAINING TECHNIQUES:
-              - Volume: 12-15 sets per muscle group
-              - Reps: 8-12 for compounds, 10-15 for isolations
-              - Classic physique proportions
-              - Symmetry focus
-              - Multiple angles for muscle detail
-              - Progressive overload
-              - IMPORTANT: Rotate exercises every 3-4 weeks to prevent adaptation
-            `;
-            break;
+          // If user has a specific workout frequency preference, adapt the bodybuilder instructions
+          if (input.workoutFrequency && input.workoutFrequency !== '6') {
+            const targetDays = input.workoutFrequency === '2_3' ? '2-3' : input.workoutFrequency === '4_5' ? '4-5' : input.workoutFrequency;
+            bodybuilderInstructions += `\n\nADAPTATION REQUIRED: The user prefers ${targetDays} training days per week. Adapt this training methodology to fit exactly ${targetDays} days while preserving the core principles, exercise selection preferences, and training intensity of the original methodology.`;
+            console.log(`[DEEPSEEK] Adapting ${input.emulateBodybuilder} methodology for ${targetDays} training days`);
           }
         }
       }
@@ -548,6 +905,7 @@ Return only the instruction text, no other commentary.`;
         - Current Weight Trend: ${input.weightTrend || 'Not specified'}
         - Daily Activity Level: ${input.activityLevel || 'Not specified'}
         - Current Exercise Frequency: ${input.exerciseFrequency || 'Not specified'}
+        - Preferred Workout Frequency: ${input.workoutFrequency ? input.workoutFrequency.replace('_', '-') + ' times per week' : 'Not specified'}
 
         FITNESS GOALS & LEVEL:
         - Training Level: ${input.trainingLevel}
@@ -565,11 +923,11 @@ Return only the instruction text, no other commentary.`;
         ` : 'No body analysis data available'}
       `;
 
-      // Enhanced prompt with exercise variety instructions
+      // Enhanced prompt with bodybuilder instructions taking PRIORITY
       const prompt = `
-You are an expert fitness coach creating personalized workout plans. Your client has the following profile:
+${bodybuilderInstructions ? bodybuilderInstructions + '\n' : 'You are an expert fitness coach creating personalized workout plans.'}
 
-        CLIENT PROFILE:
+CLIENT PROFILE ${bodybuilderInstructions ? 'TO ADAPT THE ABOVE METHODOLOGY FOR' : ''}:
 - Name: ${input.fullName || 'Client'}
 - Age: ${input.age} years old
 - Gender: ${input.gender}
@@ -579,54 +937,68 @@ You are an expert fitness coach creating personalized workout plans. Your client
 - Fat Loss Goal: ${input.fatLossGoal}/5
 - Muscle Gain Goal: ${input.muscleGainGoal}/5
 - Available Equipment: ${equipmentList}
-- Exercise Frequency: ${input.exerciseFrequency || '4-6'} days per week
+- Current Exercise Frequency: ${input.exerciseFrequency || '4-6'} days per week
+- PREFERRED WORKOUT FREQUENCY: ${input.workoutFrequency ? input.workoutFrequency.replace('_', '-') + ' times per week (MANDATORY - MUST FOLLOW THIS EXACT FREQUENCY)' : 'Not specified'}
 
-${bodybuilderInstructions}
-
-CRITICAL EXERCISE VARIETY REQUIREMENTS:
-1. NEVER repeat the same exercises in consecutive workouts
-2. Use different exercise variations for the same muscle group
-3. Rotate between compound and isolation exercises
-4. Vary equipment types (barbell, dumbbell, cable, bodyweight)
-5. Include different angles and grips for muscle groups
-6. Use progressive exercise selection (start with basics, progress to advanced)
-
-AVAILABLE EXERCISES (${availableExercises.length} total):
+AVAILABLE EXERCISES TO CHOOSE FROM (${availableExercises.length} total):
 ${exerciseNames}
 
-EXERCISE SELECTION RULES:
-- Choose exercises appropriate for ${input.trainingLevel} level
-- Ensure variety in exercise types and equipment
-- Include both compound and isolation movements
-- Consider the client's available equipment: ${equipmentList}
-- Rotate exercises to prevent adaptation and boredom
+${bodybuilderInstructions ? `
+MANDATORY REQUIREMENTS:
+1. STRICTLY FOLLOW the training methodology specified above
+2. Use the EXACT training split, rep ranges, and set numbers specified
+3. Select exercises from the available list that match the methodology
+4. Maintain the authentic training philosophy and approach
+5. Adapt only for available equipment, but keep the core methodology intact
+6. CRITICAL: RESPECT THE USER'S PREFERRED WORKOUT FREQUENCY - ${input.workoutFrequency ? input.workoutFrequency.replace('_', '-') + ' times per week' : 'Not specified'}
 
-Create a comprehensive weekly workout plan with:
-1. 7-day schedule with appropriate rest days
-2. 4-6 exercises per workout day
-3. Sets, reps, and rest periods for each exercise
-4. Estimated time per session
-5. Progressive overload principles
+EXERCISE VARIETY WITHIN THE METHODOLOGY:
+- Choose different exercises each time while staying true to the training style
+- Rotate exercise variations that fit the methodology
+- Use equipment variations when available
+- Maintain the specified intensity and volume principles
+` : `
+GENERAL WORKOUT REQUIREMENTS:
+1. Create a balanced workout program appropriate for the client's level
+2. Use proper exercise progression and periodization
+3. Include both compound and isolation exercises
+4. Vary exercises to prevent adaptation and boredom
+5. Consider available equipment and client preferences
+6. CRITICAL: MUST CREATE EXACTLY ${input.workoutFrequency ? input.workoutFrequency.replace('_', '-') : '4-5'} TRAINING DAYS PER WEEK (this is MANDATORY - no more, no less)
+
+EXERCISE VARIETY REQUIREMENTS:
+- Rotate exercises weekly to prevent adaptation
+- Include different movement patterns and angles
+- Use various equipment types when available
+- Progress from basic to advanced movements
+`}
 
 Return ONLY a valid JSON object with this structure:
         {
           "weeklySchedule": [
             {
               "day": "Monday",
-      "focus": "Chest and Triceps",
+      "focus": "Body Part Focus",
               "exercises": [
-        { "name": "Bench Press", "sets": 4, "reps": "8-10", "restBetweenSets": "90s" },
-        { "name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "restBetweenSets": "60s" },
-        { "name": "Cable Flyes", "sets": 3, "reps": "12-15", "restBetweenSets": "60s" },
-        { "name": "Tricep Pushdown", "sets": 3, "reps": "12-15", "restBetweenSets": "60s" },
-        { "name": "Overhead Dumbbell Extension", "sets": 3, "reps": "10-12", "restBetweenSets": "60s" }
+        { "name": "Exercise Name", "sets": 4, "reps": "8-10", "restBetweenSets": "90s" }
       ]
     }
   ],
-          "estimatedTimePerSession": "60 minutes"
-        }
+  "estimatedTimePerSession": "60 minutes",
+  "recommendations": {
+    "nutrition": ["Follow the specific nutritional approach for this training style"],
+    "rest": ["Rest periods as specified in the methodology"],
+    "progression": ["Progression method specific to this training approach"],
+    "hydration": ["Standard hydration guidelines"],
+    "recovery": ["Recovery methods specific to this training intensity"],
+    "cardio": ["Cardio recommendations for this training style"],
+    "sleep": ["Sleep requirements for this training approach"]
+  }
+}
 
-IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
+${bodybuilderInstructions ? 'CRITICAL: The workout plan MUST authentically reflect the specified training methodology above. Do not deviate from the core principles, splits, or intensity guidelines.' : 'IMPORTANT: Create a well-balanced, progressive workout plan that matches the client\'s goals and fitness level.'}
+
+${input.workoutFrequency ? `MANDATORY WORKOUT FREQUENCY REQUIREMENT: You MUST create exactly ${input.workoutFrequency.replace('_', '-')} training days per week. This is NON-NEGOTIABLE. If the methodology specifies a different frequency, adapt it to fit the user's preference of ${input.workoutFrequency.replace('_', '-')} days per week while maintaining the core principles of the training style.` : ''}
       `;
 
       if (!this.API_KEY) {
@@ -682,16 +1054,35 @@ IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
           if (this.VERBOSE || __DEV__) console.log('[DeepSeekService] Raw parsed workout plan keys:', Object.keys(workoutPlan || {}));
 
           // 1. Normalize the plan first to create a consistent structure.
-          const normalizedPlan = this.normalizeWorkoutPlan(workoutPlan);
+          const normalizedPlan = this.convertWorkoutPlanToAppWorkoutPlan(this.normalizeWorkoutPlan(workoutPlan), input);
           if (this.VERBOSE || __DEV__) console.log('[DeepSeekService] Normalized workout plan summary:', {
             days: normalizedPlan?.weeklySchedule?.length || 0,
-            recKeys: Object.keys(normalizedPlan?.recommendations || {}),
+            hasRecommendations: !!(normalizedPlan as any)?.recommendations,
           });
 
           // 2. Validate the clean, normalized plan.
-          if (!this.validateWorkoutPlan(normalizedPlan)) {
+          if (!this.validateAppWorkoutPlan(normalizedPlan)) {
             console.error('[DeepSeekService] Invalid workout plan structure AFTER normalization:', normalizedPlan);
             throw new Error('Invalid workout plan structure received from API');
+          }
+
+          // 3. Validate workout frequency matches user preference
+          if (input.workoutFrequency) {
+            const targetDays = input.workoutFrequency === '2_3' ? 2.5 : input.workoutFrequency === '4_5' ? 4.5 : parseInt(input.workoutFrequency);
+            const actualTrainingDays = normalizedPlan.weeklySchedule.filter(day =>
+              day.exercises.length > 0 &&
+              !day.day.toLowerCase().includes('rest') &&
+              !day.focus.toLowerCase().includes('rest')
+            ).length;
+
+            // Allow some flexibility (±1 day) but warn if significantly off
+            if (Math.abs(actualTrainingDays - targetDays) > 1) {
+              console.warn(`[DEEPSEEK] Workout frequency mismatch: User requested ${targetDays} days/week, AI generated ${actualTrainingDays} days/week`);
+              // For now, we'll still return the plan but log the discrepancy
+              // In the future, we could retry the AI request with more explicit instructions
+            } else {
+              console.log(`[DEEPSEEK] ✅ Workout frequency validated: ${actualTrainingDays} training days matches user's preference of ${targetDays} days/week`);
+            }
           }
 
           return normalizedPlan;
@@ -783,6 +1174,73 @@ IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
     }
 
     return plan;
+  }
+
+  /**
+   * Converts the old WorkoutPlan interface to the new AppWorkoutPlan interface
+   */
+  private static convertWorkoutPlanToAppWorkoutPlan(plan: WorkoutPlan, input: WorkoutPlanInput): AppWorkoutPlan {
+    // Extract workout name from plan or generate default
+    const name = (plan as any).name || `${input.emulateBodybuilder ? `${input.emulateBodybuilder} Style ` : ''}Workout Plan`;
+    
+    // Convert weeklySchedule to match AppWorkoutPlan format
+    const weeklySchedule = plan.weeklySchedule.map(day => ({
+      day: day.day,
+      focus: (day as any).bodyParts?.join(', ') || 'General Training',
+      exercises: day.exercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        restBetweenSets: ex.restBetweenSets || '60-90 seconds',
+        instructions: (ex as any).instructions || '',
+        muscleGroups: (ex as any).muscleGroups || []
+      }))
+    }));
+
+    return {
+      id: `workout-${Date.now()}`,
+      name,
+      training_level: input.trainingLevel || 'intermediate',
+      goal_muscle_gain: (input as any).goalMuscleGain || 3,
+      goal_fat_loss: (input as any).goalFatLoss || 2,
+      mesocycle_length_weeks: 4,
+      weeklySchedule,
+      recommendations: plan.recommendations,
+      estimatedTimePerSession: plan.estimatedTimePerSession || '60-90 minutes'
+    } as AppWorkoutPlan;
+  }
+
+  /**
+   * Validates the structure of an AppWorkoutPlan.
+   */
+  private static validateAppWorkoutPlan(plan: any): plan is AppWorkoutPlan {
+    if (!plan || typeof plan !== 'object') return false;
+    if (!Array.isArray(plan.weeklySchedule)) return false;
+    if (!plan.recommendations || typeof plan.recommendations !== 'object') return false;
+    if (typeof plan.estimatedTimePerSession !== 'string') return false;
+    if (typeof plan.name !== 'string') return false;
+    if (typeof plan.training_level !== 'string') return false;
+    if (typeof plan.goal_muscle_gain !== 'number') return false;
+    if (typeof plan.goal_fat_loss !== 'number') return false;
+
+    for (const day of plan.weeklySchedule) {
+      if (!day.day || !Array.isArray(day.exercises) || typeof day.focus !== 'string') {
+        console.error(`[ValidateApp] Invalid day structure: ${JSON.stringify(day)}`);
+        return false;
+      }
+      for (const exercise of day.exercises) {
+        if (
+            typeof exercise.name !== 'string' ||
+            typeof exercise.sets !== 'number' ||
+            typeof exercise.reps !== 'string'
+        ) {
+          console.error(`[ValidateApp] Invalid exercise structure: ${JSON.stringify(exercise)}`);
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   /**

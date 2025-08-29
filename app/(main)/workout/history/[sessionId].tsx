@@ -274,7 +274,13 @@ export default function WorkoutHistoryDetailScreen() {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('[WorkoutHistoryDetail] Back button pressed - navigating to workout history list');
+            router.push('/(main)/workout/history');
+          }} 
+          style={styles.backBtn}
+        >
           <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Workout Details</Text>

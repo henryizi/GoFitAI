@@ -7,6 +7,20 @@ import { Line as SvgLine, Text as SvgText, Circle as SvgCircle } from 'react-nat
 import { colors as themeColors } from '../../styles/colors';
 
 const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
+
+// Responsive chart dimensions
+const getChartDimensions = (customWidth?: number) => {
+  const isSmallScreen = screenWidth < 375;
+  const isLargeScreen = screenWidth > 414;
+  const width = customWidth || (screenWidth - 48);
+
+  return {
+    width: width,
+    height: isSmallScreen ? 200 : isLargeScreen ? 280 : 240,
+    containerMinHeight: isSmallScreen ? 280 : isLargeScreen ? 360 : 320,
+  };
+};
 
 // Use app theme colors (dark background + orange brand)
 const colors = {
@@ -25,9 +39,12 @@ type DailyMetric = {
 type Props = {
   data: DailyMetric[];
   showAllValueLabels?: boolean;
+  chartWidth?: number;
+  showHeaderAndStats?: boolean; // New prop to control header/stats display
+  chartOnly?: boolean; // New prop for chart-only mode
 };
 
-const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
+const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chartWidth, showHeaderAndStats = true, chartOnly = false }: Props) => {
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -103,6 +120,9 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
     };
   }, [processedData]);
 
+  // Get chart dimensions
+  const chartDimensions = useMemo(() => getChartDimensions(chartWidth), [chartWidth]);
+
   // Format chart data
   const chartData = useMemo(() => {
     if (processedData.length === 0) {
@@ -112,14 +132,20 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
       };
     }
 
-    // Create smart labels - show fewer labels for better readability
+    // Create smart labels - show more labels with better spacing for larger chart
     const baseLabels = processedData.map((entry, index) => {
       const date = new Date(entry.metric_date);
       const isFirst = index === 0;
       const isLast = index === processedData.length - 1;
       const isMiddle = index === Math.floor(processedData.length / 2);
-      
-      if (isFirst || isLast || isMiddle || processedData.length <= 5 || index % 3 === 0) {
+
+      // Show more labels for better date visibility
+      const shouldShowLabel = isFirst || isLast || isMiddle ||
+        processedData.length <= 7 ||
+        (processedData.length <= 14 && index % 2 === 0) ||
+        (processedData.length > 14 && index % Math.max(2, Math.floor(processedData.length / 8)) === 0);
+
+      if (shouldShowLabel) {
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         return `${mm}.${dd}`;
@@ -177,8 +203,8 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
       },
       propsForVerticalLabels: {
         fontFamily: 'System',
-        fontSize: 11,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '700',
         color: themeColors.textSecondary,
       },
     };
@@ -229,6 +255,105 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
     );
   }
 
+  // If chartOnly mode, return only the chart container
+  if (chartOnly) {
+    return (
+      <View style={styles.chartContainer}>
+        <View style={styles.chartWrapper}>
+          <LineChart
+            data={chartData}
+            width={chartDimensions.width}
+            height={240}
+            chartConfig={chartConfig}
+            style={styles.chart}
+            withDots={true}
+            withShadow={true}
+            withVerticalLines={false}
+            withHorizontalLines={true}
+            withInnerLines={false}
+            withHorizontalLabels={true}
+            yAxisSuffix=""
+            fromZero={false}
+            yLabelsOffset={-8}
+            xLabelsOffset={-5}
+            yAxisInterval={1}
+            segments={4}
+            bezier
+            decorator={(props: any) => {
+              const { width, x, y } = props || {};
+              const avg = stats.avgWeight || 0;
+              const yPos = y ? y(avg) : 0;
+
+              const values: number[] = (chartData?.datasets?.[0]?.data as number[]) || [];
+              const totalPoints = values.length;
+              const step = showAllValueLabels ? 1 : (totalPoints > 24 ? Math.ceil(totalPoints / 12) : 1);
+
+              const avgLine = (
+                <SvgLine
+                  key="avg-line"
+                  x1={0}
+                  y1={yPos}
+                  x2={width}
+                  y2={yPos}
+                  stroke={colors.chartLine}
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                />
+              );
+
+              const labels = values.map((v, i) => {
+                const shouldShow = showAllValueLabels || i % step === 0 || i === 0 || i === totalPoints - 1;
+                if (!shouldShow || !x || !y) return null;
+
+                const cx = x(i);
+                const cy = y(v) - 14;
+                return (
+                  <SvgText
+                    key={`val-${i}`}
+                    x={cx}
+                    y={cy}
+                    fontSize={showAllValueLabels ? 9 : 10}
+                    fontWeight="700"
+                    fill={themeColors.text}
+                    textAnchor="middle"
+                  >
+                    {v.toFixed(1)}
+                  </SvgText>
+                );
+              });
+
+              const dots = values.map((v, i) => {
+                if (!x || !y) return null;
+                const cx = x(i);
+                const cy = y(v);
+                return (
+                  <SvgCircle
+                    key={`dot-${i}`}
+                    cx={cx}
+                    cy={cy}
+                    r={3}
+                    fill={colors.chartDot}
+                    stroke={colors.white}
+                    strokeWidth={1.5}
+                  />
+                );
+              });
+
+              return [avgLine, ...dots, ...labels];
+            }}
+            formatYLabel={(val) => {
+              const num = Number(val);
+              if (Number.isNaN(num)) return '';
+              return num.toFixed(1);
+            }}
+          />
+        </View>
+        {/* Left edge mask to clip bezier/gradient bleed */}
+        <View pointerEvents="none" style={styles.edgeMaskLeft} />
+      </View>
+    );
+  }
+
   return (
     <Animated.View style={[
       styles.container,
@@ -237,62 +362,66 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
         transform: [{ scale: scaleAnim }]
       }
     ]}>
-      {/* Enhanced chart header with statistics */}
-      <View style={styles.chartHeader}>
-        <View style={styles.headerLeft}>
-          <View style={styles.chartTitleContainer}>
-            <Icon name="chart-line" size={18} color={colors.primary} />
-            <Text style={styles.chartTitle}>Weight Trend</Text>
+      {/* Enhanced chart header with statistics - conditionally rendered */}
+      {showHeaderAndStats && (
+        <>
+          <View style={styles.chartHeader}>
+            <View style={styles.headerLeft}>
+              <View style={styles.chartTitleContainer}>
+                <Icon name="chart-line" size={18} color={colors.primary} />
+                <Text style={styles.chartTitle}>Weight Trend</Text>
+              </View>
+              <Text style={styles.chartSubtitle}>
+                {stats.totalDays} days tracked • Avg: {stats.avgWeight.toFixed(1)}kg
+              </Text>
+            </View>
+            <View style={styles.headerRight}>
+              <View style={styles.weightChangeContainer}>
+                <Icon
+                  name={stats.weightChange >= 0 ? "trending-up" : "trending-down"}
+                  size={16}
+                  color={stats.weightChange >= 0 ? colors.error : colors.success}
+                />
+                <Text style={[
+                  styles.weightChangeText,
+                  { color: stats.weightChange >= 0 ? colors.error : colors.success }
+                ]}>
+                  {Math.abs(stats.weightChange).toFixed(1)} kg
+                </Text>
+              </View>
+              <Text style={styles.weightChangePercent}>
+                {Math.abs(stats.weightChangePercent).toFixed(1)}%
+              </Text>
+            </View>
           </View>
-          <Text style={styles.chartSubtitle}>
-            {stats.totalDays} days tracked • Avg: {stats.avgWeight.toFixed(1)}kg
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.weightChangeContainer}>
-            <Icon 
-              name={stats.weightChange >= 0 ? "trending-up" : "trending-down"} 
-              size={16} 
-              color={stats.weightChange >= 0 ? colors.error : colors.success} 
-            />
-            <Text style={[
-              styles.weightChangeText,
-              { color: stats.weightChange >= 0 ? colors.error : colors.success }
-            ]}>
-              {Math.abs(stats.weightChange).toFixed(1)} kg
-            </Text>
-          </View>
-          <Text style={styles.weightChangePercent}>
-            {Math.abs(stats.weightChangePercent).toFixed(1)}%
-          </Text>
-        </View>
-      </View>
 
-      {/* Statistics row */}
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.minWeight.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>MIN</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.avgWeight.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>AVG</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.maxWeight.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>MAX</Text>
-        </View>
-      </View>
+          {/* Statistics row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.minWeight.toFixed(1)}</Text>
+              <Text style={styles.statLabel}>MIN</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.avgWeight.toFixed(1)}</Text>
+              <Text style={styles.statLabel}>AVG</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.maxWeight.toFixed(1)}</Text>
+              <Text style={styles.statLabel}>MAX</Text>
+            </View>
+          </View>
+        </>
+      )}
 
       {/* Chart container */}
       <View style={styles.chartContainer}>
         <View style={styles.chartWrapper}>
           <LineChart
             data={chartData}
-            width={screenWidth - 48}
-            height={170}
+            width={chartDimensions.width}
+            height={240}
             chartConfig={chartConfig}
             style={styles.chart}
             withDots={true}
@@ -426,7 +555,7 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
                         position: 'absolute',
                         top: 0,
                         left: x,
-                        height: 170,
+                        height: 240,
                         borderLeftWidth: 1,
                         borderStyle: 'dashed',
                         borderColor: colors.chartLine,
@@ -486,7 +615,7 @@ const WeightProgressChart = ({ data, showAllValueLabels = true }: Props) => {
       </View>
     </Animated.View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -579,14 +708,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 8,
-    minHeight: 280,
+    minHeight: 320,
     paddingVertical: 20,
   },
   chart: {
     borderRadius: 16,
-    paddingRight: 16,
-    paddingLeft: 35,
+    paddingRight: 20,
+    paddingLeft: 45,
+    paddingBottom: 20,
     backgroundColor: 'transparent',
+    width: '100%',
   },
   chartWrapper: {
     alignItems: 'center',

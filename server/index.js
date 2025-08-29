@@ -38,7 +38,7 @@ const multer = require('multer');
 const fs = require('fs');
 const helmet = require('helmet');
 const sharp = require('sharp');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 const { z } = require('zod');
@@ -511,8 +511,8 @@ const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.E
 const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API
 const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
-// Initialize Hugging Face Vision Service for food photo analysis
-const visionService = HF_API_TOKEN ? new VisionService() : null;
+// Initialize Vision Service (Cloudflare as primary, Hugging Face as fallback)
+const visionService = (CF_ACCOUNT_ID && CF_API_TOKEN) ? new VisionService() : null;
 
 // AI Provider Priority List (DeepSeek first)
 const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
@@ -969,6 +969,118 @@ const AiChatRequestSchema = z.object({
   user: z.any().optional(),
 });
 
+// Validate and fix workout frequency in generated plan
+function validateAndFixWorkoutFrequency(plan, profile) {
+  if (!plan || !plan.weeklySchedule || !Array.isArray(plan.weeklySchedule)) {
+    console.warn('[WORKOUT] Invalid plan structure for frequency validation');
+    return plan;
+  }
+
+  const targetFrequency = profile.workout_frequency || '4_5';
+  let targetTrainingDays;
+
+  // Parse target frequency
+  if (targetFrequency === '2_3') {
+    targetTrainingDays = 3; // Aim for 3 days (middle of 2-3 range)
+  } else if (targetFrequency === '4_5') {
+    targetTrainingDays = 4; // Aim for 4 days (middle of 4-5 range)
+  } else if (targetFrequency === '6') {
+    targetTrainingDays = 6; // Exactly 6 days
+  } else {
+    targetTrainingDays = 4; // Default fallback
+  }
+
+  // Count current training days
+  const trainingDays = plan.weeklySchedule.filter(day =>
+    day && day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0
+  ).length;
+
+  console.log(`[WORKOUT] Frequency validation: Target=${targetTrainingDays}, Current=${trainingDays}`);
+
+  // If frequency matches, return as-is
+  if (trainingDays === targetTrainingDays) {
+    console.log('[WORKOUT] Workout frequency is correct');
+    return plan;
+  }
+
+  console.log(`[WORKOUT] Fixing workout frequency: adjusting from ${trainingDays} to ${targetTrainingDays} training days`);
+
+  // Create corrected schedule
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const correctedSchedule = [];
+
+  if (trainingDays > targetTrainingDays) {
+    // Too many training days - convert excess to rest days
+    let excessDays = trainingDays - targetTrainingDays;
+
+    for (let i = 0; i < 7; i++) {
+      const originalDay = plan.weeklySchedule[i];
+      if (originalDay && originalDay.exercises && originalDay.exercises.length > 0 && excessDays > 0) {
+        // Convert to rest day
+        correctedSchedule.push({
+          day: daysOfWeek[i],
+          focus: 'Rest Day',
+          exercises: []
+        });
+        excessDays--;
+      } else if (originalDay && originalDay.exercises && originalDay.exercises.length > 0) {
+        // Keep as training day
+        correctedSchedule.push({
+          ...originalDay,
+          day: daysOfWeek[i]
+        });
+      } else {
+        // Keep as rest day
+        correctedSchedule.push({
+          day: daysOfWeek[i],
+          focus: 'Rest Day',
+          exercises: []
+        });
+      }
+    }
+  } else {
+    // Too few training days - convert rest days to training days
+    const neededDays = targetTrainingDays - trainingDays;
+    let addedDays = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const originalDay = plan.weeklySchedule[i];
+      if (originalDay && originalDay.exercises && originalDay.exercises.length > 0) {
+        // Keep as training day
+        correctedSchedule.push({
+          ...originalDay,
+          day: daysOfWeek[i]
+        });
+      } else if (addedDays < neededDays) {
+        // Convert rest day to training day
+        correctedSchedule.push({
+          day: daysOfWeek[i],
+          focus: 'Full Body',
+          exercises: [
+            { name: 'Squats', sets: 3, reps: '10-12', restBetweenSets: '60s' },
+            { name: 'Push-ups', sets: 3, reps: '8-12', restBetweenSets: '60s' },
+            { name: 'Bent-over Rows', sets: 3, reps: '10-12', restBetweenSets: '60s' },
+            { name: 'Plank', sets: 3, reps: '30-60s', restBetweenSets: '60s' }
+          ]
+        });
+        addedDays++;
+      } else {
+        // Keep as rest day
+        correctedSchedule.push({
+          day: daysOfWeek[i],
+          focus: 'Rest Day',
+          exercises: []
+        });
+      }
+    }
+  }
+
+  return {
+    ...plan,
+    weeklySchedule: correctedSchedule
+  };
+}
+
 // Compose prompt for workout plan generation
 function composePrompt(profile) {
   return `
@@ -984,6 +1096,7 @@ CLIENT PROFILE:
 - Fat Loss Goal Priority: ${profile.goal_fat_reduction || 0}/5
 - Muscle Gain Goal Priority: ${profile.goal_muscle_gain || 0}/5
 - Exercise Frequency: ${profile.exercise_frequency || '4-6'} days per week
+- Preferred Workout Frequency: ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') + ' times per week' : 'Not specified'}
 - Daily Activity Level: ${profile.activity_level || 'Not specified'}
 - Body Fat: ${profile.body_fat ? `${profile.body_fat}%` : 'Not specified'}
 - Current Weight Trend: ${profile.weight_trend || 'Not specified'}
@@ -1017,13 +1130,19 @@ CARDIO EXERCISES: Kettlebell Swing, Dumbbell Clean and Press, Weighted Step-Up, 
 
 INSTRUCTIONS:
 1. Create a 7-day workout schedule with appropriate rest days based on their exercise frequency
-2. For each workout day, specify:
+2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} TRAINING DAYS PER WEEK
+   - Count the training days in your response to ensure accuracy
+   - Do NOT create more or fewer training days than specified
+   - For '2_3' frequency: Create exactly 2-3 training days (4-5 rest days)
+   - For '4_5' frequency: Create exactly 4-5 training days (2-3 rest days)
+   - For '6' frequency: Create exactly 6 training days (1 rest day)
+3. For each workout day, specify:
    - The focus area (e.g., "Upper Body", "Lower Body", "Push", "Pull", "Legs", "Full Body")
    - 4-6 exercises appropriate for their training level
    - For each exercise, specify sets, reps, and rest between sets
-3. Include an estimated time per session (e.g., "45 minutes")
-4. Ensure maximum exercise variety - never repeat exercises in consecutive workouts
-5. Return ONLY a valid JSON object with the following structure:
+4. Include an estimated time per session (e.g., "45 minutes")
+5. Ensure maximum exercise variety - never repeat exercises in consecutive workouts
+6. Return ONLY a valid JSON object with the following structure:
 
 {
   "weeklySchedule": [
@@ -1046,7 +1165,18 @@ INSTRUCTIONS:
   }
 }
 
-Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.`;
+Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
+
+🚨 CRITICAL ENFORCEMENT: You MUST create exactly ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} training days per week. This is ABSOLUTELY NON-NEGOTIABLE.
+
+FINAL CHECKS BEFORE RESPONDING:
+1. Count the number of training days in your weeklySchedule array
+2. Ensure it matches EXACTLY: ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} training days
+3. If it doesn't match, adjust the schedule immediately
+4. Double-check that rest days are properly distributed
+5. Verify that the total equals 7 days (training + rest)
+
+FAILURE TO COMPLY WITH THE FREQUENCY REQUIREMENT WILL RESULT IN AN INVALID RESPONSE. TAKE THIS SERIOUSLY.`;
 }
 
 // Compose system prompt for AI chat
@@ -4366,14 +4496,18 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     try {
       plan = parseAIResponse(content);
       console.log('[WORKOUT] Successfully parsed AI response');
-      
+
       // Normalize and validate structure
       plan = normalizePlan(plan);
       if (!plan || !Array.isArray(plan.weeklySchedule)) {
         console.error('[WORKOUT] Parsed plan missing weeklySchedule array after normalization:', plan);
         throw new Error('Parsed plan missing required weeklySchedule structure');
       }
-      
+
+      // Validate and fix workout frequency
+      plan = validateAndFixWorkoutFrequency(plan, profile);
+      console.log('[WORKOUT] Workout frequency validated and fixed if necessary');
+
     } catch (parseError) {
       console.error('[WORKOUT] All parsing strategies failed:', parseError);
       console.log('[WORKOUT] Raw response (first 1000 chars):', content.substring(0, 1000));
@@ -5001,33 +5135,32 @@ Analyze the following food image:
 
       console.log('[FOOD ANALYZE] Determining vision AI service to use');
       
-      // Use Hugging Face Qwen model for food photo analysis if configured, otherwise Cloudflare
+      // Use Cloudflare Workers AI as primary vision service
       if (visionService) {
-        console.log('[FOOD ANALYZE] Using Hugging Face Qwen2.5-VL-7B-Instruct for food photo analysis');
+        console.log('[FOOD ANALYZE] Using Cloudflare Workers AI for food photo analysis');
 
         try {
           const visionResult = await visionService.analyzeFoodImage(base64Image);
-          console.log('[FOOD ANALYZE] Hugging Face vision analysis successful');
+          console.log('[FOOD ANALYZE] Cloudflare vision analysis successful');
 
-          // Use the description from Hugging Face for nutrition analysis
+          // Use the description from Cloudflare for nutrition analysis
           foodDescription = visionResult.imageDescription || 'Food image analysis completed';
           visionModelUsed = visionResult.model;
 
-        } catch (hfError) {
-          console.warn('[FOOD ANALYZE] Hugging Face vision failed, falling back to Cloudflare:', hfError.message);
-          // Fall back to Cloudflare vision if Hugging Face fails
+        } catch (cfError) {
+          console.warn('[FOOD ANALYZE] Cloudflare vision failed:', cfError.message);
+          // Fall back to basic text analysis if Cloudflare fails
         }
       }
 
-      // If Hugging Face is not configured or failed, use Cloudflare as fallback
+      // If Cloudflare vision is not configured or failed, use text-based fallback
       if (!visionService || !foodDescription) {
-        console.log('[FOOD ANALYZE] Using Cloudflare vision as fallback');
-        console.log('[FOOD ANALYZE] Using vision model:', CF_VISION_MODEL);
+        console.log('[FOOD ANALYZE] Cloudflare vision not available, using text-based fallback');
         
         // Check if Cloudflare credentials are configured
         if (!CF_ACCOUNT_ID || !CF_API_TOKEN || CF_ACCOUNT_ID === 'your_cloudflare_account_id_here' || CF_API_TOKEN === 'your_cloudflare_api_token_here') {
           console.log('[FOOD ANALYZE] Cloudflare credentials not configured, using text-based fallback');
-          throw new Error('No vision providers available. Please configure either HF_API_TOKEN for Hugging Face or CF_ACCOUNT_ID/CF_API_TOKEN for Cloudflare.');
+          throw new Error('No vision providers available. Please configure CF_ACCOUNT_ID and CF_API_TOKEN for Cloudflare Workers AI.');
         }
         
         // Add detailed debugging for Cloudflare configuration
@@ -5673,7 +5806,7 @@ Analyze the following food image:
       success: true,
       data: analysisResult,
       visionModel: visionModelUsed || CF_VISION_MODEL || 'unknown',
-      analysisProvider: visionService ? 'huggingface' : 'cloudflare'
+      analysisProvider: visionService ? 'cloudflare' : 'none'
     });
 
   } catch (error) {

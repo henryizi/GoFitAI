@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, ImageBackground, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
@@ -38,16 +38,16 @@ const trainingLevels = [
 ];
 
 const primaryGoals = [
-  { id: 'weight_loss', title: 'Weight Loss', subtitle: 'Burn fat and lose weight', icon: 'scale-bathroom' },
-  { id: 'muscle_gain', title: 'Muscle Gain', subtitle: 'Build muscle and strength', icon: 'arm-flex' },
   { id: 'general_fitness', title: 'General Fitness', subtitle: 'Stay healthy and active', icon: 'heart-pulse' },
-  { id: 'endurance', title: 'Endurance', subtitle: 'Improve cardiovascular health', icon: 'run' },
+  { id: 'fat_loss', title: 'Fat Loss', subtitle: 'Burn fat and lose weight', icon: 'scale-bathroom' },
+  { id: 'muscle_gain', title: 'Muscle Gain', subtitle: 'Build muscle and strength', icon: 'arm-flex' },
+  { id: 'athletic_performance', title: 'Athletic Performance', subtitle: 'Improve sports performance', icon: 'run' },
 ];
 
 const workoutFrequencies = [
   { id: '2_3', title: '2-3 times per week', subtitle: 'Light activity' },
   { id: '4_5', title: '4-5 times per week', subtitle: 'Moderate activity' },
-  { id: '6_7', title: '6-7 times per week', subtitle: 'High activity' },
+  { id: '6', title: '6+ times per week', subtitle: 'High activity' },
 ];
 
 export default function FitnessGoalsScreen() {
@@ -56,18 +56,61 @@ export default function FitnessGoalsScreen() {
   const [loading, setLoading] = useState(false);
   
   const [selectedTrainingLevel, setSelectedTrainingLevel] = useState<string>(profile?.training_level || 'beginner');
-  const [selectedGoal, setSelectedGoal] = useState<string>('general_fitness');
-  const [selectedFrequency, setSelectedFrequency] = useState<string>('4_5');
-  
+  const [selectedGoal, setSelectedGoal] = useState<string>(profile?.primary_goal || 'general_fitness');
+  const [selectedFrequency, setSelectedFrequency] = useState<string>(profile?.workout_frequency || '4_5');
+
   // New state for fat loss and muscle gain goals
   const [fatLossGoal, setFatLossGoal] = useState<number>(profile?.goal_fat_reduction || 0);
   const [muscleGainGoal, setMuscleGainGoal] = useState<number>(profile?.goal_muscle_gain || 0);
 
-  const handleSave = async () => {
+  // Track if user has made changes to avoid overwriting with profile updates
+  const [userHasModified, setUserHasModified] = useState(false);
+
+  // Sync local state with profile data when profile changes (but only if user hasn't modified)
+  useEffect(() => {
+    if (profile && !userHasModified) {
+      console.log('🔄 Fitness Goals: Syncing with updated profile data:', {
+        training_level: profile.training_level,
+        primary_goal: profile.primary_goal,
+        workout_frequency: profile.workout_frequency,
+        goal_fat_reduction: profile.goal_fat_reduction,
+        goal_muscle_gain: profile.goal_muscle_gain
+      });
+
+      setSelectedTrainingLevel(profile.training_level || 'beginner');
+      setSelectedGoal(profile.primary_goal || 'general_fitness');
+      setSelectedFrequency(profile.workout_frequency || '4_5');
+      setFatLossGoal(profile.goal_fat_reduction || 0);
+      setMuscleGainGoal(profile.goal_muscle_gain || 0);
+
+      console.log('✅ Fitness Goals: Local state updated from profile');
+    } else if (profile && userHasModified) {
+      console.log('🔄 Fitness Goals: Profile updated but user has pending changes - preserving local state');
+    } else if (!profile) {
+      console.log('⚠️ Fitness Goals: Profile is null - using defaults');
+      setSelectedTrainingLevel('beginner');
+      setSelectedGoal('general_fitness');
+      setSelectedFrequency('4_5');
+      setFatLossGoal(0);
+      setMuscleGainGoal(0);
+    }
+  }, [profile, userHasModified]);
+
+    const handleSave = async () => {
     if (!user?.id) return;
 
     setLoading(true);
     try {
+      const updateData = {
+        training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
+        primary_goal: selectedGoal as 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance',
+        workout_frequency: selectedFrequency as '2_3' | '4_5' | '6',
+        goal_fat_reduction: fatLossGoal,
+        goal_muscle_gain: muscleGainGoal,
+      };
+
+      console.log('💾 Saving fitness goals:', updateData);
+
       // Use proper environment configuration
       const response = await fetch(`${environment.apiUrl}/api/profile`, {
         method: 'PUT',
@@ -76,33 +119,40 @@ export default function FitnessGoalsScreen() {
         },
         body: JSON.stringify({
           userId: user.id,
-          updates: {
-            training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
-            goal_fat_reduction: fatLossGoal,
-            goal_muscle_gain: muscleGainGoal,
-          },
+          updates: updateData,
         }),
       });
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to update profile');
       }
 
-      try { 
-        identify(user.id, { 
-          training_level: selectedTrainingLevel, 
-          primary_goal: selectedGoal, 
-          workout_frequency: selectedFrequency,
-          goal_fat_reduction: fatLossGoal,
-          goal_muscle_gain: muscleGainGoal
-        }); 
+      console.log('✅ Save successful, result:', result);
+
+      // Reset modification flag since we've saved the changes
+      setUserHasModified(false);
+
+      console.log('🔄 Fitness goals saved. Waiting for real-time subscription to update profile state...');
+
+      try {
+        identify(user.id, {
+          training_level: updateData.training_level,
+          primary_goal: updateData.primary_goal,
+          workout_frequency: updateData.workout_frequency,
+          goal_fat_reduction: updateData.goal_fat_reduction,
+          goal_muscle_gain: updateData.goal_muscle_gain
+        });
       } catch {}
 
-      Alert.alert('Success', 'Fitness goals updated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      Alert.alert(
+        'Success',
+        'Fitness goals updated successfully! Changes will appear instantly.',
+        [
+          { text: 'OK', onPress: () => router.back() }
+        ]
+      );
     } catch (error) {
       console.error('Error updating goals:', error);
       Alert.alert('Error', 'Failed to update goals. Please try again.');
@@ -145,7 +195,10 @@ export default function FitnessGoalsScreen() {
           {trainingLevels.map((level) => (
             <TouchableOpacity
               key={level.id}
-              onPress={() => setSelectedTrainingLevel(level.id)}
+              onPress={() => {
+                setUserHasModified(true);
+                setSelectedTrainingLevel(level.id);
+              }}
               style={styles.optionCard}
             >
               <LinearGradient
@@ -194,7 +247,10 @@ export default function FitnessGoalsScreen() {
                 minimumValue={0}
                 maximumValue={20}
                 value={fatLossGoal}
-                onValueChange={(value) => setFatLossGoal(Math.round(value))}
+                onValueChange={(value) => {
+                  setUserHasModified(true);
+                  setFatLossGoal(Math.round(value));
+                }}
                 minimumTrackTintColor={colors.accent}
                 maximumTrackTintColor="rgba(255,255,255,0.2)"
                 thumbTintColor={colors.accent}
@@ -229,7 +285,10 @@ export default function FitnessGoalsScreen() {
                 minimumValue={0}
                 maximumValue={20}
                 value={muscleGainGoal}
-                onValueChange={(value) => setMuscleGainGoal(Math.round(value))}
+                onValueChange={(value) => {
+                  setUserHasModified(true);
+                  setMuscleGainGoal(Math.round(value));
+                }}
                 minimumTrackTintColor={colors.success}
                 maximumTrackTintColor="rgba(255,255,255,0.2)"
                 thumbTintColor={colors.success}
@@ -248,7 +307,10 @@ export default function FitnessGoalsScreen() {
           {primaryGoals.map((goal) => (
             <TouchableOpacity
               key={goal.id}
-              onPress={() => setSelectedGoal(goal.id)}
+              onPress={() => {
+                setUserHasModified(true);
+                setSelectedGoal(goal.id);
+              }}
               style={styles.optionCard}
             >
               <LinearGradient
@@ -281,7 +343,10 @@ export default function FitnessGoalsScreen() {
           {workoutFrequencies.map((frequency) => (
             <TouchableOpacity
               key={frequency.id}
-              onPress={() => setSelectedFrequency(frequency.id)}
+              onPress={() => {
+                setUserHasModified(true);
+                setSelectedFrequency(frequency.id);
+              }}
               style={styles.optionCard}
             >
               <LinearGradient

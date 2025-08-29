@@ -374,9 +374,19 @@ const DashboardScreen = () => {
       new Date(workout.completed_at) >= oneWeekAgo
     );
     
+    console.log('[DASHBOARD] This week workouts for calorie calculation:', thisWeekWorkouts.map(w => ({ 
+      id: w.id, 
+      completed_at: w.completed_at, 
+      estimated_calories: w.estimated_calories 
+    })));
+    
     const totalCaloriesBurnt = thisWeekWorkouts.reduce((total, workout) => {
-      return total + (workout.estimated_calories || 0);
+      const calories = workout.estimated_calories || 0;
+      console.log(`[DASHBOARD] Adding ${calories} calories from workout ${workout.id}`);
+      return total + calories;
     }, 0);
+    
+    console.log(`[DASHBOARD] Total weekly calories burnt: ${totalCaloriesBurnt}`);
     
     return {
       total: totalCaloriesBurnt,

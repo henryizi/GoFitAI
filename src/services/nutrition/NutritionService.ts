@@ -804,26 +804,59 @@ export class NutritionService {
   }
 
   static async analyzeFoodImage(formData: FormData): Promise<any> {
-    // Allow fetch to set the correct multipart boundary header automatically
-    const response = await fetch(`${API_URL}/api/analyze-food`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        Accept: 'application/json',
-      },
-    });
+    const timeoutMs = 60000; // 60 seconds timeout for image analysis
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const raw = await response.text();
-      try {
-        const json = JSON.parse(raw);
-        throw new Error(json?.error || 'Failed to analyze food image.');
-      } catch {
-        throw new Error(raw || 'Failed to analyze food image.');
+    try {
+      console.log('[FOOD ANALYZE] Starting food image analysis request...');
+      console.log('[FOOD ANALYZE] API URL:', `${API_URL}/api/analyze-food`);
+
+      // Allow fetch to set the correct multipart boundary header automatically
+      const response = await fetch(`${API_URL}/api/analyze-food`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('[FOOD ANALYZE] Response status:', response.status);
+
+      if (!response.ok) {
+        const raw = await response.text();
+        console.error('[FOOD ANALYZE] Error response:', raw);
+        try {
+          const json = JSON.parse(raw);
+          throw new Error(json?.error || 'Failed to analyze food image.');
+        } catch {
+          throw new Error(raw || 'Failed to analyze food image.');
+        }
+      }
+
+      const result = await response.json();
+      console.log('[FOOD ANALYZE] Analysis successful');
+      return result;
+
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+
+      console.error('[FOOD ANALYZE] Request failed:', error);
+
+      // Handle different types of errors
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. The food analysis service may be overloaded. Please try again.');
+      } else if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
+        throw new Error('Network connection failed. Please check your internet connection and try again.');
+      } else if (error.message?.includes('Failed to fetch')) {
+        throw new Error('Unable to connect to the food analysis service. Please try again later.');
+      } else {
+        throw new Error(`Food analysis failed: ${error.message || 'Unknown error'}`);
       }
     }
-
-    return response.json();
   }
 
   static async generateDailyMealPlan(userId: string): Promise<any> {

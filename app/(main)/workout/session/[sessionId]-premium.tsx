@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../../src/services/supabase/client';
 import { Database } from '../../../../src/types/database';
 import { ExerciseService } from '../../../../src/services/workout/ExerciseService';
-import { WorkoutHistoryService } from '../../../../src/services/workout/WorkoutHistoryService';
+import * as WorkoutHistoryServiceModule from '../../../../src/services/workout/WorkoutHistoryService';
+const { WorkoutHistoryService } = WorkoutHistoryServiceModule;
 import { colors } from '../../../../src/styles/colors';
 import { theme } from '../../../../src/styles/theme';
 import RestTimer from '../../../../src/components/workout/RestTimer';
@@ -59,13 +60,9 @@ export default function SessionExecutionScreen() {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Exit", style: "destructive", onPress: () => {
-          console.log('Exit confirmed, calling router.back()');
-          try {
-            router.back();
-          } catch (error) {
-            console.error('Navigation error:', error);
-            router.push('/(main)/workout/plans');
-          }
+          console.log('Exit confirmed - navigating to workout plans');
+          // Always navigate to workout plans instead of using router.back()
+          router.replace('/(main)/workout/plans');
         }}
       ]
     );
@@ -380,6 +377,7 @@ export default function SessionExecutionScreen() {
                     duration_minutes: durationMinutes,
                     total_sets: totalSets,
                     total_exercises: totalExercises,
+                    estimated_calories: estimatedCalories,
                     notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
                   });
                   
@@ -437,14 +435,17 @@ export default function SessionExecutionScreen() {
         { 
           text: "View History", 
           onPress: () => {
-            // Force a refresh of the workout history when navigating there
-            router.push({ pathname: '/(main)/workout/history', params: { refresh: 'true' } });
+            // Navigate to history and replace current screen to prevent back navigation to session
+            router.replace({ pathname: '/(main)/workout/history', params: { refresh: 'true' } });
           },
           style: 'default'
         },
         { 
-          text: "Return", 
-          onPress: () => router.back(),
+          text: "Back to Workouts", 
+          onPress: () => {
+            // Navigate back to workout plans instead of the session screen
+            router.replace('/(main)/workout/plans');
+          },
           style: 'cancel' 
         }
       ]

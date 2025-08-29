@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -13,6 +13,7 @@ import {
   ImageBackground
 } from 'react-native';
 import { Text, TextInput, HelperText, ActivityIndicator } from 'react-native-paper';
+import { Calendar, DateData } from 'react-native-calendars';
 import { colors } from '../../../src/styles/colors';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ProgressService } from '../../../src/services/progressService';
@@ -24,6 +25,7 @@ import { StatusBar } from 'expo-status-bar';
 import { usePhotoUpload } from '../../../src/hooks/usePhotoUpload';
 import { BlurView } from 'expo-blur';
 import { supabase } from '../../../src/services/supabase/client';
+import { SafeImage } from '../../../src/components/ui/SafeImage';
 
 const { width } = Dimensions.get('window');
 
@@ -41,6 +43,7 @@ export default function LogProgressScreen() {
   const [frontPhotoUri, setFrontPhotoUri] = useState<string | null>(null);
   const [backPhotoUri, setBackPhotoUri] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [progressEntries, setProgressEntries] = useState<any[]>([]);
   
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -70,6 +73,34 @@ export default function LogProgressScreen() {
       friction: 8,
     }).start();
   }, []);
+
+  // Fetch progress entries for calendar
+  useEffect(() => {
+    if (user) {
+      ProgressService.getProgressEntries(user.id).then((entries: any) => {
+        setProgressEntries(entries);
+      });
+    }
+  }, [user]);
+
+  // Clear photo URIs when changing dates
+  useEffect(() => {
+    setFrontPhotoUri(null);
+    setBackPhotoUri(null);
+  }, [selectedDate]);
+
+  // Calendar marked dates
+  const markedDates = useMemo(() => {
+    const marks: { [date: string]: any } = {};
+    progressEntries.forEach(entry => {
+      marks[entry.date] = { marked: true, dotColor: colors.primary };
+    });
+    marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: colors.primary, activeOpacity: 0 };
+    return marks;
+  }, [progressEntries, selectedDate]);
+
+  // Current entry for selected date
+  const currentEntry = useMemo(() => progressEntries.find(e => e.date === selectedDate), [progressEntries, selectedDate]);
 
   const handleWeightChange = (value: string) => {
     const withDot = value.replace(/,/g, '.');
@@ -137,7 +168,27 @@ export default function LogProgressScreen() {
     });
   };
 
+  const handleDayPress = (day: DateData) => {
+    setSelectedDate(day.dateString);
+  };
+
   const handlePickImage = async (type: 'front' | 'back') => {
+    const existingPhoto = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
+    if (existingPhoto) {
+      Alert.alert(
+        'Replace Photo?',
+        'Uploading a new photo will replace the existing one. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', onPress: () => pickImageForType(type) },
+        ]
+      );
+    } else {
+      pickImageForType(type);
+    }
+  };
+
+  const pickImageForType = async (type: 'front' | 'back') => {
     try {
       const imageUri = await pickImage('library');
       if (imageUri) {
@@ -153,6 +204,22 @@ export default function LogProgressScreen() {
   };
 
   const handleTakePhoto = async (type: 'front' | 'back') => {
+    const existingPhoto = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
+    if (existingPhoto) {
+      Alert.alert(
+        'Replace Photo?',
+        'Taking a new photo will replace the existing one. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', onPress: () => takePhotoForType(type) },
+        ]
+      );
+    } else {
+      takePhotoForType(type);
+    }
+  };
+
+  const takePhotoForType = async (type: 'front' | 'back') => {
     try {
       const imageUri = await pickImage('camera');
       if (imageUri) {
@@ -165,6 +232,67 @@ export default function LogProgressScreen() {
     } catch (error) {
       Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
+  };
+
+
+
+  const renderPhotoSelector = (type: 'front' | 'back') => {
+    const newUri = type === 'front' ? frontPhotoUri : backPhotoUri;
+    const photo = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
+    
+    // If we have a new photo URI, show that
+    if (newUri) {
+      return (
+        <View style={styles.calendarPhotoContainer}>
+          <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
+          <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
+            <SafeImage sourceUrl={newUri} style={styles.calendarPreviewImage} />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // If we have a saved photo with storage_path, get the public URL
+    if (photo && photo.storage_path && supabase) {
+      const publicUrlResult = supabase.storage.from('body-photos').getPublicUrl(photo.storage_path);
+      const photoUrl = publicUrlResult.data.publicUrl;
+      
+      return (
+        <View style={styles.calendarPhotoContainer}>
+          <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
+          <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
+            <SafeImage sourceUrl={photoUrl} style={styles.calendarPreviewImage} />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // No photo available
+    return (
+      <View style={styles.calendarPhotoContainer}>
+        <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
+        <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
+          <View style={styles.photoActions}>
+            <TouchableOpacity 
+              style={styles.photoButton}
+              onPress={() => handleTakePhoto(type)}
+              activeOpacity={0.7}
+            >
+              <Icon name="camera" size={16} color={colors.white} />
+              <Text style={styles.photoButtonText}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.photoButton}
+              onPress={() => handlePickImage(type)}
+              activeOpacity={0.7}
+            >
+              <Icon name="image" size={16} color={colors.white} />
+              <Text style={styles.photoButtonText}>Choose</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const handleSave = async () => {
@@ -188,32 +316,14 @@ export default function LogProgressScreen() {
         });
       }
 
-      // Upload photos if provided
-      let frontPhotoId = null;
-      let backPhotoId = null;
-
-      if (frontPhotoUri) {
-        const frontResult = await uploadPhoto('front', frontPhotoUri);
-        if (frontResult.success && frontResult.photo) {
-          frontPhotoId = frontResult.photo.id;
-        }
-      }
-
-      if (backPhotoUri) {
-        const backResult = await uploadPhoto('back', backPhotoUri);
-        if (backResult.success && backResult.photo) {
-          backPhotoId = backResult.photo.id;
-        }
-      }
-
-      // Create or update progress entry
-      if (frontPhotoId || backPhotoId) {
+      // Create or update progress entry with photos
+      if (frontPhotoUri || backPhotoUri) {
         await ProgressService.createOrUpdateProgressEntry(
           user.id,
           selectedDate,
           weight && !isWeightInvalid ? (unit === 'lbs' ? convertWeight(weightNum, 'lbs', 'kg') : weightNum) : null,
-          frontPhotoId ? undefined : undefined, // We'll use the photo IDs directly
-          backPhotoId ? undefined : undefined
+          frontPhotoUri || undefined,
+          backPhotoUri || undefined
         );
       }
 
@@ -229,6 +339,16 @@ export default function LogProgressScreen() {
           // Non-blocking: do not prevent success if this fails
         }
       }
+
+      // Refresh progress entries to show updated data
+      if (user) {
+        const updatedEntries = await ProgressService.getProgressEntries(user.id);
+        setProgressEntries(updatedEntries);
+      }
+
+      // Clear temporary photo URIs since they're now saved
+      setFrontPhotoUri(null);
+      setBackPhotoUri(null);
 
       showSuccessAlert();
     } catch (error) {
@@ -418,62 +538,40 @@ export default function LogProgressScreen() {
                 <Text style={styles.sectionTitle}>Body Photos</Text>
               </View>
 
-              <View style={styles.photosContainer}>
-                {/* Front Photo */}
-                <View style={styles.photoSection}>
-                  <Text style={styles.photoLabel}>Front Photo</Text>
-                  <View style={styles.photoActions}>
-                    <TouchableOpacity 
-                      style={styles.photoButton}
-                      onPress={() => handleTakePhoto('front')}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="camera" size={20} color={colors.white} />
-                      <Text style={styles.photoButtonText}>Take Photo</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.photoButton}
-                      onPress={() => handlePickImage('front')}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="image" size={20} color={colors.white} />
-                      <Text style={styles.photoButtonText}>Choose</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {frontPhotoUri && (
-                    <View style={styles.photoPreview}>
-                      <Text style={styles.photoPreviewText}>✓ Front photo selected</Text>
-                    </View>
-                  )}
-                </View>
+              {/* Calendar */}
+              <Calendar
+                onDayPress={handleDayPress}
+                markedDates={markedDates}
+                markingType={'custom'}
+                theme={{
+                  calendarBackground: 'transparent',
+                  dayTextColor: colors.text,
+                  monthTextColor: colors.text,
+                  selectedDayBackgroundColor: colors.primary,
+                  todayTextColor: colors.primary,
+                  arrowColor: colors.primary,
+                  textDayFontSize: 16,
+                  textMonthFontSize: 18,
+                  textDayHeaderFontSize: 14,
+                  textSectionTitleColor: colors.text,
+                  selectedDayTextColor: colors.white,
+                  todayBackgroundColor: 'transparent',
+                  dotColor: colors.primary,
+                  selectedDotColor: colors.white,
+                  disabledArrowColor: colors.textSecondary,
+                  monthTextColor: colors.text,
+                  indicatorColor: colors.primary,
+                  textDayFontWeight: '400',
+                  textMonthFontWeight: '600',
+                  textDayHeaderFontWeight: '500',
+                }}
+                style={styles.calendar}
+              />
 
-                {/* Back Photo */}
-                <View style={styles.photoSection}>
-                  <Text style={styles.photoLabel}>Back Photo</Text>
-                  <View style={styles.photoActions}>
-                    <TouchableOpacity 
-                      style={styles.photoButton}
-                      onPress={() => handleTakePhoto('back')}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="camera" size={20} color={colors.white} />
-                      <Text style={styles.photoButtonText}>Take Photo</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.photoButton}
-                      onPress={() => handlePickImage('back')}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="image" size={20} color={colors.white} />
-                      <Text style={styles.photoButtonText}>Choose</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {backPhotoUri && (
-                    <View style={styles.photoPreview}>
-                      <Text style={styles.photoPreviewText}>✓ Back photo selected</Text>
-                    </View>
-                  )}
-                </View>
+              {/* Photo Grid for Selected Date */}
+              <View style={styles.calendarPhotoGrid}>
+                {renderPhotoSelector('front')}
+                {renderPhotoSelector('back')}
               </View>
             </Animated.View>
           )}
@@ -799,6 +897,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
+  },
+  calendar: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10,
+  },
+  calendarPhotoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  calendarPhotoContainer: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  calendarPhotoLabel: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  calendarPhotoPlaceholder: {
+    width: 140,
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+  },
+  calendarPreviewImage: {
+    width: 140,
+    height: 200,
+    borderRadius: 12,
   },
 });
 

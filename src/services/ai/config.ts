@@ -1,7 +1,11 @@
 // Get environment variables
 const DEEPSEEK_API_KEY = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY?.trim();
 const DEEPSEEK_API_URL = (process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions').trim();
-const DEEPSEEK_MODEL = (process.env.EXPO_PUBLIC_DEEPSEEK_MODEL || 'deepseek/deepseek-chat').trim();
+// Auto-detect model format based on API URL
+const apiUrl = (process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions').trim();
+const isDirectDeepSeek = apiUrl.includes('api.deepseek.com');
+const defaultModel = isDirectDeepSeek ? 'deepseek-chat' : 'deepseek/deepseek-chat';
+const DEEPSEEK_MODEL = (process.env.EXPO_PUBLIC_DEEPSEEK_MODEL || defaultModel).trim();
 
 // Client-side timeout for AI requests (ms)
 const AI_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_AI_TIMEOUT_MS || 45000);

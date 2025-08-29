@@ -288,14 +288,14 @@ const LogFoodScreen = () => {
 
   const handleAnalyzeFood = async () => {
     if (!imageUri) return;
-    
+
     console.log('[FOOD ANALYZE] Analyze button pressed', { imageUri: imageUri });
-    
+
     // Check server connection first
     if (!isServerConnected) {
       console.log('[FOOD ANALYZE] Server not connected, attempting to check status');
       await checkServerStatus();
-      
+
       // If still not connected after checking, show helpful message
       if (!isServerConnected) {
         Alert.alert(
@@ -310,13 +310,11 @@ const LogFoodScreen = () => {
         return;
       }
     }
-    
-    let controller: AbortController | null = null;
-    let timeoutId: any = null;
+
     try {
       setIsLoading(true); // Use isLoading for the overlay
       setAnalyzeElapsedMs(0);
-      
+
       // Start the progress timer
       const interval = setInterval(() => {
         setAnalyzeElapsedMs((t) => t + 200);
@@ -328,38 +326,18 @@ const LogFoodScreen = () => {
       const filename = imageUri.split('/').pop() || 'food.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
-      
+
       // @ts-ignore
       formData.append('foodImage', {
         uri: imageUri,
         name: filename,
         type,
       });
-      
-      // Set a timeout to abort the request if it takes too long
-      controller = new AbortController();
-      timeoutId = setTimeout(() => controller?.abort(), 60000); // 60 second timeout
-      
-      // Use env URL first, then Railway fallback
-      const apiUrl = environment.apiUrl || 'https://gofitai-production.up.railway.app';
-      console.log('[FOOD ANALYZE] Using API URL:', apiUrl);
-      
-      const response = await fetch(`${apiUrl}/api/analyze-food`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error: ${response.status} ${errorText}`);
-      }
-      
-      const data = await response.json();
+
+      // Use the improved NutritionService method with better error handling
+      const data = await NutritionService.analyzeFoodImage(formData);
       console.log('[FOOD ANALYZE] Analysis successful:', data);
-      
+
       // Navigate to the food result screen with the data and image
       router.push({
         pathname: '/nutrition/food-result',
@@ -368,28 +346,24 @@ const LogFoodScreen = () => {
           image: imageUri
         }
       });
-      
+
     } catch (error: any) {
-      if (error?.name === 'AbortError' || error?.message === 'Aborted' || String(error?.message || '').toLowerCase().includes('aborted')) {
-        console.warn('[FOOD ANALYZE] Request aborted by timeout/cancel.');
-        return;
-      }
       console.error('[FOOD ANALYZE] Analysis failed:', error.message);
-      
+
       // Show a more helpful error message based on the error type
       let errorMessage = 'Could not analyze the food image. Please try again or log manually.';
       let showManualOption = true;
-      
-      if (error.name === 'AbortError' || error.message.includes('timeout')) {
-        errorMessage = 'The request timed out. The server might be busy or the image is too large.';
-      } else if (error.message.includes('Network request failed')) {
-        errorMessage = 'Cannot connect to the server. Please check your network connection.';
+
+      if (error.message?.includes('timed out') || error.message?.includes('timeout')) {
+        errorMessage = 'The request timed out. The food analysis service may be overloaded. Please try again.';
+      } else if (error.message?.includes('Network connection failed') || error.message?.includes('Network request failed')) {
+        errorMessage = 'Cannot connect to the server. Please check your network connection and try again.';
         // Update server status since connection failed
         await checkServerStatus();
-      } else if (error.message.includes('Server error')) {
-        errorMessage = `Server error: ${error.message.replace('Server error: ', '')}`;
+      } else if (error.message?.includes('Server error') || error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to the food analysis service. Please try again later.';
       }
-      
+
       Alert.alert(
         'Analysis Failed',
         errorMessage,
@@ -400,10 +374,6 @@ const LogFoodScreen = () => {
         ]
       );
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
       setIsLoading(false);
       if (analyzeInterval) {
         clearInterval(analyzeInterval);

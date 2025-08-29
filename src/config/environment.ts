@@ -10,16 +10,16 @@ const getApiUrl = (): string => {
   const configUrl = (Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL as string | undefined) || undefined;
 
   if (configUrl) {
-    const sanitized = /localhost|127\.0\.0\.1/.test(configUrl) ? 'https://gofitai-production.up.railway.app' : configUrl;
-    console.log('[ENVIRONMENT] Using configured API URL from Expo config:', sanitized);
-    if (sanitized !== configUrl) {
-      console.warn('[ENVIRONMENT] Replaced localhost API URL with Railway production URL');
-    }
-    return sanitized;
+    // REMOVED: No longer automatically replace localhost with Railway
+    // Allow localhost URLs for local development
+    console.log('[ENVIRONMENT] Using configured API URL from Expo config:', configUrl);
+    return configUrl;
   }
 
-  // Final fallback to production Railway URL
-  const fallbackUrl = 'https://gofitai-production.up.railway.app';
+  // Final fallback to production Railway URL or local IP in development (for mobile simulator)
+  const fallbackUrl = isDevelopment
+    ? 'http://192.168.0.100:4000' // Use local IP for mobile simulator connectivity
+    : 'https://gofitai-production.up.railway.app';
   console.log('[ENVIRONMENT] No API URL found in Expo config, using fallback:', fallbackUrl);
   return fallbackUrl;
 };

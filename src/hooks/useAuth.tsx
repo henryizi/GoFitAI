@@ -43,9 +43,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
           (payload) => {
+            console.log('🔄 Real-time profile update received:', {
+              eventType: payload.eventType,
+              new: (payload as any).new,
+              old: (payload as any).old
+            });
+
             const newProfile = (payload as any).new;
             if (newProfile) {
+              console.log('🔄 Updating auth state with new profile data');
               setAuthState((prev) => ({ ...prev, profile: newProfile }));
+
               // Update analytics context with refreshed profile data
               try {
                 const props: Record<string, unknown> = { email: userEmail } as any;
@@ -62,12 +70,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (typeof newProfile.goal_muscle_gain === 'number') props.goal_muscle_gain = newProfile.goal_muscle_gain;
                 if (typeof newProfile.body_fat === 'number') props.body_fat = newProfile.body_fat;
                 if (typeof newProfile.onboarding_completed === 'boolean') props.onboarding_completed = newProfile.onboarding_completed;
+                if (newProfile.primary_goal) props.primary_goal = newProfile.primary_goal;
+                if (newProfile.workout_frequency) props.workout_frequency = newProfile.workout_frequency;
+
                 analyticsIdentify(userId, props);
-              } catch {}
+                console.log('✅ Analytics updated with new profile data');
+              } catch (error) {
+                console.error('❌ Error updating analytics:', error);
+              }
+            } else {
+              console.warn('⚠️ Real-time update received but no new profile data');
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`🔌 Profile subscription status for user ${userId}:`, status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to profile changes');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Profile subscription channel error');
+          } else if (status === 'TIMED_OUT') {
+            console.error('❌ Profile subscription timed out');
+          } else if (status === 'CLOSED') {
+            console.log('🔌 Profile subscription closed');
+          }
+        });
 
       profileChannelRef.current = channel;
     };

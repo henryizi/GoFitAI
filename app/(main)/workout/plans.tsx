@@ -85,6 +85,8 @@ const WorkoutPlansScreen = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
+
+
   useEffect(() => {
     analyticsTrack('screen_view', { screen: 'workout_plans' });
     Animated.parallel([
@@ -110,23 +112,37 @@ const WorkoutPlansScreen = () => {
       setLoading(true);
       try {
         console.log('[WorkoutPlans] Fetching plans for user:', user.id);
+        console.log('[WorkoutPlans] User object:', { id: user.id, email: user.email });
         
         // Load from local storage first for immediate display
         let localPlans: any[] = [];
         try {
           const rawPlans = await WorkoutLocalStore.getPlans(user.id);
-                  console.log('[WorkoutPlans] Raw plans from storage:', {
-          type: typeof rawPlans,
-          isArray: Array.isArray(rawPlans),
-          length: rawPlans?.length,
-          sample: rawPlans?.slice?.(0, 1)?.map(p => ({
-            id: p?.id,
-            name: p?.name,
-            type: typeof p,
-            isArray: Array.isArray(p),
-            keys: p ? Object.keys(p).slice(0, 5) : []
-          }))
-        });
+          console.log('[WorkoutPlans] Raw plans from storage:', {
+            type: typeof rawPlans,
+            isArray: Array.isArray(rawPlans),
+            length: rawPlans?.length,
+            sample: rawPlans?.slice?.(0, 2)?.map(p => ({
+              id: p?.id,
+              name: p?.name,
+              type: typeof p,
+              isArray: Array.isArray(p),
+              keys: p ? Object.keys(p).slice(0, 5) : [],
+              isBodybuilder: p?.id?.startsWith?.('bb-') || false
+            }))
+          });
+
+          // Debug: Check for bodybuilder plans specifically
+          const bodybuilderPlans = rawPlans?.filter?.(p => p?.id?.startsWith?.('bb-')) || [];
+          if (bodybuilderPlans.length > 0) {
+            console.log('[WorkoutPlans] Found bodybuilder plans:', bodybuilderPlans.map(p => ({
+              id: p.id,
+              name: p.name,
+              created: p.created_at
+            })));
+          } else {
+            console.log('[WorkoutPlans] No bodybuilder plans found in storage');
+          }
           
           // Ensure we have an array
           if (Array.isArray(rawPlans)) {
@@ -146,6 +162,17 @@ const WorkoutPlansScreen = () => {
         // Validate and deduplicate plans
         const validPlans = removeDuplicatePlans(localPlans);
         console.log(`[WorkoutPlans] Successfully processed ${validPlans.length} valid plans`);
+
+        // Debug: Check which plans passed validation
+        const bodybuilderValidPlans = validPlans.filter(p => p.id?.startsWith?.('bb-'));
+        if (bodybuilderValidPlans.length > 0) {
+          console.log('[WorkoutPlans] Bodybuilder plans that passed validation:', bodybuilderValidPlans.map(p => ({
+            id: p.id,
+            name: p.name,
+            is_active: p.is_active
+          })));
+        }
+
         setPlans(validPlans);
 
         // Fetch the active plan to ensure it's correctly set
@@ -264,10 +291,23 @@ const WorkoutPlansScreen = () => {
             );
             
             const uniqueDbPlans = removeDuplicatePlans(enrichedPlans);
-            setPlans(uniqueDbPlans as any);
-            
-            // Also update local storage with these plans
-            await WorkoutLocalStore.savePlans(user.id, uniqueDbPlans as any);
+
+            // Merge local plans (including bodybuilder plans) with database plans
+            const mergedPlans = [...validPlans]; // Start with validated local plans (includes bodybuilder)
+            const dbPlanIds = new Set(uniqueDbPlans.map(p => p.id));
+
+            // Add any database plans that aren't already in the local plans
+            for (const dbPlan of uniqueDbPlans) {
+              if (!mergedPlans.some(p => p.id === dbPlan.id)) {
+                mergedPlans.push(dbPlan);
+              }
+            }
+
+            console.log(`[WorkoutPlans] Merged ${validPlans.length} local plans with ${uniqueDbPlans.length} database plans = ${mergedPlans.length} total plans`);
+            setPlans(mergedPlans as any);
+
+            // Also update local storage with merged plans (preserves bodybuilder plans)
+            await WorkoutLocalStore.savePlans(user.id, mergedPlans as any);
           }
         } catch (dbError) {
           console.error('[WorkoutPlans] Error fetching plans from database:', dbError);
@@ -757,7 +797,7 @@ const WorkoutPlansScreen = () => {
         </View>
       </View>
 
-      {/* Enhanced View History Action */}
+                {/* Enhanced View History Action */}
       <View style={styles.historyButtonContainer}>
         <TouchableOpacity
           style={styles.historyButton}
@@ -777,10 +817,12 @@ const WorkoutPlansScreen = () => {
               <Icon name="chevron-right" size={18} color={colors.white} />
             </View>
           </LinearGradient>
-          
+
           {/* Subtle glow effect */}
           <View style={styles.historyButtonGlow} />
         </TouchableOpacity>
+
+
       </View>
 
       {/* Stats row */}

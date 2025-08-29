@@ -150,22 +150,7 @@ const famousBodybuilders = [
     icon: 'refresh',
     image_url: 'https://www.muscleandfitness.com/wp-content/uploads/2019/08/lee-haney-1.jpg?quality=86&strip=all'
   },
-  {
-    id: 'derek',
-    name: 'Derek Lunsford',
-    style: 'Modern Open',
-    description: '6-day split, 12-15 sets per muscle group, back width focus and conditioning emphasis',
-    icon: 'weight-lifter',
-    image_url: 'https://www.muscleandfitness.com/wp-content/uploads/2022/12/derek-lunsford-posing.jpg?quality=86&strip=all'
-  },
-  {
-    id: 'hadi',
-    name: 'Hadi Choopan',
-    style: 'Modern Open',
-    description: '5-day split, 12-15 sets per muscle group, high intensity and dense muscle focus',
-    icon: 'weight-lifter',
-    image_url: 'https://www.muscleandfitness.com/wp-content/uploads/2022/12/hadi-choopan-posing.jpg?quality=86&strip=all'
-  },
+
   {
     id: 'nick',
     name: 'Nick Walker',
@@ -182,26 +167,14 @@ const famousBodybuilders = [
     icon: 'human-handsdown',
     image_url: 'https://www.muscleandfitness.com/wp-content/uploads/2013/10/tom-platz-sitting-on-bench.jpg?quality=86&strip=all'
   },
-  {
-    id: 'flex',
-    name: 'Flex Wheeler',
-    style: 'Aesthetic & Symmetrical',
-    description: '5-day split, 12-15 sets per muscle group, focus on symmetry, aesthetics, and flexibility',
-    icon: 'human',
-    image_url: 'https://www.muscleandfitness.com/wp-content/uploads/2017/06/flex-wheeler-1.jpg?quality=86&strip=all'
-  },
-  {
-    id: 'sergio',
-    name: 'Sergio Oliva',
-    style: 'The Myth',
-    description: '4-day split, 10-15 sets per muscle group, unmatched genetics focus and V-taper development',
-    icon: 'arm-flex',
-    image_url: 'https://fitnessvolt.com/wp-content/uploads/2019/01/Sergio-Oliva_0.jpg'
-  }
+
 ];
 
 export default function PlanCreateScreen() {
   const { user, profile } = useAuth();
+
+  console.log('[PlanCreate] User from useAuth:', { id: user?.id, email: user?.email });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlanType, setSelectedPlanType] = useState('custom');
@@ -232,6 +205,7 @@ export default function PlanCreateScreen() {
         body_fat: 15,
         activity_level: 'moderate',
         exercise_frequency: '4-6',
+        workout_frequency: '4_5', // Default workout frequency for guest
         weight_trend: 'stable',
         onboarding_completed: true
       };
@@ -365,6 +339,8 @@ export default function PlanCreateScreen() {
         emulateBodybuilder: selectedPlanType === 'bodybuilder' ? selectedBodybuilder : undefined,
       });
 
+      console.log('[PlanCreate] About to call createAIPlan with user ID:', user.id, 'bodybuilder:', selectedBodybuilder);
+
       analyticsTrack('ai_plan_create_start', { user_id: user.id, emulate: selectedPlanType === 'bodybuilder' ? selectedBodybuilder : null, level: trLevel });
       const plan = await WorkoutService.createAIPlan({
         userId: user.id,
@@ -383,29 +359,49 @@ export default function PlanCreateScreen() {
 
       if (plan) {
         analyticsTrack('ai_plan_create_success', { user_id: user.id, plan_id: (plan as any)?.id, days: (plan as any)?.weeklySchedule?.length || 0 });
-        try {
-          const planWithDefaults = {
-            ...plan,
-            is_active: true,
-            image_url: (plan as any).image_url || 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2000&auto=format&fit=crop'
-          } as any;
-          
-          if (user?.id) {
-            await WorkoutLocalStore.addPlan(user.id, planWithDefaults);
+
+        // Only save to local storage if this is NOT a bodybuilder plan
+        // Bodybuilder plans are already saved in createBodybuilderPlanOffline
+        const isBodybuilderPlan = selectedPlanType === 'bodybuilder' && selectedBodybuilder;
+
+        if (!isBodybuilderPlan) {
+          try {
+            const planWithDefaults = {
+              ...plan,
+              is_active: true,
+              image_url: (plan as any).image_url || 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2000&auto=format&fit=crop'
+            } as any;
+
+            if (user?.id) {
+              await WorkoutLocalStore.addPlan(user.id, planWithDefaults);
+            }
+          } catch (e) {
+            console.log('[PlanCreate] Failed to add plan to local store:', e);
           }
-        } catch (e) {
-          console.log('[PlanCreate] Failed to add plan to local store:', e);
+        } else {
+          console.log('[PlanCreate] Skipping local storage save for bodybuilder plan - already saved in offline creation');
         }
         console.log('Plan created successfully, navigating with plan data:', plan);
-        Alert.alert('Success', 'Workout plan generated successfully!', [
-          {
-            text: 'View Plan',
-            onPress: () => router.replace({
-                pathname: '/(main)/workout/plan/[planId]',
-                params: { planId: String((plan as any).id), planObject: JSON.stringify(plan) }
-            }),
-          },
-        ]);
+        // Add a small delay to ensure plan is fully saved before navigation
+        setTimeout(() => {
+          Alert.alert('Success', 'Workout plan generated successfully!', [
+            {
+              text: 'View Plan',
+              onPress: () => router.replace({
+                  pathname: '/(main)/workout/plan/[planId]',
+                  params: { planId: String((plan as any).id), planObject: JSON.stringify(plan) }
+              }),
+            },
+            {
+              text: 'View Plans List',
+              onPress: () => router.replace({
+                pathname: '/(main)/workout/plans',
+                params: { refresh: 'true' }
+              }),
+              style: 'default'
+            },
+          ]);
+        }, 500);
       } else {
         console.log('Error: Plan creation failed');
         analyticsTrack('ai_plan_create_failure', { user_id: user.id, reason: 'no_plan_returned' });
@@ -727,6 +723,15 @@ export default function PlanCreateScreen() {
                         <View style={styles.profileMetric}>
                           <Text style={styles.metricValue}>{effectiveProfile?.weight ? `${effectiveProfile.weight}` : '--'}</Text>
                           <Text style={styles.metricLabel}>WEIGHT (KG)</Text>
+                        </View>
+                        <View style={styles.profileMetric}>
+                          <Text style={styles.metricValue}>
+                            {effectiveProfile?.workout_frequency ?
+                              effectiveProfile.workout_frequency.replace('_', '-') + 'x/week' :
+                              '--'
+                            }
+                          </Text>
+                          <Text style={styles.metricLabel}>WORKOUT FREQ</Text>
                         </View>
                       </View>
                       
@@ -1109,10 +1114,13 @@ const styles = StyleSheet.create({
   },
   profileMetrics: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
   },
   profileMetric: {
     alignItems: 'center',
+    width: '45%', // Allow for 2 metrics per row with some spacing
+    marginBottom: 16,
   },
   metricValue: {
     color: colors.white,

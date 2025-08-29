@@ -19,6 +19,8 @@ export interface Database {
           height: number | null;
           weight: number | null;
           training_level: 'beginner' | 'intermediate' | 'advanced' | null;
+          primary_goal: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          workout_frequency: '2_3' | '4_5' | '6' | null;
           onboarding_completed: boolean;
           goal_fat_reduction: number | null;
           goal_muscle_gain: number | null;
@@ -37,6 +39,8 @@ export interface Database {
           height?: number | null;
           weight?: number | null;
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
+          primary_goal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          workout_frequency?: '2_3' | '4_5' | '6' | null;
           onboarding_completed?: boolean;
           goal_fat_reduction?: number | null;
           goal_muscle_gain?: number | null;
@@ -55,6 +59,8 @@ export interface Database {
           height?: number | null;
           weight?: number | null;
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
+          primary_goal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          workout_frequency?: '2_3' | '4_5' | '6' | null;
           onboarding_completed?: boolean;
           goal_fat_reduction?: number | null;
           goal_muscle_gain?: number | null;
@@ -282,6 +288,29 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['exercise_logs']['Row'], 'id' | 'completed_at'>;
         Update: Partial<Database['public']['Tables']['exercise_logs']['Insert']>;
+      };
+
+      workout_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          plan_id: string | null; // Made nullable since plan might be deleted
+          session_id: string | null; // Made nullable since session might be deleted
+          completed_at: string;
+          duration_minutes: number | null;
+          total_sets: number | null;
+          total_exercises: number | null;
+          notes: string | null;
+          created_at: string;
+          // New permanent storage fields
+          plan_name: string | null;
+          session_name: string | null;
+          week_number: number | null;
+          day_number: number | null;
+          exercises_data: any | null; // JSONB storing complete exercise data
+        };
+        Insert: Omit<Database['public']['Tables']['workout_history']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['workout_history']['Insert']>;
       };
 
       volume_tracking: {

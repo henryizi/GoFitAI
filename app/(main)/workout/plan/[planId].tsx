@@ -187,6 +187,15 @@ export default function PlanDetailScreen() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [chatHistory, chatVisible, chatKey]);
 
+  // Helper function to check if this is a bodybuilder plan
+  const isBodybuilderPlan = () => {
+    const isBB = plan?.id?.startsWith('bb-') || false;
+    if (isBB) {
+      console.log('[PlanDetail] Bodybuilder plan detected - hiding AI refinement:', plan?.id);
+    }
+    return isBB;
+  };
+
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
 
@@ -616,15 +625,24 @@ export default function PlanDetailScreen() {
               
               console.log(`[PlanDetail] Loaded ${normalizedSessions.length} sessions with exercises`);
               setSessions(normalizedSessions);
-              
-              // Also update the plan's weekly schedule to match the sessions
-              // This ensures consistency between the plan and sessions
-              const updatedPlan = {
-                ...realPlanData,
-                weekly_schedule: normalizedSessions,
-                weeklySchedule: normalizedSessions
-              };
-              setPlan(updatedPlan);
+
+              // Only update the plan's weekly schedule if we don't already have a proper one
+              // or if the database sessions have MORE data than the current weekly schedule
+              const currentWeeklySchedule = realPlanData.weekly_schedule || realPlanData.weeklySchedule || [];
+              const shouldUpdateSchedule = !currentWeeklySchedule.length ||
+                (normalizedSessions.length > currentWeeklySchedule.length);
+
+              if (shouldUpdateSchedule) {
+                console.log(`[PlanDetail] Updating plan's weekly schedule (${normalizedSessions.length} sessions vs ${currentWeeklySchedule.length} current)`);
+                const updatedPlan = {
+                  ...realPlanData,
+                  weekly_schedule: normalizedSessions,
+                  weeklySchedule: normalizedSessions
+                };
+                setPlan(updatedPlan);
+              } else {
+                console.log(`[PlanDetail] Keeping existing weekly schedule (${currentWeeklySchedule.length} days) - not overwriting with ${normalizedSessions.length} sessions`);
+              }
               
               // No need to load from weekly_schedule if we have real sessions
               return;
@@ -639,6 +657,11 @@ export default function PlanDetailScreen() {
           const weeklySchedule = realPlanData.weekly_schedule || realPlanData.weeklySchedule;
           if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
             console.log('[PlanDetail] Using weekly schedule from plan:', weeklySchedule.length, 'days');
+            console.log('[PlanDetail] Weekly schedule sample:', weeklySchedule.slice(0, 3).map(day => ({
+              day: day.day,
+              focus: day.focus,
+              exercises: day.exercises?.length || 0
+            })));
             
             // Ensure each session has a unique ID and exercises array
             const processedSessions = weeklySchedule.map((day: any, index: number) => {
@@ -1237,7 +1260,7 @@ export default function PlanDetailScreen() {
           <View style={styles.centered}>
               <StatusBar style="light" />
               <Text style={styles.loadingText}>Plan not found.</Text>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/(main)/workout/plans', params: { refresh: 'true' } })} style={styles.backButton}>
                 <LinearGradient
                   colors={[colors.primary, colors.primaryDark]}
                   style={styles.backButtonGradient}
@@ -1283,7 +1306,8 @@ export default function PlanDetailScreen() {
             console.log('Back button pressed in workout plan detail');
             try {
               router.push({
-                pathname: '/(main)/workout/plans'
+                pathname: '/(main)/workout/plans',
+                params: { refresh: 'true' }
               });
             } catch (error) {
               console.error('Error navigating back:', error);
@@ -1344,23 +1368,25 @@ export default function PlanDetailScreen() {
             ],
           }
         ]}>
-          {/* AI Chat Button */}
-        <TouchableOpacity
-          style={styles.aiButton}
-          onPress={() => setChatVisible(true)}
-            activeOpacity={0.8}
-          >
-            <BlurView intensity={60} style={styles.aiButtonBlur}>
-              <LinearGradient
-                colors={[colors.glassStrong, colors.glass]}
-                style={styles.aiButtonGradient}
-        >
-          <Icon name="robot-outline" size={22} color={colors.primary} style={styles.aiIcon} />
-          <Text style={styles.aiButtonText}>Ask AI to Refine This Plan</Text>
-                <Icon name="chevron-right" size={16} color={colors.primary} />
-              </LinearGradient>
-            </BlurView>
-        </TouchableOpacity>
+          {/* AI Chat Button - Only show for non-bodybuilder plans */}
+          {!isBodybuilderPlan() && (
+            <TouchableOpacity
+              style={styles.aiButton}
+              onPress={() => setChatVisible(true)}
+              activeOpacity={0.8}
+            >
+              <BlurView intensity={60} style={styles.aiButtonBlur}>
+                <LinearGradient
+                  colors={[colors.glassStrong, colors.glass]}
+                  style={styles.aiButtonGradient}
+                >
+                  <Icon name="robot-outline" size={22} color={colors.primary} style={styles.aiIcon} />
+                  <Text style={styles.aiButtonText}>Ask AI to Refine This Plan</Text>
+                  <Icon name="chevron-right" size={16} color={colors.primary} />
+                </LinearGradient>
+              </BlurView>
+            </TouchableOpacity>
+          )}
         
           {/* Title Section */}
           <View style={styles.titleSection}>
@@ -1378,70 +1404,75 @@ export default function PlanDetailScreen() {
           </View>
         
           {/* Workout Sessions */}
-        {sessions.map((session, index) => (
-            <Animated.View 
-            key={session.id} 
-              style={[
-                {
-                  opacity: fadeAnim,
-                  transform: [
-                    {
-                      translateY: slideAnim,
-                    },
-                    {
-                      scale: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.9, 1],
-                      }),
-                    },
-                  ],
-                },
-                { marginBottom: 20 }
-              ]}
-            >
-              <TouchableOpacity 
-            onPress={() => toggleSession(session.id)}
-                activeOpacity={0.8}
+        {sessions.map((session, index) => {
+            // Check if this is a rest day
+            const isRestDay = !session.exercises || session.exercises.length === 0 ||
+                            (session.day && session.day.toLowerCase().includes('rest'));
+
+            return (
+              <Animated.View
+              key={session.id}
+                style={[
+                  {
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateY: slideAnim,
+                      },
+                      {
+                        scale: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.9, 1],
+                        }),
+                      },
+                    ],
+                  },
+                  { marginBottom: 20 }
+                ]}
               >
-                                 <View style={styles.sessionCard}>
-                   <ImageBackground
-                     source={{ uri: getSplitImage(session.focus || "") }}
-                     style={styles.sessionCardBackground}
-                     imageStyle={styles.sessionCardImage}
-                   >
-                                         <LinearGradient
-                       colors={[
-                         'rgba(0,0,0,0.2)',
-                         'rgba(0,0,0,0.4)',
-                         'rgba(0,0,0,0.7)'
-                       ]}
-                       style={styles.cardOverlay}
-                     />
-                    
-                    <View style={styles.sessionHeader}>
-                      <View style={styles.sessionIconContainer}>
-                    <Icon 
-                      name={getSplitIcon(session.focus || "")} 
-                      size={22} 
-                      color={colors.primary} 
+                <TouchableOpacity
+              onPress={() => toggleSession(session.id)}
+                  activeOpacity={0.8}
+                >
+                                   <View style={styles.sessionCard}>
+                     <ImageBackground
+                       source={{ uri: getSplitImage(session.focus || "") }}
+                       style={styles.sessionCardBackground}
+                       imageStyle={styles.sessionCardImage}
+                     >
+                                           <LinearGradient
+                         colors={[
+                           'rgba(0,0,0,0.2)',
+                           'rgba(0,0,0,0.4)',
+                           'rgba(0,0,0,0.7)'
+                         ]}
+                         style={styles.cardOverlay}
+                       />
+
+                      <View style={styles.sessionHeader}>
+                        <View style={styles.sessionIconContainer}>
+                      <Icon
+                        name={isRestDay ? 'sleep' : getSplitIcon(session.focus || "")}
+                        size={22}
+                        color={isRestDay ? colors.secondary : colors.primary}
+                      />
+                    </View>
+
+                                              <Text style={styles.sessionName}>
+                          {isRestDay ? 'Rest Day' : (session.focus || `Split ${index + 1}`)}
+                        </Text>
+
+                    <IconButton
+                      icon={expandedSession === session.id ? 'chevron-up' : 'chevron-down'}
+                      size={22}
+                          iconColor={colors.white}
+                          style={styles.sessionToggle}
                     />
                   </View>
-                  
-                                            <Text style={styles.sessionName}>
-                        {session.focus || `Split ${index + 1}`}
-                      </Text>
-                  
-                  <IconButton
-                    icon={expandedSession === session.id ? 'chevron-up' : 'chevron-down'}
-                    size={22}
-                        iconColor={colors.white}
-                        style={styles.sessionToggle}
-                  />
-                </View>
-                  </ImageBackground>
-                </View>
-              </TouchableOpacity>
-                
+                    </ImageBackground>
+                  </View>
+                </TouchableOpacity>
+
                 {expandedSession === session.id && (
                   <View style={styles.exerciseContainer}>
                   <BlurView intensity={60} style={styles.exerciseBlur}>
@@ -1449,162 +1480,183 @@ export default function PlanDetailScreen() {
                       colors={[colors.card, colors.cardLight]}
                       style={styles.exerciseGradient}
                     >
-                    {session.exercises?.map((exercise, idx) => (
-                      <View key={exercise.id} style={styles.exerciseItem}>
-                        <View style={styles.exerciseIconContainer}>
-                          <Text style={styles.exerciseNumber}>{idx + 1}</Text>
-                        </View>
-                        
-                        <View style={styles.exerciseDetails}>
-                          <View style={styles.exerciseNameRow}>
-                            <Text style={styles.exerciseName}>{exercise.name}</Text>
-                            
-                            {editingExercise !== exercise.id && (
-                              <IconButton
-                                icon="pencil"
-                                size={16}
-                                iconColor={colors.primary}
-                                onPress={() => handleEditExercise(
-                                  session.id,
-                                  exercise.id,
-                                  exercise.sets,
-                                  exercise.reps,
-                                  exercise.rest
-                                )}
-                              />
-                            )}
-                          </View>
-                          
-                          {editingExercise === exercise.id ? (
-                            <View style={styles.editContainer}>
-                              <View style={styles.editRow}>
-                                <Text style={styles.editLabel}>Sets:</Text>
-                                <TextInput
-                                  value={editedSets?.toString() || ''}
-                                  onChangeText={(text) => setEditedSets(parseInt(text) || 0)}
-                                  keyboardType="numeric"
-                                  style={styles.editInput}
-                                  mode="outlined"
-                                    theme={{
-                                      colors: {
-                                        primary: colors.primary,
-                                        outline: colors.border,
-                                        onSurfaceVariant: colors.textSecondary,
-                                        surface: colors.surface,
-                                        onSurface: colors.text
-                                      }
-                                    }}
-                                />
-                              </View>
-                              <View style={styles.editRow}>
-                                <Text style={styles.editLabel}>Reps:</Text>
-                                <TextInput
-                                  value={editedReps || ''}
-                                  onChangeText={setEditedReps}
-                                  style={styles.editInput}
-                                  mode="outlined"
-                                    theme={{
-                                      colors: {
-                                        primary: colors.primary,
-                                        outline: colors.border,
-                                        onSurfaceVariant: colors.textSecondary,
-                                        surface: colors.surface,
-                                        onSurface: colors.text
-                                      }
-                                    }}
-                                />
-                              </View>
-                              <View style={styles.editRow}>
-                                <Text style={styles.editLabel}>Rest:</Text>
-                                <TextInput
-                                  value={editedRest || ''}
-                                  onChangeText={setEditedRest}
-                                  style={styles.editInput}
-                                  mode="outlined"
-                                    theme={{
-                                      colors: {
-                                        primary: colors.primary,
-                                        outline: colors.border,
-                                        onSurfaceVariant: colors.textSecondary,
-                                        surface: colors.surface,
-                                        onSurface: colors.text
-                                      }
-                                    }}
-                                />
-                              </View>
-                              <View style={styles.editButtons}>
-                                  <TouchableOpacity 
-                                  onPress={cancelEdit}
-                                  style={styles.cancelButton}
-                                  >
-                                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity 
-                                  onPress={handleSaveExerciseChanges}
-                                    style={styles.saveButtonContainer}
-                                  >
-                                    <LinearGradient
-                                      colors={[colors.primary, colors.primaryDark]}
-                                  style={styles.saveButton}
-                                >
-                                      <Text style={styles.saveButtonText}>Save</Text>
-                                    </LinearGradient>
-                                  </TouchableOpacity>
-                              </View>
-                            </View>
-                          ) : (
-                            <View style={styles.exerciseMetrics}>
-                              <View style={styles.metric}>
-                                <Icon name="repeat" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.sets} sets</Text>
-                              </View>
-                              <View style={styles.metric}>
-                                <Icon name="sync" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.reps} reps</Text>
-                              </View>
-                              <View style={styles.metric}>
-                                <Icon name="timer-outline" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.rest} rest</Text>
-                              </View>
-                            </View>
-                          )}
+                    {isRestDay ? (
+                      <View style={styles.restDayContainer}>
+                        <View style={styles.restDayContent}>
+                          <Icon name="sleep" size={32} color={colors.secondary} />
+                          <Text style={styles.restDayTitleExpanded}>Rest Day</Text>
+                          <Text style={styles.restDayDescription}>
+                            Take today to recover, relax, and let your muscles rebuild stronger.
+                          </Text>
+                          <Text style={styles.restDayTip}>
+                            💡 Tip: Light walking or stretching is okay, but avoid intense exercise.
+                          </Text>
                         </View>
                       </View>
-                    ))}
-                    
-                      <TouchableOpacity 
-                        style={styles.startButtonContainer}
-                      onPress={() => router.push({
-                        pathname: `/(main)/workout/session/${session.id}`,
-                        params: { sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
-                      })}
-                        activeOpacity={0.8}
-                      >
-                        <LinearGradient
-                          colors={[colors.primary, colors.primaryDark]}
-                          style={styles.startButton}
+                    ) : (
+                      session.exercises?.map((exercise, idx) => (
+                        <View key={exercise.id} style={styles.exerciseItem}>
+                          <View style={styles.exerciseIconContainer}>
+                            <Text style={styles.exerciseNumber}>{idx + 1}</Text>
+                          </View>
+
+                          <View style={styles.exerciseDetails}>
+                            <View style={styles.exerciseNameRow}>
+                              <Text style={styles.exerciseName}>{exercise.name}</Text>
+
+                              {editingExercise !== exercise.id && (
+                                <IconButton
+                                  icon="pencil"
+                                  size={16}
+                                  iconColor={colors.primary}
+                                  onPress={() => handleEditExercise(
+                                    session.id,
+                                    exercise.id,
+                                    exercise.sets,
+                                    exercise.reps,
+                                    exercise.rest
+                                  )}
+                                />
+                              )}
+                            </View>
+
+                            {editingExercise === exercise.id ? (
+                              <View style={styles.editContainer}>
+                                <View style={styles.editRow}>
+                                  <Text style={styles.editLabel}>Sets:</Text>
+                                  <TextInput
+                                    value={editedSets?.toString() || ''}
+                                    onChangeText={(text) => setEditedSets(parseInt(text) || 0)}
+                                    keyboardType="numeric"
+                                    style={styles.editInput}
+                                    mode="outlined"
+                                      theme={{
+                                        colors: {
+                                          primary: colors.primary,
+                                          outline: colors.border,
+                                          onSurfaceVariant: colors.textSecondary,
+                                          surface: colors.surface,
+                                          onSurface: colors.text
+                                        }
+                                      }}
+                                  />
+                                </View>
+                                <View style={styles.editRow}>
+                                  <Text style={styles.editLabel}>Reps:</Text>
+                                  <TextInput
+                                    value={editedReps || ''}
+                                    onChangeText={setEditedReps}
+                                    style={styles.editInput}
+                                    mode="outlined"
+                                      theme={{
+                                        colors: {
+                                          primary: colors.primary,
+                                          outline: colors.border,
+                                          onSurfaceVariant: colors.textSecondary,
+                                          surface: colors.surface,
+                                          onSurface: colors.text
+                                        }
+                                      }}
+                                  />
+                                </View>
+                                <View style={styles.editRow}>
+                                  <Text style={styles.editLabel}>Rest:</Text>
+                                  <TextInput
+                                    value={editedRest || ''}
+                                    onChangeText={setEditedRest}
+                                    style={styles.editInput}
+                                    mode="outlined"
+                                      theme={{
+                                        colors: {
+                                          primary: colors.primary,
+                                          outline: colors.border,
+                                          onSurfaceVariant: colors.textSecondary,
+                                          surface: colors.surface,
+                                          onSurface: colors.text
+                                        }
+                                      }}
+                                  />
+                                </View>
+                                <View style={styles.editButtons}>
+                                    <TouchableOpacity
+                                    onPress={cancelEdit}
+                                    style={styles.cancelButton}
+                                    >
+                                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                    onPress={handleSaveExerciseChanges}
+                                      style={styles.saveButtonContainer}
+                                    >
+                                      <LinearGradient
+                                        colors={[colors.primary, colors.primaryDark]}
+                                    style={styles.saveButton}
+                                  >
+                                        <Text style={styles.saveButtonText}>Save</Text>
+                                      </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+                              </View>
+                            ) : (
+                              <View style={styles.exerciseMetrics}>
+                                <View style={styles.metric}>
+                                  <Icon name="repeat" size={14} color={colors.primary} />
+                                  <Text style={styles.metricText}>{exercise.sets} sets</Text>
+                                </View>
+                                <View style={styles.metric}>
+                                  <Icon name="sync" size={14} color={colors.primary} />
+                                  <Text style={styles.metricText}>{exercise.reps} reps</Text>
+                                </View>
+                                <View style={styles.metric}>
+                                  <Icon name="timer-outline" size={14} color={colors.primary} />
+                                  <Text style={styles.metricText}>{exercise.rest} rest</Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      ))
+                    )}
+
+                      {!isRestDay && (
+                        <TouchableOpacity
+                          style={styles.startButtonContainer}
+                        onPress={() => router.push({
+                          pathname: `/(main)/workout/session/${session.id}`,
+                          params: { sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
+                        })}
+                          activeOpacity={0.8}
                         >
-                          <Icon name="play-circle-outline" size={20} color={colors.white} style={styles.startButtonIcon} />
-                          <Text style={styles.startButtonText}>Start Workout</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
+                          <LinearGradient
+                            colors={[colors.primary, colors.primaryDark]}
+                            style={styles.startButton}
+                          >
+                            <Icon name="play-circle-outline" size={20} color={colors.white} style={styles.startButtonIcon} />
+                            <Text style={styles.startButtonText}>Start Workout</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      )}
                     </LinearGradient>
                   </BlurView>
                   </View>
                 )}
+
+
             </Animated.View>
-        ))}
+        );
+        })}
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* AI Chat Modal */}
-      <Portal>
-        <Modal
-          transparent={true}
-          visible={chatVisible}
-          onDismiss={() => setChatVisible(false)}
-          animationType="slide"
-        >
+      {/* AI Chat Modal - Only show for non-bodybuilder plans */}
+      {!isBodybuilderPlan() && (
+        <Portal>
+          <Modal
+            transparent={true}
+            visible={chatVisible}
+            onDismiss={() => setChatVisible(false)}
+            animationType="slide"
+          >
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={[styles.modalContainer, { paddingBottom: insets.bottom }]}
@@ -1728,6 +1780,7 @@ export default function PlanDetailScreen() {
           </KeyboardAvoidingView>
         </Modal>
       </Portal>
+      )}
 
 
     </View>
@@ -2320,6 +2373,53 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontSize: 15,
     fontWeight: '500',
+  },
+  restDayContainer: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  restDayBlur: {
+    borderRadius: 16,
+  },
+  restDayGradient: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  restDayContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  restDayTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.secondary,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  restDayTitleExpanded: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.secondary,
+    marginTop: 8,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  restDayDescription: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  restDayTip: {
+    fontSize: 14,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
   applyBtnContainer: {
     marginTop: 20,

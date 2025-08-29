@@ -2,8 +2,7 @@
   "compilerOptions": {
     "target": "es2017",
     "lib": [
-      "es2017",
-      "dom"
+      "es2017"
     ],
     "declaration": true,
     "outDir": "./dist",
@@ -12,11 +11,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
   },
   "include": [
     "src/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "app/**/*"
   ],
   "exclude": [
     "node_modules",

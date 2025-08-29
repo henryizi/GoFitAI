@@ -641,16 +641,9 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
           <Text style={styles.sectionTitleText}>WEIGHT TREND</Text>
         </View>
       </View>
-      <View style={styles.chartCard}>
-        <LinearGradient colors={[colors.glassStrong, colors.glass]} style={styles.chartCardGradient}>
-          <View style={styles.chartHeader}>
-            <Icon name="chart-line" size={20} color={colors.primary} />
-            <Text style={styles.chartTitle}>Weight Progress</Text>
-            <View style={styles.chartBadge}><Text style={styles.chartBadgeText}>TREND</Text></View>
-          </View>
-          <WeightProgressChart data={entries} showAllValueLabels />
-        </LinearGradient>
-      </View>
+
+      {/* Weight Progress Chart */}
+      <WeightProgressChart data={entries} />
       
       {/* Motivation */}
       {motivation?.message && (

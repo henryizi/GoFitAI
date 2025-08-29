@@ -208,7 +208,10 @@ export default function WorkoutHistoryListScreen() {
           <View style={styles.emptyButtonsContainer}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={() => {
+                console.log('[WorkoutHistory] Empty state back button pressed - navigating to workout plans');
+                router.push('/(main)/workout/plans');
+              }}
             >
               <LinearGradient
                 colors={colors.primaryGradient}
@@ -260,7 +263,13 @@ export default function WorkoutHistoryListScreen() {
       
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('[WorkoutHistory] Back button pressed - navigating to workout plans');
+            router.push('/(main)/workout/plans');
+          }} 
+          style={styles.backBtn}
+        >
           <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Workout History</Text>

@@ -6,9 +6,9 @@ export type CompletedSessionListItem = {
   completed_at: string;
   week_number: number | null;
   day_number: number | null;
-  estimated_calories?: number | null;
   split_name?: string | null;
   split_focus?: string[] | null;
+  estimated_calories?: number | null;
 };
 
 export type SessionExerciseLog = {
@@ -53,6 +53,15 @@ export class WorkoutHistoryService {
     if (!supabase) {
       console.error('[WorkoutHistoryService] Supabase client not initialized. Check environment variables.');
       return [];
+    }
+    
+    // Debug: Check current auth state
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      console.log(`[WorkoutHistoryService] Current auth user: ${user?.id || 'NONE'}, Error: ${error?.message || 'NONE'}`);
+      console.log(`[WorkoutHistoryService] Requested userId: ${userId}, Match: ${user?.id === userId}`);
+    } catch (authError) {
+      console.error('[WorkoutHistoryService] Auth check error:', authError);
     }
     
     try {
@@ -121,12 +130,16 @@ export class WorkoutHistoryService {
       }
       
       // Third approach: Get all completed sessions for this user directly
+      // Note: workout_sessions doesn't have user_id, we need to join with workout_plans
       console.log(`[WorkoutHistoryService] Trying to find any completed sessions for user`);
       const { data: userData, error: userError } = await applyCompletedFilter(
         supabase
           .from('workout_sessions')
-          .select(baseSelect)
-          .eq('user_id', userId)
+          .select(`
+            ${baseSelect},
+            workout_plans!inner(user_id)
+          `)
+          .eq('workout_plans.user_id', userId)
           .order('completed_at', { ascending: false })
       );
       
@@ -337,15 +350,121 @@ export class WorkoutHistoryService {
   }
 
   // Helper method to map session data to the expected format
+  /**
+   * Save workout history entry with complete data for permanent storage
+   */
+  static async saveWorkoutHistory(historyData: {
+    user_id: string;
+    plan_id: string;
+    session_id: string;
+    completed_at: string;
+    duration_minutes?: number;
+    total_sets?: number;
+    total_exercises?: number;
+    estimated_calories?: number | null;
+    notes?: string;
+  }): Promise<boolean> {
+    console.log(`[WorkoutHistoryService] Saving workout history for session: ${historyData.session_id}`);
+    
+    // Check if supabase client is available
+    if (!supabase) {
+      console.error('[WorkoutHistoryService] Supabase client not initialized. Check environment variables.');
+      return false;
+    }
+    
+    try {
+      // Get plan and session details to store permanently
+      let planName = 'Unknown Plan';
+      let sessionName = 'Unknown Session';
+      let weekNumber: number | null = null;
+      let dayNumber: number | null = null;
+      let exercisesData: any = null;
+
+      // Fetch plan details
+      try {
+        const { data: planData } = await supabase
+          .from('workout_plans')
+          .select('name')
+          .eq('id', historyData.plan_id)
+          .single();
+        
+        if (planData?.name) {
+          planName = planData.name;
+        }
+      } catch (planError) {
+        console.warn('[WorkoutHistoryService] Could not fetch plan name:', planError);
+      }
+
+      // Fetch session details and exercises
+      try {
+        const { data: sessionData } = await supabase
+          .from('workout_sessions')
+          .select('week_number, day_number')
+          .eq('id', historyData.session_id)
+          .single();
+        
+        if (sessionData) {
+          weekNumber = sessionData.week_number;
+          dayNumber = sessionData.day_number;
+          sessionName = `Week ${weekNumber} Day ${dayNumber}`;
+        }
+
+        // Get exercise sets data for this session
+        const { data: setsData } = await supabase
+          .from('exercise_sets')
+          .select(`
+            id, exercise_id, set_number, target_reps, target_weight, 
+            actual_reps, actual_weight, rest_seconds, completed, rpe,
+            exercises (name, category, muscle_groups)
+          `)
+          .eq('session_id', historyData.session_id);
+        
+        if (setsData && setsData.length > 0) {
+          exercisesData = setsData;
+        }
+      } catch (sessionError) {
+        console.warn('[WorkoutHistoryService] Could not fetch session details:', sessionError);
+      }
+
+      // Create enhanced history data with permanent information
+      const enhancedHistoryData = {
+        ...historyData,
+        plan_name: planName,
+        session_name: sessionName,
+        week_number: weekNumber,
+        day_number: dayNumber,
+        exercises_data: exercisesData
+      };
+
+      const { data, error } = await supabase
+        .from('workout_history')
+        .insert([enhancedHistoryData])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('[WorkoutHistoryService] Error saving workout history:', error);
+        return false;
+      }
+      
+      console.log(`[WorkoutHistoryService] Successfully saved permanent workout history with ID: ${data?.id}`);
+      console.log(`[WorkoutHistoryService] Saved data: Plan "${planName}", Session "${sessionName}", ${historyData.total_exercises} exercises, ${historyData.total_sets} sets, ${historyData.estimated_calories} calories`);
+      return true;
+    } catch (error) {
+      console.error(`[WorkoutHistoryService] Error saving workout history:`, error);
+      return false;
+    }
+  }
+
   private static mapSessionData(s: any): CompletedSessionListItem {
     return {
       id: s.id,
       completed_at: s.completed_at,
       week_number: s.week_number ?? null,
       day_number: s.day_number ?? null,
-      estimated_calories: s.estimated_calories ?? null,
       split_name: s.training_splits?.name ?? null,
       split_focus: s.training_splits?.focus_areas ?? null,
+      estimated_calories: s.estimated_calories ?? null,
     };
   }
 } 
