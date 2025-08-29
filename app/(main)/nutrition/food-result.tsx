@@ -38,11 +38,12 @@ export default function FoodResultScreen() {
   const [loading, setLoading] = useState(false);
 
   // Extract nutrition data from the correct API response structure
-  const nutritionData = parsed?.data?.totalNutrition || parsed?.totalNutrition || {};
+  // Handle both wrapped (data.totalNutrition) and direct (totalNutrition) response formats
+  const nutritionData = parsed?.data?.totalNutrition || parsed?.totalNutrition || parsed || {};
   const foodItems = parsed?.data?.foodItems || parsed?.foodItems || [];
   
   // Use AI-generated meal name from backend or fall back to first food item
-  const mealName = parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
+  const mealName = parsed?.data?.dishName || parsed?.dishName || parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
   const foodName = mealName || foodItems?.[0]?.name || 'Detected Food';
   
   // Create display name for verified foods in bubble

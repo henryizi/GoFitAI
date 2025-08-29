@@ -42,8 +42,9 @@ function makeRequest(url, data) {
 async function testSimpleImage() {
   console.log('🔍 Test 1: Simple PNG image (should work with LLaVA)');
   
-  // Simple red dot PNG
-  const simplePng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  // Use the actual test image from the project
+  const fs = require('fs');
+  const simplePng = fs.readFileSync('../test-image.png').toString('base64');
   
   try {
     const result = await makeRequest('https://gofitai-production.up.railway.app/api/analyze-food', {

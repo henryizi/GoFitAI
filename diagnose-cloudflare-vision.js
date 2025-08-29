@@ -1,238 +1,233 @@
-// Cloudflare Workers AI Vision Diagnostic Script
+// Comprehensive Cloudflare Vision Service Diagnostic Tool
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 class CloudflareVisionDiagnostic {
-    constructor() {
-        this.accountId = process.env.CF_ACCOUNT_ID;
-        this.apiToken = process.env.CF_API_TOKEN;
-        this.baseURL = `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai`;
+  constructor() {
+    this.accountId = process.env.CF_ACCOUNT_ID;
+    this.apiToken = process.env.CF_API_TOKEN;
+    this.baseURL = `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run`;
+    this.visionModels = [
+      '@cf/llava-hf/llava-1.5-7b-hf',
+      '@cf/meta/llama-3.2-90b-vision-instruct',
+      '@cf/unum/uform-gen2-qwen-500m'
+    ];
+  }
 
-        // Common vision models to test
-        this.visionModels = [
-            '@cf/llava-hf/llava-1.5-7b-hf',
-            '@cf/meta/llama-3.2-90b-vision-instruct',
-            '@cf/unum/uform-gen2-qwen-500m',
-            '@cf/openai/whisper',
-            '@cf/runwayml/stable-diffusion-v1-5-inpainting'
-        ];
+  async runFullDiagnostic() {
+    console.log('🔍 CLOUDFLARE VISION SERVICE DIAGNOSTIC');
+    console.log('=' .repeat(50));
 
-        console.log('🔍 CLOUDFLARE WORKERS AI VISION DIAGNOSTIC');
-        console.log('==========================================');
+    // 1. Check credentials
+    console.log('\n1. 🔐 CHECKING CREDENTIALS...');
+    await this.checkCredentials();
+
+    // 2. Test API connectivity
+    console.log('\n2. 🌐 TESTING API CONNECTIVITY...');
+    await this.testAPIConnectivity();
+
+    // 3. Test each vision model
+    console.log('\n3. 🤖 TESTING VISION MODELS...');
+    await this.testVisionModels();
+
+    // 4. Test production endpoint
+    console.log('\n4. 🚀 TESTING PRODUCTION ENDPOINT...');
+    await this.testProductionEndpoint();
+
+    // 5. Provide recommendations
+    console.log('\n5. 💡 RECOMMENDATIONS...');
+    this.provideRecommendations();
+  }
+
+  async checkCredentials() {
+    console.log(`CF_ACCOUNT_ID: ${this.accountId ? '✅ Configured' : '❌ Missing'}`);
+    console.log(`CF_API_TOKEN: ${this.apiToken ? '✅ Configured' : '❌ Missing'}`);
+
+    if (this.accountId && this.apiToken) {
+      console.log('✅ Credentials are configured properly');
+    } else {
+      console.log('❌ Credentials are missing or incomplete');
+    }
+  }
+
+  async testAPIConnectivity() {
+    if (!this.accountId || !this.apiToken) {
+      console.log('❌ Cannot test API connectivity - credentials missing');
+      return;
     }
 
-    async runDiagnostics() {
-        console.log('\n📋 Current Configuration:');
-        console.log(`   Account ID: ${this.accountId ? this.accountId.substring(0, 8) + '...' : 'NOT SET'}`);
-        console.log(`   API Token: ${this.apiToken ? 'Set (length: ' + this.apiToken.length + ')' : 'NOT SET'}`);
-        console.log(`   Base URL: ${this.baseURL}`);
+    try {
+      // Test a simple API call to Cloudflare
+      const response = await axios.get(`https://api.cloudflare.com/client/v4/accounts/${this.accountId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
 
-        if (!this.accountId || !this.apiToken) {
-            console.log('\n❌ MISSING CONFIGURATION');
-            console.log('   Please set CF_ACCOUNT_ID and CF_API_TOKEN environment variables');
-            this.printSetupInstructions();
-            return;
-        }
+      if (response.data.success) {
+        console.log('✅ API connectivity successful');
+        console.log(`   Account: ${response.data.result.name || 'Unknown'}`);
+      } else {
+        console.log('❌ API connectivity failed - invalid credentials');
+      }
+    } catch (error) {
+      console.log('❌ API connectivity failed:', error.response?.data?.errors?.[0]?.message || error.message);
+    }
+  }
 
-        // Test account access
-        const accountAccess = await this.testAccountAccess();
-        if (!accountAccess) {
-            console.log('\n❌ ACCOUNT ACCESS FAILED');
-            this.printAccountFixInstructions();
-            return;
-        }
-
-        // Test available models
-        const availableModels = await this.testAvailableModels();
-
-        // Test vision models specifically
-        await this.testVisionModels(availableModels);
-
-        // Provide recommendations
-        this.provideRecommendations(availableModels);
+  async testVisionModels() {
+    if (!this.accountId || !this.apiToken) {
+      console.log('❌ Cannot test vision models - credentials missing');
+      return;
     }
 
-    async testAccountAccess() {
-        console.log('\n🔐 Testing Account Access...');
+    // Create a simple test image
+    const testImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
-        try {
-            const response = await axios.get(`${this.baseURL}/models`, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000
-            });
+    for (const model of this.visionModels) {
+      console.log(`\n   Testing model: ${model}`);
 
-            if (response.data.success) {
-                console.log('✅ Account access successful');
-                console.log(`   Found ${response.data.result.length} total models`);
-                return true;
-            } else {
-                console.log('❌ Account access failed:', response.data.errors);
-                return false;
-            }
-        } catch (error) {
-            console.log('❌ Account access error:', error.response?.data?.errors || error.message);
-            return false;
-        }
-    }
+      try {
+        const payload = {
+          image: `data:image/png;base64,${testImage.toString('base64')}`,
+          prompt: "Describe this image briefly."
+        };
 
-    async testAvailableModels() {
-        console.log('\n🤖 Testing Available Models...');
+        const response = await axios.post(
+          `${this.baseURL}/${model}`,
+          payload,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiToken}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 15000
+          }
+        );
 
-        const availableModels = [];
-
-        try {
-            const response = await axios.get(`${this.baseURL}/models`, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000
-            });
-
-            if (response.data.success && response.data.result) {
-                const models = response.data.result;
-
-                // Check for vision models
-                const visionModels = models.filter(model =>
-                    model.name.toLowerCase().includes('vision') ||
-                    model.name.toLowerCase().includes('llava') ||
-                    model.name.toLowerCase().includes('llama') ||
-                    model.name.toLowerCase().includes('uform')
-                );
-
-                console.log(`✅ Found ${models.length} total models`);
-                console.log(`✅ Found ${visionModels.length} vision-capable models:`);
-
-                visionModels.forEach(model => {
-                    console.log(`   - ${model.name} (${model.description || 'No description'})`);
-                    availableModels.push(model.name);
-                });
-
-                return availableModels;
-            }
-        } catch (error) {
-            console.log('❌ Failed to fetch models:', error.message);
-        }
-
-        return availableModels;
-    }
-
-    async testVisionModels(availableModels) {
-        console.log('\n🖼️  Testing Vision Models...');
-
-        const testImage = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R8VgO2JdE2s1WJ9T6HG5QVF3Jd6KzNx1K1MqO2dLxZM2pK6NyJpJcO';
-        const testPrompt = 'Describe this image briefly.';
-
-        for (const model of this.visionModels) {
-            console.log(`\n   Testing ${model}...`);
-
-            try {
-                const response = await axios.post(
-                    `${this.baseURL}/run/${model}`,
-                    {
-                        image: testImage,
-                        prompt: testPrompt,
-                        max_tokens: 100
-                    },
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${this.apiToken}`,
-                            'Content-Type': 'application/json'
-                        },
-                        timeout: 15000
-                    }
-                );
-
-                console.log(`   ✅ ${model} - SUCCESS`);
-                return model; // Return first working model
-
-            } catch (error) {
-                const errorCode = error.response?.data?.errors?.[0]?.code;
-                const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
-
-                console.log(`   ❌ ${model} - FAILED (${errorCode}): ${errorMessage}`);
-            }
-        }
-
-        return null;
-    }
-
-    provideRecommendations(availableModels) {
-        console.log('\n🎯 RECOMMENDATIONS');
-
-        if (availableModels.length === 0) {
-            console.log('\n❌ No vision models available');
-            console.log('   Possible solutions:');
-            console.log('   1. Upgrade to Cloudflare paid plan');
-            console.log('   2. Enable Workers AI for your account');
-            console.log('   3. Switch to alternative vision provider (OpenAI, Anthropic)');
+        if (response.data.success) {
+          console.log(`   ✅ ${model}: Available`);
         } else {
-            console.log('\n✅ Vision models found! Recommended actions:');
-            console.log('   1. Update CF_VISION_MODEL to one of the working models');
-            console.log('   2. Test the model with your actual use case');
-            console.log('   3. Implement fallback to alternative models if needed');
+          console.log(`   ❌ ${model}: Error - ${response.data.errors?.[0]?.message || 'Unknown error'}`);
         }
 
-        console.log('\n🔧 Quick Fix Commands:');
-        if (availableModels.includes('@cf/llava-hf/llava-1.5-7b-hf')) {
-            console.log('   railway variables set CF_VISION_MODEL="@cf/llava-hf/llava-1.5-7b-hf"');
-        } else if (availableModels.includes('@cf/meta/llama-3.2-90b-vision-instruct')) {
-            console.log('   railway variables set CF_VISION_MODEL="@cf/meta/llama-3.2-90b-vision-instruct"');
-        } else if (availableModels.includes('@cf/unum/uform-gen2-qwen-500m')) {
-            console.log('   railway variables set CF_VISION_MODEL="@cf/unum/uform-gen2-qwen-500m"');
+      } catch (error) {
+        const errorCode = error.response?.data?.errors?.[0]?.code;
+        const errorMessage = error.response?.data?.errors?.[0]?.message || error.message;
+
+        if (errorCode === 7000) {
+          console.log(`   ❌ ${model}: Model not available (Error 7000)`);
+        } else if (errorCode === 9109) {
+          console.log(`   ❌ ${model}: Model temporarily unavailable (Error 9109)`);
+        } else {
+          console.log(`   ❌ ${model}: Failed - ${errorMessage}`);
         }
+      }
+    }
+  }
+
+  async testProductionEndpoint() {
+    try {
+      // Test with a simple image
+      const testImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+
+      const response = await axios.post('https://gofitai-production.up.railway.app/api/analyze-food', {
+        image: `data:image/png;base64,${testImage.toString('base64')}`
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000
+      });
+
+      console.log('✅ Production endpoint reachable');
+
+      if (response.data.success) {
+        console.log('✅ Production endpoint responding successfully');
+        console.log(`   Provider used: ${response.data.data?.message?.includes('Cloudflare') ? 'Cloudflare' : 'Fallback'}`);
+      } else {
+        console.log('❌ Production endpoint returned error');
+      }
+
+    } catch (error) {
+      console.log('❌ Production endpoint failed:', error.response?.data?.error || error.message);
+    }
+  }
+
+  provideRecommendations() {
+    console.log('\nBased on the diagnostic results, here are recommendations:');
+
+    if (!this.accountId || !this.apiToken) {
+      console.log('• 🔐 Configure Cloudflare credentials:');
+      console.log('  - Set CF_ACCOUNT_ID in Railway environment variables');
+      console.log('  - Set CF_API_TOKEN in Railway environment variables');
+      console.log('  - Ensure your Cloudflare account has Workers AI enabled');
     }
 
-    printSetupInstructions() {
-        console.log('\n📋 SETUP INSTRUCTIONS');
-        console.log('1. Get your Cloudflare Account ID:');
-        console.log('   - Go to https://dash.cloudflare.com/');
-        console.log('   - Copy Account ID from right sidebar');
-        console.log('');
-        console.log('2. Create API Token:');
-        console.log('   - Go to https://dash.cloudflare.com/profile/api-tokens');
-        console.log('   - Click "Create Token"');
-        console.log('   - Use "Workers AI" template or create custom token');
-        console.log('   - Set permissions: Workers AI:Edit, Account:Read');
-        console.log('');
-        console.log('3. Set Environment Variables:');
-        console.log('   railway variables set CF_ACCOUNT_ID="your_account_id"');
-        console.log('   railway variables set CF_API_TOKEN="your_api_token"');
-        console.log('   railway variables set CF_VISION_MODEL="@cf/llava-hf/llava-1.5-7b-hf"');
-    }
+    console.log('• 📋 Check Cloudflare Workers AI availability:');
+    console.log('  - Visit https://ai.cloudflare.com/ to verify your account');
+    console.log('  - Ensure you have sufficient credits/quota');
 
-    printAccountFixInstructions() {
-        console.log('\n🔧 ACCOUNT ACCESS FIX');
-        console.log('1. Verify Account ID is correct');
-        console.log('2. Check API Token has Workers AI permissions:');
-        console.log('   - Go to https://dash.cloudflare.com/profile/api-tokens');
-        console.log('   - Find your token and verify "Workers AI: Edit" permission');
-        console.log('3. Ensure account is on paid plan (Workers AI requires paid tier)');
-        console.log('4. Enable Workers AI in your Cloudflare dashboard');
-    }
-}
+    console.log('• 🔄 Redeploy after configuration:');
+    console.log('  - Run: railway deploy');
+    console.log('  - Verify FOOD_ANALYZE_PROVIDER=cloudflare is set');
 
-// Run diagnostics if environment variables are available
-async function main() {
-    const diagnostic = new CloudflareVisionDiagnostic();
+    console.log('• 🧪 Test with real food images:');
+    console.log('  - Use clear, well-lit photos of food');
+    console.log('  - Ensure images are under 1MB in size');
 
-    // Check if we have minimal config
-    if (!process.env.CF_ACCOUNT_ID || !process.env.CF_API_TOKEN) {
-        console.log('\n⚠️  Environment variables not set locally.');
-        console.log('   This diagnostic works best when run on Railway or with local env vars.');
-        console.log('   Please set CF_ACCOUNT_ID and CF_API_TOKEN first.\n');
+    console.log('• 📞 If issues persist, contact Cloudflare support');
+    console.log('  - Error 7000: Model not available for your account');
+    console.log('  - Error 9109: Temporary model unavailability');
+  }
 
-        diagnostic.printSetupInstructions();
+  async testRealFoodImage() {
+    console.log('\n🧪 TESTING WITH REAL FOOD IMAGE...');
+
+    try {
+      // Check if we have a test food image
+      const testImagePath = path.join(__dirname, 'server', 'test-food-image.jpg');
+
+      if (!fs.existsSync(testImagePath)) {
+        console.log('❌ No test food image found');
         return;
-    }
+      }
 
-    await diagnostic.runDiagnostics();
+      const imageBuffer = fs.readFileSync(testImagePath);
+      console.log(`📸 Testing with ${imageBuffer.length} byte food image`);
+
+      const response = await axios.post('https://gofitai-production.up.railway.app/api/analyze-food', {
+        image: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000
+      });
+
+      if (response.data.success) {
+        console.log('✅ Real food image analysis successful!');
+        console.log('📊 Result:', JSON.stringify(response.data, null, 2));
+      } else {
+        console.log('❌ Real food image analysis failed');
+      }
+
+    } catch (error) {
+      console.log('❌ Real food image test failed:', error.message);
+    }
+  }
 }
 
+// Run diagnostic if called directly
 if (require.main === module) {
-    main().catch(console.error);
+  const diagnostic = new CloudflareVisionDiagnostic();
+
+  diagnostic.runFullDiagnostic().then(() => {
+    return diagnostic.testRealFoodImage();
+  }).then(() => {
+    console.log('\n🎉 Diagnostic completed!');
+  }).catch((error) => {
+    console.error('💥 Diagnostic failed:', error.message);
+  });
 }
 
 module.exports = CloudflareVisionDiagnostic;

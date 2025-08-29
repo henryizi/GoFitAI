@@ -10,9 +10,10 @@ class VisionService {
 
         // Vision models in order of preference (best to fallback)
         this.visionModels = [
-            '@cf/llava-hf/llava-1.5-7b-hf',           // Primary: LLaVA model
-            '@cf/meta/llama-3.2-90b-vision-instruct', // Fallback: Meta LLaMA
-            '@cf/unum/uform-gen2-qwen-500m',          // Fallback: UForm model
+            '@cf/llava-hf/llava-1.5-7b-hf',           // Primary: LLaVA model (most reliable)
+            '@cf/meta/llama-3.2-11b-vision-instruct', // Fallback: Meta LLaMA 11B
+            '@cf/meta/llama-3.2-90b-vision-instruct', // Fallback: Meta LLaMA 90B
+            '@cf/unum/uform-gen2-qwen-500m',          // Last fallback: UForm model
         ];
 
         // Start with preferred model or environment setting
@@ -23,7 +24,7 @@ class VisionService {
         // Optimization configurations
         this.maxRetries = 3;
         this.retryDelay = 1000; // Start with 1 second
-        this.requestTimeout = 30000; // 30 seconds
+        this.requestTimeout = 60000; // 60 seconds (match server expectation)
         this.cacheTTL = 3600000; // 1 hour cache
         this.maxImageSize = 1024 * 1024; // 1MB max image size
         this.compressionQuality = 0.8; // Image compression quality
@@ -55,8 +56,10 @@ class VisionService {
     async analyzeImage(base64Image, prompt = "Describe this food image in detail, including the type of food, ingredients, and nutritional information if possible.") {
         console.log('[CF VISION] Starting image analysis with Cloudflare Workers AI');
 
+        // Check if Cloudflare credentials are configured
         if (!this.apiToken || !this.accountId) {
-            throw new Error('Cloudflare API token or Account ID not found. Please configure CF_API_TOKEN and CF_ACCOUNT_ID.');
+            console.log('[CF VISION] ⚠️  Cloudflare credentials not configured, skipping Cloudflare analysis');
+            throw new Error('CLOUDFLARE_NOT_CONFIGURED');
         }
 
         // Try models in order of preference
@@ -96,9 +99,9 @@ class VisionService {
                 this.failedModels.add(modelToTry);
                 this.metrics.failedRequests++;
 
-                // If this is error 7000 (No route), try next model
-                if (errorCode === 7000 || errorCode === 9109) {
-                    console.log(`[CF VISION] Model ${modelToTry} not available, trying next model...`);
+                // If this is error 7000 (No route) or other model availability issues, try next model
+                if (errorCode === 7000 || errorCode === 9109 || errorCode === 1101 || errorCode === 10013) {
+                    console.log(`[CF VISION] Model ${modelToTry} not available (${errorCode}), trying next model...`);
                     continue;
                 }
 
@@ -271,7 +274,11 @@ class VisionService {
         } catch (error) {
             console.log('[CF VISION] Food analysis failed:', error.message);
 
-            // Provide helpful error message
+            // Handle different types of errors
+            if (error.message === 'CLOUDFLARE_NOT_CONFIGURED') {
+                throw new Error('CLOUDFLARE_NOT_CONFIGURED');
+            }
+
             if (error.message.includes('7000') || error.message.includes('No route')) {
                 throw new Error('Cloudflare Workers AI model not available. Please check your account has Workers AI enabled and try updating to a different vision model.');
             }
