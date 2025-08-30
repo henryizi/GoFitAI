@@ -43,7 +43,7 @@ const pino = require('pino');
 const pinoHttp = require('pino-http');
 const { z } = require('zod');
 const path = require('path');
-const VisionService = require('./services/visionService.js');
+const GeminiVisionService = require('./services/geminiVisionService.js');
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 
 // Helper function to get local IP address
@@ -69,7 +69,7 @@ function convertMarkdownToNutritionJson(content) {
   try {
     // Try to parse as JSON first
     return JSON.parse(content);
-  } catch (e) {
+  } catch (error) {
     // If not JSON, try to convert from markdown
     console.log('[PARSE] Attempting to convert markdown to JSON...');
     
@@ -172,7 +172,7 @@ function findAndParseJson(content) {
   try {
     // First, try to parse the entire content as JSON
     return JSON.parse(content);
-  } catch (e) {
+  } catch (error) {
     console.log('[PARSE] Full content parse failed, trying to extract JSON...');
     
     // Try multiple strategies to find JSON
@@ -512,8 +512,18 @@ const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.E
 const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API
 const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
-// Initialize Vision Service (Cloudflare as primary, Hugging Face as fallback)
-const visionService = (CF_ACCOUNT_ID && CF_API_TOKEN) ? new VisionService() : null;
+// Initialize Vision Service based on FOOD_ANALYZE_PROVIDER
+let visionService = null;
+if (FOOD_ANALYZE_PROVIDER === 'gemini' && process.env.GEMINI_API_KEY) {
+  console.log('[VISION SERVICE] Initializing Gemini Vision Service');
+  visionService = new GeminiVisionService();
+} else if (FOOD_ANALYZE_PROVIDER === 'cloudflare' && CF_ACCOUNT_ID && CF_API_TOKEN) {
+  console.log('[VISION SERVICE] Initializing Cloudflare Vision Service');
+  // Note: Cloudflare service is handled inline in the food analysis code
+  visionService = { name: 'cloudflare' };
+} else {
+  console.log('[VISION SERVICE] No vision service configured, using fallback only');
+}
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // AI Provider Priority List (DeepSeek first)
@@ -3686,258 +3696,8 @@ function attachPerIngredientMacros(recipe) {
   return recipe;
 }
 
-function validateRecipeAgainstInputs(providedIngredients, recipe) {
-  // Normalize text for comparison
-  const normalizeText = (text) => {
-    return String(text).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-  };
-  
-  // Normalize the provided ingredients
-  const normalizedProvided = providedIngredients.map(ing => normalizeText(ing));
-  
-  // Check if the recipe has all required fields
-  if (!recipe || !recipe.recipe_name || !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.instructions)) {
-    console.log('[VALIDATE] Recipe missing required fields');
-    return false;
-  }
-  
-  // Check if ingredients are valid
-  if (recipe.ingredients.length === 0) {
-    console.log('[VALIDATE] Recipe has no ingredients');
-    return false;
-  }
-  
-  // Verify each ingredient in the recipe is from the provided list
-  const recipeIngredients = recipe.ingredients.map(ing => {
-    // Handle both formats: string or object with name property
-    const name = typeof ing === 'string' ? ing : ing.name;
-    return normalizeText(name);
-  });
-  
-  // Check if all recipe ingredients are from the provided list
-  // We use a fuzzy match to allow for variations like "rice" vs "white rice"
-  const allIngredientsValid = recipeIngredients.every(recipeIng => {
-    return normalizedProvided.some(providedIng => {
-      // Direct match
-      if (recipeIng === providedIng) return true;
-      // Substring match (e.g. "chicken breast" contains "chicken")
-      if (recipeIng.includes(providedIng) || providedIng.includes(recipeIng)) return true;
-      return false;
-    });
-  });
-  
-  if (!allIngredientsValid) {
-    console.log('[VALIDATE] Recipe contains ingredients not in provided list');
-    return false;
-  }
-  
-  // Check if instructions are valid
-  if (recipe.instructions.length < 2) {
-    console.log('[VALIDATE] Recipe has too few instructions');
-    return false;
-  }
-  
-  // For the new format, check if instructions have proper structure
-  const hasStructuredInstructions = recipe.instructions.every(instruction => {
-    if (typeof instruction === 'string') {
-      // Old format - simple string is fine
-      return true;
-    } else if (instruction && instruction.step && instruction.title && Array.isArray(instruction.details)) {
-      // New format - must have step, title and details array
-      return instruction.details.length > 0;
-    }
-    return false;
-  });
-  
-  if (!hasStructuredInstructions) {
-    console.log('[VALIDATE] Recipe has invalid instruction format');
-    return false;
-  }
-  
-  // Check for realistic quantities
-  const hasRealisticQuantities = recipe.ingredients.every(ing => {
-    if (typeof ing === 'string') return true; // Skip validation for string format
-    
-    const quantity = String(ing.quantity || '').toLowerCase();
-    const name = String(ing.name || '').toLowerCase();
-    
-    // Check for unrealistically small quantities
-    if (/(beef|chicken|fish|pork|tofu)/.test(name)) {
-      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
-        console.log(`[VALIDATE] Unrealistic small quantity for protein: ${quantity} ${name}`);
-        return false;
-      }
-    }
-    
-    if (/(rice|pasta|noodle|potato)/.test(name)) {
-      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
-        console.log(`[VALIDATE] Unrealistic small quantity for carb: ${quantity} ${name}`);
-        return false;
-      }
-    }
-    
-    return true;
-  });
-  
-  if (!hasRealisticQuantities) {
-    console.log('[VALIDATE] Recipe has unrealistic quantities');
-    return false;
-  }
-  
-  // All validation passed
-  return true;
-}
-
-// Update the recipe generation endpoint
-app.post('/api/generate-recipe', async (req, res) => {
-  console.log(`[${new Date().toISOString()}] Received recipe generation request`);
-  try {
-    const { mealType, targets, ingredients, strict } = req.body;
-    
-    // Validate inputs
-    if (!mealType || !targets || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid request. Required: mealType, targets, and ingredients array.' 
-      });
-    }
-
-    console.log(`[${new Date().toISOString()}] Generating recipe for ${mealType} with ${ingredients.length} ingredients`);
-    console.log(`[${new Date().toISOString()}] Strict mode: ${strict ? 'enabled' : 'disabled'}`);
-    
-    try {
-      // If we're in strict mode but the AI is not working well, use our high-quality recipe generator
-      if (strict) {
-        console.log(`[${new Date().toISOString()}] Using high-quality recipe generator in strict mode`);
-        const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
-        return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: false });
-      }
-      
-      // Otherwise, use the AI with fallback to our high-quality recipe generator
-      // Prepare the prompt
-    const prompt = composeRecipePrompt(mealType, targets, ingredients);
-      
-      // Set up a timeout for the AI request
-      const AI_RECIPE_TIMEOUT = parseInt(process.env.AI_RECIPE_TIMEOUT) || 120000; // 2 minutes default
-      
-      try {
-        // Create a promise that will reject after the timeout
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('AI request timed out')), AI_RECIPE_TIMEOUT);
-        });
-        
-        // Create the AI request promise
-        const aiRequestPromise = (async () => {
-          const response = await axios.post(
-            AI_API_URL,
-            {
-              model: CHAT_MODEL,
-              messages: [{ role: "user", content: prompt }],
-              temperature: 0.3,
-              max_tokens: 1200,
-        response_format: { type: 'json_object' },
-      },
-            {
-              headers: {
-                Authorization: `Bearer ${AI_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-          
-          if (!response.data || !response.data.choices || !response.data.choices[0]) {
-            throw new Error('Invalid response from AI provider');
-          }
-          
-          return response.data.choices[0].message.content;
-        })();
-        
-        // Race the promises - whichever resolves/rejects first wins
-        const aiResponse = await Promise.race([aiRequestPromise, timeoutPromise]);
-        
-        // Parse the JSON response from the AI
-        const recipe = findAndParseJson(aiResponse);
-        
-        if (!recipe) {
-          throw new Error('Failed to parse recipe from AI response');
-        }
-        
-        // Validate the recipe against the input ingredients
-        const isValid = validateRecipeAgainstInputs(ingredients, recipe);
-        
-        if (!isValid) {
-          console.log(`[${new Date().toISOString()}] Recipe validation failed, using high-quality recipe generator`);
-          const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
-          return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: true });
-        }
-        
-        // Return the valid AI-generated recipe
-        return res.json({ success: true, recipe: attachPerIngredientMacros(recipe), fallback: false });
-      } catch (aiError) {
-        console.error(`[${new Date().toISOString()}] AI recipe generation error:`, aiError.message);
-        
-        if (AI_STRICT_EFFECTIVE) {
-          return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
-        }
-        // Use our high-quality recipe generator as fallback
-        console.log(`[${new Date().toISOString()}] Using high-quality recipe generator as fallback`);
-        const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
-        return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: true });
-      }
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Recipe generation error:`, error);
-      
-      if (AI_STRICT_EFFECTIVE) {
-        return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
-      }
-      // Final fallback - generate a simple recipe
-      try {
-        const simpleRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
-        return res.json({ success: true, recipe: attachPerIngredientMacros(simpleRecipe), fallback: true });
-      } catch (fallbackError) {
-        console.error(`[${new Date().toISOString()}] Even fallback recipe generation failed:`, fallbackError);
-        return res.status(500).json({ success: false, error: 'Recipe generation failed completely.' });
-      }
-    }
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Recipe generation error:`, error);
-    res.status(500).json({ success: false, error: 'Recipe generation failed' });
-  }
-});
-
-// Simple fallback recipe endpoint (no AI required)
-app.get('/api/simple-recipe', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Simple recipe request received`);
-  try {
-    const mealType = (req.query.mealType || 'Meal').toString();
-    const ingredientsParam = (req.query.ingredients || '').toString();
-    const ingredients = ingredientsParam.split(',').map((i) => i.trim()).filter(Boolean);
-    const targets = {
-      calories: parseInt(req.query.calories, 10) || 500,
-      protein: parseInt(req.query.protein, 10) || 30,
-      carbs: parseInt(req.query.carbs, 10) || 50,
-      fat: parseInt(req.query.fat, 10) || 15,
-    };
-    console.log(`[${new Date().toISOString()}] Generating simple recipe for ${mealType} with ingredients: ${ingredients.join(', ')}`);
-    
-    // Use a more sophisticated recipe generator for the fallback
-    const recipe = generateSimpleRecipe(mealType, ingredients, targets);
-    console.log(`[${new Date().toISOString()}] Simple recipe generated successfully`);
-    return res.json({ success: true, recipe, fallback: true });
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error generating simple recipe:`, error);
-    return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
-  }
-});
-
-// More sophisticated recipe generator for fallback
+// Generate a simple recipe for fallback
 function generateSimpleRecipe(mealType, ingredients, targets) {
-  // Calculate nutrition targets
-  const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
-  const proteinNum = parseInt((targets && targets.protein) || 30, 10) || 30;
-  const carbsNum = parseInt((targets && targets.carbs) || 50, 10) || 50;
-  const fatNum = parseInt((targets && targets.fat) || 15, 10) || 15;
-  
   // Normalize ingredients for processing
   const lower = ingredients.map(i => i.toLowerCase().trim());
   
@@ -3945,8 +3705,8 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
   const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
   const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
-  const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
   const hasFat = lower.some(i => /(avocado|olive oil|butter|margarine|cashews|nuts|peanut butter|dark chocolate)/.test(i));
+  const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
   const isBreakfast = mealType.toLowerCase() === 'breakfast';
   const isSnack = mealType.toLowerCase() === 'snack';
   const isNoCook = !hasProtein && !hasCarbs && lower.every(i => /(yogurt|fruit|berry|granola|nuts|milk|cheese)/.test(i));
@@ -3976,6 +3736,12 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
       : `${mealType} with ${ingredients.slice(0, 2).join(' and ')}`;
   }
   
+  // Calculate macro targets
+  const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
+  const proteinNum = parseInt((targets && targets.protein) || 30, 10) || 30;
+  const carbsNum = parseInt((targets && targets.carbs) || 50, 10) || 50;
+  const fatNum = parseInt((targets && targets.fat) || 15, 10) || 15;
+
   // Generate ingredient quantities with REALISTIC amounts
   const ingredientsWithQuantities = ingredients.map(ing => {
     const name = ing.trim();
@@ -4312,14 +4078,16 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   }
   
   return {
-    recipe_name: recipeName,
+    name: recipeName,
     ingredients: ingredientsWithQuantities,
-      instructions,
-    macros: {
+    instructions,
+    nutrition: {
       calories: caloriesNum,
-      protein_grams: proteinNum,
-      carbs_grams: carbsNum,
-      fat_grams: fatNum,
+      protein: proteinNum,
+      carbs: carbsNum,
+      fat: fatNum,
+      fiber: 5,
+      sugar: 8
     },
   };
 }
@@ -4881,7 +4649,9 @@ async function standardizeImageForTensor(imageBuffer) {
 // ===================
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-  console.log('[FOOD ANALYZE] Received food analysis request');
+      console.log('[FOOD ANALYZE] Received food analysis request');
+    console.log('[FOOD ANALYZE] Configured provider:', FOOD_ANALYZE_PROVIDER);
+    console.log('[FOOD ANALYZE] Vision service type:', visionService ? (visionService.name || 'gemini') : 'none');
   
   try {
     // Ensure aiResponse is declared in the handler scope for both vision and text paths
@@ -5237,55 +5007,56 @@ Analyze the following food image:
       console.log('[FOOD ANALYZE] MIME type:', mimeType);
 
       console.log('[FOOD ANALYZE] Determining vision AI service to use');
+      console.log('[FOOD ANALYZE] FOOD_ANALYZE_PROVIDER:', FOOD_ANALYZE_PROVIDER);
       
-      // Use Cloudflare Workers AI as primary vision service
-      if (visionService) {
-        console.log('[FOOD ANALYZE] Using Cloudflare Workers AI for food photo analysis');
+      // Use configured vision service based on FOOD_ANALYZE_PROVIDER
+      if (visionService && FOOD_ANALYZE_PROVIDER === 'gemini') {
+        console.log('[FOOD ANALYZE] Using Gemini Vision API for food photo analysis');
 
         try {
           const visionResult = await visionService.analyzeFoodImage(base64Image);
-          console.log('[FOOD ANALYZE] Cloudflare vision analysis successful');
+          console.log('[FOOD ANALYZE] Gemini vision analysis successful');
 
-          // Use the description from Cloudflare for nutrition analysis
+          // Use the description from Gemini for nutrition analysis
           foodDescription = visionResult.imageDescription || 'Food image analysis completed';
-          visionModelUsed = visionResult.model;
+          visionModelUsed = visionResult.model || 'gemini-vision';
 
+        } catch (geminiError) {
+          console.warn('[FOOD ANALYZE] Gemini vision failed:', geminiError.message);
+          // Fall back to basic text analysis if Gemini fails
+        }
+      } else if (visionService && FOOD_ANALYZE_PROVIDER === 'cloudflare') {
+        console.log('[FOOD ANALYZE] Using Cloudflare Workers AI for food photo analysis');
+
+        try {
+          // Cloudflare analysis is handled inline below
+          // This is just a placeholder to indicate Cloudflare is configured
+          console.log('[FOOD ANALYZE] Cloudflare service configured, proceeding with inline analysis');
         } catch (cfError) {
           console.warn('[FOOD ANALYZE] Cloudflare vision failed:', cfError.message);
-
-          // Handle specific Cloudflare configuration errors
-          if (cfError.message === 'CLOUDFLARE_NOT_CONFIGURED') {
-            console.log('[FOOD ANALYZE] Cloudflare not configured, using BasicFoodAnalyzer fallback');
-            const fallbackResult = await analyzeFoodWithBasicAnalyzer(base64Image);
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: fallbackResult,
-                message: 'Cloudflare Workers AI not configured. Using BasicFoodAnalyzer for analysis.',
-                analysisProvider: 'basic_analyzer'
-              }
-            });
-          }
           // Fall back to basic text analysis if Cloudflare fails
         }
       }
 
-      // If Cloudflare vision is not configured or failed, use text-based fallback
-      if (!visionService || !foodDescription) {
-        console.log('[FOOD ANALYZE] Cloudflare vision not available, using text-based fallback');
+      // If no vision service succeeded, use text-based fallback
+      if (!foodDescription) {
+        console.log('[FOOD ANALYZE] No vision service succeeded, using text-based fallback');
         
-        // Check if Cloudflare credentials are configured
-        if (!CF_ACCOUNT_ID || !CF_API_TOKEN || CF_ACCOUNT_ID === 'your_cloudflare_account_id_here' || CF_API_TOKEN === 'your_cloudflare_api_token_here') {
-          console.log('[FOOD ANALYZE] Cloudflare credentials not configured, using text-based fallback');
-          throw new Error('No vision providers available. Please configure CF_ACCOUNT_ID and CF_API_TOKEN for Cloudflare Workers AI.');
+        if (FOOD_ANALYZE_PROVIDER === 'cloudflare') {
+          // Check if Cloudflare credentials are configured
+          if (!CF_ACCOUNT_ID || !CF_API_TOKEN || CF_ACCOUNT_ID === 'your_cloudflare_account_id_here' || CF_API_TOKEN === 'your_cloudflare_api_token_here') {
+            console.log('[FOOD ANALYZE] Cloudflare credentials not configured, using text-based fallback');
+            throw new Error('No vision providers available. Please configure CF_ACCOUNT_ID and CF_API_TOKEN for Cloudflare Workers AI.');
+          }
+          
+          // Add detailed debugging for Cloudflare configuration
+          console.log('[FOOD ANALYZE] Cloudflare Debug Info:');
+          console.log('- CF_ACCOUNT_ID length:', CF_ACCOUNT_ID.length);
+          console.log('- CF_API_TOKEN length:', CF_API_TOKEN.length);
+          console.log('- CF_VISION_MODEL:', CF_VISION_MODEL);
+        } else {
+          console.log('[FOOD ANALYZE] Using BasicFoodAnalyzer fallback for', FOOD_ANALYZE_PROVIDER);
         }
-        
-        // Add detailed debugging for Cloudflare configuration
-        console.log('[FOOD ANALYZE] Cloudflare Debug Info:');
-        console.log('- CF_ACCOUNT_ID length:', CF_ACCOUNT_ID.length);
-        console.log('- CF_API_TOKEN length:', CF_API_TOKEN.length);
-        console.log('- CF_VISION_MODEL:', CF_VISION_MODEL);
       }
 
       // If Hugging Face already succeeded, skip Cloudflare processing
@@ -5417,6 +5188,12 @@ Return ONLY a valid JSON object with this structure:
         }
       }
 
+      // Check if Cloudflare processing should be skipped (when Gemini is configured)
+      if (FOOD_ANALYZE_PROVIDER === 'gemini') {
+        console.log('[FOOD ANALYZE] Skipping Cloudflare processing - Gemini is configured as provider');
+        throw new Error('Gemini provider configured - Cloudflare processing skipped');
+      }
+      
       // Use data URI for Cloudflare API (recommended payload format)
       const dataUri = `data:${mimeType};base64,${base64Image}`;
       
@@ -5924,7 +5701,7 @@ Analyze the following food image:
       success: true,
       data: analysisResult,
       visionModel: visionModelUsed || CF_VISION_MODEL || 'unknown',
-      analysisProvider: visionService ? 'cloudflare' : 'none'
+      analysisProvider: visionService ? 'gemini' : 'none'
     });
 
   } catch (error) {
@@ -6025,40 +5802,6 @@ app.get('/api/profile/:userId', async (req, res) => {
   }
 });
 
-// ===================
-// ERROR HANDLING MIDDLEWARE (must be last)
-// ===================
-
-// Global error handling middleware (must be last)
-app.use((error, req, res, next) => {
-  console.error('[EXPRESS] Unhandled error in request:', {
-    url: req.url,
-    method: req.method,
-    error: error.message,
-    stack: error.stack
-  });
-  
-  // Don't crash the server, return a 500 error
-  if (!res.headersSent) {
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// Handle 404s
-app.use((req, res) => {
-  console.log('[EXPRESS] 404 - Route not found:', req.method, req.url);
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found',
-    path: req.url,
-    method: req.method
-  });
-});
-
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();
@@ -6104,3 +5847,677 @@ function getExerciseCategory(exerciseName) {
     return 'other';
   }
 }
+
+function validateRecipeAgainstInputs(providedIngredients, recipe) {
+  // Normalize text for comparison
+  const normalizeText = (text) => {
+    return String(text).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  };
+  
+  // Normalize the provided ingredients
+  const normalizedProvided = providedIngredients.map(ing => normalizeText(ing));
+  
+  // Check if the recipe has all required fields
+  if (!recipe || !recipe.recipe_name || !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.instructions)) {
+    console.log('[VALIDATE] Recipe missing required fields');
+    return false;
+  }
+  
+  // Check if ingredients are valid
+  if (recipe.ingredients.length === 0) {
+    console.log('[VALIDATE] Recipe has no ingredients');
+    return false;
+  }
+  
+  // Verify each ingredient in the recipe is from the provided list
+  const recipeIngredients = recipe.ingredients.map(ing => {
+    // Handle both formats: string or object with name property
+    const name = typeof ing === 'string' ? ing : ing.name;
+    return normalizeText(name);
+  });
+  
+  // Check if all recipe ingredients are from the provided list
+  // We use a fuzzy match to allow for variations like "rice" vs "white rice"
+  const allIngredientsValid = recipeIngredients.every(recipeIng => {
+    return normalizedProvided.some(providedIng => {
+      // Direct match
+      if (recipeIng === providedIng) return true;
+      // Substring match (e.g. "chicken breast" contains "chicken")
+      if (recipeIng.includes(providedIng) || providedIng.includes(recipeIng)) return true;
+      return false;
+    });
+  });
+  
+  if (!allIngredientsValid) {
+    console.log('[VALIDATE] Recipe contains ingredients not in provided list');
+    return false;
+  }
+  
+  // Check if instructions are valid
+  if (recipe.instructions.length < 2) {
+    console.log('[VALIDATE] Recipe has too few instructions');
+    return false;
+  }
+  
+  // For the new format, check if instructions have proper structure
+  const hasStructuredInstructions = recipe.instructions.every(instruction => {
+    if (typeof instruction === 'string') {
+      // Old format - simple string is fine
+      return true;
+    } else if (instruction && instruction.step && instruction.title && Array.isArray(instruction.details)) {
+      // New format - must have step, title and details array
+      return instruction.details.length > 0;
+    }
+    return false;
+  });
+  
+  if (!hasStructuredInstructions) {
+    console.log('[VALIDATE] Recipe has invalid instruction format');
+    return false;
+  }
+  
+  // Check for realistic quantities
+  const hasRealisticQuantities = recipe.ingredients.every(ing => {
+    if (typeof ing === 'string') return true; // Skip validation for string format
+    
+    const quantity = String(ing.quantity || '').toLowerCase();
+    const name = String(ing.name || '').toLowerCase();
+    
+    // Check for unrealistically small quantities
+    if (/(beef|chicken|fish|pork|tofu)/.test(name)) {
+      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
+        console.log(`[VALIDATE] Unrealistic small quantity for protein: ${quantity} ${name}`);
+        return false;
+      }
+    }
+    
+    if (/(rice|pasta|noodle|potato)/.test(name)) {
+      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
+        console.log(`[VALIDATE] Unrealistic small quantity for carb: ${quantity} ${name}`);
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  if (!hasRealisticQuantities) {
+    console.log('[VALIDATE] Recipe has unrealistic quantities');
+    return false;
+  }
+  
+  // All validation passed
+  return true;
+}
+
+// Update the recipe generation endpoint
+app.post('/api/generate-recipe', async (req, res) => {
+  console.log(`[${new Date().toISOString()}] Received recipe generation request`);
+  try {
+    const { mealType, targets, ingredients, strict } = req.body;
+    
+    // Validate inputs
+    if (!mealType || !targets || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid request. Required: mealType, targets, and ingredients array.' 
+      });
+    }
+
+    console.log(`[${new Date().toISOString()}] Generating recipe for ${mealType} with ${ingredients.length} ingredients`);
+    console.log(`[${new Date().toISOString()}] Strict mode: ${strict ? 'enabled' : 'disabled'}`);
+    
+    try {
+      // If we're in strict mode but the AI is not working well, use our high-quality recipe generator
+      if (strict) {
+        console.log(`[${new Date().toISOString()}] Using high-quality recipe generator in strict mode`);
+        const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
+        return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: false });
+      }
+      
+      // Otherwise, use the AI with fallback to our high-quality recipe generator
+      // Prepare the prompt
+      const prompt = composeRecipePrompt(mealType, targets, ingredients);
+      
+      // Set up a timeout for the AI request
+      const AI_RECIPE_TIMEOUT = parseInt(process.env.AI_RECIPE_TIMEOUT) || 120000; // 2 minutes default
+      
+      try {
+        // Create a promise that will reject after the timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('AI request timed out')), AI_RECIPE_TIMEOUT);
+        });
+        
+        // Create the AI request promise
+        const aiRequestPromise = (async () => {
+          const response = await axios.post(
+            AI_API_URL,
+            {
+              model: CHAT_MODEL,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.3,
+              max_tokens: 1200,
+              response_format: { type: 'json_object' },
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${AI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          
+          if (!response.data || !response.data.choices || !response.data.choices[0]) {
+            throw new Error('Invalid response from AI provider');
+          }
+          
+          return response.data.choices[0].message.content;
+        })();
+        
+        // Race the promises - whichever resolves/rejects first wins
+        const aiResponse = await Promise.race([aiRequestPromise, timeoutPromise]);
+        
+        // Parse the JSON response from the AI
+        const recipe = findAndParseJson(aiResponse);
+        
+        if (!recipe) {
+          throw new Error('Failed to parse recipe from AI response');
+        }
+        
+        // Validate the recipe against the input ingredients
+        const isValid = validateRecipeAgainstInputs(ingredients, recipe);
+        
+        if (!isValid) {
+          console.log(`[${new Date().toISOString()}] Recipe validation failed, using high-quality recipe generator`);
+          const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
+          return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: true });
+        }
+        
+        // Return the valid AI-generated recipe
+        return res.json({ success: true, recipe: attachPerIngredientMacros(recipe), fallback: false });
+      } catch (aiError) {
+        console.error(`[${new Date().toISOString()}] AI recipe generation error:`, aiError.message);
+        
+        if (AI_STRICT_EFFECTIVE) {
+          return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
+        }
+        // Use our high-quality recipe generator as fallback
+        console.log(`[${new Date().toISOString()}] Using high-quality recipe generator as fallback`);
+        const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
+        return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: true });
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Recipe generation error:`, error);
+      
+      if (AI_STRICT_EFFECTIVE) {
+        return res.status(502).json({ success: false, error: 'AI recipe generation failed and strict mode is enabled' });
+      }
+      // Final fallback - generate a simple recipe
+      try {
+        const simpleRecipe = generateSimpleRecipe(mealType, ingredients, targets);
+        return res.json({ success: true, recipe: attachPerIngredientMacros(simpleRecipe), fallback: true });
+      } catch (fallbackError) {
+        console.error(`[${new Date().toISOString()}] Even fallback recipe generation failed:`, fallbackError);
+        return res.status(500).json({ success: false, error: 'Recipe generation failed completely.' });
+      }
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Recipe generation error:`, error);
+    res.status(500).json({ success: false, error: 'Recipe generation failed' });
+  }
+});
+
+// Simple fallback recipe endpoint (no AI required)
+app.get('/api/simple-recipe', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Simple recipe request received`);
+  try {
+    const mealType = (req.query.mealType || 'Meal').toString();
+    const ingredientsParam = (req.query.ingredients || '').toString();
+    const ingredients = ingredientsParam.split(',').map((i) => i.trim()).filter(Boolean);
+    const targets = {
+      calories: parseInt(req.query.calories, 10) || 500,
+      protein: parseInt(req.query.protein, 10) || 30,
+      carbs: parseInt(req.query.carbs, 10) || 50,
+      fat: parseInt(req.query.fat, 10) || 15,
+    };
+    console.log(`[${new Date().toISOString()}] Generating simple recipe for ${mealType} with ingredients: ${ingredients.join(', ')}`);
+    
+    // Use a more sophisticated recipe generator for the fallback
+    const recipe = generateSimpleRecipe(mealType, ingredients, targets);
+    console.log(`[${new Date().toISOString()}] Simple recipe generated successfully`);
+    return res.json({ success: true, recipe, fallback: true });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error generating simple recipe:`, error);
+    return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
+  }
+});
+
+// Generate a simple recipe for fallback
+function generateSimpleRecipe(mealType, ingredients, targets) {
+  // Normalize ingredients for processing
+  const lower = ingredients.map(i => i.toLowerCase().trim());
+  
+  // Detect ingredient types
+  const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
+  const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
+  const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
+  const hasFat = lower.some(i => /(avocado|olive oil|butter|margarine|cashews|nuts|peanut butter|dark chocolate)/.test(i));
+  const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
+  const isBreakfast = mealType.toLowerCase() === 'breakfast';
+  const isSnack = mealType.toLowerCase() === 'snack';
+  const isNoCook = !hasProtein && !hasCarbs && lower.every(i => /(yogurt|fruit|berry|granola|nuts|milk|cheese)/.test(i));
+  
+  // Generate recipe name
+  let recipeName;
+  if (ingredients.length <= 3) {
+    recipeName = `${mealType} with ${ingredients.join(', ')}`;
+  } else {
+    // Find main ingredients for name
+    const mainIngredients = [];
+    if (hasProtein) {
+      const protein = lower.find(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
+      if (protein) mainIngredients.push(ingredients[lower.indexOf(protein)]);
+    }
+    if (hasCarbs) {
+      const carb = lower.find(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
+      if (carb) mainIngredients.push(ingredients[lower.indexOf(carb)]);
+    }
+    if (hasVeggies && mainIngredients.length < 2) {
+      const veggie = lower.find(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
+      if (veggie) mainIngredients.push(ingredients[lower.indexOf(veggie)]);
+    }
+    
+    recipeName = mainIngredients.length > 0
+      ? `${mealType} with ${mainIngredients.join(' and ')}`
+      : `${mealType} with ${ingredients.slice(0, 2).join(' and ')}`;
+  }
+  
+  // Calculate macro targets
+  const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
+  const proteinNum = parseInt((targets && targets.protein) || 30, 10) || 30;
+  const carbsNum = parseInt((targets && targets.carbs) || 50, 10) || 50;
+  const fatNum = parseInt((targets && targets.fat) || 15, 10) || 15;
+
+  // Generate ingredient quantities with REALISTIC amounts
+  const ingredientsWithQuantities = ingredients.map(ing => {
+    const name = ing.trim();
+    const lowerName = name.toLowerCase();
+    let quantity = '1 serving';
+    
+    // Assign realistic quantities based on ingredient types
+    if (/(rice|quinoa|couscous|bulgur)/.test(lowerName)) {
+      quantity = '1 cup cooked';
+    } else if (/(pasta|noodle)/.test(lowerName)) {
+      quantity = '1 cup cooked';
+    } else if (/(chicken breast|chicken thigh)/.test(lowerName)) {
+      quantity = '150g';
+    } else if (/(beef|steak)/.test(lowerName)) {
+      quantity = '150g';
+    } else if (/(pork)/.test(lowerName)) {
+      quantity = '150g';
+    } else if (/(fish|salmon|tuna|shrimp)/.test(lowerName)) {
+      quantity = '150g';
+    } else if (/(tofu|tempeh)/.test(lowerName)) {
+      quantity = '150g';
+    } else if (/(oil|sauce|vinegar|honey|syrup)/.test(lowerName)) {
+      quantity = '2 tbsp';
+    } else if (/(yogurt)/.test(lowerName)) {
+      quantity = '1 cup';
+    } else if (/(milk)/.test(lowerName)) {
+      quantity = '1 cup';
+    } else if (/(egg)/.test(lowerName) && !/(eggplant)/.test(lowerName)) {
+      quantity = '2 large';
+    } else if (/(bread|toast)/.test(lowerName)) {
+      quantity = '2 slices';
+    } else if (/(cheese)/.test(lowerName)) {
+      quantity = '50g';
+    } else if (/(broccoli|cauliflower)/.test(lowerName)) {
+      quantity = '1 cup florets';
+    } else if (/(spinach|kale|lettuce)/.test(lowerName)) {
+      quantity = '2 cups';
+    } else if (/(carrot)/.test(lowerName)) {
+      quantity = '2 medium';
+    } else if (/(onion)/.test(lowerName)) {
+      quantity = '1 medium';
+    } else if (/(tomato)/.test(lowerName)) {
+      quantity = '2 medium';
+    } else if (/(pepper|bell pepper)/.test(lowerName)) {
+      quantity = '1 medium';
+    } else if (/(potato)/.test(lowerName)) {
+      quantity = '2 medium';
+    } else if (/(sweet potato)/.test(lowerName)) {
+      quantity = '1 large';
+    } else if (/(apple|orange|banana)/.test(lowerName)) {
+      quantity = '1 medium';
+    } else if (/(berries|strawberry|blueberry)/.test(lowerName)) {
+      quantity = '1 cup';
+    } else if (/(fruit)/.test(lowerName)) {
+      quantity = '1 cup';
+    } else if (/(nuts|almond|walnut|peanut|cashew)/.test(lowerName)) {
+      quantity = '1/4 cup';
+    } else if (/(spice|salt|pepper|oregano|basil|thyme)/.test(lowerName)) {
+      quantity = '1 tsp';
+    } else if (/(butter|margarine)/.test(lowerName)) {
+      quantity = '2 tbsp';
+    } else if (/(sugar|flour)/.test(lowerName)) {
+      quantity = '2 tbsp';
+    } else if (/(avocado)/.test(lowerName)) {
+      quantity = '1 medium';
+    } else if (/(lemon|lime)/.test(lowerName)) {
+      quantity = '1 medium';
+    } else if (/(garlic)/.test(lowerName)) {
+      quantity = '3 cloves';
+    } else if (/(ginger)/.test(lowerName)) {
+      quantity = '1 inch piece';
+    } else if (/(oats|oatmeal)/.test(lowerName)) {
+      quantity = '1 cup';
+    } else if (/(granola)/.test(lowerName)) {
+      quantity = '1/2 cup';
+    }
+    
+    return { name, quantity };
+  });
+  
+  // Generate detailed instructions
+  const instructions = [];
+  
+  if (isNoCook) {
+    // No-cook instructions (yogurt, fruit, etc.)
+    if (lower.some(i => /(yogurt)/.test(i))) {
+      const yogurtIng = ingredients[lower.findIndex(i => /(yogurt)/.test(i))];
+      instructions.push(`In a medium bowl, add ${ingredientsWithQuantities.find(i => i.name === yogurtIng)?.quantity || '1 cup'} of ${yogurtIng} as the base.`);
+      
+      if (lower.some(i => /(fruit|berry|banana|apple)/.test(i))) {
+        const fruitIngs = ingredients.filter((_, idx) => /(fruit|berry|banana|apple)/.test(lower[idx]));
+        if (fruitIngs.length > 0) {
+          instructions.push(`Wash and cut the ${fruitIngs.join(' and ')} into bite-sized pieces.`);
+          instructions.push(`Gently fold the prepared fruit into the yogurt, or arrange them on top for a more visually appealing presentation.`);
+        }
+      }
+      
+      if (lower.some(i => /(granola|nuts|seed)/.test(i))) {
+        const crunchyIngs = ingredients.filter((_, idx) => /(granola|nuts|seed)/.test(lower[idx]));
+        if (crunchyIngs.length > 0) {
+          instructions.push(`Sprinkle ${crunchyIngs.join(' and ')} on top for added texture and crunch.`);
+        }
+      }
+      
+      if (lower.some(i => /(honey|syrup)/.test(i))) {
+        const sweetenerIngs = ingredients.filter((_, idx) => /(honey|syrup)/.test(lower[idx]));
+        if (sweetenerIngs.length > 0) {
+          instructions.push(`Drizzle with ${sweetenerIngs.join(' and ')} for natural sweetness.`);
+        }
+      }
+      
+      instructions.push(`Serve immediately or chill in the refrigerator for 10-15 minutes for a cooler treat.`);
+    } else if (lower.some(i => /(fruit|berry|banana|apple)/.test(i))) {
+      instructions.push(`Wash all fruit thoroughly under cold running water.`);
+      instructions.push(`Peel and cut the fruit into bite-sized pieces, removing any seeds or cores as needed.`);
+      instructions.push(`Combine all prepared fruit in a large bowl and gently toss to mix.`);
+      
+      if (lower.some(i => /(honey|syrup)/.test(i))) {
+        const sweetenerIngs = ingredients.filter((_, idx) => /(honey|syrup)/.test(lower[idx]));
+        instructions.push(`Drizzle with ${sweetenerIngs.join(' and ')} and toss gently to coat.`);
+      }
+      
+      instructions.push(`Refrigerate for at least 15 minutes before serving to allow flavors to combine.`);
+    } else {
+      instructions.push(`Prepare all ingredients according to their type - wash and cut any produce, measure out dry ingredients.`);
+      instructions.push(`Combine all ingredients in a large bowl.`);
+      instructions.push(`Mix gently but thoroughly to ensure flavors are well combined.`);
+      instructions.push(`Let the mixture rest for 5-10 minutes before serving to allow flavors to meld.`);
+    }
+  } else if (isBreakfast) {
+    // Breakfast-specific instructions
+    if (lower.some(i => /(egg)/.test(i)) && !lower.some(i => /(eggplant)/.test(i))) {
+      const eggIng = ingredients[lower.findIndex(i => /(egg)/.test(i) && !/(eggplant)/.test(i))];
+      const eggQty = ingredientsWithQuantities.find(i => i.name === eggIng)?.quantity || '2 large';
+      
+      instructions.push(`Crack ${eggQty} ${eggIng} into a medium bowl and whisk until well combined. Season with a pinch of salt and pepper.`);
+      
+      if (lower.some(i => /(vegetable|pepper|onion|tomato|spinach)/.test(i))) {
+        const veggieIngs = ingredients.filter((_, idx) => /(vegetable|pepper|onion|tomato|spinach)/.test(lower[idx]));
+        
+        if (veggieIngs.length > 0) {
+          instructions.push(`Wash and dice the ${veggieIngs.join(', ')} into small, uniform pieces.`);
+          instructions.push(`Heat a non-stick pan over medium-high heat. Add a small amount of oil or butter if available.`);
+          instructions.push(`Sauté the vegetables for 3-4 minutes until they begin to soften.`);
+          instructions.push(`Pour the egg mixture over the vegetables and cook for 2-3 minutes until the edges set.`);
+          instructions.push(`Using a spatula, gently lift the edges and tilt the pan to allow uncooked egg to flow underneath.`);
+          instructions.push(`Cook for another 1-2 minutes until eggs are fully set but still moist.`);
+        }
+      } else {
+        instructions.push(`Heat a non-stick pan over medium-high heat. Add a small amount of oil or butter if available.`);
+        instructions.push(`Pour the egg mixture into the pan and cook for 2-3 minutes until the edges start to set.`);
+        instructions.push(`For scrambled eggs: Gently stir with a spatula until eggs are cooked but still soft, about 1-2 minutes more.`);
+        instructions.push(`For an omelet: Let cook undisturbed until mostly set, then fold in half and cook for 30 seconds more.`);
+      }
+    } else if (lower.some(i => /(oat|cereal)/.test(i))) {
+      const oatIng = ingredients[lower.findIndex(i => /(oat|cereal)/.test(i))];
+      const oatQty = ingredientsWithQuantities.find(i => i.name === oatIng)?.quantity || '1 cup';
+      
+      if (lower.some(i => /(milk|water)/.test(i))) {
+        const liquidIng = ingredients[lower.findIndex(i => /(milk|water)/.test(i))];
+        const liquidQty = ingredientsWithQuantities.find(i => i.name === liquidIng)?.quantity || '1 cup';
+        
+        if (/(oat|oatmeal)/.test(oatIng.toLowerCase())) {
+          instructions.push(`In a medium saucepan, bring ${liquidQty} of ${liquidIng} to a gentle boil.`);
+          instructions.push(`Stir in ${oatQty} of ${oatIng} and reduce heat to medium-low.`);
+          instructions.push(`Simmer for 5 minutes for quick oats or 15-20 minutes for old-fashioned oats, stirring occasionally.`);
+        } else {
+          instructions.push(`Pour ${oatQty} of ${oatIng} into a bowl.`);
+          instructions.push(`Add ${liquidQty} of ${liquidIng} to the bowl.`);
+        }
+      } else {
+        if (/(oat|oatmeal)/.test(oatIng.toLowerCase())) {
+          instructions.push(`In a medium saucepan, bring 1 cup of water to a gentle boil.`);
+          instructions.push(`Stir in ${oatQty} of ${oatIng} and reduce heat to medium-low.`);
+          instructions.push(`Simmer for 5 minutes for quick oats or 15-20 minutes for old-fashioned oats, stirring occasionally.`);
+        } else {
+          instructions.push(`Pour ${oatQty} of ${oatIng} into a bowl.`);
+          instructions.push(`Add 1 cup of milk or water to the bowl.`);
+        }
+      }
+      
+      if (lower.some(i => /(fruit|berry|banana|apple)/.test(i))) {
+        const fruitIngs = ingredients.filter((_, idx) => /(fruit|berry|banana|apple)/.test(lower[idx]));
+        
+        if (fruitIngs.length > 0) {
+          instructions.push(`Wash and prepare the ${fruitIngs.join(', ')}, cutting into bite-sized pieces if necessary.`);
+          instructions.push(`Top the prepared oats/cereal with the fresh fruit.`);
+        }
+      }
+      
+      if (lower.some(i => /(honey|syrup|sugar)/.test(i))) {
+        const sweetenerIngs = ingredients.filter((_, idx) => /(honey|syrup|sugar)/.test(lower[idx]));
+        
+        if (sweetenerIngs.length > 0) {
+          instructions.push(`Drizzle or sprinkle ${sweetenerIngs.join(' and ')} over the top to taste.`);
+        }
+      }
+    } else if (lower.some(i => /(bread|toast)/.test(i))) {
+      const breadIng = ingredients[lower.findIndex(i => /(bread|toast)/.test(i))];
+      const breadQty = ingredientsWithQuantities.find(i => i.name === breadIng)?.quantity || '2 slices';
+      
+      instructions.push(`Toast ${breadQty} of ${breadIng} until golden brown and crisp.`);
+      
+      if (lower.some(i => /(avocado)/.test(i))) {
+        const avocadoIng = ingredients[lower.findIndex(i => /(avocado)/.test(i))];
+        const avocadoQty = ingredientsWithQuantities.find(i => i.name === avocadoIng)?.quantity || '1 medium';
+        
+        instructions.push(`Cut the ${avocadoIng} in half, remove the pit, and scoop the flesh into a bowl.`);
+        instructions.push(`Mash the avocado with a fork until smooth but still slightly chunky. Season with salt and pepper if desired.`);
+        instructions.push(`Spread the mashed avocado evenly over the toasted bread.`);
+      } else if (lower.some(i => /(butter|jam|peanut butter)/.test(i))) {
+        const spreadIngs = ingredients.filter((_, idx) => /(butter|jam|peanut butter)/.test(lower[idx]));
+        
+        if (spreadIngs.length > 0) {
+          instructions.push(`Spread ${spreadIngs.join(' and ')} evenly over the warm toast.`);
+        }
+      }
+      
+      if (lower.some(i => /(egg)/.test(i)) && !lower.some(i => /(eggplant)/.test(i))) {
+        instructions.push(`For a complete breakfast, prepare eggs on the side as described in the egg preparation steps.`);
+      }
+    }
+  } else {
+    // Regular meal instructions (lunch/dinner)
+    // Start with prep steps
+    instructions.push(`Gather and prepare all ingredients before starting to cook.`);
+    
+    // Protein preparation
+    if (hasProtein) {
+      const proteinIngredients = ingredients.filter((_, idx) => 
+        /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(lower[idx]) && !/(eggplant)/.test(lower[idx]));
+      
+      if (proteinIngredients.length > 0) {
+        const mainProtein = proteinIngredients[0];
+        const proteinQty = ingredientsWithQuantities.find(i => i.name === mainProtein)?.quantity || '150g';
+        
+        if (/(chicken|beef|pork)/.test(mainProtein.toLowerCase())) {
+          instructions.push(`Season ${proteinQty} of ${mainProtein} with salt and pepper on both sides.`);
+          instructions.push(`Heat a large skillet over medium-high heat. Add 1 tablespoon of oil if available.`);
+          instructions.push(`Cook the ${mainProtein} for 5-6 minutes per side until browned and cooked through (internal temperature of 165°F/74°C for chicken, 145°F/63°C for beef/pork).`);
+          instructions.push(`Remove the cooked ${mainProtein} from the pan and let rest for 5 minutes before slicing or serving.`);
+        } else if (/(fish|salmon|tuna|shrimp)/.test(mainProtein.toLowerCase())) {
+          instructions.push(`Season ${proteinQty} of ${mainProtein} with salt and pepper.`);
+          instructions.push(`Heat a skillet over medium-high heat. Add a small amount of oil if available.`);
+          instructions.push(`Cook the ${mainProtein} for 3-4 minutes per side for fish fillets, or 2-3 minutes for shrimp, until opaque and cooked through.`);
+        } else if (/(tofu|tempeh)/.test(mainProtein.toLowerCase())) {
+          instructions.push(`Press ${proteinQty} of ${mainProtein} between paper towels to remove excess moisture.`);
+          instructions.push(`Cut the ${mainProtein} into 1-inch cubes or slices.`);
+          instructions.push(`Heat a skillet over medium-high heat. Add oil if available.`);
+          instructions.push(`Cook the ${mainProtein} for 3-4 minutes per side until golden brown and crispy.`);
+        } else if (/(egg)/.test(mainProtein.toLowerCase())) {
+          instructions.push(`Whisk ${proteinQty} of ${mainProtein} in a bowl with a pinch of salt and pepper.`);
+          instructions.push(`Heat a non-stick skillet over medium heat.`);
+          instructions.push(`Pour the whisked eggs into the skillet and cook until set, about 2-3 minutes.`);
+        } else {
+          instructions.push(`Prepare all ingredients according to their type - wash and cut any produce, measure out dry ingredients.`);
+        }
+      }
+    }
+    
+    // Carbohydrate preparation
+    if (hasCarbs) {
+      const carbIngredients = ingredients.filter((_, idx) => 
+        /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(lower[idx]) && !/(eggplant)/.test(lower[idx]));
+      
+      if (carbIngredients.length > 0) {
+        const mainCarb = carbIngredients[0];
+        const carbQty = ingredientsWithQuantities.find(i => i.name === mainCarb)?.quantity || '1 cup cooked';
+        
+        if (/(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(mainCarb.toLowerCase())) {
+          instructions.push(`Cook ${carbQty} of ${mainCarb} according to package instructions.`);
+        } else {
+          instructions.push(`Prepare ${carbQty} of ${mainCarb} according to package instructions.`);
+        }
+      }
+    }
+    
+    // Fat preparation
+    if (hasFat) {
+      const fatIngredients = ingredients.filter((_, idx) => 
+        /(avocado|olive oil|butter|margarine|cashews|nuts|peanut butter|dark chocolate)/.test(lower[idx]) && !/(eggplant)/.test(lower[idx]));
+      
+      if (fatIngredients.length > 0) {
+        const mainFat = fatIngredients[0];
+        const fatQty = ingredientsWithQuantities.find(i => i.name === mainFat)?.quantity || '1/2 cup';
+        
+        if (/(avocado|olive oil|butter|margarine)/.test(mainFat.toLowerCase())) {
+          instructions.push(`Add ${fatQty} of ${mainFat} to the dish.`);
+        } else if (/(cashews|nuts|peanut butter|dark chocolate)/.test(mainFat.toLowerCase())) {
+          instructions.push(`Add ${fatQty} of ${mainFat} to the dish.`);
+        } else {
+          instructions.push(`Add ${fatQty} of ${mainFat} to the dish.`);
+        }
+      }
+    }
+    
+    // Vegetable preparation
+    if (hasVeggies) {
+      const veggieIngredients = ingredients.filter((_, idx) => 
+        /(broccoli|spinach|lettuce|greens|pepper|tomato|cucumber|carrot|veg|vegetable|kale|onion|mushroom)/.test(lower[idx]) && !/(eggplant)/.test(lower[idx]));
+      
+      if (veggieIngredients.length > 0) {
+        const mainVeggie = veggieIngredients[0];
+        const veggieQty = ingredientsWithQuantities.find(i => i.name === mainVeggie)?.quantity || '1 cup';
+        
+        if (/(broccoli|spinach|lettuce|greens|pepper|tomato|cucumber|carrot|veg|vegetable|kale|onion|mushroom)/.test(mainVeggie.toLowerCase())) {
+          instructions.push(`Add ${veggieQty} of ${mainVeggie} to the dish.`);
+        } else {
+          instructions.push(`Add ${veggieQty} of ${mainVeggie} to the dish.`);
+        }
+      }
+    }
+    
+    // Snack preparation
+    if (isSnack) {
+      const snackIngredients = ingredients.filter((_, idx) => 
+        /(yogurt|fruit|berry|granola|nuts|almond|peanut butter|honey|chia|oat\s?meal|cottage)/.test(lower[idx]) && !/(eggplant)/.test(lower[idx]));
+      
+      if (snackIngredients.length > 0) {
+        const mainSnack = snackIngredients[0];
+        const snackQty = ingredientsWithQuantities.find(i => i.name === mainSnack)?.quantity || '1 serving';
+        
+        if (/(yogurt|fruit|berry|granola|nuts|almond|peanut butter|honey|chia|oat\s?meal|cottage)/.test(mainSnack.toLowerCase())) {
+          instructions.push(`Add ${snackQty} of ${mainSnack} to the meal.`);
+        } else {
+          instructions.push(`Add ${snackQty} of ${mainSnack} to the meal.`);
+        }
+      }
+    }
+    
+    // Final adjustments
+    instructions.push(`Adjust seasoning to taste.`);
+    instructions.push(`Serve hot.`);
+  }
+  
+  return {
+    name: recipeName,
+    ingredients: ingredientsWithQuantities,
+    instructions,
+    nutrition: {
+      calories: caloriesNum,
+      protein: proteinNum,
+      carbs: carbsNum,
+      fat: fatNum,
+      fiber: 5,
+      sugar: 8
+    },
+  };
+}
+
+// ===================
+// ERROR HANDLING MIDDLEWARE (must be last)
+// ===================
+
+// Global error handling middleware (must be last)
+app.use((error, req, res, next) => {
+  console.error('[EXPRESS] Unhandled error in request:', {
+    url: req.url,
+    method: req.method,
+    error: error.message,
+    stack: error.stack
+  });
+  
+  // Don't crash the server, return a 500 error
+  if (!res.headersSent) {
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Handle 404s
+app.use((req, res) => {
+  console.log('[EXPRESS] 404 - Route not found:', req.method, req.url);
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    path: req.url,
+    method: req.method
+  });
+});
