@@ -3932,6 +3932,12 @@ app.get('/api/simple-recipe', (req, res) => {
 
 // More sophisticated recipe generator for fallback
 function generateSimpleRecipe(mealType, ingredients, targets) {
+  // Calculate nutrition targets
+  const caloriesNum = parseInt((targets && targets.calories) || 500, 10) || 500;
+  const proteinNum = parseInt((targets && targets.protein) || 30, 10) || 30;
+  const carbsNum = parseInt((targets && targets.carbs) || 50, 10) || 50;
+  const fatNum = parseInt((targets && targets.fat) || 15, 10) || 15;
+  
   // Normalize ingredients for processing
   const lower = ingredients.map(i => i.toLowerCase().trim());
   
@@ -3940,6 +3946,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
   const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
   const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
+  const hasFat = lower.some(i => /(avocado|olive oil|butter|margarine|cashews|nuts|peanut butter|dark chocolate)/.test(i));
   const isBreakfast = mealType.toLowerCase() === 'breakfast';
   const isSnack = mealType.toLowerCase() === 'snack';
   const isNoCook = !hasProtein && !hasCarbs && lower.every(i => /(yogurt|fruit|berry|granola|nuts|milk|cheese)/.test(i));
