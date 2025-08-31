@@ -69,7 +69,7 @@ function convertMarkdownToNutritionJson(content) {
   try {
     // Try to parse as JSON first
     return JSON.parse(content);
-  } catch (e) {
+  } catch {
     // If not JSON, try to convert from markdown
     console.log('[PARSE] Attempting to convert markdown to JSON...');
     
@@ -172,7 +172,7 @@ function findAndParseJson(content) {
   try {
     // First, try to parse the entire content as JSON
     return JSON.parse(content);
-  } catch (e) {
+  } catch {
     console.log('[PARSE] Full content parse failed, trying to extract JSON...');
     
     // Try multiple strategies to find JSON
@@ -203,7 +203,7 @@ function findAndParseJson(content) {
           const jsonString = content.substring(startIndex, endIndex + 1);
           try {
             return JSON.parse(jsonString);
-          } catch (e) {
+          } catch {
             console.log('[PARSE] Strategy 1 failed:', e.message);
             return null;
           }
@@ -217,7 +217,7 @@ function findAndParseJson(content) {
         if (codeBlockMatch) {
           try {
             return JSON.parse(codeBlockMatch[1]);
-          } catch (e) {
+          } catch {
             console.log('[PARSE] Strategy 2 failed:', e.message);
             return null;
           }
@@ -244,7 +244,7 @@ function findAndParseJson(content) {
             if (jsonMatch) {
               try {
                 return JSON.parse(jsonMatch[0]);
-              } catch (e) {
+              } catch {
                 console.log(`[PARSE] Strategy 3 failed for prefix "${prefix}":`, e.message);
               }
             }
@@ -286,7 +286,7 @@ function findAndParseJson(content) {
           
           try {
             return JSON.parse(largestJson);
-          } catch (e) {
+          } catch {
             console.log('[PARSE] Strategy 4 failed:', e.message);
             return null;
           }
@@ -328,7 +328,7 @@ function findAndParseJson(content) {
               const jsonString = jsonContent.substring(startIndex, endIndex + 1);
               try {
                 return JSON.parse(jsonString);
-              } catch (e) {
+              } catch {
                 console.log('[PARSE] Strategy 5 failed for line', i, ':', e.message);
               }
             }
@@ -347,7 +347,7 @@ function findAndParseJson(content) {
             // Try to parse it directly
             return JSON.parse(jsonString);
           }
-        } catch (e) {
+        } catch {
           console.log('[PARSE] Strategy 6 failed:', e.message);
         }
         return null;
@@ -372,7 +372,7 @@ function findAndParseJson(content) {
           }
 
           return JSON.parse(cleanContent);
-        } catch (e) {
+        } catch {
           console.log('[PARSE] Strategy 7 failed:', e.message);
         }
         return null;
@@ -426,7 +426,7 @@ function createModifiedPlan(currentPlan) {
 const shouldOverrideLocalEnv = !process.env.PORT;
 dotenv.config({ path: path.join(__dirname, '.env'), override: shouldOverrideLocalEnv });
 if (!shouldOverrideLocalEnv) {
-  try { console.log('[ENV] Detected PORT from environment; skipping .env override for PORT'); } catch (_) {}
+  try { console.log('[ENV] Detected PORT from environment; skipping .env override for PORT'); } catch { /* ignore */ }
 }
 
 const app = express();
@@ -475,7 +475,7 @@ if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
 // Vision services: Gemini (primary) only
 
 // Optional external services for higher accuracy
-const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
+// const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
 // Initialize Vision Service (Gemini only)
 // Initialize vision service based on FOOD_ANALYZE_PROVIDER
@@ -1231,7 +1231,7 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
               try {
                 const profile = JSON.parse(profileMatch[1]);
                 return generateNutritionPlanWithFallback(profile);
-              } catch (e) {
+              } catch {
                 // If we can't parse the profile, use a default one
                 return generateNutritionPlanWithFallback({});
               }
@@ -2008,8 +2008,8 @@ EXAMPLE RESPONSE:
 }
 
 
-const PEXELS_API_KEY =
-  '563492ad6f91700001000001d02925b145994d53a25e9b8b54b1c89f';
+// const PEXELS_API_KEY =
+//   '563492ad6f91700001000001d02925b145994d53a25e9b8b54b1c89f';
 
 app.get('/api/get-food-image', (req, res) => {
   const food = req.query.food;
