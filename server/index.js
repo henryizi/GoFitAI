@@ -478,7 +478,23 @@ if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
 const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
 // Initialize Vision Service (Gemini only)
-const visionService = GEMINI_API_KEY ? new GeminiVisionService() : null;
+// Initialize vision service based on FOOD_ANALYZE_PROVIDER
+let visionService = null;
+const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || 'gemini';
+
+if (FOOD_ANALYZE_PROVIDER === 'gemini' && GEMINI_API_KEY) {
+  console.log('[VISION SERVICE] Initializing Gemini Vision Service');
+  visionService = new GeminiVisionService();
+} else if (FOOD_ANALYZE_PROVIDER === 'cloudflare' && process.env.CF_ACCOUNT_ID && process.env.CF_API_TOKEN) {
+  console.log('[VISION SERVICE] Initializing Cloudflare Vision Service');
+  const VisionService = require('./services/visionService.js');
+  visionService = new VisionService();
+} else {
+  console.log('[VISION SERVICE] No vision service configured, using fallback only');
+  console.log('[VISION SERVICE] FOOD_ANALYZE_PROVIDER:', FOOD_ANALYZE_PROVIDER);
+  console.log('[VISION SERVICE] GEMINI_API_KEY configured:', !!GEMINI_API_KEY);
+  console.log('[VISION SERVICE] CF_ACCOUNT_ID configured:', !!process.env.CF_ACCOUNT_ID);
+}
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // AI Provider Priority List (DeepSeek first)
@@ -500,6 +516,13 @@ const AI_PROVIDERS = [
     apiUrl: 'https://api.openai.com/v1/chat/completions',
     model: OPENAI_MODEL,
     enabled: !!***REMOVED***
+  },
+  {
+    name: 'gemini',
+    apiKey: GEMINI_API_KEY,
+    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+    model: 'gemini-1.5-flash',
+    enabled: !!GEMINI_API_KEY
   },
   {
     name: 'fallback',
@@ -1234,23 +1257,67 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         } else {
           throw new Error('No content for fallback analysis');
         }
+      } else if (provider.name === 'gemini') {
+        // Special handling for Gemini API (different format)
+        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000;
+
+        // Convert OpenAI format to Gemini format
+        const geminiContents = messages.map(msg => ({
+          role: msg.role,
+          parts: [{ text: msg.content }]
+        }));
+
+        const geminiRequestBody = {
+          contents: geminiContents,
+          generationConfig: {
+            temperature: temperature,
+            topP: 0.95,
+            maxOutputTokens: max_tokens
+          }
+        };
+
+        // Add response format if specified
+        if (responseFormat && responseFormat.type === 'json_object') {
+          geminiRequestBody.generationConfig.responseMimeType = 'application/json';
+        }
+
+        // Use API key in URL for Gemini
+        const geminiUrl = `${provider.apiUrl}?key=${provider.apiKey}`;
+
+        response = await axios.post(
+          geminiUrl,
+          geminiRequestBody,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: AI_REQUEST_TIMEOUT
+          }
+        );
+
+        // Convert Gemini response to OpenAI format for compatibility
+        response.data = {
+          choices: [{
+            message: {
+              content: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated'
+            }
+          }]
+        };
+
       } else {
         // Standard OpenAI format with timeout
         const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
-        
+
         {
           const headers = { Authorization: `Bearer ${provider.apiKey}` };
         response = await axios.post(
           provider.apiUrl,
       requestBody,
-          { 
+          {
               headers,
             timeout: AI_REQUEST_TIMEOUT
           }
     );
         }
-        
-    
+
     return response.data;
       }
       
@@ -4551,22 +4618,18 @@ async function standardizeImageForTensor(imageBuffer) {
 }
 
 // ===================
-// FOOD ANALYSIS ENDPOINT
+// SIMPLIFIED FOOD ANALYSIS ENDPOINT - GEMINI ONLY
 // ===================
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-  console.log('[FOOD ANALYZE] Received food analysis request');
-  
+  console.log('[FOOD ANALYZE] Received food analysis request using Gemini only');
+
   try {
-    // Ensure aiResponse is declared in the handler scope for both vision and text paths
-    let aiResponse = null;
-    let foodDescription = '';
-    let visionModelUsed = '';
     // Check if we have a file upload, base64 image, or text description
     if (!req.file && !req.body.image && !req.body.imageDescription) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No food image or description provided' 
+      return res.status(400).json({
+        success: false,
+        error: 'No food image or description provided'
       });
     }
 
@@ -4581,709 +4644,239 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
       } : null
     });
 
-    // If we have a text description only, prefer AI providers before final fallback
-    if (req.body.imageDescription && !req.file) {
-      console.log('[FOOD ANALYZE] Text-only analysis path');
+    let base64Image, mimeType;
+
+    // Handle different input types
+    if (req.body.imageDescription) {
+      // Text description only - use Gemini for analysis
+      console.log('[FOOD ANALYZE] Processing text description with Gemini');
       const description = String(req.body.imageDescription).slice(0, 2000);
-      console.log('[FOOD ANALYZE] Processing description:', description);
+
       const messages = [
         {
           role: 'system',
-          content: `You are an expert nutritionist and culinary AI specialist with deep knowledge of global cuisines, cooking methods, and dish recognition. Analyze this food description and provide detailed nutritional information.
+          content: `You are an expert nutritionist. Analyze this food description and provide nutritional information.
 
-CRITICAL INSTRUCTIONS FOR DISH RECOGNITION:
-1. FIRST identify the SPECIFIC DISH NAME (e.g., "French Toast", "Pad Thai", "Sushi Roll", "Beef Tacos", "Margherita Pizza")
-2. Identify the CUISINE TYPE (e.g., "American Breakfast", "Thai", "Japanese", "Mexican", "Italian")
-3. Recognize COOKING METHODS (e.g., "grilled", "fried", "baked", "steamed", "roasted")
-4. Identify ALL visible food items and ingredients
-5. Estimate portion sizes as accurately as possible
-6. Provide detailed nutritional breakdown including:
-   - Total calories
-   - Protein (grams)
-   - Carbohydrates (grams)
-   - Fat (grams)
-   - Fiber (grams)
-   - Sugar (grams)
-   - Sodium (mg)
-   - Any other relevant nutrients
+CRITICAL REQUIREMENTS:
+1. Identify the SPECIFIC food/dish name
+2. Estimate realistic nutritional information based on typical serving sizes
+3. Be specific about assumptions (e.g., "assuming standard restaurant serving")
+4. Focus on accuracy for typical portions
 
-7. Be SPECIFIC about dish names, not generic descriptions:
-   - ✅ CORRECT: "French Toast with maple syrup and butter"
-   - ❌ WRONG: "triangular pieces of bread with toppings"
-   - ✅ CORRECT: "Pad Thai with shrimp, tofu, and peanuts"
-   - ❌ WRONG: "noodles with vegetables and meat"
-
-8. If the description is unclear or contains multiple items, make your best estimate
-9. Return ONLY a valid JSON object with the following structure:
-
+Return ONLY this JSON structure:
 {
-  "dishName": "Specific dish name (e.g., 'French Toast', 'Pad Thai')",
-  "cuisineType": "Cuisine category (e.g., 'American Breakfast', 'Thai')",
-  "cookingMethod": "How it was prepared (e.g., 'pan-fried', 'grilled')",
-  "foodItems": [
-    {
-      "name": "Specific ingredient name",
-      "quantity": "Estimated portion (e.g., '2 slices', '1 cup')",
-      "calories": 100,
-      "protein": 5,
-      "carbs": 20,
-      "fat": 2,
-      "fiber": 3,
-      "sugar": 15,
-      "sodium": 50
-    }
-  ],
-  "totalNutrition": {
-    "calories": 500,
-    "protein": 25,
-    "carbs": 60,
-    "fat": 15,
-    "fiber": 8,
-    "sugar": 30,
-    "sodium": 200
-  },
-  "confidence": "high|medium|low",
-  "notes": "Specific observations about the dish, presentation, and analysis"
+  "food_name": "Specific food/dish name",
+  "calories": 350,
+  "protein": 25,
+  "carbs": 45,
+  "fat": 15,
+  "assumptions": "Any assumptions made about portion sizes",
+  "confidence": "high|medium|low"
 }
 
-IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just describing what you see. Think like a chef or food critic who knows specific dish names. Return ONLY valid JSON, no prose.`
+Example: If someone says "chicken breast", don't just say "chicken" - be specific. If uncertain, state your assumption clearly.`
         },
         {
           role: 'user',
-          content: `Analyze this food description: "${description}"`
+          content: `Analyze this food: "${description}"`
         }
       ];
-      // Use outer-scoped aiResponse to avoid shadowing and ReferenceErrors
-      const deepseekAvailable = !!getProviderConfig('deepseek');
-      try {
-        if (deepseekAvailable) {
-          console.log('[FOOD ANALYZE] Trying DeepSeek for text analysis');
-          aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
-        }
-        if (!aiResponse || aiResponse.error) {
-          console.log('[FOOD ANALYZE] All AI providers failed, using direct rule-based fallback');
-          // Use direct fallback function instead of callAI with 'fallback' provider
-          const fallbackResult = analyzeFoodWithFallback(description);
-          try {
-            // Return the fallback result directly since it's already in the right format
+
+      const aiResponse = await callAI(messages, { type: 'json_object' }, 0.1, 'gemini');
+
+      if (!aiResponse || aiResponse.error) {
+        console.warn('[FOOD ANALYZE] Gemini failed for text analysis, using simple fallback');
         return res.json({
           success: true,
-              data: {
-                success: true,
-                nutrition: fallbackResult,
-                message: `Analyzed using fallback system. Confidence: ${fallbackResult.confidence}`
-              }
-        });
-      } catch (parseError) {
-            console.error('[FOOD ANALYZE] Fallback error:', parseError);
-            // Return a safe fallback response
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: {
-                  food_name: description || "Unknown Food",
-                  calories: 0,
-                  protein: 0,
-                  carbs: 0,
-                  fat: 0,
-                  fiber: 0,
-                  confidence: "low"
-                },
-                message: "Analysis temporarily unavailable"
-              }
+          data: {
+            success: true,
+            nutrition: {
+              food_name: description || "Unknown Food",
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+              assumptions: "Unable to analyze - basic estimate",
+              confidence: "low"
+            },
+            message: "Analysis completed with basic estimation"
+          }
         });
       }
-    }
 
-        // Handle different response formats
-        let content;
-        if (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
-          content = aiResponse.choices[0].message.content;
-        } else if (aiResponse.content) {
-          content = aiResponse.content;
-        } else if (typeof aiResponse === 'string') {
-          content = aiResponse;
-        } else {
-          throw new Error('Invalid AI response format');
+      const aiContent = aiResponse.choices?.[0]?.message?.content || aiResponse.content;
+      const analysisResult = JSON.parse(aiContent);
+
+      return res.json({
+        success: true,
+        data: {
+          success: true,
+          nutrition: analysisResult,
+          message: "Analyzed using Gemini text analysis"
         }
-        
-        const nutritionData = JSON.parse(content);
-        return res.json({ success: true, ...nutritionData });
-      } catch (err) {
-        console.error('[FOOD ANALYZE] Error in text-only analysis:', err);
-        return res.status(500).json({ success: false, error: 'Failed to analyze food description' });
-      }
+      });
     }
 
-    // Handle base64 image from request body
-    let base64Image, mimeType;
-    
+    // Handle image input
     if (req.body.image) {
-      console.log('[FOOD ANALYZE] Processing base64 image from request body');
-      // Extract base64 data and mime type from data URL
+      console.log('[FOOD ANALYZE] Processing base64 image');
       const imageData = req.body.image;
       if (imageData.startsWith('data:')) {
         const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
         if (matches) {
           mimeType = matches[1];
-          const rawBase64 = matches[2];
-          
-          // Check if we need to compress the data URL image
-          const tempBuffer = Buffer.from(rawBase64, 'base64');
-          if (tempBuffer.length > 800000) { // 800KB threshold for compression
-            console.log('[FOOD ANALYZE] Data URL image too large, compressing...');
-            const compressedBuffer = await compressImageForVision(tempBuffer);
-            base64Image = compressedBuffer.toString('base64');
-          } else {
-            base64Image = rawBase64;
-          }
-        } else {
-          return res.status(400).json({ 
-          success: false,
-            error: 'Invalid base64 image format' 
-        });
-      }
+          base64Image = matches[2];
+        }
       } else {
-        // Assume it's just base64 data
-        // Check if we need to compress the base64 image
-        const tempBuffer = Buffer.from(imageData, 'base64');
-        if (tempBuffer.length > 800000) { // 800KB threshold for compression
-          console.log('[FOOD ANALYZE] Base64 image too large, compressing...');
-          const compressedBuffer = await compressImageForVision(tempBuffer);
-          base64Image = compressedBuffer.toString('base64');
-        } else {
-          base64Image = imageData;
-        }
+        base64Image = imageData;
         mimeType = 'image/jpeg';
-    }
+      }
     } else if (req.file) {
-    const foodImage = req.file;
-      console.log('[FOOD ANALYZE] Processing uploaded image:', foodImage?.originalname || foodImage?.filename || 'unknown');
+      console.log('[FOOD ANALYZE] Processing uploaded file');
+      const imageBuffer = fs.readFileSync(req.file.path);
 
-    // Convert image to base64 for AI analysis
-    let imageBuffer = fs.readFileSync(foodImage.path);
-    
-    // Additional validation: check if the file is actually an image using sharp
-    try {
-      const metadata = await sharp(imageBuffer).metadata();
-      console.log('[FOOD ANALYZE] Image metadata:', {
-        format: metadata.format,
-        width: metadata.width,
-        height: metadata.height,
-        size: metadata.size
-      });
-      
-      // If sharp can't read it, it's not a valid image
-      if (!metadata.format) {
-        throw new Error('Not a valid image file');
-      }
-    } catch (sharpError) {
-      console.error('[FOOD ANALYZE] Invalid image file:', sharpError.message);
-      return res.status(400).json({
+      // Validate image
+      try {
+        const metadata = await sharp(imageBuffer).metadata();
+        if (!metadata.format) throw new Error('Invalid image');
+      } catch (sharpError) {
+        console.error('[FOOD ANALYZE] Image validation failed:', sharpError.message);
+        return res.status(400).json({
           success: false,
-        error: 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).',
-        message: 'Invalid image format. Please use a clear photo of food.',
-        details: {}
-      });
-    }
-
-      // If HEIC/HEIF, convert to JPEG for compatibility
-      const isHeic = (foodImage.mimetype || '').toLowerCase().includes('heic') || (foodImage.mimetype || '').toLowerCase().includes('heif') || /\.heic$|\.heif$/i.test(foodImage.originalname || '');
-      if (isHeic) {
-        console.log('[FOOD ANALYZE] Converting HEIC/HEIF to JPEG for iOS compatibility');
-        console.log('[FOOD ANALYZE] Original HEIC file details:', {
-          originalname: foodImage.originalname,
-          mimetype: foodImage.mimetype,
-          size: foodImage.size
+          error: 'Invalid image format. Please upload JPG, PNG, or HEIC.'
         });
-        try {
-          imageBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
-          mimeType = 'image/jpeg';
-          console.log('[FOOD ANALYZE] HEIC conversion successful, new size:', imageBuffer.length);
-        } catch (convErr) {
-          console.warn('[FOOD ANALYZE] HEIC conversion failed, proceeding with original buffer:', convErr.message);
-          // Fallback to original buffer and detected mimetype
-        }
       }
 
-      // Compress image if it's too large
-      if (imageBuffer.length > 2_000_000) { // 2MB threshold for Gemini
-        console.log('[FOOD ANALYZE] Image too large, compressing...');
-        imageBuffer = await compressImageForVision(imageBuffer);
+      // Convert HEIC to JPEG if needed
+      let processedBuffer = imageBuffer;
+      const isHeic = req.file.mimetype?.includes('heic') || req.file.originalname?.includes('.heic');
+      if (isHeic) {
+        processedBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
+        mimeType = 'image/jpeg';
       }
-      
-      base64Image = imageBuffer.toString('base64');
-      mimeType = mimeType || foodImage.mimetype || 'image/jpeg';
-    } else {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No image provided' 
+
+      // Compress if too large
+      if (processedBuffer.length > 2_000_000) {
+        processedBuffer = await compressImageForVision(processedBuffer);
+      }
+
+      base64Image = processedBuffer.toString('base64');
+      mimeType = mimeType || req.file.mimetype || 'image/jpeg';
+      console.log('[FOOD ANALYZE] Processed image, mimeType:', mimeType);
+    }
+
+    // Use Gemini Vision for image analysis
+    console.log('[FOOD ANALYZE] Using Gemini Vision API for image analysis');
+
+    if (!visionService) {
+      return res.status(503).json({
+        success: false,
+        error: 'Vision service not available'
       });
     }
 
-    // Prepare the AI prompt for food analysis using Llava 1.5
-    const prompt = `
-You are an expert nutritionist and culinary AI specialist. Analyze this food image and provide accurate nutritional information and dish recognition.
+    const visionResult = await visionService.analyzeFoodImage(base64Image);
+    const imageDescription = visionResult.imageDescription;
 
-CRITICAL INSTRUCTIONS:
-1. FIRST identify the SPECIFIC DISH NAME (e.g., "Scrambled Eggs", "Bowl of Cereal", "French Toast", "Oatmeal")
-2. Identify the CUISINE TYPE (e.g., "American Breakfast", "Continental", "Asian")
-3. Recognize COOKING METHODS (e.g., "scrambled", "fried", "baked", "steamed")
-4. Identify ALL visible food items and ingredients
-5. Estimate portion sizes accurately
-6. Provide detailed nutritional breakdown including:
-   - Total calories
-   - Protein (grams)
-   - Carbohydrates (grams)
-   - Fat (grams)
-   - Fiber (grams)
-   - Sugar (grams)
-   - Sodium (mg)
+    console.log('[FOOD ANALYZE] Gemini vision completed, analyzing nutrition');
 
-7. Be SPECIFIC about dish names:
-   - ✅ CORRECT: "Scrambled Eggs with Toast"
-   - ❌ WRONG: "eggs and bread"
-   - ✅ CORRECT: "Bowl of Cereal with Berries"
-   - ❌ WRONG: "breakfast food"
+    // Use Gemini to analyze nutrition from the description
+    const messages = [
+      {
+        role: 'system',
+        content: `You are an expert nutritionist. Based on this food image description, provide accurate nutritional estimates.
 
-8. Return ONLY a valid JSON object with this structure:
+REQUIREMENTS:
+1. Identify the main food/dish clearly
+2. Estimate calories and macronutrients for a typical serving
+3. Be realistic - don't overestimate portions
+4. State assumptions clearly if portion size is uncertain
 
+Return ONLY this JSON structure:
 {
-  "dishName": "Specific dish name",
-  "cuisineType": "Cuisine category",
-  "cookingMethod": "How it was prepared",
-  "foodItems": [
-    {
-      "name": "Specific ingredient name",
-      "quantity": "Estimated portion",
-      "calories": 100,
-      "protein": 5,
-      "carbs": 20,
-      "fat": 2,
-      "fiber": 3,
-      "sugar": 15,
-      "sodium": 50
-    }
-  ],
-  "totalNutrition": {
-    "calories": 500,
-    "protein": 25,
-    "carbs": 60,
-    "fat": 15,
-    "fiber": 8,
-    "sugar": 30,
-    "sodium": 200
-  },
-  "confidence": "high|medium|low",
-  "notes": "Specific observations about the dish"
+  "food_name": "Specific food/dish name (e.g., 'Grilled Chicken Breast', 'Caesar Salad')",
+  "calories": 350,
+  "protein": 25,
+  "carbs": 45,
+  "fat": 15,
+  "assumptions": "Assumptions about portion size (e.g., 'assuming 6oz serving', 'based on restaurant portion')",
+  "confidence": "high|medium|low"
 }
 
-Analyze the following food image:
-`;
-
-    // Use vision-capable AI to analyze the actual image content
-    console.log('[FOOD ANALYZE] Using vision AI to analyze food image');
-    
-    try {
-      // Basic sanity check on image size
-      if (base64Image.length < 1000) {
-        console.warn('[FOOD ANALYZE] Image too small for vision analysis, using fallback');
-        throw new Error('Image too small for vision analysis');
+Focus on accuracy and realistic estimates. If multiple foods are present, focus on the main item or combine appropriately.`
+      },
+      {
+        role: 'user',
+        content: `Based on this food image description: "${imageDescription}", provide nutritional analysis.`
       }
-      
-      // Check if image is too small
-      if (base64Image.length < 1000) {
-        console.warn('[FOOD ANALYZE] Image too small for vision analysis, using fallback');
-        console.log('[FOOD ANALYZE] Image size details:', {
-          base64Length: base64Image.length,
-          originalSize: req.file?.size,
-          filename: req.file?.originalname,
-          mimetype: req.file?.mimetype
-        });
-        throw new Error('Image too small for vision analysis');
-      }
+    ];
 
-      // Validate the message structure to prevent JSON serialization errors
-      console.log('[FOOD ANALYZE] Image size:', base64Image.length, 'characters');
-      console.log('[FOOD ANALYZE] MIME type:', mimeType);
+    const aiResponse = await callAI(messages, { type: 'json_object' }, 0.1, 'gemini');
 
-      console.log('[FOOD ANALYZE] Using Gemini Vision API for food photo analysis');
-      if (visionService) {
-        try {
-          const visionResult = await visionService.analyzeFoodImage(base64Image);
-          console.log('[FOOD ANALYZE] Gemini vision analysis successful');
-          foodDescription = visionResult.imageDescription || 'Food image analysis completed';
-          visionModelUsed = visionResult.model;
-        } catch (visionError) {
-          console.warn('[FOOD ANALYZE] Gemini vision failed:', visionError.message);
-        }
-      }
-
-      // If Gemini vision already succeeded, use it directly
-      if (foodDescription && visionModelUsed) {
-        console.log('[FOOD ANALYZE] Gemini vision analysis successful');
-        console.log('[FOOD ANALYZE] Using description from Gemini model:', visionModelUsed);
-
-        // Process the nutrition analysis using the description from Gemini vision
-        const messages = [
-          {
-            role: 'system',
-            content: `You are an expert nutritionist. Based on the food image description provided, analyze the nutritional content and return a detailed JSON response.
-
-Return ONLY a valid JSON object with this structure:
-{
-  "dishName": "Specific dish name",
-  "cuisineType": "Cuisine category",
-  "cookingMethod": "How it was prepared",
-  "foodItems": [
-    {
-      "name": "Specific ingredient name",
-      "quantity": "Estimated portion",
-      "calories": 100,
-      "protein": 5,
-      "carbs": 20,
-      "fat": 2,
-      "fiber": 3,
-      "sugar": 15,
-      "sodium": 50
-    }
-  ],
-  "totalNutrition": {
-    "calories": 500,
-    "protein": 25,
-    "carbs": 60,
-    "fat": 15,
-    "fiber": 8,
-    "sugar": 30,
-    "sodium": 200
-  },
-  "confidence": "high|medium|low",
-  "notes": "Specific observations about the dish"
-}`
-          },
-          {
-            role: 'user',
-            content: `Based on this food image description: "${foodDescription}", provide detailed nutrition information.`
-          }
-        ];
-
-        // Use DeepSeek for nutrition analysis
-        try {
-          const deepseekAvailable = !!getProviderConfig('deepseek');
-          if (deepseekAvailable) {
-            console.log('[FOOD ANALYZE] Using DeepSeek for nutrition analysis of Gemini vision result');
-            aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
-          }
-
-          if (!aiResponse || aiResponse.error) {
-            console.log('[FOOD ANALYZE] DeepSeek failed, using fallback for Gemini result');
-            const fallbackResult = analyzeFoodWithFallback(foodDescription);
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: fallbackResult,
-                message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
-                analysisProvider: 'gemini'
-              }
-            });
-          }
-
-          // Parse and return the result
-          const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
-          if (aiContent) {
-            const analysisResult = findAndParseJson(aiContent);
-            if (analysisResult) {
-              return res.json({
-                success: true,
-                data: {
-                  success: true,
-                  nutrition: analysisResult,
-                  message: 'Analyzed using Gemini vision + DeepSeek nutrition analysis',
-                  analysisProvider: 'gemini'
-                }
-              });
-            }
-          }
-
-        } catch (hfNutritionError) {
-          console.error('[FOOD ANALYZE] Error processing Gemini vision result:', hfNutritionError);
-          const fallbackResult = analyzeFoodWithFallback(foodDescription);
-          return res.json({
-            success: true,
-            data: {
-              success: true,
-              nutrition: fallbackResult,
-              message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
-              analysisProvider: 'gemini'
-            }
-          });
-        }
-      }
-      
-      // If no vision service succeeded, use Gemini as fallback
-      if (!visionService) {
-        console.log('[FOOD ANALYZE] No vision service available, using fallback analysis');
-        const fallbackResult = analyzeFoodWithFallback('food items from image');
-        return res.json({
+    if (!aiResponse || aiResponse.error) {
+      console.warn('[FOOD ANALYZE] Gemini failed for nutrition analysis');
+      return res.json({
+        success: true,
+        data: {
           success: true,
-          data: {
-            success: true,
-            nutrition: fallbackResult,
-            message: 'Vision analysis not available - using basic analysis',
-            analysisProvider: 'fallback'
-          }
-        });
-      }
+          nutrition: {
+            food_name: "Food Item",
+            calories: 300,
+            protein: 20,
+            carbs: 30,
+            fat: 10,
+            assumptions: "Basic estimate due to analysis failure",
+            confidence: "low"
+          },
+          message: "Analysis completed with basic estimation"
+        }
+      });
+    }
 
-      console.log('[FOOD ANALYZE] Using Gemini Vision API as final fallback');
+    const aiContent = aiResponse.choices?.[0]?.message?.content || aiResponse.content;
+    const analysisResult = JSON.parse(aiContent);
+
+    // Clean up uploaded file
+    if (req.file?.path) {
       try {
-        const geminiResult = await visionService.analyzeFoodImage(base64Image);
-        foodDescription = geminiResult.imageDescription || 'Food image analysis completed';
-        visionModelUsed = geminiResult.model;
-
-        // Process nutrition analysis with Gemini result
-        const messages = [
-          {
-            role: 'system',
-            content: `You are an expert nutritionist. Based on the food image description provided, analyze the nutritional content and return a detailed JSON response.
-
-Return ONLY a valid JSON object with this structure:
-{
-  "dishName": "Specific dish name",
-  "cuisineType": "Cuisine category",
-  "cookingMethod": "How it was prepared",
-  "foodItems": [
-    {
-      "name": "Specific ingredient name",
-      "quantity": "Estimated portion",
-      "calories": 100,
-      "protein": 5,
-      "carbs": 20,
-      "fat": 2,
-      "fiber": 3,
-      "sugar": 15,
-      "sodium": 50
-    }
-  ],
-  "totalNutrition": {
-    "calories": 500,
-    "protein": 25,
-    "carbs": 60,
-    "fat": 15,
-    "fiber": 8,
-    "sugar": 30,
-    "sodium": 200
-  },
-  "confidence": "high|medium|low",
-  "notes": "Specific observations about the dish"
-}`
-          },
-          {
-            role: 'user',
-            content: `Based on this food image description: "${foodDescription}", provide detailed nutrition information.`
-          }
-        ];
-
-        // Use DeepSeek for nutrition analysis
-        const deepseekAvailable = !!getProviderConfig('deepseek');
-        if (deepseekAvailable) {
-          console.log('[FOOD ANALYZE] Using DeepSeek for nutrition analysis of Gemini vision result');
-          aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
-        }
-
-        if (!aiResponse || aiResponse.error) {
-          console.log('[FOOD ANALYZE] DeepSeek failed, using fallback for Gemini result');
-          const fallbackResult = analyzeFoodWithFallback(foodDescription);
-          return res.json({
-            success: true,
-            data: {
-              success: true,
-              nutrition: fallbackResult,
-              message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
-              analysisProvider: 'gemini'
-            }
-          });
-        }
-
-        // Parse and return the result
-        const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
-        if (aiContent) {
-          const analysisResult = findAndParseJson(aiContent);
-          if (analysisResult) {
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: analysisResult,
-                message: 'Analyzed using Gemini vision + DeepSeek nutrition analysis',
-                analysisProvider: 'gemini'
-              }
-            });
-          }
-        }
-
-      } catch (geminiError) {
-        console.error('[FOOD ANALYZE] Gemini vision failed:', geminiError.message);
-      }
-
-      // Final fallback if everything fails
-      console.log('[FOOD ANALYZE] All vision services failed, using basic fallback');
-      const fallbackResult = analyzeFoodWithFallback('food items from image');
-      return res.json({
-        success: true,
-        data: {
-          success: true,
-          nutrition: fallbackResult,
-          message: 'Vision analysis failed - using basic estimation',
-          analysisProvider: 'fallback'
-        }
-      });
-      
-
-      
-    } catch (visionError) {
-      console.error('[FOOD ANALYZE] Vision analysis failed:', visionError.message);
-
-      // Handle common vision API errors
-      if (visionError.response?.status === 413) {
-        throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
-      } else if (visionError.response?.status === 400) {
-        throw new Error('Invalid image format. Please use a clear photo of food.');
-      } else if (visionError.response?.status === 429) {
-        throw new Error('Too many requests. Please try again in a moment.');
-      }
-
-      // If vision analysis fails, provide final fallback
-      console.log('[FOOD ANALYZE] Vision analysis failed, using rule-based fallback');
-      const fallbackResult = analyzeFoodWithFallback('food items from image');
-      return res.json({
-        success: true,
-        data: {
-          success: true,
-          nutrition: fallbackResult,
-          message: `Vision analysis failed. Using fallback analysis. Error: ${visionError.message}`,
-          analysisProvider: 'fallback'
-        }
-      });
-    }
-    
-    // If we get here, aiResponse should be set either from successful vision analysis or retry
-    if (!aiResponse) {
-      console.error('[FOOD ANALYZE] Error: aiResponse is not defined');
-      console.log('[FOOD ANALYZE] Using final fallback due to undefined aiResponse');
-      const fallbackResult = analyzeFoodWithFallback('food items from image');
-      return res.json({
-        success: true,
-        data: {
-          success: true,
-          nutrition: fallbackResult,
-          message: 'Vision analysis failed and no fallback available - using basic estimation'
-        }
-      });
-    }
-
-    const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
-    if (!aiContent) {
-      console.error('[FOOD ANALYZE] Empty AI response:', JSON.stringify(aiResponse?.data || {}, null, 2).slice(0, 1000) + '...');
-      throw new Error('No response from AI service');
-    }
-
-    // Parse the AI response
-    const analysisResult = findAndParseJson(aiContent);
-    if (!analysisResult) {
-      console.error('[FOOD ANALYZE] Failed to parse AI response. Preview:', String(aiContent).slice(0, 500) + '...');
-      throw new Error('Failed to parse AI response');
-    }
-
-    // Now verify food items with USDA (for verification only, not nutrition)
-    try {
-      if (USDA_FDC_API_KEY && analysisResult?.foodItems) {
-        console.log('[FOOD ANALYZE] Verifying food items with USDA...');
-        
-        for (const foodItem of analysisResult.foodItems) {
-          try {
-            // Search USDA for this food item
-            const usdaSearchUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_FDC_API_KEY}&query=${encodeURIComponent(foodItem.name)}&pageSize=1`;
-            const usdaResponse = await axios.get(usdaSearchUrl, { timeout: 10000 });
-            
-            if (usdaResponse.data?.foods?.length > 0) {
-              // Mark as USDA verified
-              foodItem.usdaVerified = true;
-              foodItem.usdaFdcId = usdaResponse.data.foods[0].fdcId;
-              console.log(`[FOOD ANALYZE] USDA verified: ${foodItem.name}`);
-            } else {
-              foodItem.usdaVerified = false;
-              console.log(`[FOOD ANALYZE] USDA not found: ${foodItem.name}`);
-            }
-          } catch (usdaError) {
-            console.warn(`[FOOD ANALYZE] USDA verification failed for ${foodItem.name}:`, usdaError.message);
-            foodItem.usdaVerified = false;
-          }
-        }
-        
-        // Count verified items
-        const verifiedCount = analysisResult.foodItems.filter(item => item.usdaVerified).length;
-        analysisResult.usdaVerifiedCount = verifiedCount;
-        console.log(`[FOOD ANALYZE] USDA verification complete: ${verifiedCount}/${analysisResult.foodItems.length} items verified`);
-      }
-    } catch (usdaError) {
-      console.warn('[FOOD ANALYZE] USDA verification failed:', usdaError.message);
-      // Don't fail the entire request - USDA verification is optional
-    }
-
-    console.log('[FOOD ANALYZE] Analysis completed successfully');
-    
-    // Clean up the uploaded file
-    try {
-      if (req.file && req.file.path) {
         fs.unlinkSync(req.file.path);
-        console.log('[FOOD ANALYZE] Cleaned up uploaded file:', req.file.filename);
+      } catch (error) {
+        console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
       }
-    } catch (cleanupError) {
-      console.warn('[FOOD ANALYZE] Failed to cleanup uploaded file:', cleanupError.message);
     }
-    
+
     res.json({
       success: true,
-      data: analysisResult,
-      visionModel: visionModelUsed || 'unknown',
-      analysisProvider: 'gemini'
+      data: {
+        success: true,
+        nutrition: analysisResult,
+        message: "Analyzed using Gemini Vision + Gemini nutrition analysis",
+        analysisProvider: 'gemini'
+      }
     });
 
   } catch (error) {
-    const statusFromUpstream = error?.response?.status;
-    const messageFromUpstream = error?.response?.data || error?.message || String(error);
-    console.error('[FOOD ANALYZE] Error:', messageFromUpstream);
+    console.error('[FOOD ANALYZE] Error:', error.message);
 
-    // Map known cases to client errors
-    let httpStatus = 500;
-    let clientMessage = 'Vision analysis failed';
-
-    if (typeof messageFromUpstream === 'string') {
-      if (messageFromUpstream.includes('Invalid base64 image') || messageFromUpstream.includes('Invalid image format')) {
-        httpStatus = 400; clientMessage = 'Invalid image format. Please upload a clear photo (JPG/PNG/HEIC supported).';
-      } else if (messageFromUpstream.includes('Image too large')) {
-        httpStatus = 413; clientMessage = 'Image too large. Please use a smaller image (max ~1MB).';
-      } else if (messageFromUpstream.includes('Too many requests')) {
-        httpStatus = 429; clientMessage = 'Too many requests. Please try again shortly.';
-      } else if (messageFromUpstream.includes('Vision service')) {
-        httpStatus = 503; clientMessage = 'Vision service temporarily unavailable.';
-      }
-    }
-    if (statusFromUpstream === 400) httpStatus = 400;
-    if (statusFromUpstream === 413) httpStatus = 413;
-    if (statusFromUpstream === 429) httpStatus = 429;
-
-    res.status(httpStatus).json({
+    // Handle specific error types
+    if (error.message?.includes('Invalid image') || error.message?.includes('image format')) {
+      return res.status(400).json({
         success: false,
-      error: clientMessage,
-      message: typeof messageFromUpstream === 'string' ? messageFromUpstream : undefined,
-      details: {
-        status: statusFromUpstream,
-        statusText: error?.response?.statusText
-      }
+        error: 'Invalid image format. Please upload a clear photo.'
+      });
+    }
+
+    if (error.message?.includes('too large')) {
+      return res.status(413).json({
+        success: false,
+        error: 'Image too large. Please use a smaller image (max 1MB).'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Food analysis failed. Please try again.',
+      details: error.message
     });
   }
 });
