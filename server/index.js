@@ -4634,28 +4634,123 @@ async function standardizeImageForTensor(imageBuffer) {
 }
 
 // ===================
-// SIMPLIFIED FOOD ANALYSIS ENDPOINT - GEMINI ONLY
+// GEMINI FOOD ANALYSIS ENDPOINT
 // ===================
 
+// Initialize Gemini Vision Service
+const GeminiVisionService = require('./services/geminiVisionService');
+let geminiVisionService = null;
+
+try {
+  if (GEMINI_API_KEY) {
+    geminiVisionService = new GeminiVisionService(GEMINI_API_KEY);
+    console.log('[GEMINI VISION] Service initialized successfully');
+  } else {
+    console.warn('[GEMINI VISION] API key not found - food analysis will be disabled');
+  }
+} catch (error) {
+  console.error('[GEMINI VISION] Failed to initialize service:', error.message);
+}
+
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-  console.log('[FOOD ANALYZE] Food analysis endpoint disabled during rebuild');
+  console.log('[FOOD ANALYZE] Food analysis endpoint called');
   
-  // Clean up uploaded file if present
-  if (req.file?.path) {
+  try {
+    // Check if Gemini Vision service is available
+    if (!geminiVisionService) {
+      console.error('[FOOD ANALYZE] Gemini Vision service not available');
+      return res.status(503).json({
+        success: false,
+        error: 'Food analysis service not available. Please check server configuration.',
+        message: 'Service not initialized'
+      });
+    }
+
+    // Check if image was uploaded
+    if (!req.file) {
+      console.log('[FOOD ANALYZE] No image file provided');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No image file provided',
+        message: 'Please upload a food image for analysis'
+      });
+    }
+
+    console.log('[FOOD ANALYZE] Processing uploaded image');
+    console.log('[FOOD ANALYZE] File info:', {
+        filename: req.file.filename,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
+    // Read the uploaded image file
+    const fs = require('fs');
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const mimeType = req.file.mimetype;
+
+    console.log('[FOOD ANALYZE] Image buffer size:', imageBuffer.length);
+    console.log('[FOOD ANALYZE] Starting Gemini analysis...');
+
+    // Analyze the food image using Gemini Vision
+    const analysisResult = await geminiVisionService.analyzeFoodImage(imageBuffer, mimeType);
+
+    console.log('[FOOD ANALYZE] Analysis completed successfully');
+    console.log('[FOOD ANALYZE] Food identified:', analysisResult.foodName);
+    console.log('[FOOD ANALYZE] Confidence:', analysisResult.confidence);
+
+    // Clean up uploaded file
     try {
       fs.unlinkSync(req.file.path);
-    } catch (error) {
-      console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
+      console.log('[FOOD ANALYZE] Uploaded file cleaned up');
+    } catch (cleanupError) {
+      console.warn('[FOOD ANALYZE] Failed to cleanup file:', cleanupError.message);
     }
+
+    // Return the analysis results in the format expected by the client
+    res.json({
+          success: true,
+              data: {
+        foodName: analysisResult.foodName,
+        confidence: analysisResult.confidence,
+        estimatedServingSize: analysisResult.estimatedServingSize,
+                nutrition: {
+          calories: analysisResult.totalNutrition.calories,
+          protein: analysisResult.totalNutrition.protein,
+          carbohydrates: analysisResult.totalNutrition.carbohydrates,
+          fat: analysisResult.totalNutrition.fat,
+          fiber: analysisResult.totalNutrition.fiber,
+          sugar: analysisResult.totalNutrition.sugar,
+          sodium: analysisResult.totalNutrition.sodium
+        },
+        foodItems: analysisResult.foodItems,
+        assumptions: analysisResult.assumptions,
+        notes: analysisResult.notes
+      },
+      message: `Food analysis completed with ${analysisResult.confidence}% confidence`
+    });
+
+  } catch (error) {
+    console.error('[FOOD ANALYZE] Analysis failed:', error.message);
+    console.error('[FOOD ANALYZE] Error stack:', error.stack);
+
+    // Clean up uploaded file in case of error
+    if (req.file?.path) {
+      try {
+        const fs = require('fs');
+        fs.unlinkSync(req.file.path);
+        console.log('[FOOD ANALYZE] Uploaded file cleaned up after error');
+      } catch (cleanupError) {
+        console.warn('[FOOD ANALYZE] Failed to cleanup file after error:', cleanupError.message);
+      }
+    }
+
+    res.status(500).json({
+          success: false,
+      error: 'Food analysis failed',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
-  
-  res.status(503).json({
-        success: false, 
-    error: 'Food photo analysis is currently being rebuilt. Please use manual logging.',
-    message: 'Feature temporarily disabled'
-  });
-
-
 });
 
 // Profile update endpoint

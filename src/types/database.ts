@@ -300,6 +300,7 @@ export interface Database {
           duration_minutes: number | null;
           total_sets: number | null;
           total_exercises: number | null;
+          estimated_calories: number | null;
           notes: string | null;
           created_at: string;
           // New permanent storage fields

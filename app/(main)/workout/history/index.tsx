@@ -8,7 +8,8 @@ import {
   RefreshControl, 
   Dimensions,
   Image,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useAuth } from '../../../../src/hooks/useAuth';
@@ -20,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { MotiView } from 'moti';
+
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
@@ -61,6 +63,7 @@ export default function WorkoutHistoryListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sessions, setSessions] = useState<CompletedSessionListItem[]>([]);
+  const [deletingSessions, setDeletingSessions] = useState<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
   const scrollY = new Animated.Value(0);
   
@@ -81,9 +84,11 @@ export default function WorkoutHistoryListScreen() {
     if (!user?.id) return;
     setLoading(true);
     console.log('[WorkoutHistory] Loading workout history for user:', user.id);
+    console.log('[WorkoutHistory] User object:', JSON.stringify(user, null, 2));
     try {
       const data = await WorkoutHistoryService.getCompletedSessions(user.id);
       console.log('[WorkoutHistory] Loaded sessions:', data.length);
+      console.log('[WorkoutHistory] Session data:', JSON.stringify(data, null, 2));
       setSessions(data);
     } catch (error) {
       console.error('[WorkoutHistory] Error loading sessions:', error);
@@ -98,12 +103,59 @@ export default function WorkoutHistoryListScreen() {
       console.log('[WorkoutHistory] Refreshing workout history');
       const data = await WorkoutHistoryService.getCompletedSessions(user?.id || '');
       console.log('[WorkoutHistory] Refreshed sessions:', data.length);
+      console.log('[WorkoutHistory] Refreshed session data:', JSON.stringify(data, null, 2));
       setSessions(data);
     } catch (error) {
-      console.error('[WorkoutHistory] Error refreshing workout history:', error);
+      console.error('[WorkoutHistory] Error refreshing sessions:', error);
     } finally {
       setRefreshing(false);
     }
+  }, [user?.id]);
+
+  const deleteSession = useCallback(async (sessionId: string) => {
+    if (!user?.id) return;
+    
+    Alert.alert(
+      'Delete Workout Session',
+      'Are you sure you want to delete this workout session? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Set loading state for this session
+              setDeletingSessions(prev => new Set(prev).add(sessionId));
+              
+              console.log('[WorkoutHistory] Deleting session:', sessionId);
+              const success = await WorkoutHistoryService.deleteSession(sessionId, user.id);
+              
+              if (success) {
+                console.log('[WorkoutHistory] Session deleted successfully');
+                // Remove the deleted session from the local state
+                setSessions(prev => prev.filter(session => session.id !== sessionId));
+                // Show success feedback
+                Alert.alert('Success', 'Workout session deleted successfully');
+              } else {
+                console.error('[WorkoutHistory] Failed to delete session');
+                Alert.alert('Error', 'Failed to delete workout session. Please try again.');
+              }
+            } catch (error) {
+              console.error('[WorkoutHistory] Error deleting session:', error);
+              Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+            } finally {
+              // Clear loading state
+              setDeletingSessions(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(sessionId);
+                return newSet;
+              });
+            }
+          }
+        }
+      ]
+    );
   }, [user?.id]);
 
   useEffect(() => {
@@ -334,7 +386,7 @@ export default function WorkoutHistoryListScreen() {
                     
                     <View style={styles.sessionTextContent}>
                       <Text style={styles.sessionTitle} numberOfLines={1}>
-                        {item.split_name || 'Workout Session'}
+                        {item.session_name || item.split_name || item.plan_name || `Week ${item.week_number || '-'} Day ${item.day_number || '-'}`}
                       </Text>
                       <Text style={styles.sessionDate}>
                         {formatDate(item.completed_at)}
@@ -351,25 +403,95 @@ export default function WorkoutHistoryListScreen() {
                           <Icon name="calendar-today" size={14} color={colors.primary} />
                           <Text style={styles.sessionMetaText}>
                             Day {item.day_number ?? '-'}
-            </Text>
+                          </Text>
                         </View>
                         {item.split_name && (
                           <View style={styles.sessionMetaItem}>
                             <Icon name="dumbbell" size={14} color={colors.primary} />
                             <Text style={styles.sessionMetaText}>
                               Workout
-            </Text>
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Exercise and Set Counts */}
+                      <View style={styles.sessionStatsRow}>
+                        {item.total_exercises != null && item.total_exercises > 0 ? (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="fitness-center" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              {item.total_exercises} {item.total_exercises === 1 ? 'Exercise' : 'Exercises'}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="fitness-center" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              No exercises
+                            </Text>
+                          </View>
+                        )}
+                        {item.total_sets != null && item.total_sets > 0 ? (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="repeat" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              {item.total_sets} {item.total_sets === 1 ? 'Set' : 'Sets'}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="repeat" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              No sets
+                            </Text>
+                          </View>
+                        )}
+                        {item.estimated_calories != null && item.estimated_calories > 0 ? (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="local-fire-department" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              {item.estimated_calories} cal
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.sessionStatItem}>
+                            <Icon name="local-fire-department" size={14} color={colors.textSecondary} />
+                            <Text style={styles.sessionStatText}>
+                              No calories
+                            </Text>
                           </View>
                         )}
                       </View>
                     </View>
                     
-                    <View style={styles.sessionArrowContainer}>
-                      <Icon 
-                        name="chevron-right" 
-                        size={20} 
-                        color={colors.primary}
-                      />
+                    <View style={styles.sessionActionsContainer}>
+                      <TouchableOpacity
+                        onPress={() => deleteSession(item.id)}
+                        style={[
+                          styles.deleteButton,
+                          deletingSessions.has(item.id) && styles.deleteButtonDisabled
+                        ]}
+                        activeOpacity={0.7}
+                        disabled={deletingSessions.has(item.id)}
+                      >
+                        {deletingSessions.has(item.id) ? (
+                          <ActivityIndicator size="small" color={colors.error} />
+                        ) : (
+                          <Icon 
+                            name="delete-outline" 
+                            size={20} 
+                            color={colors.error}
+                          />
+                        )}
+                      </TouchableOpacity>
+                      <View style={styles.sessionArrowContainer}>
+                        <Icon 
+                          name="chevron-right" 
+                          size={20} 
+                          color={colors.primary}
+                        />
+                      </View>
                     </View>
                   </View>
                 </LinearGradient>
@@ -526,6 +648,41 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 6,
   },
+  sessionStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 12,
+  },
+  sessionStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionStatText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  sessionActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: 'rgba(255, 59, 48, 0.05)',
+  },
   sessionArrowContainer: {
     width: 32,
     height: 32,
@@ -533,7 +690,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.glass,
     borderRadius: 16,
-    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -634,5 +790,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-
-}); 
+});

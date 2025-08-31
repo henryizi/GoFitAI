@@ -9,6 +9,8 @@ export default function WorkoutLayout() {
       <Stack.Screen name="plan-create" />
       <Stack.Screen name="plan/[planId]" />
       <Stack.Screen name="session/[id]" />
+      <Stack.Screen name="preview-plan" />
+      <Stack.Screen name="clear-plans" />
     </Stack>
   );
 } 

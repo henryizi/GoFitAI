@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated, ScrollView } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -132,32 +132,19 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
       };
     }
 
-    // Create smart labels - show more labels with better spacing for larger chart
-    const baseLabels = processedData.map((entry, index) => {
+    // Create labels that show all dates consistently
+    const labels = processedData.map((entry, index) => {
       const date = new Date(entry.metric_date);
-      const isFirst = index === 0;
-      const isLast = index === processedData.length - 1;
-      const isMiddle = index === Math.floor(processedData.length / 2);
-
-      // Show more labels for better date visibility
-      const shouldShowLabel = isFirst || isLast || isMiddle ||
-        processedData.length <= 7 ||
-        (processedData.length <= 14 && index % 2 === 0) ||
-        (processedData.length > 14 && index % Math.max(2, Math.floor(processedData.length / 8)) === 0);
-
-      if (shouldShowLabel) {
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        return `${mm}.${dd}`;
-      }
-      return '';
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${mm}.${dd}`;
     });
 
     // Real data dataset
     const baseData = processedData.map(d => d.weight_kg!);
 
     return {
-      labels: baseLabels,
+      labels: labels,
       datasets: [
         {
           data: baseData,
@@ -186,9 +173,10 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
       labelColor: (opacity = 1) => themeColors.textSecondary,
       decimalPlaces: 1,
       propsForDots: {
-        r: '0',
-        strokeWidth: '0',
-        fill: 'transparent',
+        r: '3',
+        strokeWidth: '2',
+        fill: colors.primary,
+        stroke: colors.white,
       },
       propsForBackgroundLines: {
         strokeDasharray: '0',
@@ -197,7 +185,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
       },
       propsForLabels: {
         fontFamily: 'System',
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '600',
         color: themeColors.textSecondary,
       },
@@ -259,95 +247,106 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
   if (chartOnly) {
     return (
       <View style={styles.chartContainer}>
-        <View style={styles.chartWrapper}>
-          <LineChart
-            data={chartData}
-            width={chartDimensions.width}
-            height={240}
-            chartConfig={chartConfig}
-            style={styles.chart}
-            withDots={true}
-            withShadow={true}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withInnerLines={false}
-            withHorizontalLabels={true}
-            yAxisSuffix=""
-            fromZero={false}
-            yLabelsOffset={-8}
-            xLabelsOffset={-5}
-            yAxisInterval={1}
-            segments={4}
-            bezier
-            decorator={(props: any) => {
-              const { width, x, y } = props || {};
-              const avg = stats.avgWeight || 0;
-              const yPos = y ? y(avg) : 0;
+        {processedData.length > 7 && (
+          <View style={styles.scrollIndicator}>
+            <Icon name="gesture-swipe-horizontal" size={16} color={colors.textSecondary} />
+            <Text style={styles.scrollIndicatorText}>Swipe to see more data</Text>
+          </View>
+        )}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
+        >
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={chartData}
+              width={Math.max(chartDimensions.width, processedData.length * 60)}
+              height={240}
+              chartConfig={chartConfig}
+              style={styles.chart}
+              withDots={true}
+              withShadow={true}
+              withVerticalLines={false}
+              withHorizontalLines={true}
+              withInnerLines={false}
+              withHorizontalLabels={true}
+              yAxisSuffix=""
+              fromZero={false}
+              yLabelsOffset={-8}
+              xLabelsOffset={-5}
+              yAxisInterval={1}
+              segments={4}
+              bezier
+              decorator={(props: any) => {
+                const { width, x, y } = props || {};
+                const avg = stats.avgWeight || 0;
+                const yPos = y ? y(avg) : 0;
 
-              const values: number[] = (chartData?.datasets?.[0]?.data as number[]) || [];
-              const totalPoints = values.length;
-              const step = showAllValueLabels ? 1 : (totalPoints > 24 ? Math.ceil(totalPoints / 12) : 1);
+                const values: number[] = (chartData?.datasets?.[0]?.data as number[]) || [];
+                const totalPoints = values.length;
 
-              const avgLine = (
-                <SvgLine
-                  key="avg-line"
-                  x1={0}
-                  y1={yPos}
-                  x2={width}
-                  y2={yPos}
-                  stroke={colors.chartLine}
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                />
-              );
-
-              const labels = values.map((v, i) => {
-                const shouldShow = showAllValueLabels || i % step === 0 || i === 0 || i === totalPoints - 1;
-                if (!shouldShow || !x || !y) return null;
-
-                const cx = x(i);
-                const cy = y(v) - 14;
-                return (
-                  <SvgText
-                    key={`val-${i}`}
-                    x={cx}
-                    y={cy}
-                    fontSize={showAllValueLabels ? 9 : 10}
-                    fontWeight="700"
-                    fill={themeColors.text}
-                    textAnchor="middle"
-                  >
-                    {v.toFixed(1)}
-                  </SvgText>
-                );
-              });
-
-              const dots = values.map((v, i) => {
-                if (!x || !y) return null;
-                const cx = x(i);
-                const cy = y(v);
-                return (
-                  <SvgCircle
-                    key={`dot-${i}`}
-                    cx={cx}
-                    cy={cy}
-                    r={3}
-                    fill={colors.chartDot}
-                    stroke={colors.white}
-                    strokeWidth={1.5}
+                const avgLine = (
+                  <SvgLine
+                    key="avg-line"
+                    x1={0}
+                    y1={yPos}
+                    x2={width}
+                    y2={yPos}
+                    stroke={colors.chartLine}
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
                   />
                 );
-              });
 
-              return [avgLine, ...dots, ...labels];
-            }}
-            formatYLabel={(val) => {
-              const num = Number(val);
-              if (Number.isNaN(num)) return '';
-              return num.toFixed(1);
-            }}
-          />
-        </View>
+                // Show all value labels for better visibility
+                const labels = values.map((v, i) => {
+                  if (!x || !y) return null;
+
+                  const cx = x(i);
+                  const cy = y(v) - 14;
+                  return (
+                    <SvgText
+                      key={`val-${i}`}
+                      x={cx}
+                      y={cy}
+                      fontSize={9}
+                      fontWeight="700"
+                      fill={themeColors.text}
+                      textAnchor="middle"
+                    >
+                      {v.toFixed(1)}
+                    </SvgText>
+                  );
+                });
+
+                const dots = values.map((v, i) => {
+                  if (!x || !y) return null;
+                  const cx = x(i);
+                  const cy = y(v);
+                  return (
+                    <SvgCircle
+                      key={`dot-${i}`}
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill={colors.primary}
+                      stroke={colors.white}
+                      strokeWidth={2}
+                    />
+                  );
+                });
+
+                return [avgLine, ...dots, ...labels];
+              }}
+              formatYLabel={(val) => {
+                const num = Number(val);
+                if (Number.isNaN(num)) return '';
+                return num.toFixed(1);
+              }}
+            />
+          </View>
+        </ScrollView>
         {/* Left edge mask to clip bezier/gradient bleed */}
         <View pointerEvents="none" style={styles.edgeMaskLeft} />
       </View>
@@ -417,199 +416,211 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
 
       {/* Chart container */}
       <View style={styles.chartContainer}>
-        <View style={styles.chartWrapper}>
-          <LineChart
-            data={chartData}
-            width={chartDimensions.width}
-            height={240}
-            chartConfig={chartConfig}
-            style={styles.chart}
-            withDots={true}
-            withShadow={true}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withInnerLines={false}
-            withHorizontalLabels={true}
-            yAxisSuffix=""
-            fromZero={false}
-            yLabelsOffset={-8}
-            xLabelsOffset={-5}
-            yAxisInterval={1}
-            segments={4}
-            bezier
-            decorator={(props: any) => {
-              const { width, x, y } = props || {};
-              const avg = stats.avgWeight || 0;
-              const yPos = y ? y(avg) : 0;
+        {processedData.length > 7 && (
+          <View style={styles.scrollIndicator}>
+            <Icon name="gesture-swipe-horizontal" size={16} color={colors.textSecondary} />
+            <Text style={styles.scrollIndicatorText}>Swipe to see more data</Text>
+          </View>
+        )}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
+        >
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={chartData}
+              width={Math.max(chartDimensions.width, processedData.length * 60)}
+              height={240}
+              chartConfig={chartConfig}
+              style={styles.chart}
+              withDots={true}
+              withShadow={true}
+              withVerticalLines={false}
+              withHorizontalLines={true}
+              withInnerLines={false}
+              withHorizontalLabels={true}
+              yAxisSuffix=""
+              fromZero={false}
+              yLabelsOffset={-8}
+              xLabelsOffset={-5}
+              yAxisInterval={1}
+              segments={4}
+              bezier
+              decorator={(props: any) => {
+                const { width, x, y } = props || {};
+                const avg = stats.avgWeight || 0;
+                const yPos = y ? y(avg) : 0;
 
-              const values: number[] = (chartData?.datasets?.[0]?.data as number[]) || [];
-              const totalPoints = values.length;
-              const step = showAllValueLabels ? 1 : (totalPoints > 24 ? Math.ceil(totalPoints / 12) : 1);
+                const values: number[] = (chartData?.datasets?.[0]?.data as number[]) || [];
+                const totalPoints = values.length;
 
-              const avgLine = (
-                <SvgLine
-                  key="avg-line"
-                  x1={0}
-                  y1={yPos}
-                  x2={width}
-                  y2={yPos}
-                  stroke={colors.chartLine}
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                />
-              );
-
-              const labels = values.map((v, i) => {
-                const shouldShow = showAllValueLabels || i % step === 0 || i === 0 || i === totalPoints - 1;
-                if (!shouldShow || !x || !y) return null;
-                const cx = x(i);
-                const cy = y(v) - 14;
-                return (
-                  <SvgText
-                    key={`val-${i}`}
-                    x={cx}
-                    y={cy}
-                    fontSize={showAllValueLabels ? 9 : 10}
-                    fontWeight="700"
-                    fill={themeColors.text}
-                    textAnchor="middle"
-                  >
-                    {v.toFixed(1)}
-                  </SvgText>
-                );
-              });
-
-              const dots = values.map((v, i) => {
-                if (!x || !y) return null;
-                const cx = x(i);
-                const cy = y(v);
-                return (
-                  <SvgCircle
-                    key={`dot-${i}`}
-                    cx={cx}
-                    cy={cy}
-                    r={3}
-                    fill={colors.chartDot}
-                    stroke={colors.white}
-                    strokeWidth={1.5}
+                const avgLine = (
+                  <SvgLine
+                    key="avg-line"
+                    x1={0}
+                    y1={yPos}
+                    x2={width}
+                    y2={yPos}
+                    stroke={colors.chartLine}
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
                   />
                 );
-              });
 
-              return [avgLine, ...dots, ...labels];
-            }}
-            formatYLabel={(val) => {
-              const num = Number(val);
-              if (Number.isNaN(num)) return '';
-              return num.toFixed(1);
-            }}
-            onDataPointClick={({ value, x, y, index }) => {
-              if (tooltip?.visible && tooltip.x === x && tooltip.y === y) {
-                setTooltip(null);
-              } else {
-                setTooltip({
-                  x,
-                  y,
-                  visible: true,
-                  value,
-                  date: chartData.labels[index] || processedData[index]?.metric_date || '',
-                  index,
+                // Show all value labels for better visibility
+                const labels = values.map((v, i) => {
+                  if (!x || !y) return null;
+
+                  const cx = x(i);
+                  const cy = y(v) - 14;
+                  return (
+                    <SvgText
+                      key={`val-${i}`}
+                      x={cx}
+                      y={cy}
+                      fontSize={9}
+                      fontWeight="700"
+                      fill={themeColors.text}
+                      textAnchor="middle"
+                    >
+                      {v.toFixed(1)}
+                    </SvgText>
+                  );
                 });
-              }
-            }}
-            renderDotContent={({ x, y, index }) => {
-              const isSelected = tooltip?.visible && tooltip.x === x && tooltip.y === y;
-              const totalPoints = processedData.length;
-              const isFirst = index === 0;
-              const isLast = index === totalPoints - 1;
-              const value = processedData[index]?.weight_kg ?? 0;
-              const dateRaw = processedData[index]?.metric_date;
-              const dt = dateRaw ? new Date(dateRaw) : null;
-              const mm = dt ? String(dt.getMonth() + 1).padStart(2, '0') : '';
-              const dd = dt ? String(dt.getDate()).padStart(2, '0') : '';
 
-              return (
-                <View key={`dot-${index}`}>
-                  {/* Always show numeric value above each point for visibility */}
-                  <Text
-                    style={{
-                      position: 'absolute',
-                      top: Math.max(2, y - 18),
-                      left: x - 16,
-                      width: 32,
-                      textAlign: 'center',
-                      color: colors.white,
-                      fontWeight: '700',
-                      fontSize: 10,
-                      textShadowColor: 'rgba(0,0,0,0.8)',
-                      textShadowOffset: { width: 0, height: 0 },
-                      textShadowRadius: 2,
-                    }}
-                  >
-                    {Number(value).toFixed(1)}
-                  </Text>
-                  {isSelected && (
-                    <View
-                      pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: x,
-                        height: 240,
-                        borderLeftWidth: 1,
-                        borderStyle: 'dashed',
-                        borderColor: colors.chartLine,
-                        opacity: 0.9,
-                      }}
+                const dots = values.map((v, i) => {
+                  if (!x || !y) return null;
+                  const cx = x(i);
+                  const cy = y(v);
+                  return (
+                    <SvgCircle
+                      key={`dot-${i}`}
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill={colors.primary}
+                      stroke={colors.white}
+                      strokeWidth={2}
                     />
-                  )}
-                  {isSelected && (
-                    <View
+                  );
+                });
+
+                return [avgLine, ...dots, ...labels];
+              }}
+              formatYLabel={(val) => {
+                const num = Number(val);
+                if (Number.isNaN(num)) return '';
+                return num.toFixed(1);
+              }}
+              onDataPointClick={({ value, x, y, index }) => {
+                if (tooltip?.visible && tooltip.x === x && tooltip.y === y) {
+                  setTooltip(null);
+                } else {
+                  setTooltip({
+                    x,
+                    y,
+                    visible: true,
+                    value,
+                    date: chartData.labels[index] || processedData[index]?.metric_date || '',
+                    index,
+                  });
+                }
+              }}
+              renderDotContent={({ x, y, index }) => {
+                const isSelected = tooltip?.visible && tooltip.x === x && tooltip.y === y;
+                const totalPoints = processedData.length;
+                const isFirst = index === 0;
+                const isLast = index === totalPoints - 1;
+                const value = processedData[index]?.weight_kg ?? 0;
+                const dateRaw = processedData[index]?.metric_date;
+                const dt = dateRaw ? new Date(dateRaw) : null;
+                const mm = dt ? String(dt.getMonth() + 1).padStart(2, '0') : '';
+                const dd = dt ? String(dt.getDate()).padStart(2, '0') : '';
+
+                return (
+                  <View key={`dot-${index}`}>
+                    {/* Always show numeric value above each point for visibility */}
+                    <Text
                       style={{
                         position: 'absolute',
-                        top: Math.max(8, y - 46),
-                        left: Math.max(8, x - 44),
-                        paddingVertical: 6,
-                        paddingHorizontal: 10,
-                        backgroundColor: 'rgba(28, 28, 30, 0.98)',
-                        borderRadius: 12,
+                        top: Math.max(2, y - 18),
+                        left: x - 16,
+                        width: 32,
+                        textAlign: 'center',
+                        color: colors.white,
+                        fontWeight: '700',
+                        fontSize: 10,
+                        textShadowColor: 'rgba(0,0,0,0.8)',
+                        textShadowOffset: { width: 0, height: 0 },
+                        textShadowRadius: 2,
                       }}
                     >
-                      <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
-                        {`${mm}.${dd}`}  {value.toFixed(1)}kg
-                      </Text>
+                      {Number(value).toFixed(1)}
+                    </Text>
+                    {isSelected && (
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: x,
+                          height: 240,
+                          borderLeftWidth: 1,
+                          borderStyle: 'dashed',
+                          borderColor: colors.chartLine,
+                          opacity: 0.9,
+                        }}
+                      />
+                    )}
+                    {isSelected && (
                       <View
                         style={{
                           position: 'absolute',
-                          bottom: -6,
-                          left: 40,
-                          width: 12,
-                          height: 12,
+                          top: Math.max(8, y - 46),
+                          left: Math.max(8, x - 44),
+                          paddingVertical: 6,
+                          paddingHorizontal: 10,
                           backgroundColor: 'rgba(28, 28, 30, 0.98)',
-                          transform: [{ rotate: '45deg' }],
-                          borderBottomLeftRadius: 2,
+                          borderRadius: 12,
                         }}
-                      />
-                    </View>
-                  )}
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: y - (isSelected ? 7 : 4),
-                      left: x - (isSelected ? 7 : 4),
-                      width: isSelected ? 14 : 8,
-                      height: isSelected ? 14 : 8,
-                      borderRadius: isSelected ? 7 : 4,
-                      backgroundColor: isSelected ? '#FFFFFF' : colors.chartDot,
-                      borderWidth: isSelected ? 3 : 0,
-                      borderColor: isSelected ? colors.chartDot : 'transparent',
-                    }}
-                  />
-                </View>
-              );
-            }}
-          />
-        </View>
+                      >
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+                          {`${mm}.${dd}`}  {value.toFixed(1)}kg
+                        </Text>
+                        <View
+                          style={{
+                            position: 'absolute',
+                            bottom: -6,
+                            left: 40,
+                            width: 12,
+                            height: 12,
+                            backgroundColor: 'rgba(28, 28, 30, 0.98)',
+                            transform: [{ rotate: '45deg' }],
+                            borderBottomLeftRadius: 2,
+                          }}
+                        />
+                      </View>
+                    )}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: y - (isSelected ? 7 : 4),
+                        left: x - (isSelected ? 7 : 4),
+                        width: isSelected ? 14 : 8,
+                        height: isSelected ? 14 : 8,
+                        borderRadius: isSelected ? 7 : 4,
+                        backgroundColor: isSelected ? '#FFFFFF' : colors.chartDot,
+                        borderWidth: isSelected ? 3 : 0,
+                        borderColor: isSelected ? colors.chartDot : 'transparent',
+                      }}
+                    />
+                  </View>
+                );
+              }}
+            />
+          </View>
+        </ScrollView>
         {/* Left edge mask to clip bezier/gradient bleed */}
         <View pointerEvents="none" style={styles.edgeMaskLeft} />
       </View>
@@ -724,6 +735,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 20,
     paddingLeft: 20,
+    minWidth: '100%',
   },
   edgeMaskLeft: {
     position: 'absolute',
@@ -905,6 +917,23 @@ const styles = StyleSheet.create({
   tooltipPillText: {
     color: '#334155',
     fontWeight: '700',
+  },
+  scrollIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+  },
+  scrollIndicatorText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
 });
 

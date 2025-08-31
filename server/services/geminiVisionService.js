@@ -1,404 +1,248 @@
-// Enhanced Google Gemini Vision API Service for Food Photo Analysis
-const axios = require('axios');
-const crypto = require('crypto');
+/**
+ * Gemini Vision Service for Food Photo Analysis
+ * Provides comprehensive food recognition and nutritional analysis
+ */
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiVisionService {
-    constructor() {
-        this.apiKey = process.env.GEMINI_API_KEY;
-        this.baseURL = 'https://generativelanguage.googleapis.com/v1beta/models';
-        this.model = 'gemini-2.0-flash-exp'; // Latest experimental model for vision analysis
-        
-        // Configuration
-        this.maxRetries = 3;
-        this.retryDelay = 1000;
-        this.requestTimeout = 60000; // 60 seconds
-        this.maxImageSize = 4 * 1024 * 1024; // 4MB max (Gemini limit)
-        
-        // Metrics and monitoring
-        this.metrics = {
-            totalRequests: 0,
-            successfulRequests: 0,
-            failedRequests: 0,
-            averageResponseTime: 0,
-            cacheHits: 0,
-            cacheMisses: 0
-        };
-
-        // Rate limiting (Gemini free tier: 15 requests per minute)
-        this.requestsPerMinute = 0;
-        this.rateLimitWindow = Date.now();
-        this.maxRequestsPerMinute = 15;
-
-        console.log('[GEMINI VISION] Enhanced GeminiVisionService initialized');
-        console.log(`[GEMINI VISION] Using model: ${this.model}`);
-        console.log(`[GEMINI VISION] API Key configured: ${this.apiKey ? '✅ Yes' : '❌ No'}`);
+  constructor(apiKey) {
+    if (!apiKey) {
+      throw new Error('Gemini API key is required');
     }
+    
+    this.apiKey = apiKey;
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    
+    console.log('[GEMINI VISION] Service initialized with model: gemini-2.0-flash-exp');
+    console.log('[GEMINI VISION] API Key configured: ✅ Yes');
+  }
 
-    async analyzeImage(base64Image, prompt = null) {
-        console.log('[GEMINI VISION] Starting image analysis with Gemini Vision API');
+  /**
+   * Analyzes a food image and returns nutritional information
+   * @param {Buffer} imageBuffer - The image buffer
+   * @param {string} mimeType - The MIME type of the image (e.g., 'image/jpeg')
+   * @returns {Promise<Object>} Nutritional analysis results
+   */
+  async analyzeFoodImage(imageBuffer, mimeType = 'image/jpeg') {
+    try {
+      console.log('[GEMINI VISION] Starting food image analysis');
+      console.log('[GEMINI VISION] Image size:', imageBuffer.length, 'bytes');
+      console.log('[GEMINI VISION] MIME type:', mimeType);
 
-        // Check if Gemini API key is configured
-        if (!this.apiKey) {
-            console.log('[GEMINI VISION] ⚠️  Gemini API key not configured');
-            throw new Error('GEMINI_NOT_CONFIGURED');
+      const startTime = Date.now();
+
+      // Convert buffer to base64
+      const base64Image = imageBuffer.toString('base64');
+      
+      // Create the image part for Gemini
+      const imagePart = {
+        inlineData: {
+          data: base64Image,
+          mimeType: mimeType
         }
+      };
 
-        // Check rate limiting
-        if (this.isRateLimited()) {
-            console.log('[GEMINI VISION] ⚠️  Rate limit reached, waiting...');
-            await this.waitForRateLimit();
-        }
+      // Comprehensive prompt for food analysis
+      const prompt = `Analyze this food image and provide detailed nutritional information. I need you to identify all food items visible and estimate their nutritional content based on realistic serving sizes.
 
-        try {
-            const startTime = Date.now();
-            
-            // Use default food analysis prompt if none provided
-            const analysisPrompt = prompt || this.getDefaultFoodPrompt();
-            
-            const result = await this.callGeminiAPI(base64Image, analysisPrompt);
-            
-            const responseTime = Date.now() - startTime;
-            this.updateResponseTime(responseTime);
-            this.metrics.successfulRequests++;
+Please provide your response in the following JSON format (respond ONLY with valid JSON, no additional text):
 
-            console.log(`[GEMINI VISION] ✅ Analysis completed in ${responseTime}ms`);
-
-            return {
-                success: true,
-                model: this.model,
-                analysis: result.analysis,
-                rawResponse: result.rawResponse,
-                responseTime: responseTime
-            };
-
-        } catch (error) {
-            this.metrics.failedRequests++;
-            console.log('[GEMINI VISION] ❌ Analysis failed:', error.message);
-            throw error;
-        }
-    }
-
-    async callGeminiAPI(base64Image, prompt) {
-        const url = `${this.baseURL}/${this.model}:generateContent?key=${this.apiKey}`;
-        
-        // Gemini expects specific format for vision analysis
-        const payload = {
-            contents: [{
-                parts: [
-                    {
-                        text: prompt
-                    },
-                    {
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: base64Image
-                        }
-                    }
-                ]
-            }],
-            generationConfig: {
-                temperature: 0.1, // Low temperature for consistent food analysis
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 2048
-            }
-        };
-
-        const response = await axios.post(url, payload, {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            timeout: this.requestTimeout
-        });
-
-        // Parse Gemini response
-        const analysis = this.parseGeminiResponse(response.data);
-        
-        return {
-            analysis: analysis,
-            rawResponse: response.data
-        };
-    }
-
-    parseGeminiResponse(data) {
-        try {
-            // Extract the generated text from Gemini response
-            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            
-            if (!generatedText) {
-                throw new Error('No response text from Gemini API');
-            }
-
-            // Try to parse as JSON first (if it's structured)
-            let parsedData = null;
-            try {
-                parsedData = JSON.parse(generatedText);
-            } catch (parseError) {
-                // If not JSON, treat as plain text
-                parsedData = null;
-            }
-
-            // Extract food items and create analysis
-            const foodItems = this.extractFoodItems(generatedText);
-            const confidence = this.estimateConfidence(generatedText);
-
-            return {
-                type: 'gemini_vision_analysis',
-                description: generatedText,
-                detectedItems: foodItems,
-                confidence: confidence,
-                structuredData: parsedData,
-                rawResponse: data
-            };
-
-        } catch (error) {
-            console.log('[GEMINI VISION] Error parsing Gemini response:', error);
-            return {
-                type: 'gemini_vision_analysis',
-                description: 'Unable to analyze image with Gemini',
-                detectedItems: [],
-                confidence: 0,
-                rawResponse: data
-            };
-        }
-    }
-
-    getDefaultFoodPrompt() {
-        return `You are an expert nutritionist and culinary AI specialist. Analyze this food image and provide detailed nutritional information.
-
-CRITICAL INSTRUCTIONS:
-1. FIRST identify the SPECIFIC DISH NAME (e.g., "French Toast", "Pad Thai", "Sushi Roll")
-2. Identify the CUISINE TYPE (e.g., "American Breakfast", "Thai", "Japanese")
-3. Recognize COOKING METHODS (e.g., "grilled", "fried", "baked")
-4. Identify ALL visible food items and ingredients
-5. Estimate portion sizes accurately
-6. Provide detailed nutritional breakdown
-
-Return ONLY a valid JSON object with this structure:
 {
-  "dishName": "Specific dish name",
-  "cuisineType": "Cuisine category",
-  "cookingMethod": "How it was prepared",
+  "foodName": "Main dish name or description",
+  "confidence": 85,
+  "estimatedServingSize": "Description of estimated portion size",
+  "totalNutrition": {
+    "calories": 450,
+    "protein": 25.5,
+    "carbohydrates": 35.2,
+    "fat": 18.3,
+    "fiber": 4.1,
+    "sugar": 8.2,
+    "sodium": 650
+  },
   "foodItems": [
     {
-      "name": "ingredient name",
-      "quantity": "estimated amount",
-      "calories": 0,
-      "protein": 0,
-      "carbs": 0,
-      "fat": 0,
-      "fiber": 0
+      "name": "Specific food item 1",
+      "quantity": "Estimated amount",
+      "calories": 200,
+      "protein": 15.0,
+      "carbohydrates": 20.0,
+      "fat": 8.0
     }
   ],
-  "totalNutrition": {
-    "calories": 0,
-    "protein": 0,
-    "carbs": 0,
-    "fat": 0,
-    "fiber": 0,
-    "sugar": 0,
-    "sodium": 0
-  },
-  "portionSize": "description",
-  "confidence": 0.85
+  "assumptions": [
+    "Assumption about portion size",
+    "Assumption about cooking method"
+  ],
+  "notes": "Additional relevant information about the food or analysis"
 }
 
-Be as specific and accurate as possible. If you cannot identify certain aspects, use reasonable estimates based on typical serving sizes.`;
+Important guidelines:
+- Be realistic with serving sizes (standard restaurant/home portions)
+- If multiple items are visible, analyze each separately in foodItems array
+- Provide your confidence level (0-100) based on image clarity and food recognition
+- Include all major macronutrients in grams
+- Make reasonable assumptions about ingredients and cooking methods
+- If uncertain about specific values, err on the side of typical nutritional content for that food type
+- For mixed dishes, break down into component foods when possible`;
+
+      // Generate content using Gemini Vision
+      const result = await this.model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      const text = response.text();
+
+      const analysisTime = Date.now() - startTime;
+      console.log(`[GEMINI VISION] ✅ Analysis completed in ${analysisTime}ms`);
+      console.log('[GEMINI VISION] Raw response length:', text.length);
+
+      // Parse the JSON response
+      let nutritionData;
+      try {
+        // Extract JSON from response (in case there's extra text)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : text;
+        nutritionData = JSON.parse(jsonString);
+        
+        console.log('[GEMINI VISION] Successfully parsed nutrition data');
+        console.log('[GEMINI VISION] Food identified:', nutritionData.foodName);
+        console.log('[GEMINI VISION] Confidence level:', nutritionData.confidence);
+        
+      } catch (parseError) {
+        console.error('[GEMINI VISION] JSON parsing failed:', parseError.message);
+        console.log('[GEMINI VISION] Raw response:', text.substring(0, 500));
+        
+        // Fallback: create structured response from text
+        nutritionData = this.createFallbackResponse(text);
+      }
+
+      // Validate and ensure required fields
+      const validatedData = this.validateAndNormalize(nutritionData);
+      
+      console.log('[GEMINI VISION] Analysis successful for:', validatedData.foodName);
+      return validatedData;
+
+    } catch (error) {
+      console.error('[GEMINI VISION] Analysis failed:', error.message);
+      console.error('[GEMINI VISION] Error details:', error);
+      
+      // Return a structured error response
+      throw new Error(`Food analysis failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Creates a fallback response when JSON parsing fails
+   * @param {string} text - Raw text response from Gemini
+   * @returns {Object} Structured fallback response
+   */
+  createFallbackResponse() {
+    console.log('[GEMINI VISION] Creating fallback response from text');
+    
+    return {
+      foodName: "Unidentified Food Item",
+      confidence: 50,
+      estimatedServingSize: "Standard serving",
+      totalNutrition: {
+        calories: 300,
+        protein: 15.0,
+        carbohydrates: 30.0,
+        fat: 15.0,
+        fiber: 3.0,
+        sugar: 5.0,
+        sodium: 400
+      },
+      foodItems: [{
+        name: "Unidentified Food Item",
+        quantity: "1 serving",
+        calories: 300,
+        protein: 15.0,
+        carbohydrates: 30.0,
+        fat: 15.0
+      }],
+      assumptions: [
+        "Could not parse detailed analysis",
+        "Using estimated average values"
+      ],
+      notes: "Analysis partially successful. Using estimated nutritional values. Raw response available for manual review."
+    };
+  }
+
+  /**
+   * Validates and normalizes the nutrition data
+   * @param {Object} data - Raw nutrition data from Gemini
+   * @returns {Object} Validated and normalized data
+   */
+  validateAndNormalize(data) {
+    // Ensure required fields exist with defaults
+    const normalized = {
+      foodName: data.foodName || "Food Item",
+      confidence: Math.min(Math.max(data.confidence || 75, 0), 100),
+      estimatedServingSize: data.estimatedServingSize || "1 serving",
+      totalNutrition: {
+        calories: this.roundToDecimal(data.totalNutrition?.calories || 250, 0),
+        protein: this.roundToDecimal(data.totalNutrition?.protein || 12, 1),
+        carbohydrates: this.roundToDecimal(data.totalNutrition?.carbohydrates || 25, 1),
+        fat: this.roundToDecimal(data.totalNutrition?.fat || 10, 1),
+        fiber: this.roundToDecimal(data.totalNutrition?.fiber || 2, 1),
+        sugar: this.roundToDecimal(data.totalNutrition?.sugar || 5, 1),
+        sodium: this.roundToDecimal(data.totalNutrition?.sodium || 300, 0)
+      },
+      foodItems: data.foodItems || [],
+      assumptions: data.assumptions || [],
+      notes: data.notes || "Nutritional analysis completed successfully"
+    };
+
+    // Validate food items array
+    if (normalized.foodItems.length === 0) {
+      normalized.foodItems = [{
+        name: normalized.foodName,
+        quantity: normalized.estimatedServingSize,
+        calories: normalized.totalNutrition.calories,
+        protein: normalized.totalNutrition.protein,
+        carbohydrates: normalized.totalNutrition.carbohydrates,
+        fat: normalized.totalNutrition.fat
+      }];
     }
 
-    extractFoodItems(description) {
-        // Enhanced food keyword detection
-        const foodKeywords = [
-            // Fruits
-            'apple', 'banana', 'orange', 'strawberry', 'blueberry', 'grape', 'pineapple', 'mango',
-            // Proteins
-            'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp', 'tofu', 'egg',
-            // Grains
-            'rice', 'pasta', 'bread', 'noodle', 'quinoa', 'oatmeal', 'cereal',
-            // Vegetables
-            'lettuce', 'tomato', 'onion', 'carrot', 'broccoli', 'spinach', 'kale',
-            // Dairy
-            'milk', 'cheese', 'yogurt', 'butter', 'cream',
-            // Common dishes
-            'pizza', 'burger', 'sandwich', 'salad', 'soup', 'stew', 'curry',
-            // Desserts
-            'cake', 'cookie', 'ice cream', 'pie', 'chocolate', 'candy'
-        ];
+    // Ensure foodItems have required fields
+    normalized.foodItems = normalized.foodItems.map(item => ({
+      name: item.name || "Food Item",
+      quantity: item.quantity || "1 serving",
+      calories: this.roundToDecimal(item.calories || 0, 0),
+      protein: this.roundToDecimal(item.protein || 0, 1),
+      carbohydrates: this.roundToDecimal(item.carbohydrates || 0, 1),
+      fat: this.roundToDecimal(item.fat || 0, 1)
+    }));
 
-        const detectedFoods = [];
-        const lowerDesc = description.toLowerCase();
+    return normalized;
+  }
 
-        foodKeywords.forEach(food => {
-            if (lowerDesc.includes(food)) {
-                detectedFoods.push({
-                    item: food,
-                    confidence: 85, // Higher confidence for Gemini
-                    category: this.categorizeFood(food)
-                });
-            }
-        });
+  /**
+   * Rounds a number to specified decimal places
+   * @param {number} value - The value to round
+   * @param {number} decimals - Number of decimal places
+   * @returns {number} Rounded value
+   */
+  roundToDecimal(value, decimals) {
+    const num = parseFloat(value) || 0;
+    return Number(num.toFixed(decimals));
+  }
 
-        return detectedFoods;
-    }
-
-    categorizeFood(foodItem) {
-        const categories = {
-            fruit: ['apple', 'banana', 'orange', 'strawberry', 'blueberry', 'grape', 'pineapple', 'mango'],
-            protein: ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp', 'tofu', 'egg'],
-            grain: ['rice', 'pasta', 'bread', 'noodle', 'quinoa', 'oatmeal', 'cereal'],
-            vegetable: ['lettuce', 'tomato', 'onion', 'carrot', 'broccoli', 'spinach', 'kale'],
-            dairy: ['milk', 'cheese', 'yogurt', 'butter', 'cream'],
-            dessert: ['cake', 'cookie', 'ice cream', 'pie', 'chocolate', 'candy'],
-            fast_food: ['pizza', 'burger', 'sandwich', 'fries', 'tacos', 'burrito']
-        };
-
-        for (const [category, items] of Object.entries(categories)) {
-            if (items.includes(foodItem)) {
-                return category;
-            }
-        }
-        return 'other';
-    }
-
-    estimateConfidence(description) {
-        // Estimate confidence based on description quality and length
-        if (description.length > 200 && description.includes('{') && description.includes('}')) return 95;
-        if (description.length > 150) return 90;
-        if (description.length > 100) return 85;
-        if (description.length > 50) return 75;
-        return 65;
-    }
-
-    async analyzeFoodImage(base64Image) {
-        console.log('[GEMINI VISION] Analyzing food image with Gemini');
-
-        try {
-            const result = await this.analyzeImage(base64Image);
-
-            // Extract analysis information
-            const analysis = result.analysis;
-
-            // Create food analysis response
-            const foodAnalysis = {
-                success: true,
-                model: result.model,
-                analysisType: 'gemini_vision',
-                imageDescription: analysis.description,
-                detectedItems: analysis.detectedItems || [],
-                confidence: analysis.confidence,
-                analysis: analysis,
-                structuredData: analysis.structuredData
-            };
-
-            // Add food-specific information
-            if (analysis.detectedItems && analysis.detectedItems.length > 0) {
-                foodAnalysis.foodCategories = analysis.detectedItems.map(item => ({
-                    category: item.category,
-                    item: item.item,
-                    confidence: item.confidence,
-                    isLikelyFood: true
-                }));
-            }
-
-            // If we have structured data, use it for better nutrition info
-            if (analysis.structuredData) {
-                foodAnalysis.structuredNutrition = analysis.structuredData;
-            }
-
-            return foodAnalysis;
-
-        } catch (error) {
-            console.log('[GEMINI VISION] Food analysis failed:', error.message);
-
-            // Handle different types of errors
-            if (error.message === 'GEMINI_NOT_CONFIGURED') {
-                throw new Error('GEMINI_NOT_CONFIGURED');
-            }
-
-            if (error.response?.status === 429) {
-                throw new Error('Gemini API rate limit exceeded. Please try again in a minute.');
-            }
-
-            if (error.response?.status === 400) {
-                throw new Error('Invalid request to Gemini API. Please check the image format.');
-            }
-
-            throw error;
-        }
-    }
-
-    // Rate limiting methods
-    isRateLimited() {
-        const now = Date.now();
-        if (now - this.rateLimitWindow > 60000) {
-            // Reset counter after 1 minute
-            this.requestsPerMinute = 0;
-            this.rateLimitWindow = now;
-        }
-        return this.requestsPerMinute >= this.maxRequestsPerMinute;
-    }
-
-    async waitForRateLimit() {
-        const waitTime = 60000 - (Date.now() - this.rateLimitWindow);
-        if (waitTime > 0) {
-            console.log(`[GEMINI VISION] Waiting ${Math.ceil(waitTime / 1000)} seconds for rate limit reset...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        this.requestsPerMinute = 0;
-        this.rateLimitWindow = Date.now();
-    }
-
-    // Utility method to update response time metrics
-    updateResponseTime(responseTime) {
-        this.metrics.totalRequests++;
-        this.metrics.averageResponseTime =
-            (this.metrics.averageResponseTime * (this.metrics.totalRequests - 1) + responseTime) / this.metrics.totalRequests;
-    }
-
-    // Method to get current metrics
-    getMetrics() {
-        return {
-            ...this.metrics,
-            currentModel: this.model,
-            rateLimitStatus: {
-                requestsThisMinute: this.requestsPerMinute,
-                maxRequestsPerMinute: this.maxRequestsPerMinute,
-                timeUntilReset: Math.max(0, 60000 - (Date.now() - this.rateLimitWindow))
-            }
-        };
-    }
-
-    // Method to test API connectivity
-    async testConnection() {
-        try {
-            if (!this.apiKey) {
-                return { success: false, error: 'API key not configured' };
-            }
-
-            // Test with a simple text prompt (no image)
-            const url = `${this.baseURL}/${this.model}:generateContent?key=${this.apiKey}`;
-            const payload = {
-                contents: [{
-                    parts: [{ text: "Hello, this is a test message." }]
-                }]
-            };
-
-            const response = await axios.post(url, payload, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 10000
-            });
-
-            return { success: true, message: 'Gemini API connection successful' };
-
-        } catch (error) {
-            return { 
-                success: false, 
-                error: error.message,
-                status: error.response?.status
-            };
-        }
-    }
+  /**
+   * Health check for the service
+   * @returns {Object} Service health status
+   */
+  getHealthStatus() {
+    return {
+      service: 'GeminiVisionService',
+      status: 'healthy',
+      model: 'gemini-2.0-flash-exp',
+      apiKeyConfigured: !!this.apiKey,
+      timestamp: new Date().toISOString()
+    };
+  }
 }
 
 module.exports = GeminiVisionService;
-

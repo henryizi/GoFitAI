@@ -259,7 +259,7 @@ const DashboardScreen = () => {
       title: 'Log Food',
       icon: 'food-apple-outline',
       color: colors.primary,
-      route: '/nutrition/log-food',
+      route: '/(main)/nutrition/log-food',
       gradient: colors.gradient as [string, string],
     },
     {
@@ -267,7 +267,7 @@ const DashboardScreen = () => {
       title: 'Workout',
       icon: 'dumbbell',
       color: colors.accent,
-      route: '/workout',
+      route: '/(main)/workout/plans',
       gradient: colors.gradientSecondary as [string, string],
     },
     {
@@ -275,7 +275,7 @@ const DashboardScreen = () => {
       title: 'Progress',
       icon: 'chart-line',
       color: colors.success,
-      route: '/progress/photo-upload-premium',
+      route: '/(main)/progress/photo-upload',
       gradient: colors.gradientSuccess as [string, string],
     },
   ];

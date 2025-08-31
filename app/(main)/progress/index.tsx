@@ -958,7 +958,7 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
         <Text style={styles.photosTitle}>Your Progress Photos</Text>
         <TouchableOpacity 
           style={styles.uploadButton}
-          onPress={() => router.push('/progress/photo-upload')}
+          onPress={() => router.push('/(main)/progress/photo-upload')}
         >
           <Icon name="camera-plus" size={16} color={colors.primary} />
           <Text style={styles.uploadButtonText}>Upload Photos</Text>

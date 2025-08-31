@@ -803,9 +803,64 @@ export class NutritionService {
     }
   }
 
-  static async analyzeFoodImage(): Promise<any> {
-    console.log('[FOOD ANALYZE] Food photo analysis feature is disabled during rebuild');
-    throw new Error('Food photo analysis is currently being rebuilt. Please use manual logging.');
+  static async analyzeFoodImage(imageUri: string): Promise<any> {
+    console.log('[FOOD ANALYZE] Starting food photo analysis');
+    console.log('[FOOD ANALYZE] Image URI:', imageUri);
+    
+    try {
+      // Create FormData for image upload
+      const formData = new FormData();
+      
+      // For React Native, we need to append the image with proper format
+      const imageFile = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'food-image.jpg'
+      } as any;
+      
+      formData.append('foodImage', imageFile);
+      
+      console.log('[FOOD ANALYZE] Sending request to:', `${NutritionService.API_URL}/api/analyze-food`);
+      
+      // Make request to the food analysis endpoint
+      const response = await fetch(`${NutritionService.API_URL}/api/analyze-food`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('[FOOD ANALYZE] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[FOOD ANALYZE] API error:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Food analysis failed');
+      }
+      
+      const result = await response.json();
+      console.log('[FOOD ANALYZE] Analysis successful:', result.data?.foodName);
+      console.log('[FOOD ANALYZE] Confidence:', result.data?.confidence);
+      
+      return {
+        success: true,
+        data: result.data,
+        message: result.message
+      };
+      
+    } catch (error: any) {
+      console.error('[FOOD ANALYZE] Error:', error.message);
+      
+      // Provide user-friendly error messages
+      if (error.message.includes('Network request failed')) {
+        throw new Error('Network connection failed. Please check your internet connection and try again.');
+      } else if (error.message.includes('timeout')) {
+        throw new Error('The analysis is taking longer than expected. Please try again.');
+      } else {
+        throw new Error(error.message || 'Food analysis failed. Please try again.');
+      }
+    }
   }
 
   static async generateDailyMealPlan(userId: string): Promise<any> {

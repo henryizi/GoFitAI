@@ -39,6 +39,9 @@
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.GoFitAI"
+    },
+    "android": {
+      "package": "com.anonymous.GoFitAI"
     }
   }
 }

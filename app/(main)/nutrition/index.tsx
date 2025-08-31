@@ -700,7 +700,7 @@ const PlansScreen = () => {
                   onPress={() => {
                     console.log('Get Recipes quick action pressed');
                     router.push({
-                      pathname: '/nutrition/recipe-generator'
+                      pathname: '/(main)/nutrition/recipe-generator'
                     });
                   }}
                 >

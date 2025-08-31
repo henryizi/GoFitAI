@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { useServerStatus } from '../../../src/hooks/useServerStatus';
+
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -292,16 +292,103 @@ const LogFoodScreen = () => {
   const handleAnalyzeFood = async () => {
     if (!imageUri) return;
 
-    console.log('[FOOD ANALYZE] Analyze button pressed - disabled for rebuild');
+    console.log('[FOOD ANALYZE] Starting food analysis for image:', imageUri);
+    setIsLoading(true);
 
-    Alert.alert(
-      'Feature Under Reconstruction',
-      'Food photo analysis is being rebuilt. Please use manual logging for now.',
-      [
-        { text: 'Log Manually', onPress: () => setMode('manual') },
-        { text: 'OK', style: 'cancel' }
-      ]
-    );
+    try {
+      // Call the NutritionService to analyze the food image
+      const result = await NutritionService.analyzeFoodImage(imageUri);
+      
+      console.log('[FOOD ANALYZE] Analysis result:', result);
+      
+      if (result.success && result.data) {
+        const foodData = result.data;
+        
+        // Create a food entry from the analysis result
+        const foodEntry = {
+          food_name: foodData.foodName,
+          calories: foodData.nutrition.calories,
+          protein_grams: foodData.nutrition.protein,
+          carbs_grams: foodData.nutrition.carbohydrates,
+          fat_grams: foodData.nutrition.fat,
+          serving_size: foodData.estimatedServingSize,
+          confidence: foodData.confidence,
+          analysis_notes: foodData.notes,
+          assumptions: foodData.assumptions?.join(', ') || '',
+          food_items: foodData.foodItems || []
+        };
+
+        // Show detailed analysis results to user
+        Alert.alert(
+          '🍽️ Food Analysis Complete',
+          `${foodData.foodName}\n\n` +
+          `📊 Nutritional Information:\n` +
+          `• Calories: ${foodData.nutrition.calories} kcal\n` +
+          `• Protein: ${foodData.nutrition.protein}g\n` +
+          `• Carbs: ${foodData.nutrition.carbohydrates}g\n` +
+          `• Fat: ${foodData.nutrition.fat}g\n\n` +
+          `📏 Estimated serving: ${foodData.estimatedServingSize}\n` +
+          `🎯 Confidence: ${foodData.confidence}%\n\n` +
+          `Would you like to log this food entry?`,
+          [
+            { 
+              text: 'Log Food', 
+              onPress: async () => {
+                try {
+                  await NutritionService.logFoodEntry(user?.id || 'guest', foodEntry);
+                  console.log('[FOOD ANALYZE] Food entry logged successfully');
+                  
+                  Alert.alert(
+                    '✅ Success', 
+                    'Food entry logged successfully!',
+                    [{ text: 'OK', onPress: () => {
+                      setImageUri(null);
+                      setMode('manual');
+                    }}]
+                  );
+                } catch (logError) {
+                  console.error('[FOOD ANALYZE] Error logging food entry:', logError);
+                  Alert.alert('Error', 'Failed to log food entry. Please try again.');
+                }
+              }
+            },
+            { 
+              text: 'Edit Manually', 
+              onPress: () => {
+                // Pre-fill the manual form with analysis data
+                setFoodName(foodData.foodName);
+                setCalories(foodData.nutrition.calories.toString());
+                setProtein(foodData.nutrition.protein.toString());
+                setCarbs(foodData.nutrition.carbohydrates.toString());
+                setFat(foodData.nutrition.fat.toString());
+                setMode('manual');
+                setImageUri(null);
+              }
+            },
+            { 
+              text: 'Try Again', 
+              style: 'cancel',
+              onPress: () => setImageUri(null)
+            }
+          ]
+        );
+      } else {
+        throw new Error(result.message || 'Analysis failed');
+      }
+    } catch (error: any) {
+      console.error('[FOOD ANALYZE] Error:', error.message);
+      
+      Alert.alert(
+        'Analysis Failed',
+        error.message || 'Could not analyze the food image. Please try again or log manually.',
+        [
+          { text: 'Try Again', onPress: () => setImageUri(null) },
+          { text: 'Log Manually', onPress: () => setMode('manual') }
+        ]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Clean up interval on unmount - disabled during rebuild

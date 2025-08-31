@@ -1,22 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { Text, Button, Card, Chip, ActivityIndicator, Portal, Modal, IconButton } from 'react-native-paper';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Pressable } from 'react-native';
+import { Text, Button, Card, ActivityIndicator, Portal, Modal } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import * as Sharing from 'expo-sharing';
+import ViewShot from 'react-native-view-shot';
 import { colors } from '../../styles/colors';
 import { ProgressService } from '../../services/progressService';
 import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
 import { SafeImage } from '../ui/SafeImage';
+import { Image } from 'react-native';
 
 type BodyPhoto = Database['public']['Tables']['body_photos']['Row'];
 
-type ProgressEntry = {
-  id: string;
-  date: string;
-  weight_kg: number | null;
-  front_photo_id: string | null;
-  back_photo_id: string | null;
+// Extend the database type to include joined photo data
+type ProgressEntryWithPhotos = Database['public']['Tables']['progress_entries']['Row'] & {
   front_photo?: BodyPhoto | null;
   back_photo?: BodyPhoto | null;
 };
@@ -29,15 +28,16 @@ interface BeforeAfterComparisonProps {
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeAfterComparisonProps) {
-  const insets = useSafeAreaInsets();
-  const [progressEntries, setProgressEntries] = useState<ProgressEntry[]>([]);
+
+  const [progressEntries, setProgressEntries] = useState<ProgressEntryWithPhotos[]>([]);
   const [selectedView, setSelectedView] = useState<'front' | 'back'>('front');
   const [isLoading, setIsLoading] = useState(false);
   const [comparisonMode, setComparisonMode] = useState<'timeline' | 'beforeAfter'>('beforeAfter');
   const [beforeIndex, setBeforeIndex] = useState<number>(0);
   const [afterIndex, setAfterIndex] = useState<number>(0);
   const [openSelector, setOpenSelector] = useState<null | 'before' | 'after'>(null);
-  const isCompactLayout = screenWidth < 420;
+  const viewShotRef = useRef<ViewShot>(null);
+
 
   // Get progress entries and sort by date
   const sortedEntries = useMemo(() => {
@@ -53,6 +53,20 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
     );
   }, [sortedEntries, selectedView]);
 
+  const loadProgressEntries = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const entries = await ProgressService.getProgressEntries(userId) as ProgressEntryWithPhotos[];
+      console.log('loadProgressEntries - Loaded entries:', entries);
+      console.log('Entries with photos:', entries.filter(entry => entry.front_photo || entry.back_photo));
+      setProgressEntries(entries);
+    } catch (error) {
+      console.error('Failed to load progress entries:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
   // Keep valid default indices whenever the view or data changes
   useEffect(() => {
     if (photoEntriesForView.length === 0) {
@@ -60,9 +74,15 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
       setAfterIndex(0);
       return;
     }
+    if (photoEntriesForView.length === 1) {
+      setBeforeIndex(0);
+      setAfterIndex(0);
+      return;
+    }
+    // Ensure we have at least 2 different entries for comparison
     setBeforeIndex(0);
-    setAfterIndex(Math.max(photoEntriesForView.length - 1, 0));
-  }, [photoEntriesForView.length]);
+    setAfterIndex(Math.max(photoEntriesForView.length - 1, 1));
+  }, [photoEntriesForView.length, selectedView]);
 
   // Selected entries for comparison (based on indices)
   const beforeEntry = useMemo(() => photoEntriesForView[beforeIndex], [photoEntriesForView, beforeIndex]);
@@ -71,30 +91,57 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
   // Check if we have enough photos for comparison
   const hasBeforeAfterPhotos = useMemo(() => {
     if (comparisonMode === 'beforeAfter') {
+      // More robust check: ensure we have valid entries and they're different
       return (
         Boolean(beforeEntry) &&
         Boolean(afterEntry) &&
-        beforeIndex < afterIndex
+        beforeEntry.id !== afterEntry.id &&
+        photoEntriesForView.length >= 2
       );
     }
     return sortedEntries.length >= 2;
-  }, [beforeEntry, afterEntry, beforeIndex, afterIndex, sortedEntries, comparisonMode]);
+  }, [beforeEntry, afterEntry, photoEntriesForView.length, sortedEntries.length, comparisonMode]);
 
   useEffect(() => {
     if (userId) {
       loadProgressEntries();
     }
-  }, [userId]);
+  }, [userId, loadProgressEntries]);
 
-  const loadProgressEntries = async () => {
-    setIsLoading(true);
+  const handleShareProgress = async () => {
+    if (!viewShotRef.current || !hasBeforeAfterPhotos) return;
+    
     try {
-      const entries = await ProgressService.getProgressEntries(userId);
-      setProgressEntries(entries);
+      // Wait for images to load and layout to settle
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Debug: Log photo information
+      const beforePhoto = selectedView === 'front' ? beforeEntry?.front_photo : beforeEntry?.back_photo;
+      const afterPhoto = selectedView === 'front' ? afterEntry?.front_photo : afterEntry?.back_photo;
+      
+      console.log('About to capture ViewShot...');
+      console.log('Before photo:', beforePhoto);
+      console.log('After photo:', afterPhoto);
+      console.log('Before photo URL:', getPhotoUrl(beforePhoto || null));
+      console.log('After photo URL:', getPhotoUrl(afterPhoto || null));
+      
+      // Capture the comparison view
+      const uri = await viewShotRef.current.capture();
+      console.log('ViewShot captured:', uri);
+      
+      // Check if sharing is available
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Your Progress',
+          UTI: 'public.png'
+        });
+        
+        // Show success message (you could add a toast notification here)
+        console.log('Progress shared successfully!');
+      }
     } catch (error) {
-      console.error('Failed to load progress entries:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to share progress:', error);
     }
   };
 
@@ -113,6 +160,16 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
   };
 
   const renderBeforeAfterComparison = () => {
+    // Debug logging
+    console.log('renderBeforeAfterComparison - Debug Info:');
+    console.log('hasBeforeAfterPhotos:', hasBeforeAfterPhotos);
+    console.log('photoEntriesForView.length:', photoEntriesForView.length);
+    console.log('beforeIndex:', beforeIndex);
+    console.log('afterIndex:', afterIndex);
+    console.log('beforeEntry:', beforeEntry);
+    console.log('afterEntry:', afterEntry);
+    console.log('selectedView:', selectedView);
+    
     if (!hasBeforeAfterPhotos) {
       return renderNoPhotosMessage();
     }
@@ -121,16 +178,17 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
     const afterPhoto = selectedView === 'front' ? afterEntry?.front_photo : afterEntry?.back_photo;
 
     return (
-      <View style={styles.comparisonContainer}>
-        <View style={styles.photoRow}>
-          {/* Before Photo */}
-          <View style={styles.photoColumn}>
+      <View>
+        {/* Main App Layout - Side by Side */}
+        <View style={styles.comparisonContainer}>
+          {/* Before Photo - Left */}
+          <View style={styles.photoContainer}>
             <Card style={styles.photoCard}>
-              <Card.Content style={[styles.photoContent, styles.photoContentRelative]}>
+              <Card.Content style={styles.photoContent}>
                 {beforePhoto ? (
                   <SafeImage 
                     sourceUrl={getPhotoUrl(beforePhoto) || ''} 
-                    style={styles.comparisonImage}
+                    style={styles.photoImage}
                   />
                 ) : (
                   <View style={styles.noPhotoPlaceholder}>
@@ -138,36 +196,22 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
                     <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
                   </View>
                 )}
-                <View style={styles.overlayBadgeContainer}>
-                  <View style={[styles.overlayBadge]}>
-                    <Text style={styles.badgeText}>BEFORE</Text>
-                  </View>
-                  <View style={styles.overlayDate}>
-                    <Icon name="calendar" size={14} color={colors.text} />
-                    <Text style={styles.overlayDateText}>{beforeEntry?.date}</Text>
-                  </View>
-                </View>
               </Card.Content>
             </Card>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <View style={styles.dividerIconWrapper}>
-              <Icon name={isCompactLayout ? 'arrow-down' : 'arrow-right'} size={18} color="#FFFFFF" />
+            <View style={styles.photoLabel}>
+              <Text style={styles.photoLabelMainText}>BEFORE</Text>
+              <Text style={styles.photoDateMainText}>{beforeEntry?.date}</Text>
             </View>
-            <View style={styles.dividerLine} />
           </View>
 
-          {/* After Photo */}
-          <View style={styles.photoColumn}>
+          {/* After Photo - Right */}
+          <View style={styles.photoContainer}>
             <Card style={styles.photoCard}>
-              <Card.Content style={[styles.photoContent, styles.photoContentRelative]}>
+              <Card.Content style={styles.photoContent}>
                 {afterPhoto ? (
                   <SafeImage 
                     sourceUrl={getPhotoUrl(afterPhoto) || ''} 
-                    style={styles.comparisonImage}
+                    style={styles.photoImage}
                   />
                 ) : (
                   <View style={styles.noPhotoPlaceholder}>
@@ -175,74 +219,116 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
                     <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
                   </View>
                 )}
-                <View style={styles.overlayBadgeContainer}>
-                  <View style={[styles.overlayBadge]}>
-                    <Text style={styles.badgeText}>AFTER</Text>
-                  </View>
-                  <View style={styles.overlayDate}>
-                    <Icon name="calendar" size={14} color={colors.text} />
-                    <Text style={styles.overlayDateText}>{afterEntry?.date}</Text>
-                  </View>
-                </View>
               </Card.Content>
             </Card>
+            <View style={styles.photoLabel}>
+              <Text style={styles.photoLabelMainText}>AFTER</Text>
+              <Text style={styles.photoDateMainText}>{afterEntry?.date}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Date selectors (moved below photos for above-the-fold comparison) */}
+        {/* Date Selection Buttons */}
         <View style={styles.dateSelectorRow}>
-          <View style={styles.dateSelectorItem}>
-            <IconButton
-              icon="chevron-left"
-              size={18}
-              onPress={() => setBeforeIndex(Math.max(0, beforeIndex - 1))}
-              disabled={beforeIndex <= 0}
-              style={styles.iconButtonCompact}
-            />
-            <Chip
-              icon="calendar"
-              style={styles.dateChip}
-              textStyle={styles.dateChipText}
-              onPress={() => setOpenSelector('before')}
-            >
-              <Text style={styles.dateChipText}>Before: {beforeEntry?.date || '—'}</Text>
-            </Chip>
-            <IconButton
-              icon="chevron-right"
-              size={18}
-              onPress={() => setBeforeIndex(Math.min(afterIndex - 1, beforeIndex + 1))}
-              disabled={beforeIndex >= afterIndex - 1}
-              style={styles.iconButtonCompact}
-            />
-          </View>
-          <View style={styles.dateSelectorItem}>
-            <IconButton
-              icon="chevron-left"
-              size={18}
-              onPress={() => setAfterIndex(Math.max(beforeIndex + 1, afterIndex - 1))}
-              disabled={afterIndex <= beforeIndex + 1}
-              style={styles.iconButtonCompact}
-            />
-            <Chip
-              icon="calendar"
-              style={styles.dateChip}
-              textStyle={styles.dateChipText}
-              onPress={() => setOpenSelector('after')}
-            >
-              <Text style={styles.dateChipText}>After: {afterEntry?.date || '—'}</Text>
-            </Chip>
-            <IconButton
-              icon="chevron-right"
-              size={18}
-              onPress={() => setAfterIndex(Math.min(photoEntriesForView.length - 1, afterIndex + 1))}
-              disabled={afterIndex >= photoEntriesForView.length - 1}
-              style={styles.iconButtonCompact}
-            />
-          </View>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.dateSelectorItem,
+              pressed && styles.dateSelectorItemPressed
+            ]}
+            onPress={() => setOpenSelector('before')}
+          >
+            <Icon name="calendar" size={16} color={colors.primary} style={styles.dateButtonIcon} />
+            <Text style={styles.dateChipText}>BEFORE: {beforeEntry?.date}</Text>
+          </Pressable>
+          
+          <Pressable 
+            style={({ pressed }) => [
+              styles.dateSelectorItem,
+              pressed && styles.dateSelectorItemPressed
+            ]}
+            onPress={() => setOpenSelector('after')}
+          >
+            <Icon name="calendar" size={16} color={colors.primary} style={styles.dateButtonIcon} />
+            <Text style={styles.dateChipText}>AFTER: {afterEntry?.date}</Text>
+          </Pressable>
         </View>
 
         {/* Progress Summary */}
         {renderProgressSummary()}
+
+        {/* Share Progress Button */}
+        {beforeEntry && afterEntry && (
+          <Card style={styles.shareCard}>
+            <Card.Content>
+              <Button 
+                mode="contained" 
+                onPress={handleShareProgress}
+                style={[styles.shareButton, { backgroundColor: '#FF6B35' }]}
+                icon="share-variant"
+              >
+                <Text>Share Progress</Text>
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Hidden ViewShot for Sharing - Full Screen Before/After Layout */}
+        <ViewShot ref={viewShotRef} style={styles.shareViewShotContainer} options={{ format: 'png', quality: 0.9 }}>
+          <View style={styles.shareLayoutContainer}>
+            {/* GoFitAI Header - positioned on top of the shared photo */}
+            <View style={styles.shareHeader}>
+              <View style={styles.shareHeaderLine} />
+              <Text style={styles.shareAppName}>GoFit<Text style={{ color: '#FF6B35' }}>AI</Text></Text>
+              <View style={styles.shareHeaderLine} />
+            </View>
+            
+            {/* Before Photo - Top Half */}
+            <View style={styles.sharePhotoContainer}>
+              {beforePhoto ? (
+                <Image 
+                  source={{ uri: getPhotoUrl(beforePhoto) || '' }} 
+                  style={styles.shareImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.shareNoPhotoPlaceholder}>
+                  <Icon name="image-off" size={48} color="rgba(255,255,255,0.4)" />
+                  <Text style={styles.shareNoPhotoText}>No {selectedView} photo</Text>
+                </View>
+              )}
+              <View style={styles.shareOverlayBadge}>
+                <Text style={styles.shareBadgeText}>BEFORE</Text>
+              </View>
+              <View style={styles.shareDateOverlay}>
+                <Icon name="calendar" size={18} color="#FFFFFF" />
+                <Text style={styles.shareDateText}>{beforeEntry?.date}</Text>
+              </View>
+            </View>
+            
+            {/* After Photo - Bottom Half */}
+            <View style={styles.sharePhotoContainer}>
+              {afterPhoto ? (
+                <Image 
+                  source={{ uri: getPhotoUrl(afterPhoto) || '' }} 
+                  style={styles.shareImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.shareNoPhotoPlaceholder}>
+                  <Icon name="image-off" size={48} color="rgba(255,255,255,0.4)" />
+                  <Text style={styles.shareNoPhotoText}>No {selectedView} photo</Text>
+                </View>
+              )}
+              <View style={styles.shareOverlayBadge}>
+                <Text style={styles.shareBadgeText}>AFTER</Text>
+              </View>
+              <View style={styles.shareDateOverlay}>
+                <Icon name="calendar" size={18} color="#FFFFFF" />
+                <Text style={styles.shareDateText}>{afterEntry?.date}</Text>
+              </View>
+            </View>
+          </View>
+        </ViewShot>
       </View>
     );
   };
@@ -295,7 +381,6 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
   const renderProgressSummary = () => {
     if (!beforeEntry || !afterEntry) return null;
 
-    const weightChange = (afterEntry.weight_kg || 0) - (beforeEntry.weight_kg || 0);
     const daysBetween = Math.ceil(
       (new Date(afterEntry.date).getTime() - new Date(beforeEntry.date).getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -311,21 +396,13 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
               <Text style={styles.summaryValue}>{daysBetween} days</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Icon name="scale-bathroom" size={16} color={colors.primary} />
-              <Text style={styles.summaryLabel}>Weight Change</Text>
-              <Text style={[
-                styles.summaryValue, 
-                weightChange > 0 ? styles.weightGain : weightChange < 0 ? styles.weightLoss : styles.weightNeutral
-              ]}>
-                {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
               <Icon name="camera" size={16} color={colors.primary} />
               <Text style={styles.summaryLabel}>Photos</Text>
               <Text style={styles.summaryValue}>{sortedEntries.length}</Text>
             </View>
           </View>
+          
+
         </Card.Content>
       </Card>
     );
@@ -334,6 +411,12 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
   const renderNoPhotosMessage = () => {
     // Check if we have exactly 1 photo
     const hasOnePhoto = sortedEntries.length === 1;
+    
+    // Debug logging
+    console.log('renderNoPhotosMessage - Debug Info:');
+    console.log('sortedEntries.length:', sortedEntries.length);
+    console.log('photoEntriesForView.length:', photoEntriesForView.length);
+    console.log('hasOnePhoto:', hasOnePhoto);
     
     return (
       <View style={styles.noPhotosContainer}>
@@ -373,6 +456,8 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
       >
         <Text style={[styles.segmentText, selectedView === 'back' && styles.segmentTextActive]}>Back</Text>
       </TouchableOpacity>
+      
+
     </View>
   );
 
@@ -403,13 +488,15 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
   }
 
   return (
-    <ScrollView 
-      style={[styles.container, { 
-        paddingTop: insets.top + 16,
-        paddingBottom: insets.bottom + 24 
-      }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.container}>
+
+
+      {/* Main content */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
 
       {/* Compact controls card */}
@@ -424,7 +511,7 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
           )}
         </Card.Content>
       </Card>
-      
+
       {renderPhotoComparison()}
 
       {/* Date selection modal */}
@@ -464,7 +551,8 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
           </Button>
         </Modal>
       </Portal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -473,10 +561,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 8,
+
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,
@@ -528,7 +618,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   comparisonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginBottom: 20,
   },
   controlsCard: {
     marginHorizontal: 20,
@@ -550,11 +644,11 @@ const styles = StyleSheet.create({
   },
   dateSelectorRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 40,
-    paddingVertical: 20,
+    paddingVertical: 24,
     paddingHorizontal: 20,
     backgroundColor: colors.background,
     zIndex: 50,
@@ -566,33 +660,63 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     maxWidth: '100%',
     overflow: 'hidden',
+    gap: 12,
   },
   dateSelectorItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 15,
-    position: 'relative',
-    elevation: 2,
-    flex: 1,
-    maxWidth: '48%',
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '48%',
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dateSelectorItemPressed: {
+    backgroundColor: colors.primary,
+    transform: [{ scale: 0.98 }],
+    elevation: 2,
+  },
+  dateButtonIcon: {
+    marginRight: 8,
   },
   dateChip: {
     backgroundColor: 'rgba(255, 107, 53, 0.15)',
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 53, 0.3)',
-    minHeight: 40,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     zIndex: 20,
     elevation: 3,
     flexShrink: 1,
     maxWidth: '100%',
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderRadius: 24,
   },
   dateChipText: {
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   iconButtonCompact: {
     margin: 0,
@@ -636,12 +760,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'visible',
   },
   photoCardFull: {
     width: screenWidth - 40,
   },
   photoContent: {
     padding: 0,
+    overflow: 'visible',
   },
   photoContentRelative: {
     position: 'relative',
@@ -669,7 +795,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    right: 8,
+    right: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -692,7 +818,7 @@ const styles = StyleSheet.create({
   overlayDate: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -701,7 +827,7 @@ const styles = StyleSheet.create({
   },
   overlayDateText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     marginLeft: 6,
     fontWeight: '600',
   },
@@ -778,15 +904,86 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
   },
-  weightGain: {
-    color: colors.success,
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4ECDC4',
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
+    marginTop: 28,
+    marginBottom: 12,
+    marginHorizontal: 20,
+    shadowColor: '#4ECDC4',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    transform: [{ scale: 1 }],
+    overflow: 'hidden',
   },
-  weightLoss: {
-    color: colors.error,
+  shareButtonPressed: {
+    transform: [{ scale: 0.95 }],
+    shadowOpacity: 0.6,
   },
-  weightNeutral: {
-    color: colors.textSecondary,
+  shareButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginLeft: 14,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    letterSpacing: 1,
   },
+  shareButtonIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#FFFFFF',
+  },
+  shareButtonGlow: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 29,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    zIndex: -1,
+  },
+  shareButtonContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButtonBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 25,
+  },
+  appWatermark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 12,
+  },
+  appWatermarkText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+
   timelineContainer: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -892,5 +1089,209 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 16,
     fontSize: 16,
+  },
+  dropdownIcon: {
+    marginLeft: 4,
+  },
+
+  // Sharing Layout Styles
+  shareViewShotContainer: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
+    width: 400,
+    height: 500,
+    backgroundColor: 'transparent',
+  },
+  shareLayoutContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 0,
+    overflow: 'hidden',
+    width: 400,
+    height: 500,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  shareHeaderGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    backgroundColor: colors.primary,
+    zIndex: 1,
+  },
+  shareHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  shareHeaderLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  shareAppName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginHorizontal: 12,
+  },
+  brandingContainer: {
+    position: 'relative',
+    zIndex: 2,
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  brandingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  brandingTextGo: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  brandingTextFit: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  brandingTextAI: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  brandingUnderline: {
+    width: 80,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
+  },
+  shareContentContainer: {
+    position: 'relative',
+    zIndex: 2,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    flex: 1,
+  },
+  sharePhotoContainer: {
+    position: 'relative',
+    marginBottom: 0,
+    borderRadius: 0,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    flex: 1,
+  },
+  shareImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 0,
+  },
+  shareOverlayBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  shareBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  shareDateOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  shareDateText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  shareArrowContainer: {
+    alignItems: 'center',
+    marginVertical: 12,
+    paddingVertical: 8,
+  },
+  shareArrowText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  shareNoPhotoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 0,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.2)',
+    borderStyle: 'dashed',
+  },
+  shareNoPhotoText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  photoContainer: {
+    width: '48%',
+    alignItems: 'center',
+  },
+  photoImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  photoLabelMainText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  photoDateMainText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+
+  shareCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    elevation: 2,
   },
 });
