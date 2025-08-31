@@ -13,9 +13,9 @@ class GeminiVisionService {
     
     this.apiKey = apiKey;
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     
-    console.log('[GEMINI VISION] Service initialized with model: gemini-2.0-flash-exp');
+    console.log('[GEMINI VISION] Service initialized with model: gemini-2.5-flash');
     console.log('[GEMINI VISION] API Key configured: ✅ Yes');
   }
 
@@ -44,15 +44,15 @@ class GeminiVisionService {
         }
       };
 
-      // Comprehensive prompt for food analysis
-      const prompt = `Analyze this food image and provide detailed nutritional information. I need you to identify all food items visible and estimate their nutritional content based on realistic serving sizes.
+      // Focused prompt for direct food analysis and nutrition estimation
+      const prompt = `Analyze this food photo and identify the food items. Estimate their nutritional information based on typical serving sizes.
 
-Please provide your response in the following JSON format (respond ONLY with valid JSON, no additional text):
+CRITICAL: Respond ONLY with valid JSON in this exact format:
 
 {
-  "foodName": "Main dish name or description",
+  "foodName": "Clear, specific food/dish name",
   "confidence": 85,
-  "estimatedServingSize": "Description of estimated portion size",
+  "estimatedServingSize": "Estimated portion description",
   "totalNutrition": {
     "calories": 450,
     "protein": 25.5,
@@ -64,8 +64,8 @@ Please provide your response in the following JSON format (respond ONLY with val
   },
   "foodItems": [
     {
-      "name": "Specific food item 1",
-      "quantity": "Estimated amount",
+      "name": "Specific food item",
+      "quantity": "Amount/portion",
       "calories": 200,
       "protein": 15.0,
       "carbohydrates": 20.0,
@@ -73,20 +73,20 @@ Please provide your response in the following JSON format (respond ONLY with val
     }
   ],
   "assumptions": [
-    "Assumption about portion size",
-    "Assumption about cooking method"
+    "Key assumptions about portion sizes and preparation"
   ],
-  "notes": "Additional relevant information about the food or analysis"
+  "notes": "Brief analysis summary"
 }
 
-Important guidelines:
-- Be realistic with serving sizes (standard restaurant/home portions)
-- If multiple items are visible, analyze each separately in foodItems array
-- Provide your confidence level (0-100) based on image clarity and food recognition
-- Include all major macronutrients in grams
-- Make reasonable assumptions about ingredients and cooking methods
-- If uncertain about specific values, err on the side of typical nutritional content for that food type
-- For mixed dishes, break down into component foods when possible`;
+Guidelines:
+- Use realistic typical serving sizes for each food
+- Base nutrition on standard food database values
+- Be specific with food names (e.g., "Grilled Chicken Breast" not just "Chicken")
+- Confidence 0-100 based on image clarity
+- Include all macronutrients in grams as numbers
+- If multiple foods, list each in foodItems array
+- Make reasonable assumptions about cooking methods and ingredients
+- Focus on accuracy for common foods and typical portions`;
 
       // Generate content using Gemini Vision
       const result = await this.model.generateContent([prompt, imagePart]);
@@ -238,7 +238,7 @@ Important guidelines:
     return {
       service: 'GeminiVisionService',
       status: 'healthy',
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKeyConfigured: !!this.apiKey,
       timestamp: new Date().toISOString()
     };
