@@ -520,8 +520,8 @@ const AI_PROVIDERS = [
   {
     name: 'gemini',
     apiKey: GEMINI_API_KEY,
-    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    model: 'gemini-1.5-flash',
+    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
+    model: 'gemini-2.0-flash-exp',
     enabled: !!GEMINI_API_KEY
   },
   {
@@ -537,8 +537,10 @@ const AI_PROVIDERS = [
   // Enforce DeepSeek-only if requested
   .filter(provider => (AI_DEEPSEEK_ONLY ? provider.name === 'deepseek' : true));
 
-// Default provider (prefer DeepSeek if available); enforce deepseek when AI_DEEPSEEK_ONLY
-const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'deepseek')?.name || AI_PROVIDERS[0]?.name || 'deepseek';
+// Default provider (prefer Gemini if available, then DeepSeek); enforce deepseek when AI_DEEPSEEK_ONLY
+const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'gemini')?.name ||
+                        AI_PROVIDERS.find(p => p.name === 'deepseek')?.name ||
+                        AI_PROVIDERS[0]?.name || 'gemini';
 const AI_PROVIDER = AI_DEEPSEEK_ONLY ? 'deepseek' : (process.env.AI_PROVIDER || DEFAULT_PROVIDER);
 
 // Legacy AI configuration for backward compatibility
@@ -612,9 +614,9 @@ function analyzeFoodWithFallback(imageDescription) {
         quantity: "1 serving",
         calories: 200,
         protein: 10,
-        carbs: 25,
+      carbs: 25,
         fat: 8,
-        fiber: 2,
+      fiber: 2,
         sugar: 5,
         sodium: 300
       }],
@@ -630,18 +632,18 @@ function analyzeFoodWithFallback(imageDescription) {
       confidence: "low",
       notes: "Basic analysis failed - using generic nutritional estimate"
     };
-
-    return {
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            success: true,
+  
+  return {
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          success: true,
             nutrition: fallbackNutrition,
             message: "Analysis temporarily unavailable - using generic estimate"
-          })
-        }
-      }]
-    };
+        })
+      }
+    }]
+  };
   }
 }
 
@@ -1179,7 +1181,7 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
   // Determine which providers to try
   const providersToTry = preferredProvider 
     ? [getProviderConfig(preferredProvider)].filter(Boolean)
-    : AI_PROVIDERS;
+    : AI_PROVIDERS.filter(p => p.enabled);
   
   if (providersToTry.length === 0) {
     return {
@@ -1283,7 +1285,7 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
 
         // Use API key in URL for Gemini
         const geminiUrl = `${provider.apiUrl}?key=${provider.apiKey}`;
-
+        
         response = await axios.post(
           geminiUrl,
           geminiRequestBody,
@@ -1292,7 +1294,7 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
             timeout: AI_REQUEST_TIMEOUT
           }
         );
-
+        
         // Convert Gemini response to OpenAI format for compatibility
         response.data = {
           choices: [{
@@ -1305,19 +1307,19 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
       } else {
         // Standard OpenAI format with timeout
         const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
-
+        
         {
           const headers = { Authorization: `Bearer ${provider.apiKey}` };
         response = await axios.post(
           provider.apiUrl,
       requestBody,
-          {
+          { 
               headers,
             timeout: AI_REQUEST_TIMEOUT
           }
     );
         }
-
+    
     return response.data;
       }
       
@@ -1325,6 +1327,17 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
       console.error(`[AI] Error with provider ${provider.name}:`, error.response?.status, error.response?.data || error.message);
       
       // Check for timeout errors
+      // If a specific provider was requested, don't try other providers on failure
+      if (preferredProvider) {
+        console.error(`[AI] Preferred provider ${provider.name} failed:`, error.message);
+        return {
+          error: true,
+          errorType: 'preferred_provider_failed',
+          message: `${provider.name} failed: ${error.message}`,
+          provider: provider.name
+        };
+      }
+      
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
         console.log(`[AI] Timeout error with ${provider.name}, trying next provider...`);
         continue;
@@ -3729,7 +3742,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   const proteinNum = parseInt((targets && targets.protein) || 30, 10) || 30;
   const carbsNum = parseInt((targets && targets.carbs) || 50, 10) || 50;
   const fatNum = parseInt((targets && targets.fat) || 15, 10) || 15;
-
+  
   // Generate ingredient quantities with REALISTIC amounts
   const ingredientsWithQuantities = ingredients.map(ing => {
     const name = ing.trim();
@@ -4068,7 +4081,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
   return {
     name: recipeName,
     ingredients: ingredientsWithQuantities,
-    instructions,
+      instructions,
     nutrition: {
       calories: caloriesNum,
       protein: proteinNum,
@@ -4355,18 +4368,18 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     try {
       plan = parseAIResponse(content);
       console.log('[WORKOUT] Successfully parsed AI response');
-
+      
       // Normalize and validate structure
       plan = normalizePlan(plan);
       if (!plan || !Array.isArray(plan.weeklySchedule)) {
         console.error('[WORKOUT] Parsed plan missing weeklySchedule array after normalization:', plan);
         throw new Error('Parsed plan missing required weeklySchedule structure');
       }
-
+      
       // Validate and fix workout frequency
       plan = validateAndFixWorkoutFrequency(plan, profile);
       console.log('[WORKOUT] Workout frequency validated and fixed if necessary');
-
+      
     } catch (parseError) {
       console.error('[WORKOUT] All parsing strategies failed:', parseError);
       console.log('[WORKOUT] Raw response (first 1000 chars):', content.substring(0, 1000));
@@ -4623,13 +4636,13 @@ async function standardizeImageForTensor(imageBuffer) {
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
   console.log('[FOOD ANALYZE] Received food analysis request using Gemini only');
-
+  
   try {
     // Check if we have a file upload, base64 image, or text description
     if (!req.file && !req.body.image && !req.body.imageDescription) {
-      return res.status(400).json({
-        success: false,
-        error: 'No food image or description provided'
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No food image or description provided' 
       });
     }
 
@@ -4667,9 +4680,9 @@ Return ONLY this JSON structure:
 {
   "food_name": "Specific food/dish name",
   "calories": 350,
-  "protein": 25,
+    "protein": 25,
   "carbs": 45,
-  "fat": 15,
+    "fat": 15,
   "assumptions": "Any assumptions made about portion sizes",
   "confidence": "high|medium|low"
 }
@@ -4682,39 +4695,86 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
         }
       ];
 
-      const aiResponse = await callAI(messages, { type: 'json_object' }, 0.1, 'gemini');
+      try {
+        // Convert to Gemini format
+        let geminiContents = [];
+        let systemInstruction = '';
 
-      if (!aiResponse || aiResponse.error) {
-        console.warn('[FOOD ANALYZE] Gemini failed for text analysis, using simple fallback');
+        const systemMessage = messages.find(msg => msg.role === 'system');
+        if (systemMessage) {
+          systemInstruction = systemMessage.content;
+        }
+
+        const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
+        geminiContents = nonSystemMessages.map(msg => ({
+          role: msg.role,
+          parts: [{ text: msg.content }]
+        }));
+
+        const geminiRequestBody = {
+          contents: geminiContents,
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.95,
+            maxOutputTokens: 2000,
+            responseMimeType: 'application/json'
+          }
+        };
+
+        if (systemInstruction) {
+          geminiRequestBody.systemInstruction = {
+            parts: [{ text: systemInstruction }]
+          };
+        }
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+        const response = await axios.post(
+          geminiUrl,
+          geminiRequestBody,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+          }
+        );
+
+        const textResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!textResponse) {
+          throw new Error('No response from Gemini');
+        }
+
+        const analysisResult = JSON.parse(textResponse);
+
         return res.json({
           success: true,
-          data: {
-            success: true,
-            nutrition: {
-              food_name: description || "Unknown Food",
-              calories: 0,
-              protein: 0,
-              carbs: 0,
-              fat: 0,
-              assumptions: "Unable to analyze - basic estimate",
-              confidence: "low"
-            },
-            message: "Analysis completed with basic estimation"
+              data: {
+                success: true,
+            nutrition: analysisResult,
+            message: "Analyzed using Gemini text analysis"
           }
         });
+
+      } catch (geminiError) {
+        console.error('[FOOD ANALYZE] Gemini API error:', geminiError.message);
+        console.warn('[FOOD ANALYZE] Using fallback analysis');
+            return res.json({
+              success: true,
+              data: {
+                success: true,
+                nutrition: {
+                  food_name: description || "Unknown Food",
+                  calories: 0,
+                  protein: 0,
+                  carbs: 0,
+                  fat: 0,
+              assumptions: "Unable to analyze - basic estimate",
+                  confidence: "low"
+                },
+            message: "Analysis completed with basic estimation"
+              }
+        });
       }
-
-      const aiContent = aiResponse.choices?.[0]?.message?.content || aiResponse.content;
-      const analysisResult = JSON.parse(aiContent);
-
-      return res.json({
-        success: true,
-        data: {
-          success: true,
-          nutrition: analysisResult,
-          message: "Analyzed using Gemini text analysis"
-        }
-      });
     }
 
     // Handle image input
@@ -4727,32 +4787,32 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           mimeType = matches[1];
           base64Image = matches[2];
         }
-      } else {
-        base64Image = imageData;
+        } else {
+          base64Image = imageData;
         mimeType = 'image/jpeg';
-      }
+    }
     } else if (req.file) {
       console.log('[FOOD ANALYZE] Processing uploaded file');
       const imageBuffer = fs.readFileSync(req.file.path);
 
       // Validate image
-      try {
-        const metadata = await sharp(imageBuffer).metadata();
+    try {
+      const metadata = await sharp(imageBuffer).metadata();
         if (!metadata.format) throw new Error('Invalid image');
-      } catch (sharpError) {
+    } catch (sharpError) {
         console.error('[FOOD ANALYZE] Image validation failed:', sharpError.message);
-        return res.status(400).json({
+      return res.status(400).json({
           success: false,
           error: 'Invalid image format. Please upload JPG, PNG, or HEIC.'
-        });
-      }
+      });
+    }
 
       // Convert HEIC to JPEG if needed
       let processedBuffer = imageBuffer;
       const isHeic = req.file.mimetype?.includes('heic') || req.file.originalname?.includes('.heic');
       if (isHeic) {
         processedBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
-        mimeType = 'image/jpeg';
+          mimeType = 'image/jpeg';
       }
 
       // Compress if too large
@@ -4770,7 +4830,7 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
 
     if (!visionService) {
       return res.status(503).json({
-        success: false,
+        success: false, 
         error: 'Vision service not available'
       });
     }
@@ -4796,9 +4856,9 @@ Return ONLY this JSON structure:
 {
   "food_name": "Specific food/dish name (e.g., 'Grilled Chicken Breast', 'Caesar Salad')",
   "calories": 350,
-  "protein": 25,
+    "protein": 25,
   "carbs": 45,
-  "fat": 15,
+    "fat": 15,
   "assumptions": "Assumptions about portion size (e.g., 'assuming 6oz serving', 'based on restaurant portion')",
   "confidence": "high|medium|low"
 }
@@ -4811,25 +4871,16 @@ Focus on accuracy and realistic estimates. If multiple foods are present, focus 
       }
     ];
 
+    console.log('[FOOD ANALYZE] Calling Gemini exclusively for nutrition analysis');
     const aiResponse = await callAI(messages, { type: 'json_object' }, 0.1, 'gemini');
 
+    // If Gemini fails, return error instead of falling back
     if (!aiResponse || aiResponse.error) {
-      console.warn('[FOOD ANALYZE] Gemini failed for nutrition analysis');
+      console.error('[FOOD ANALYZE] Gemini nutrition analysis failed:', aiResponse?.error || 'Unknown error');
       return res.json({
-        success: true,
-        data: {
-          success: true,
-          nutrition: {
-            food_name: "Food Item",
-            calories: 300,
-            protein: 20,
-            carbs: 30,
-            fat: 10,
-            assumptions: "Basic estimate due to analysis failure",
-            confidence: "low"
-          },
-          message: "Analysis completed with basic estimation"
-        }
+        success: false,
+        error: 'Gemini nutrition analysis failed. Please check your API configuration.',
+        message: "Failed to analyze nutrition with Gemini"
       });
     }
 
@@ -5140,8 +5191,8 @@ app.post('/api/generate-recipe', async (req, res) => {
               max_tokens: 1200,
               response_format: { type: 'json_object' },
             },
-            {
-              headers: {
+              {
+                headers: {
                 Authorization: `Bearer ${AI_API_KEY}`,
                 "Content-Type": "application/json",
               },
@@ -5427,7 +5478,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
           instructions.push(`Using a spatula, gently lift the edges and tilt the pan to allow uncooked egg to flow underneath.`);
           instructions.push(`Cook for another 1-2 minutes until eggs are fully set but still moist.`);
         }
-      } else {
+            } else {
         instructions.push(`Heat a non-stick pan over medium-high heat. Add a small amount of oil or butter if available.`);
         instructions.push(`Pour the egg mixture into the pan and cook for 2-3 minutes until the edges start to set.`);
         instructions.push(`For scrambled eggs: Gently stir with a spatula until eggs are cooked but still soft, about 1-2 minutes more.`);
