@@ -2,7 +2,7 @@ import { supabase } from '../supabase/client';
 // import { Database } from '../../types/database';
 import { mockNutritionPlan, mockPlansStore, mockMotivationalMessage } from '../../mock-data';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+// import Constants from 'expo-constants'; // Disabled during rebuild
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // TODO: Update database types to include nutrition_plans
@@ -803,60 +803,9 @@ export class NutritionService {
     }
   }
 
-  static async analyzeFoodImage(formData: FormData): Promise<any> {
-    const timeoutMs = 60000; // 60 seconds timeout for image analysis
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      console.log('[FOOD ANALYZE] Starting food image analysis request...');
-      console.log('[FOOD ANALYZE] API URL:', `${API_URL}/api/analyze-food`);
-
-      // Allow fetch to set the correct multipart boundary header automatically
-      const response = await fetch(`${API_URL}/api/analyze-food`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      console.log('[FOOD ANALYZE] Response status:', response.status);
-
-      if (!response.ok) {
-        const raw = await response.text();
-        console.error('[FOOD ANALYZE] Error response:', raw);
-        try {
-          const json = JSON.parse(raw);
-          throw new Error(json?.error || 'Failed to analyze food image.');
-        } catch {
-          throw new Error(raw || 'Failed to analyze food image.');
-        }
-      }
-
-      const result = await response.json();
-      console.log('[FOOD ANALYZE] Analysis successful');
-      return result;
-
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-
-      console.error('[FOOD ANALYZE] Request failed:', error);
-
-      // Handle different types of errors
-      if (error.name === 'AbortError') {
-        throw new Error('Request timed out. The food analysis service may be overloaded. Please try again.');
-      } else if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
-        throw new Error('Network connection failed. Please check your internet connection and try again.');
-      } else if (error.message?.includes('Failed to fetch')) {
-        throw new Error('Unable to connect to the food analysis service. Please try again later.');
-      } else {
-        throw new Error(`Food analysis failed: ${error.message || 'Unknown error'}`);
-      }
-    }
+  static async analyzeFoodImage(): Promise<any> {
+    console.log('[FOOD ANALYZE] Food photo analysis feature is disabled during rebuild');
+    throw new Error('Food photo analysis is currently being rebuilt. Please use manual logging.');
   }
 
   static async generateDailyMealPlan(userId: string): Promise<any> {
@@ -1233,10 +1182,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     }
   }
 
-  static async generateMotivationalMessage(
-    userId: string,
-    triggerEvent: string
-  ): Promise<any> {
+  static async generateMotivationalMessage(): Promise<any> {
     try {
       console.log('Using mock motivational message data');
               return { success: true, message: mockMotivationalMessage };
@@ -1246,9 +1192,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     }
   }
 
-  static async getLatestMotivationalMessage(
-    userId: string
-  ): Promise<any | null> {
+  static async getLatestMotivationalMessage(): Promise<any | null> {
     try {
       console.log('Using mock latest message data');
               return mockMotivationalMessage;
@@ -1385,7 +1329,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
     const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
     const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
-    const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i));
+    // const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i)); // Disabled during rebuild
     const isBreakfast = mealType.toLowerCase() === 'breakfast';
     const isSnack = mealType.toLowerCase() === 'snack';
     

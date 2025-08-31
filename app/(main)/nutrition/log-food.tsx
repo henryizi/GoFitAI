@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  Platform,
+  // Platform, // Disabled during rebuild
   Dimensions,
   Text,
   ActivityIndicator,
@@ -21,10 +21,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+// import { BlurView } from 'expo-blur'; // Disabled during rebuild
 
 import { ServerStatusIndicator } from '../../../src/components/ui/ServerStatusIndicator';
-import { environment } from '../../../src/config/environment';
+// import { environment } from '../../../src/config/environment'; // Disabled during rebuild
 
 const { width } = Dimensions.get('window');
 
@@ -56,15 +56,15 @@ const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpaci
 
 const LogFoodScreen = () => {
   const { user } = useAuth();
-  const serverStatus = useServerStatus();
-  const { isServerConnected, checkServerStatus } = serverStatus;
+  // const serverStatus = useServerStatus(); // Disabled during rebuild
+  // const { isServerConnected, checkServerStatus } = serverStatus; // Disabled during rebuild
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ image?: string }>();
   const [mode, setMode] = useState('manual');
   const [isLoading, setIsLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [servings, setServings] = useState<number>(1);
+  // const [servings, setServings] = useState<number>(1); // Disabled during rebuild
 
   const [foodName, setFoodName] = useState('');
   const [servingSize, setServingSize] = useState('');
@@ -73,14 +73,16 @@ const LogFoodScreen = () => {
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
   
-  // Loading overlay timing/progress
-  const [analyzeElapsedMs, setAnalyzeElapsedMs] = useState(0);
-  const ANALYZE_ESTIMATE_MS = 45000; // matches client timeout
-  const [analyzeInterval, setAnalyzeInterval] = useState<NodeJS.Timeout | null>(null);
+  // Loading overlay timing/progress - disabled during rebuild
+  // const [analyzeElapsedMs, setAnalyzeElapsedMs] = useState(0);
+  // const ANALYZE_ESTIMATE_MS = 45000; // matches client timeout
+  // const [analyzeInterval, setAnalyzeInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Create a safe user ID that's always a string
   const safeUserId = (user as any)?.id || 'guest';
 
+  // Food analysis result rendering - disabled during rebuild
+  /*
   const renderAnalysisResult = () => {
     if (!analysisResult) return null;
     const proteinG = Number(analysisResult.protein_grams || 0);
@@ -208,6 +210,7 @@ const LogFoodScreen = () => {
       </Animated.View>
     );
   };
+  */
 
   const resetForm = () => {
     setFoodName('');
@@ -238,11 +241,11 @@ const LogFoodScreen = () => {
         }
         entry = {
         food_name: foodName,
-        serving_size_grams: servingSize ? parseInt(servingSize, 10) : null,
+        serving_size_grams: servingSize ? parseInt(servingSize, 10) : undefined,
         calories: parseInt(calories, 10),
-        protein_grams: protein ? parseFloat(protein) : null,
-        carbs_grams: carbs ? parseFloat(carbs) : null,
-        fat_grams: fat ? parseFloat(fat) : null,
+        protein_grams: protein ? parseFloat(protein) : undefined,
+        carbs_grams: carbs ? parseFloat(carbs) : undefined,
+        fat_grams: fat ? parseFloat(fat) : undefined,
       };
       }
 
@@ -289,101 +292,20 @@ const LogFoodScreen = () => {
   const handleAnalyzeFood = async () => {
     if (!imageUri) return;
 
-    console.log('[FOOD ANALYZE] Analyze button pressed', { imageUri: imageUri });
+    console.log('[FOOD ANALYZE] Analyze button pressed - disabled for rebuild');
 
-    // Check server connection first
-    if (!isServerConnected) {
-      console.log('[FOOD ANALYZE] Server not connected, attempting to check status');
-      await checkServerStatus();
-
-      // If still not connected after checking, show helpful message
-      if (!isServerConnected) {
-        Alert.alert(
-          'Server Not Available',
-          'The AI server is not connected. You can:\n\n• Start the server by running "cd server && node start-server.js"\n• Log your food manually instead\n• Try again later',
-          [
-            { text: 'Log Manually', onPress: () => setMode('manual') },
-            { text: 'Try Again', onPress: () => handleAnalyzeFood() },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
-        return;
-      }
-    }
-
-    try {
-      setIsLoading(true); // Use isLoading for the overlay
-      setAnalyzeElapsedMs(0);
-
-      // Start the progress timer
-      const interval = setInterval(() => {
-        setAnalyzeElapsedMs((t) => t + 200);
-      }, 200);
-      setAnalyzeInterval(interval as any);
-
-      // Create a form data object to send the image
-      const formData = new FormData();
-      const filename = imageUri.split('/').pop() || 'food.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-      // @ts-ignore
-      formData.append('foodImage', {
-        uri: imageUri,
-        name: filename,
-        type,
-      });
-
-      // Use the improved NutritionService method with better error handling
-      const data = await NutritionService.analyzeFoodImage(formData);
-      console.log('[FOOD ANALYZE] Analysis successful:', data);
-
-      // Navigate to the food result screen with the data and image
-      router.push({
-        pathname: '/nutrition/food-result',
-        params: {
-          data: JSON.stringify(data),
-          image: imageUri
-        }
-      });
-
-    } catch (error: any) {
-      console.error('[FOOD ANALYZE] Analysis failed:', error.message);
-
-      // Show a more helpful error message based on the error type
-      let errorMessage = 'Could not analyze the food image. Please try again or log manually.';
-      let showManualOption = true;
-
-      if (error.message?.includes('timed out') || error.message?.includes('timeout')) {
-        errorMessage = 'The request timed out. The food analysis service may be overloaded. Please try again.';
-      } else if (error.message?.includes('Network connection failed') || error.message?.includes('Network request failed')) {
-        errorMessage = 'Cannot connect to the server. Please check your network connection and try again.';
-        // Update server status since connection failed
-        await checkServerStatus();
-      } else if (error.message?.includes('Server error') || error.message?.includes('Failed to fetch')) {
-        errorMessage = 'Unable to connect to the food analysis service. Please try again later.';
-      }
-
-      Alert.alert(
-        'Analysis Failed',
-        errorMessage,
-        [
-          ...(showManualOption ? [{ text: 'Log Manually', onPress: () => setMode('manual') }] : []),
-          { text: 'Try Again', onPress: () => handleAnalyzeFood() },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
-    } finally {
-      setIsLoading(false);
-      if (analyzeInterval) {
-        clearInterval(analyzeInterval);
-        setAnalyzeInterval(null);
-      }
-      setAnalyzeElapsedMs(0);
-    }
+    Alert.alert(
+      'Feature Under Reconstruction',
+      'Food photo analysis is being rebuilt. Please use manual logging for now.',
+      [
+        { text: 'Log Manually', onPress: () => setMode('manual') },
+        { text: 'OK', style: 'cancel' }
+      ]
+    );
   };
 
-  // Clean up interval on unmount
+  // Clean up interval on unmount - disabled during rebuild
+  /*
   useEffect(() => {
     return () => {
       if (analyzeInterval) {
@@ -391,6 +313,7 @@ const LogFoodScreen = () => {
       }
     };
   }, [analyzeInterval]);
+  */
 
   useEffect(() => {
     if (analysisResult) {
@@ -659,28 +582,7 @@ const LogFoodScreen = () => {
         {mode === 'search' && renderSearch()}
       </ScrollView>
 
-      {isLoading && (
-        <View style={styles.fullOverlay}>
-          <LinearGradient colors={["rgba(0,0,0,0.85)", "rgba(0,0,0,0.75)"]} style={styles.fullOverlayBg} />
-          <View style={styles.loadingPanel}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingTitle}>Analyzing your meal…</Text>
-            <Text style={styles.loadingSubtitle}>
-              {Math.min(100, Math.round(((analyzeElapsedMs || 0) / ANALYZE_ESTIMATE_MS) * 100)) || 0}% • about {Math.max(0, Math.ceil((ANALYZE_ESTIMATE_MS - (analyzeElapsedMs || 0)) / 1000)) || 0}s left
-            </Text>
-            <View style={styles.progressTrack}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${Math.min(100, ((analyzeElapsedMs || 0) / ANALYZE_ESTIMATE_MS) * 100) || 0}%`
-                  }
-                ]} 
-              />
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Loading overlay disabled during rebuild */}
     </View>
   );
 };

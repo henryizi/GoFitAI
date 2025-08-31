@@ -43,7 +43,7 @@ const pino = require('pino');
 const pinoHttp = require('pino-http');
 const { z } = require('zod');
 const path = require('path');
-const GeminiVisionService = require('./services/geminiVisionService.js');
+// const GeminiVisionService = require('./services/geminiVisionService.js'); // Disabled during rebuild
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 
 // Helper function to get local IP address
@@ -479,22 +479,8 @@ const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
 // Initialize Vision Service (Gemini only)
 // Initialize vision service based on FOOD_ANALYZE_PROVIDER
-let visionService = null;
-const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || 'gemini';
-
-if (FOOD_ANALYZE_PROVIDER === 'gemini' && GEMINI_API_KEY) {
-  console.log('[VISION SERVICE] Initializing Gemini Vision Service');
-  visionService = new GeminiVisionService();
-} else if (FOOD_ANALYZE_PROVIDER === 'cloudflare' && process.env.CF_ACCOUNT_ID && process.env.CF_API_TOKEN) {
-  console.log('[VISION SERVICE] Initializing Cloudflare Vision Service');
-  const VisionService = require('./services/visionService.js');
-  visionService = new VisionService();
-} else {
-  console.log('[VISION SERVICE] No vision service configured, using fallback only');
-  console.log('[VISION SERVICE] FOOD_ANALYZE_PROVIDER:', FOOD_ANALYZE_PROVIDER);
-  console.log('[VISION SERVICE] GEMINI_API_KEY configured:', !!GEMINI_API_KEY);
-  console.log('[VISION SERVICE] CF_ACCOUNT_ID configured:', !!process.env.CF_ACCOUNT_ID);
-}
+// Vision services disabled during rebuild
+// let visionService = null;
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // AI Provider Priority List (DeepSeek first)
@@ -1286,6 +1272,9 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         // Use API key in URL for Gemini
         const geminiUrl = `${provider.apiUrl}?key=${provider.apiKey}`;
         
+        console.log('[GEMINI] Making API request to:', geminiUrl);
+        console.log('[GEMINI] Request body content length:', JSON.stringify(geminiRequestBody).length);
+        
         response = await axios.post(
           geminiUrl,
           geminiRequestBody,
@@ -1295,20 +1284,34 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
           }
         );
         
+        console.log('[GEMINI] API response status:', response.status);
+        console.log('[GEMINI] Response data structure:', Object.keys(response.data));
+        console.log('[GEMINI] Candidates length:', response.data.candidates?.length);
+        if (response.data.candidates?.[0]) {
+          console.log('[GEMINI] First candidate:', Object.keys(response.data.candidates[0]));
+          console.log('[GEMINI] Content parts:', response.data.candidates[0].content?.parts?.length);
+        }
+        
         // Convert Gemini response to OpenAI format for compatibility
+        const extractedContent = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
+        console.log('[GEMINI] Extracted content length:', extractedContent.length);
+        console.log('[GEMINI] Extracted content preview:', extractedContent.substring(0, 100));
+        
         response.data = {
           choices: [{
             message: {
-              content: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated'
+              content: extractedContent
             }
           }]
         };
+        
+        console.log('[GEMINI] Converted response data:', Object.keys(response.data));
+        console.log('[GEMINI] Converted choices length:', response.data.choices?.length);
 
       } else {
         // Standard OpenAI format with timeout
         const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
         
-        {
           const headers = { Authorization: `Bearer ${provider.apiKey}` };
         response = await axios.post(
           provider.apiUrl,
@@ -1319,9 +1322,9 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
           }
     );
         }
-    
+        
+    console.log(`[AI] Successfully returning response from ${provider.name}`);
     return response.data;
-      }
       
   } catch (error) {
       console.error(`[AI] Error with provider ${provider.name}:`, error.response?.status, error.response?.data || error.message);
@@ -4635,301 +4638,24 @@ async function standardizeImageForTensor(imageBuffer) {
 // ===================
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-  console.log('[FOOD ANALYZE] Received food analysis request using Gemini only');
+  console.log('[FOOD ANALYZE] Food analysis endpoint disabled during rebuild');
   
-  try {
-    // Check if we have a file upload, base64 image, or text description
-    if (!req.file && !req.body.image && !req.body.imageDescription) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No food image or description provided' 
-      });
-    }
-
-    console.log('[FOOD ANALYZE] Request details:', {
-      hasFile: !!req.file,
-      hasDescription: !!req.body.imageDescription,
-      fileInfo: req.file ? {
-        originalname: req.file.originalname,
-        filename: req.file.filename,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : null
-    });
-
-    let base64Image, mimeType;
-
-    // Handle different input types
-    if (req.body.imageDescription) {
-      // Text description only - use Gemini for analysis
-      console.log('[FOOD ANALYZE] Processing text description with Gemini');
-      const description = String(req.body.imageDescription).slice(0, 2000);
-
-      const messages = [
-        {
-          role: 'system',
-          content: `You are an expert nutritionist. Analyze this food description and provide nutritional information.
-
-CRITICAL REQUIREMENTS:
-1. Identify the SPECIFIC food/dish name
-2. Estimate realistic nutritional information based on typical serving sizes
-3. Be specific about assumptions (e.g., "assuming standard restaurant serving")
-4. Focus on accuracy for typical portions
-
-Return ONLY this JSON structure:
-{
-  "food_name": "Specific food/dish name",
-  "calories": 350,
-    "protein": 25,
-  "carbs": 45,
-    "fat": 15,
-  "assumptions": "Any assumptions made about portion sizes",
-  "confidence": "high|medium|low"
-}
-
-Example: If someone says "chicken breast", don't just say "chicken" - be specific. If uncertain, state your assumption clearly.`
-        },
-        {
-          role: 'user',
-          content: `Analyze this food: "${description}"`
-        }
-      ];
-
-      try {
-        // Convert to Gemini format
-        let geminiContents = [];
-        let systemInstruction = '';
-
-        const systemMessage = messages.find(msg => msg.role === 'system');
-        if (systemMessage) {
-          systemInstruction = systemMessage.content;
-        }
-
-        const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
-        geminiContents = nonSystemMessages.map(msg => ({
-          role: msg.role,
-          parts: [{ text: msg.content }]
-        }));
-
-        const geminiRequestBody = {
-          contents: geminiContents,
-          generationConfig: {
-            temperature: 0.1,
-            topP: 0.95,
-            maxOutputTokens: 2000,
-            responseMimeType: 'application/json'
-          }
-        };
-
-        if (systemInstruction) {
-          geminiRequestBody.systemInstruction = {
-            parts: [{ text: systemInstruction }]
-          };
-        }
-
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-        const response = await axios.post(
-          geminiUrl,
-          geminiRequestBody,
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000
-          }
-        );
-
-        const textResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!textResponse) {
-          throw new Error('No response from Gemini');
-        }
-
-        const analysisResult = JSON.parse(textResponse);
-
-        return res.json({
-          success: true,
-              data: {
-                success: true,
-            nutrition: analysisResult,
-            message: "Analyzed using Gemini text analysis"
-          }
-        });
-
-      } catch (geminiError) {
-        console.error('[FOOD ANALYZE] Gemini API error:', geminiError.message);
-        console.warn('[FOOD ANALYZE] Using fallback analysis');
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: {
-                  food_name: description || "Unknown Food",
-                  calories: 0,
-                  protein: 0,
-                  carbs: 0,
-                  fat: 0,
-              assumptions: "Unable to analyze - basic estimate",
-                  confidence: "low"
-                },
-            message: "Analysis completed with basic estimation"
-              }
-        });
-      }
-    }
-
-    // Handle image input
-    if (req.body.image) {
-      console.log('[FOOD ANALYZE] Processing base64 image');
-      const imageData = req.body.image;
-      if (imageData.startsWith('data:')) {
-        const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1];
-          base64Image = matches[2];
-        }
-        } else {
-          base64Image = imageData;
-        mimeType = 'image/jpeg';
-    }
-    } else if (req.file) {
-      console.log('[FOOD ANALYZE] Processing uploaded file');
-      const imageBuffer = fs.readFileSync(req.file.path);
-
-      // Validate image
+  // Clean up uploaded file if present
+  if (req.file?.path) {
     try {
-      const metadata = await sharp(imageBuffer).metadata();
-        if (!metadata.format) throw new Error('Invalid image');
-    } catch (sharpError) {
-        console.error('[FOOD ANALYZE] Image validation failed:', sharpError.message);
-      return res.status(400).json({
-          success: false,
-          error: 'Invalid image format. Please upload JPG, PNG, or HEIC.'
-      });
+      fs.unlinkSync(req.file.path);
+    } catch (error) {
+      console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
     }
-
-      // Convert HEIC to JPEG if needed
-      let processedBuffer = imageBuffer;
-      const isHeic = req.file.mimetype?.includes('heic') || req.file.originalname?.includes('.heic');
-      if (isHeic) {
-        processedBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
-          mimeType = 'image/jpeg';
-      }
-
-      // Compress if too large
-      if (processedBuffer.length > 2_000_000) {
-        processedBuffer = await compressImageForVision(processedBuffer);
-      }
-
-      base64Image = processedBuffer.toString('base64');
-      mimeType = mimeType || req.file.mimetype || 'image/jpeg';
-      console.log('[FOOD ANALYZE] Processed image, mimeType:', mimeType);
-    }
-
-    // Use Gemini Vision for image analysis
-    console.log('[FOOD ANALYZE] Using Gemini Vision API for image analysis');
-
-    if (!visionService) {
-      return res.status(503).json({
-        success: false, 
-        error: 'Vision service not available'
-      });
-    }
-
-    const visionResult = await visionService.analyzeFoodImage(base64Image);
-    const imageDescription = visionResult.imageDescription;
-
-    console.log('[FOOD ANALYZE] Gemini vision completed, analyzing nutrition');
-
-    // Use Gemini to analyze nutrition from the description
-    const messages = [
-      {
-        role: 'system',
-        content: `You are an expert nutritionist. Based on this food image description, provide accurate nutritional estimates.
-
-REQUIREMENTS:
-1. Identify the main food/dish clearly
-2. Estimate calories and macronutrients for a typical serving
-3. Be realistic - don't overestimate portions
-4. State assumptions clearly if portion size is uncertain
-
-Return ONLY this JSON structure:
-{
-  "food_name": "Specific food/dish name (e.g., 'Grilled Chicken Breast', 'Caesar Salad')",
-  "calories": 350,
-    "protein": 25,
-  "carbs": 45,
-    "fat": 15,
-  "assumptions": "Assumptions about portion size (e.g., 'assuming 6oz serving', 'based on restaurant portion')",
-  "confidence": "high|medium|low"
-}
-
-Focus on accuracy and realistic estimates. If multiple foods are present, focus on the main item or combine appropriately.`
-      },
-      {
-        role: 'user',
-        content: `Based on this food image description: "${imageDescription}", provide nutritional analysis.`
-      }
-    ];
-
-    console.log('[FOOD ANALYZE] Calling Gemini exclusively for nutrition analysis');
-    const aiResponse = await callAI(messages, { type: 'json_object' }, 0.1, 'gemini');
-
-    // If Gemini fails, return error instead of falling back
-    if (!aiResponse || aiResponse.error) {
-      console.error('[FOOD ANALYZE] Gemini nutrition analysis failed:', aiResponse?.error || 'Unknown error');
-      return res.json({
-        success: false,
-        error: 'Gemini nutrition analysis failed. Please check your API configuration.',
-        message: "Failed to analyze nutrition with Gemini"
-      });
-    }
-
-    const aiContent = aiResponse.choices?.[0]?.message?.content || aiResponse.content;
-    const analysisResult = JSON.parse(aiContent);
-
-    // Clean up uploaded file
-    if (req.file?.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (error) {
-        console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
-      }
-    }
-
-    res.json({
-      success: true,
-      data: {
-        success: true,
-        nutrition: analysisResult,
-        message: "Analyzed using Gemini Vision + Gemini nutrition analysis",
-        analysisProvider: 'gemini'
-      }
-    });
-
-  } catch (error) {
-    console.error('[FOOD ANALYZE] Error:', error.message);
-
-    // Handle specific error types
-    if (error.message?.includes('Invalid image') || error.message?.includes('image format')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid image format. Please upload a clear photo.'
-      });
-    }
-
-    if (error.message?.includes('too large')) {
-      return res.status(413).json({
-        success: false,
-        error: 'Image too large. Please use a smaller image (max 1MB).'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Food analysis failed. Please try again.',
-      details: error.message
-    });
   }
+  
+  res.status(503).json({
+        success: false, 
+    error: 'Food photo analysis is currently being rebuilt. Please use manual logging.',
+    message: 'Feature temporarily disabled'
+  });
+
+
 });
 
 // Profile update endpoint
@@ -5035,7 +4761,7 @@ function getExerciseCategory(exerciseName) {
     return 'abs';
   } else if (/jumping jack|burpee|sprint|run|jog|cardio|hiit|interval|jump rope/i.test(name)) {
     return 'cardio';
-        } else {
+          } else {
     return 'other';
   }
 }
@@ -5191,8 +4917,8 @@ app.post('/api/generate-recipe', async (req, res) => {
               max_tokens: 1200,
               response_format: { type: 'json_object' },
             },
-              {
-                headers: {
+        {
+          headers: {
                 Authorization: `Bearer ${AI_API_KEY}`,
                 "Content-Type": "application/json",
               },
@@ -5584,7 +5310,7 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
           instructions.push(`Whisk ${proteinQty} of ${mainProtein} in a bowl with a pinch of salt and pepper.`);
           instructions.push(`Heat a non-stick skillet over medium heat.`);
           instructions.push(`Pour the whisked eggs into the skillet and cook until set, about 2-3 minutes.`);
-        } else {
+            } else {
           instructions.push(`Prepare all ingredients according to their type - wash and cut any produce, measure out dry ingredients.`);
         }
       }
