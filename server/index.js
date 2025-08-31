@@ -69,7 +69,7 @@ function convertMarkdownToNutritionJson(content) {
   try {
     // Try to parse as JSON first
     return JSON.parse(content);
-  } catch (error) {
+  } catch (e) {
     // If not JSON, try to convert from markdown
     console.log('[PARSE] Attempting to convert markdown to JSON...');
     
@@ -172,7 +172,7 @@ function findAndParseJson(content) {
   try {
     // First, try to parse the entire content as JSON
     return JSON.parse(content);
-  } catch (error) {
+  } catch (e) {
     console.log('[PARSE] Full content parse failed, trying to extract JSON...');
     
     // Try multiple strategies to find JSON
@@ -452,44 +452,14 @@ app.use(pinoHttp({ logger }));
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// Provider selection (OpenAI, DeepSeek, or Cloudflare)
+// Provider selection (OpenAI, DeepSeek)
 // AI Provider Configuration with Fallbacks
 const ***REMOVED*** = process.env.***REMOVED*** || process.env.EXPO_PUBLIC_***REMOVED***;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-// OpenRouter removed - using DeepSeek and Cloudflare only
+// OpenRouter removed - using DeepSeek only
 
-// Vision-capable model for food analysis
-const resolveVisionModel = () => {
-  // Use Cloudflare for vision analysis since DeepSeek doesn't support vision
-  let cloudflareVisionModel = (process.env.CF_VISION_MODEL || '').trim();
-
-  // If not provided, default to working uform model
-  if (!cloudflareVisionModel) {
-    cloudflareVisionModel = '@cf/unum-cloud/uform-gen2-qwen-500m';
-  }
-
-  // Don't normalize valid model names - just use them as-is
-  // Valid models include:
-  // - @cf/unum-cloud/uform-gen2-qwen-500m
-  // - @cf/llava-hf/llava-1.5-7b-hf (if available)
-  // No normalization needed - use the exact model name provided
-
-  // Debug logging
-  console.log('[VISION MODEL DEBUG] CF_VISION_MODEL env var:', process.env.CF_VISION_MODEL);
-  console.log('[VISION MODEL DEBUG] Resolved model:', cloudflareVisionModel);
-
-  // Check if user has specified a vision model (takes precedence if set)
-  const userVisionModel = (process.env.VISION_MODEL || '').trim();
-  if (userVisionModel) {
-    return userVisionModel;
-  }
-
-  // Default to Cloudflare vision model
-  return cloudflareVisionModel;
-};
-
-// OpenRouter removed - using DeepSeek and Cloudflare only
-const VISION_MODEL = resolveVisionModel();
+// Gemini Vision API configuration
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // DeepSeek native API
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
@@ -502,28 +472,13 @@ if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
   DEEPSEEK_MODEL = 'deepseek-chat';
 }
 
-// Cloudflare Workers AI (for fallbacks)
-const CF_ACCOUNT_ID = (process.env.CF_ACCOUNT_ID || '').trim();
-const CF_API_TOKEN = (process.env.CF_API_TOKEN || '').trim();
-const CF_VISION_MODEL = (resolveVisionModel() || '').trim(); // Use the resolved vision model
-const FOOD_ANALYZE_PROVIDER = process.env.FOOD_ANALYZE_PROVIDER || process.env.EXPO_PUBLIC_FOOD_ANALYZE_PROVIDER;
+// Vision services: Gemini (primary) only
 
 // Optional external services for higher accuracy
-const HF_API_TOKEN = process.env.HF_API_TOKEN; // Hugging Face Inference API
 const USDA_FDC_API_KEY = process.env.USDA_FDC_API_KEY; // USDA FoodData Central
 
-// Initialize Vision Service based on FOOD_ANALYZE_PROVIDER
-let visionService = null;
-if (FOOD_ANALYZE_PROVIDER === 'gemini' && process.env.GEMINI_API_KEY) {
-  console.log('[VISION SERVICE] Initializing Gemini Vision Service');
-  visionService = new GeminiVisionService();
-} else if (FOOD_ANALYZE_PROVIDER === 'cloudflare' && CF_ACCOUNT_ID && CF_API_TOKEN) {
-  console.log('[VISION SERVICE] Initializing Cloudflare Vision Service');
-  // Note: Cloudflare service is handled inline in the food analysis code
-  visionService = { name: 'cloudflare' };
-} else {
-  console.log('[VISION SERVICE] No vision service configured, using fallback only');
-}
+// Initialize Vision Service (Gemini only)
+const visionService = GEMINI_API_KEY ? new GeminiVisionService() : null;
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // AI Provider Priority List (DeepSeek first)
@@ -538,20 +493,13 @@ const AI_PROVIDERS = [
     model: DEEPSEEK_MODEL,
     enabled: !!DEEPSEEK_API_KEY
   },
-  // OpenRouter removed - using DeepSeek and Cloudflare only
+  // OpenRouter removed - using DeepSeek only
   {
     name: 'openai',
     apiKey: ***REMOVED***,
     apiUrl: 'https://api.openai.com/v1/chat/completions',
     model: OPENAI_MODEL,
     enabled: !!***REMOVED***
-  },
-  {
-    name: 'cloudflare',
-    apiKey: CF_API_TOKEN,
-    apiUrl: `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`,
-    model: CF_VISION_MODEL,
-    enabled: !!(CF_ACCOUNT_ID && CF_API_TOKEN)
   },
   {
     name: 'fallback',
@@ -1286,33 +1234,6 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
         } else {
           throw new Error('No content for fallback analysis');
         }
-      } else if (provider.name === 'cloudflare') {
-        // Cloudflare has a different API format with timeout
-        const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
-        
-        response = await axios.post(
-          provider.apiUrl,
-          { 
-            prompt: messages.map(m => `${m.role}: ${m.content}`).join('\n'),
-            max_tokens: max_tokens
-          },
-          { 
-            headers: { 
-              'Authorization': `Bearer ${provider.apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            timeout: AI_REQUEST_TIMEOUT
-          }
-        );
-        
-        // Transform Cloudflare response to match OpenAI format
-        return {
-          choices: [{
-            message: {
-              content: response.data.result.response
-            }
-          }]
-        };
       } else {
         // Standard OpenAI format with timeout
         const AI_REQUEST_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // 3 minutes default for complex AI reasoning
@@ -4465,7 +4386,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 // IMAGE PROCESSING HELPERS
 // ===================
 
-async function compressImageForCloudflare(imageBuffer, maxSizeBytes = 800000) { // 800KB target
+async function compressImageForVision(imageBuffer, maxSizeBytes = 2_000_000) { // 2MB target for Gemini
   try {
     console.log('[IMAGE COMPRESS] Original size:', imageBuffer.length, 'bytes');
     
@@ -4558,7 +4479,7 @@ async function validateImageForTensor(imageBuffer) {
 
 async function standardizeImageForTensor(imageBuffer) {
   try {
-    console.log('[IMAGE STANDARDIZE] Standardizing image for tensor processing');
+    console.log('[IMAGE STANDARDIZE] Standardizing image for vision processing');
     
     // First validate the image
     const validation = await validateImageForTensor(imageBuffer);
@@ -4579,11 +4500,7 @@ async function standardizeImageForTensor(imageBuffer) {
       density: metadata.density
     });
     
-    // Enhanced tensor processing for Cloudflare AI:
-    // - RGB channels only (3 channels exactly)
-    // - Standard square resolution (512x512 is optimal for LLaVA)
-    // - JPEG with specific settings to avoid tensor decode errors
-    // - Remove any EXIF data that might cause issues
+    // Standard processing suitable for Gemini Vision API
     
     const standardizedBuffer = await sharp(imageBuffer)
       .rotate() // Auto-rotate based on EXIF orientation
@@ -4595,15 +4512,7 @@ async function standardizeImageForTensor(imageBuffer) {
       .removeAlpha() // Remove alpha channel that can cause tensor issues
       .toColorspace('srgb') // Ensure standard sRGB colorspace
       .flatten({ background: { r: 255, g: 255, b: 255 } }) // Flatten to RGB
-      .jpeg({ 
-        quality: 85, // Lower quality to reduce potential encoding issues
-        progressive: false, // Non-progressive JPEG for tensor compatibility
-        mozjpeg: false, // Use standard libjpeg for better compatibility
-        chromaSubsampling: '4:4:4', // Preserve color information
-        optimiseScans: false, // Disable scan optimization
-        overshootDeringing: false, // Disable deringing
-        trellisQuantisation: false // Disable trellis quantization
-      })
+      .jpeg({ quality: 85 })
       .withMetadata({}) // Remove all metadata including EXIF
       .toBuffer();
     
@@ -4617,9 +4526,6 @@ async function standardizeImageForTensor(imageBuffer) {
     });
     
     // Final validation of the standardized image
-    if (newMetadata.channels !== 3) {
-      throw new Error(`Image standardization failed: Expected 3 channels, got ${newMetadata.channels}`);
-    }
     
     return standardizedBuffer;
     
@@ -4649,9 +4555,7 @@ async function standardizeImageForTensor(imageBuffer) {
 // ===================
 
 app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-      console.log('[FOOD ANALYZE] Received food analysis request');
-    console.log('[FOOD ANALYZE] Configured provider:', FOOD_ANALYZE_PROVIDER);
-    console.log('[FOOD ANALYZE] Vision service type:', visionService ? (visionService.name || 'gemini') : 'none');
+  console.log('[FOOD ANALYZE] Received food analysis request');
   
   try {
     // Ensure aiResponse is declared in the handler scope for both vision and text paths
@@ -4829,7 +4733,7 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
           const tempBuffer = Buffer.from(rawBase64, 'base64');
           if (tempBuffer.length > 800000) { // 800KB threshold for compression
             console.log('[FOOD ANALYZE] Data URL image too large, compressing...');
-            const compressedBuffer = await compressImageForCloudflare(tempBuffer);
+            const compressedBuffer = await compressImageForVision(tempBuffer);
             base64Image = compressedBuffer.toString('base64');
           } else {
             base64Image = rawBase64;
@@ -4846,7 +4750,7 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
         const tempBuffer = Buffer.from(imageData, 'base64');
         if (tempBuffer.length > 800000) { // 800KB threshold for compression
           console.log('[FOOD ANALYZE] Base64 image too large, compressing...');
-          const compressedBuffer = await compressImageForCloudflare(tempBuffer);
+          const compressedBuffer = await compressImageForVision(tempBuffer);
           base64Image = compressedBuffer.toString('base64');
         } else {
           base64Image = imageData;
@@ -4903,10 +4807,10 @@ IMPORTANT: Focus on recognizing the ACTUAL DISH NAME and cuisine, not just descr
         }
       }
 
-      // Compress image if it's too large for Cloudflare
-      if (imageBuffer.length > 800000) { // 800KB threshold for compression
+      // Compress image if it's too large
+      if (imageBuffer.length > 2_000_000) { // 2MB threshold for Gemini
         console.log('[FOOD ANALYZE] Image too large, compressing...');
-        imageBuffer = await compressImageForCloudflare(imageBuffer);
+        imageBuffer = await compressImageForVision(imageBuffer);
       }
       
       base64Image = imageBuffer.toString('base64');
@@ -4982,12 +4886,10 @@ Analyze the following food image:
     console.log('[FOOD ANALYZE] Using vision AI to analyze food image');
     
     try {
-      // Check if image is too large (Cloudflare Workers AI has strict limits)
-      // Base64 encoding increases size by ~33%, so 1MB original = ~1.33MB base64
-      // Using 1MB base64 limit to stay well within Cloudflare's constraints
-      if (base64Image.length > 1000000) { // 1MB limit for Cloudflare Workers AI
-        console.warn('[FOOD ANALYZE] Image too large for Cloudflare vision analysis, using fallback');
-        throw new Error('Image too large for vision analysis');
+      // Basic sanity check on image size
+      if (base64Image.length < 1000) {
+        console.warn('[FOOD ANALYZE] Image too small for vision analysis, using fallback');
+        throw new Error('Image too small for vision analysis');
       }
       
       // Check if image is too small
@@ -5006,65 +4908,24 @@ Analyze the following food image:
       console.log('[FOOD ANALYZE] Image size:', base64Image.length, 'characters');
       console.log('[FOOD ANALYZE] MIME type:', mimeType);
 
-      console.log('[FOOD ANALYZE] Determining vision AI service to use');
-      console.log('[FOOD ANALYZE] FOOD_ANALYZE_PROVIDER:', FOOD_ANALYZE_PROVIDER);
-      
-      // Use configured vision service based on FOOD_ANALYZE_PROVIDER
-      if (visionService && FOOD_ANALYZE_PROVIDER === 'gemini') {
-        console.log('[FOOD ANALYZE] Using Gemini Vision API for food photo analysis');
-
+      console.log('[FOOD ANALYZE] Using Gemini Vision API for food photo analysis');
+      if (visionService) {
         try {
           const visionResult = await visionService.analyzeFoodImage(base64Image);
           console.log('[FOOD ANALYZE] Gemini vision analysis successful');
-
-          // Use the description from Gemini for nutrition analysis
           foodDescription = visionResult.imageDescription || 'Food image analysis completed';
-          visionModelUsed = visionResult.model || 'gemini-vision';
-
-        } catch (geminiError) {
-          console.warn('[FOOD ANALYZE] Gemini vision failed:', geminiError.message);
-          // Fall back to basic text analysis if Gemini fails
-        }
-      } else if (visionService && FOOD_ANALYZE_PROVIDER === 'cloudflare') {
-        console.log('[FOOD ANALYZE] Using Cloudflare Workers AI for food photo analysis');
-
-        try {
-          // Cloudflare analysis is handled inline below
-          // This is just a placeholder to indicate Cloudflare is configured
-          console.log('[FOOD ANALYZE] Cloudflare service configured, proceeding with inline analysis');
-        } catch (cfError) {
-          console.warn('[FOOD ANALYZE] Cloudflare vision failed:', cfError.message);
-          // Fall back to basic text analysis if Cloudflare fails
+          visionModelUsed = visionResult.model;
+        } catch (visionError) {
+          console.warn('[FOOD ANALYZE] Gemini vision failed:', visionError.message);
         }
       }
 
-      // If no vision service succeeded, use text-based fallback
-      if (!foodDescription) {
-        console.log('[FOOD ANALYZE] No vision service succeeded, using text-based fallback');
-        
-        if (FOOD_ANALYZE_PROVIDER === 'cloudflare') {
-          // Check if Cloudflare credentials are configured
-          if (!CF_ACCOUNT_ID || !CF_API_TOKEN || CF_ACCOUNT_ID === 'your_cloudflare_account_id_here' || CF_API_TOKEN === 'your_cloudflare_api_token_here') {
-            console.log('[FOOD ANALYZE] Cloudflare credentials not configured, using text-based fallback');
-            throw new Error('No vision providers available. Please configure CF_ACCOUNT_ID and CF_API_TOKEN for Cloudflare Workers AI.');
-          }
-          
-          // Add detailed debugging for Cloudflare configuration
-          console.log('[FOOD ANALYZE] Cloudflare Debug Info:');
-          console.log('- CF_ACCOUNT_ID length:', CF_ACCOUNT_ID.length);
-          console.log('- CF_API_TOKEN length:', CF_API_TOKEN.length);
-          console.log('- CF_VISION_MODEL:', CF_VISION_MODEL);
-        } else {
-          console.log('[FOOD ANALYZE] Using BasicFoodAnalyzer fallback for', FOOD_ANALYZE_PROVIDER);
-        }
-      }
-
-      // If Hugging Face already succeeded, skip Cloudflare processing
+      // If Gemini vision already succeeded, use it directly
       if (foodDescription && visionModelUsed) {
-        console.log('[FOOD ANALYZE] Hugging Face analysis successful, skipping Cloudflare processing');
-        console.log('[FOOD ANALYZE] Using description from HF model:', visionModelUsed);
-        
-        // Process the nutrition analysis using the description from Hugging Face
+        console.log('[FOOD ANALYZE] Gemini vision analysis successful');
+        console.log('[FOOD ANALYZE] Using description from Gemini model:', visionModelUsed);
+
+        // Process the nutrition analysis using the description from Gemini vision
         const messages = [
           {
             role: 'system',
@@ -5106,29 +4967,29 @@ Return ONLY a valid JSON object with this structure:
             content: `Based on this food image description: "${foodDescription}", provide detailed nutrition information.`
           }
         ];
-        
+
         // Use DeepSeek for nutrition analysis
         try {
           const deepseekAvailable = !!getProviderConfig('deepseek');
           if (deepseekAvailable) {
-            console.log('[FOOD ANALYZE] Using DeepSeek for nutrition analysis of HF vision result');
+            console.log('[FOOD ANALYZE] Using DeepSeek for nutrition analysis of Gemini vision result');
             aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
           }
-          
+
           if (!aiResponse || aiResponse.error) {
-            console.log('[FOOD ANALYZE] DeepSeek failed, using fallback for HF result');
+            console.log('[FOOD ANALYZE] DeepSeek failed, using fallback for Gemini result');
             const fallbackResult = analyzeFoodWithFallback(foodDescription);
             return res.json({
               success: true,
               data: {
                 success: true,
                 nutrition: fallbackResult,
-                message: `Analyzed using Hugging Face vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
-                analysisProvider: 'huggingface'
+                message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
+                analysisProvider: 'gemini'
               }
             });
           }
-          
+
           // Parse and return the result
           const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
           if (aiContent) {
@@ -5139,294 +5000,60 @@ Return ONLY a valid JSON object with this structure:
                 data: {
                   success: true,
                   nutrition: analysisResult,
-                  message: 'Analyzed using Hugging Face vision + DeepSeek nutrition analysis',
-                  analysisProvider: 'huggingface'
+                  message: 'Analyzed using Gemini vision + DeepSeek nutrition analysis',
+                  analysisProvider: 'gemini'
                 }
               });
             }
           }
-          
+
         } catch (hfNutritionError) {
-          console.error('[FOOD ANALYZE] Error processing HF vision result:', hfNutritionError);
+          console.error('[FOOD ANALYZE] Error processing Gemini vision result:', hfNutritionError);
           const fallbackResult = analyzeFoodWithFallback(foodDescription);
           return res.json({
             success: true,
             data: {
               success: true,
               nutrition: fallbackResult,
-              message: `Analyzed using Hugging Face vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
-              analysisProvider: 'huggingface'
+              message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
+              analysisProvider: 'gemini'
             }
           });
         }
       }
       
-      // Standardize image for tensor processing to prevent decode errors (only for Cloudflare)
-      console.log('[FOOD ANALYZE] Standardizing image for tensor processing');
-      try {
-        const originalBuffer = Buffer.from(base64Image, 'base64');
-        const standardizedBuffer = await standardizeImageForTensor(originalBuffer);
-        base64Image = standardizedBuffer.toString('base64');
-        mimeType = 'image/jpeg';
-        console.log('[FOOD ANALYZE] Image standardized, new size:', base64Image.length);
-      } catch (standardizeErr) {
-        console.warn('[FOOD ANALYZE] Image standardization failed, using original:', standardizeErr.message);
-        
-        // Fallback: basic JPEG conversion
-        if (!mimeType.includes('jpeg') && !mimeType.includes('jpg')) {
-          console.log('[FOOD ANALYZE] Converting image to JPEG for LLaVA compatibility');
-          try {
-            const jpegBuffer = await sharp(Buffer.from(base64Image, 'base64'))
-              .jpeg({ quality: 85, mozjpeg: true })
-              .toBuffer();
-            base64Image = jpegBuffer.toString('base64');
-            mimeType = 'image/jpeg';
-            console.log('[FOOD ANALYZE] Image converted to JPEG, new size:', base64Image.length);
-          } catch (conversionErr) {
-            console.warn('[FOOD ANALYZE] Image conversion failed:', conversionErr.message);
+      // If no vision service succeeded, use Gemini as fallback
+      if (!visionService) {
+        console.log('[FOOD ANALYZE] No vision service available, using fallback analysis');
+        const fallbackResult = analyzeFoodWithFallback('food items from image');
+        return res.json({
+          success: true,
+          data: {
+            success: true,
+            nutrition: fallbackResult,
+            message: 'Vision analysis not available - using basic analysis',
+            analysisProvider: 'fallback'
           }
-        }
+        });
       }
 
-      // Check if Cloudflare processing should be skipped (when Gemini is configured)
-      if (FOOD_ANALYZE_PROVIDER === 'gemini') {
-        console.log('[FOOD ANALYZE] Skipping Cloudflare processing - Gemini is configured as provider');
-        throw new Error('Gemini provider configured - Cloudflare processing skipped');
-      }
-      
-      // Use data URI for Cloudflare API (recommended payload format)
-      const dataUri = `data:${mimeType};base64,${base64Image}`;
-      
-      // Build request body according to Cloudflare model
-      // Cloudflare now uses unified format for ALL vision models including LLaVA
-      // All models now expect { image: dataUri, prompt: prompt } format
-      visionRequestBody = {
-        image: dataUri,
-        prompt: prompt,
-        max_tokens: 1000
-      };
-      console.log('[FOOD ANALYZE] Using unified Cloudflare API format for model:', CF_VISION_MODEL);
-      
-      // Define cloudflareUrl outside try block scope for retry access
-      const cloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
-      console.log('[FOOD ANALYZE] Making Cloudflare API call to:', cloudflareUrl);
-      console.log('[FOOD ANALYZE] Cloudflare URL details:', {
-        accountIdLength: CF_ACCOUNT_ID.length,
-        modelSlug: CF_VISION_MODEL,
-        modelSlugLength: CF_VISION_MODEL.length,
-      });
-      console.log('[FOOD ANALYZE] Request body keys:', Object.keys(visionRequestBody));
-      
-      // Make Cloudflare vision API call
-      let visionResponse = await axios.post(
-        cloudflareUrl,
-        visionRequestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${CF_API_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 60000 // 1 minute timeout for vision analysis
-        }
-      );
-      
-      console.log('[FOOD ANALYZE] Cloudflare API response status:', visionResponse.status);
-      console.log('[FOOD ANALYZE] Cloudflare API response keys:', Object.keys(visionResponse.data || {}));
-      
-      // Extract the actual content from Cloudflare response
-      let cloudflareContent = visionResponse.data.result;
-      
-      // If result is an object, try to extract the response text
-      if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
-        console.log('[FOOD ANALYZE] Cloudflare result is object, keys:', Object.keys(cloudflareContent));
-        cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.content || JSON.stringify(cloudflareContent);
-      }
-      
-      // If still no content, try other response fields
-      if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-        cloudflareContent = visionResponse.data.response || visionResponse.data.text || visionResponse.data.content;
-      }
-      
-      // Last resort - stringify the entire response
-      if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-        console.log('[FOOD ANALYZE] No string content found, using full response data');
-        cloudflareContent = JSON.stringify(visionResponse.data);
-      }
-      
-      console.log('[FOOD ANALYZE] Final content type:', typeof cloudflareContent);
-      console.log('[FOOD ANALYZE] Final content preview:', String(cloudflareContent).slice(0, 200) + '...');
-      
-      // Set response format to match expected structure for Cloudflare
-      aiResponse = {
-        data: {
-          choices: [{
-            message: {
-              content: cloudflareContent
-            }
-          }]
-        },
-        success: true
-      };
-      
-      console.log('[FOOD ANALYZE] Vision analysis successful');
-      
-
-      
-    } catch (visionError) {
-      console.log('[FOOD ANALYZE] Vision analysis failed:', visionError.message);
-      console.log('[FOOD ANALYZE] Vision error details:', {
-        status: visionError.response?.status,
-        statusText: visionError.response?.statusText,
-        data: visionError.response?.data,
-        headers: visionError.response?.headers
-      });
-
-      // Provide clearer guidance for common Cloudflare API errors
+      console.log('[FOOD ANALYZE] Using Gemini Vision API as final fallback');
       try {
-        const errData = visionError.response?.data;
-        
-        // Handle multiple possible error structures from Cloudflare
-        let cfCode, cfMessage;
-        
-        // Structure 1: errData.errors[].code (nested errors array)
-        if (Array.isArray(errData?.errors)) {
-          const cfErrors = errData.errors;
-          cfCode = cfErrors[0]?.code;
-          cfMessage = cfErrors[0]?.message;
-        }
-        // Structure 2: errData.code direct (flat structure)
-        else if (errData?.code) {
-          cfCode = errData.code;
-          cfMessage = errData.message;
-        }
-        // Structure 3: Check the main error for direct properties
-        else if (visionError.code) {
-          cfCode = visionError.code;
-          cfMessage = visionError.message;
-        }
-        
-        // Enhanced logging for debugging
-        console.log('[FOOD ANALYZE] Cloudflare error details:', {
-          status: visionError.response?.status || visionError.status,
-          code: cfCode,
-          message: cfMessage
-        });
-        
-        // Handle tensor decode errors specifically
-        if (cfCode === 3016 || (cfMessage && cfMessage.includes('Tensor error'))) {
-          console.warn('[FOOD ANALYZE] Cloudflare tensor decode error detected. This often indicates:');
-          console.warn('- Image format/encoding incompatible with AI model');
-          console.warn('- Image size or dimensions causing tensor processing issues');
-          console.warn('- EXIF metadata or color profile causing decode failures');
-          console.warn('Attempting alternative image processing...');
-          
-          // Retry with minimal image processing
-          try {
-            console.log('[FOOD ANALYZE] Retrying with minimal image processing for tensor compatibility');
-            const minimalBuffer = await sharp(Buffer.from(base64Image, 'base64'))
-              .resize(224, 224, { fit: 'cover' }) // Smaller, fixed size
-              .removeAlpha()
-              .flatten({ background: { r: 255, g: 255, b: 255 } })
-              .jpeg({ quality: 80, progressive: false, optimiseScans: false })
-              .withMetadata({}) // Strip all metadata
-              .toBuffer();
-            
-            const retryBase64 = minimalBuffer.toString('base64');
-            const retryDataUri = `data:image/jpeg;base64,${retryBase64}`;
-            
-            console.log('[FOOD ANALYZE] Retry image size:', retryBase64.length, 'characters');
-            
-            // Retry the API call with processed image
-            const retryBody = {
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: prompt },
-                    { type: 'image_url', image_url: retryDataUri }
-                  ]
-                }
-              ],
-              max_tokens: 1000
-            };
-            
-            const retryResponse = await axios.post(
-              cloudflareUrl,
-              retryBody,
-              {
-          headers: {
-                  'Authorization': `Bearer ${CF_API_TOKEN}`,
-                  'Content-Type': 'application/json'
-                },
-                timeout: 30000
-              }
-            );
-            
-            console.log('[FOOD ANALYZE] Tensor error retry successful!');
-            let retryContent = retryResponse.data.result;
-            if (typeof retryContent === 'object' && retryContent !== null) {
-              retryContent = retryContent.response || retryContent.text || retryContent.content || JSON.stringify(retryContent);
-            }
-            
-            aiResponse = {
-              data: {
-                choices: [{
-                  message: {
-                    content: retryContent
-                  }
-                }]
-              },
-              success: true
-            };
-            
-            // Skip the fallback since retry worked
-            console.log('[FOOD ANALYZE] Tensor error resolved with retry');
-            // Don't throw the original error since retry succeeded
-            
-          } catch (retryError) {
-            console.error('[FOOD ANALYZE] Tensor error retry also failed:', retryError.message);
-            // Continue to text-based fallback below
-            throw visionError; // Re-throw original error to trigger text fallback
-          }
-        } else if (visionError.response?.status === 400 && cfCode === 7000) {
-          console.warn('[FOOD ANALYZE] Cloudflare returned code 7000 (No route for that URI). This often indicates:');
-          console.warn('- CF_ACCOUNT_ID is incorrect or not enabled for Workers AI');
-          console.warn('- Model slug is unavailable for this account');
-          console.warn('- API token permissions are insufficient (needs Workers AI access)');
-        } else if (visionError.response?.status === 403 && cfCode === 9109) {
-          console.warn('[FOOD ANALYZE] Cloudflare returned code 9109 (Unauthorized). This indicates:');
-          console.warn('- API token does not have Workers AI permissions');
-          console.warn('- Account may not have Workers AI enabled');
-          console.warn('- Token may be incorrect or expired');
-        } else if (visionError.response?.status === 405 && cfCode === 10000) {
-          console.warn('[FOOD ANALYZE] Cloudflare returned code 10000 (Method not allowed). This indicates:');
-          console.warn('- Using wrong authentication method for Workers AI');
-          console.warn('- API token type may be incorrect');
-        }
-        
-        console.warn('[FOOD ANALYZE] Cloudflare error details:', {
-          status: visionError.response?.status,
-          code: cfCode,
-          message: cfMessage
-        });
-        
-        // Check for specific tensor errors and attempt fix
-        if (cfMessage && cfMessage.includes('failed to build tensor image')) {
-          console.log('[FOOD ANALYZE] Tensor error detected - attempting advanced image fix');
-          
-          try {
-            // Reconstruct variables in retry scope (ensure they're accessible)
-            const retryCloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${CF_VISION_MODEL}`;
-            const retryPrompt = `You are an expert nutritionist analyzing food images. Analyze this food image and provide detailed nutritional information.
+        const geminiResult = await visionService.analyzeFoodImage(base64Image);
+        foodDescription = geminiResult.imageDescription || 'Food image analysis completed';
+        visionModelUsed = geminiResult.model;
 
-CRITICAL: You must identify the SPECIFIC DISH NAME and cuisine type, not just describe what you see.
+        // Process nutrition analysis with Gemini result
+        const messages = [
+          {
+            role: 'system',
+            content: `You are an expert nutritionist. Based on the food image description provided, analyze the nutritional content and return a detailed JSON response.
 
-RESPONSE FORMAT: Return ONLY a valid JSON object with this structure:
-
+Return ONLY a valid JSON object with this structure:
 {
-  "dishName": "Specific dish name (e.g., 'Scrambled Eggs with Toast')",
-  "cuisineType": "Cuisine category (e.g., 'American Breakfast')",
-  "cookingMethod": "How it was prepared (e.g., 'scrambled', 'fried')",
+  "dishName": "Specific dish name",
+  "cuisineType": "Cuisine category",
+  "cookingMethod": "How it was prepared",
   "foodItems": [
     {
       "name": "Specific ingredient name",
@@ -5451,174 +5078,95 @@ RESPONSE FORMAT: Return ONLY a valid JSON object with this structure:
   },
   "confidence": "high|medium|low",
   "notes": "Specific observations about the dish"
-}
+}`
+          },
+          {
+            role: 'user',
+            content: `Based on this food image description: "${foodDescription}", provide detailed nutrition information.`
+          }
+        ];
 
-Analyze the following food image:
-`;
-            
-            // Use enhanced standardization for tensor error recovery
-            console.log('[FOOD ANALYZE] Applying advanced tensor-safe image processing');
-            const originalBuffer = Buffer.from(base64Image, 'base64');
-            const fixedBuffer = await standardizeImageForTensor(originalBuffer);
-            
-            const fixedBase64 = fixedBuffer.toString('base64');
-            const fixedDataUri = `data:image/jpeg;base64,${fixedBase64}`;
-            
-            console.log('[FOOD ANALYZE] Retrying with tensor-safe standardized image');
-            
-            const retryRequestBody = {
-              prompt: retryPrompt,
-              image: fixedDataUri,
-              stream: false,
-              max_tokens: 1000
-            };
-            
-            const retryResponse = await axios.post(
-              retryCloudflareUrl,
-              retryRequestBody,
-              {
-                headers: {
-                  'Authorization': `Bearer ${CF_API_TOKEN}`,
-                  'Content-Type': 'application/json'
-                },
-                timeout: 60000
-              }
-            );
-            
-            console.log('[FOOD ANALYZE] Tensor error fix successful');
-            
-            // Extract the actual content from Cloudflare retry response
-            let cloudflareContent = retryResponse.data.result;
-            
-            // If result is an object, try to extract the response text
-            if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
-              console.log('[FOOD ANALYZE] Cloudflare result is object, keys:', Object.keys(cloudflareContent));
-              cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.content || JSON.stringify(cloudflareContent);
-            }
-            
-            // If still no content, try other response fields
-            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-              cloudflareContent = retryResponse.data.response || retryResponse.data.text || retryResponse.data.content;
-            }
-            
-            // If still no string content, use the full response data
-            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-              console.log('[FOOD ANALYZE] No string content found, using full response data');
-              cloudflareContent = JSON.stringify(retryResponse.data);
-            }
-            
-            console.log('[FOOD ANALYZE] Final content type:', typeof cloudflareContent);
-            console.log('[FOOD ANALYZE] Final content preview:', String(cloudflareContent).slice(0, 200) + '...');
-            
-            aiResponse = {
-              data: {
-                choices: [{
-                  message: {
-                    content: cloudflareContent
-                  }
-                }]
-              }
-            };
-            
-            console.log('[FOOD ANALYZE] Vision analysis successful after tensor fix');
-            
-            // Skip to content processing (don't throw error)
-            // Continue with normal flow below
-            
-          } catch (retryError) {
-            console.warn('[FOOD ANALYZE] Image fix retry also failed:', retryError.message);
-            // Continue to normal error handling below
-          }
-        }
-      } catch (_) {
-        // noop
-      }
-      
-      // Handle specific error cases (only if retry didn't succeed)
-      if (!aiResponse) {
-        // Auto-fallback: if LLaVA route is unavailable for this account, retry with UForm vision model
-        try {
-          const errData = visionError.response?.data;
-          const cfErrors = Array.isArray(errData?.errors) ? errData.errors : [];
-          const cfCode = cfErrors[0]?.code;
-          const isLlava = /llava/i.test(CF_VISION_MODEL);
-          if (visionError.response?.status === 400 && cfCode === 7000 && isLlava) {
-            console.warn('[FOOD ANALYZE] LLaVA route unavailable (7000). Retrying with UForm model');
-            const fallbackModel = '@cf/unum-cloud/uform-gen2-qwen-500m';
-            const retryCloudflareUrl = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${fallbackModel}`;
-            const dataUri = `data:${mimeType};base64,${base64Image}`;
-            const retryBody = { image: dataUri, prompt: prompt, max_tokens: 1000 };
-            console.log('[FOOD ANALYZE] UForm fallback request URL:', retryCloudflareUrl);
-            console.log('[FOOD ANALYZE] UForm fallback body keys:', Object.keys(retryBody));
-            const retryResponse = await axios.post(
-              retryCloudflareUrl,
-              retryBody,
-              {
-                headers: {
-                  'Authorization': `Bearer ${CF_API_TOKEN}`,
-                  'Content-Type': 'application/json'
-                },
-                timeout: 60000
-              }
-            );
-            console.log('[FOOD ANALYZE] UForm fallback response status:', retryResponse.status);
-            let cloudflareContent = retryResponse.data.result;
-            if (typeof cloudflareContent === 'object' && cloudflareContent !== null) {
-              cloudflareContent = cloudflareContent.response || cloudflareContent.text || cloudflareContent.description || cloudflareContent.content || JSON.stringify(cloudflareContent);
-            }
-            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-              cloudflareContent = retryResponse.data.response || retryResponse.data.text || retryResponse.data.description || retryResponse.data.content;
-            }
-            if (!cloudflareContent || typeof cloudflareContent !== 'string') {
-              cloudflareContent = JSON.stringify(retryResponse.data);
-            }
-            aiResponse = {
-              data: {
-                choices: [{ message: { content: cloudflareContent } }]
-              }
-            };
-            console.log('[FOOD ANALYZE] Vision analysis successful using UForm fallback');
-          }
-        } catch (fallbackErr) {
-          console.warn('[FOOD ANALYZE] UForm fallback failed:', fallbackErr.message);
+        // Use DeepSeek for nutrition analysis
+        const deepseekAvailable = !!getProviderConfig('deepseek');
+        if (deepseekAvailable) {
+          console.log('[FOOD ANALYZE] Using DeepSeek for nutrition analysis of Gemini vision result');
+          aiResponse = await callAI(messages, { type: 'json_object' }, 0.2, 'deepseek');
         }
 
-        if (aiResponse) {
-          // Fallback succeeded; do not throw here
-        } else if (visionError.response?.status === 413) {
-          throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
-        } else if (visionError.response?.status === 400) {
-          // If route not found, use fallback instead of throwing
-          const cfCode = Array.isArray(visionError.response?.data?.errors) ? visionError.response.data.errors[0]?.code : undefined;
-          if (cfCode === 7000) {
-            console.log('[FOOD ANALYZE] Vision model unavailable (code 7000), using fallback');
-            const fallbackResult = analyzeFoodWithFallback('food items from image');
+        if (!aiResponse || aiResponse.error) {
+          console.log('[FOOD ANALYZE] DeepSeek failed, using fallback for Gemini result');
+          const fallbackResult = analyzeFoodWithFallback(foodDescription);
+          return res.json({
+            success: true,
+            data: {
+              success: true,
+              nutrition: fallbackResult,
+              message: `Analyzed using Gemini vision + fallback nutrition analysis. Confidence: ${fallbackResult.confidence}`,
+              analysisProvider: 'gemini'
+            }
+          });
+        }
+
+        // Parse and return the result
+        const aiContent = aiResponse.data?.choices?.[0]?.message?.content;
+        if (aiContent) {
+          const analysisResult = findAndParseJson(aiContent);
+          if (analysisResult) {
             return res.json({
               success: true,
               data: {
                 success: true,
-                nutrition: fallbackResult,
-                message: 'Vision model unavailable for this account. Using fallback analysis.'
+                nutrition: analysisResult,
+                message: 'Analyzed using Gemini vision + DeepSeek nutrition analysis',
+                analysisProvider: 'gemini'
               }
             });
           }
-          throw new Error('Invalid image format. Please use a clear photo of food.');
-        } else if (visionError.response?.status === 429) {
-          throw new Error('Too many requests. Please try again in a moment.');
         }
-        
-        // If vision analysis fails, provide final fallback
-        console.log('[FOOD ANALYZE] All vision methods failed, using rule-based fallback');
-        const fallbackResult = analyzeFoodWithFallback('food items from image');
-        return res.json({
-          success: true,
-          data: {
-            success: true,
-            nutrition: fallbackResult,
-            message: `Vision analysis failed. Using fallback analysis. Error: ${visionError.message}`
-          }
-        });
+
+      } catch (geminiError) {
+        console.error('[FOOD ANALYZE] Gemini vision failed:', geminiError.message);
       }
+
+      // Final fallback if everything fails
+      console.log('[FOOD ANALYZE] All vision services failed, using basic fallback');
+      const fallbackResult = analyzeFoodWithFallback('food items from image');
+      return res.json({
+        success: true,
+        data: {
+          success: true,
+          nutrition: fallbackResult,
+          message: 'Vision analysis failed - using basic estimation',
+          analysisProvider: 'fallback'
+        }
+      });
+      
+
+      
+    } catch (visionError) {
+      console.error('[FOOD ANALYZE] Vision analysis failed:', visionError.message);
+
+      // Handle common vision API errors
+      if (visionError.response?.status === 413) {
+        throw new Error('Image too large for analysis. Please use a smaller image (max 1MB).');
+      } else if (visionError.response?.status === 400) {
+        throw new Error('Invalid image format. Please use a clear photo of food.');
+      } else if (visionError.response?.status === 429) {
+        throw new Error('Too many requests. Please try again in a moment.');
+      }
+
+      // If vision analysis fails, provide final fallback
+      console.log('[FOOD ANALYZE] Vision analysis failed, using rule-based fallback');
+      const fallbackResult = analyzeFoodWithFallback('food items from image');
+      return res.json({
+        success: true,
+        data: {
+          success: true,
+          nutrition: fallbackResult,
+          message: `Vision analysis failed. Using fallback analysis. Error: ${visionError.message}`,
+          analysisProvider: 'fallback'
+        }
+      });
     }
     
     // If we get here, aiResponse should be set either from successful vision analysis or retry
@@ -5700,8 +5248,8 @@ Analyze the following food image:
     res.json({
       success: true,
       data: analysisResult,
-      visionModel: visionModelUsed || CF_VISION_MODEL || 'unknown',
-      analysisProvider: visionService ? 'gemini' : 'none'
+      visionModel: visionModelUsed || 'unknown',
+      analysisProvider: 'gemini'
     });
 
   } catch (error) {
@@ -5720,7 +5268,7 @@ Analyze the following food image:
         httpStatus = 413; clientMessage = 'Image too large. Please use a smaller image (max ~1MB).';
       } else if (messageFromUpstream.includes('Too many requests')) {
         httpStatus = 429; clientMessage = 'Too many requests. Please try again shortly.';
-      } else if (messageFromUpstream.includes('Cloudflare credentials not configured')) {
+      } else if (messageFromUpstream.includes('Vision service')) {
         httpStatus = 503; clientMessage = 'Vision service temporarily unavailable.';
       }
     }
