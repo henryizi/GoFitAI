@@ -483,19 +483,13 @@ if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
 // let visionService = null;
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
-// AI Provider Priority List (DeepSeek first)
+// AI Provider Priority List - Remove DeepSeek for food analysis
 const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
 const AI_STRICT_ONLY = String(process.env.AI_STRICT_ONLY || '').toLowerCase() === 'true';
 const AI_STRICT_EFFECTIVE = AI_DEEPSEEK_ONLY || AI_STRICT_ONLY;
+
+// NOTE: DeepSeek removed to avoid external API calls for food analysis
 const AI_PROVIDERS = [
-  {
-    name: 'deepseek',
-    apiKey: DEEPSEEK_API_KEY,
-    apiUrl: DEEPSEEK_API_URL,
-    model: DEEPSEEK_MODEL,
-    enabled: !!DEEPSEEK_API_KEY
-  },
-  // OpenRouter removed - using DeepSeek only
   {
     name: 'openai',
     apiKey: ***REMOVED***,
@@ -519,25 +513,22 @@ const AI_PROVIDERS = [
   }
 ]
   // Filter to enabled providers first
-  .filter(provider => provider.enabled)
-  // Enforce DeepSeek-only if requested
-  .filter(provider => (AI_DEEPSEEK_ONLY ? provider.name === 'deepseek' : true));
+  .filter(provider => provider.enabled);
 
-// Default provider (prefer Gemini if available, then DeepSeek); enforce deepseek when AI_DEEPSEEK_ONLY
+// Default provider (prefer Gemini if available, then OpenAI as fallback)
 const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'gemini')?.name ||
-                        AI_PROVIDERS.find(p => p.name === 'deepseek')?.name ||
+                        AI_PROVIDERS.find(p => p.name === 'openai')?.name ||
                         AI_PROVIDERS[0]?.name || 'gemini';
-const AI_PROVIDER = AI_DEEPSEEK_ONLY ? 'deepseek' : (process.env.AI_PROVIDER || DEFAULT_PROVIDER);
+const AI_PROVIDER = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
 
-// Legacy AI configuration for backward compatibility
-const AI_API_KEY = ***REMOVED*** || DEEPSEEK_API_KEY;
+// Legacy AI configuration for backward compatibility  
+const AI_API_KEY = ***REMOVED*** || GEMINI_API_KEY;
 const AI_API_URL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.apiUrl || 'https://api.openai.com/v1/chat/completions';
 const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || OPENAI_MODEL;
 
 // Debug logging for API configuration
 console.log('=== API CONFIGURATION ===');
-console.log('DeepSeek-only mode:', AI_DEEPSEEK_ONLY ? 'ENABLED' : 'DISABLED');
-console.log('Strict mode (effective):', AI_STRICT_EFFECTIVE ? 'ENABLED' : 'DISABLED');
+console.log('Food analysis optimized - DeepSeek removed to avoid external API usage');
 console.log('Available AI Providers:', AI_PROVIDERS.map(p => p.name));
 console.log('Default AI_PROVIDER:', AI_PROVIDER);
 console.log('Total providers available:', AI_PROVIDERS.length);
@@ -1182,16 +1173,11 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
     try {
       console.log(`[AI] Trying provider: ${provider.name} with model ${provider.model}`);
       
-              // Optimize max_tokens for DeepSeek (primary provider)
-        const max_tokens = provider.name === 'deepseek' ? 4000 : 
-                          provider.name === 'fallback' ? 1000 : 2000;
+              // Optimize max_tokens based on provider
+        const max_tokens = provider.name === 'fallback' ? 1000 : 2000;
     
-    // Safeguard: Ensure DeepSeek never uses vision models
+    // Use the model as configured
     let modelToUse = provider.model;
-    if (provider.name === 'deepseek' && (modelToUse.includes('vl') || modelToUse.includes('vision'))) {
-      console.warn(`[AI] Vision model detected (${modelToUse}), forcing to deepseek-chat for compatibility`);
-      modelToUse = 'deepseek-chat';
-    }
     
     const requestBody = {
         model: modelToUse,
