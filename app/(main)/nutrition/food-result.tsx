@@ -38,26 +38,26 @@ export default function FoodResultScreen() {
   const [loading, setLoading] = useState(false);
 
   // Extract nutrition data from the correct API response structure
-  // Handle both wrapped (data.totalNutrition) and direct (totalNutrition) response formats
-  const nutritionData = parsed?.data?.totalNutrition || parsed?.totalNutrition || parsed || {};
+  // Handle both wrapped (data.nutrition) and direct (nutrition) response formats
+  const nutritionData = parsed?.data?.nutrition || parsed?.data?.totalNutrition || parsed?.totalNutrition || parsed?.nutrition || parsed || {};
   const foodItems = parsed?.data?.foodItems || parsed?.foodItems || [];
   
   // Use AI-generated meal name from backend or fall back to first food item
-  const mealName = parsed?.data?.dishName || parsed?.dishName || parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
+  const mealName = parsed?.data?.foodName || parsed?.foodName || parsed?.data?.dishName || parsed?.dishName || parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
   const foodName = mealName || foodItems?.[0]?.name || 'Detected Food';
   
   // Create display name for verified foods in bubble
-  const verifiedItems = foodItems?.filter(item => item.usdaVerified) || [];
+  const verifiedItems = foodItems?.filter((item: any) => item.usdaVerified) || [];
   const bubbleDisplayName = verifiedItems.length > 0 
-    ? verifiedItems.map(item => item.name).join(' + ')
+    ? verifiedItems.map((item: any) => item.name).join(' + ')
     : foodName;
   
   // Check if any food items are USDA verified
-  const hasUSDAData = foodItems?.some(item => item.usdaVerified);
-  const usdaVerifiedCount = foodItems?.filter(item => item.usdaVerified).length || 0;
+  const hasUSDAData = foodItems?.some((item: any) => item.usdaVerified);
+  const usdaVerifiedCount = foodItems?.filter((item: any) => item.usdaVerified).length || 0;
 
   const proteinG = Number(nutritionData?.protein || 0);
-  const carbsG = Number(nutritionData?.carbs || 0);
+  const carbsG = Number(nutritionData?.carbs || nutritionData?.carbohydrates || 0);
   const fatG = Number(nutritionData?.fat || 0);
   const calsFromMacros = proteinG * 4 + carbsG * 4 + fatG * 9;
   const totalCalories = Number(nutritionData?.calories || calsFromMacros || 0);
