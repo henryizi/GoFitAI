@@ -1,0 +1,39 @@
+# Ignore client/node modules and build artifacts
+node_modules/
+**/node_modules/
+.next/
+dist/
+build/
+.out/
+.cache/
+
+# Ignore local logs and uploads
+*.log
+server/uploads/
+server_local.log
+
+# Ignore tests and scripts not needed for deploy
+scripts/
+**/test-*.js
+**/*.test.*
+
+# Ignore images and large assets not needed for server
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.mp4
+**/*.mov
+**/*.webm
+
+# Ignore local env files
+.env*
+
+# Ignore notebooks and docs
+**/*.ipynb
+**/*.md
+
+# Keep server and essential files
+!server/**
+!railway.json
+
