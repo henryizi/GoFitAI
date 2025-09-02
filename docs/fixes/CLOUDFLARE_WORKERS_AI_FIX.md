@@ -80,7 +80,7 @@ railway variables set CF_VISION_MODEL="@cf/meta/llama-3.2-90b-vision-instruct"
 ### **Option B: Use Alternative Vision Provider**
 If Cloudflare doesn't work, consider:
 
-1. **OpenAI GPT-4 Vision** (requires ***REMOVED***)
+1. **OpenAI GPT-4 Vision** (requires OPENAI_API_KEY)
 2. **Anthropic Claude Vision** (requires ANTHROPIC_API_KEY)
 3. **Local vision model** (requires setup)
 

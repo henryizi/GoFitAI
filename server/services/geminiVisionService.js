@@ -88,8 +88,8 @@ Guidelines:
 - Make reasonable assumptions about cooking methods and ingredients
 - Focus on accuracy for common foods and typical portions`;
 
-      // Generate content using Gemini Vision
-      const result = await this.model.generateContent([prompt, imagePart]);
+      // Generate content using Gemini Vision with retry logic for 503 errors
+      const result = await this.generateContentWithRetry([prompt, imagePart]);
       const response = await result.response;
       const text = response.text();
 
@@ -127,8 +127,62 @@ Guidelines:
       console.error('[GEMINI VISION] Analysis failed:', error.message);
       console.error('[GEMINI VISION] Error details:', error);
       
-      // Return a structured error response
-      throw new Error(`Food analysis failed: ${error.message}`);
+      // Try fallback to basic food analyzer if available
+      console.log('[GEMINI VISION] 🔄 Attempting fallback to basic food analyzer...');
+      
+      try {
+        const BasicFoodAnalyzer = require('./basicFoodAnalyzer');
+        const basicAnalyzer = new BasicFoodAnalyzer();
+        const fallbackResult = await basicAnalyzer.analyzeFood(imageBuffer);
+        
+        console.log('[GEMINI VISION] ✅ Fallback analysis successful');
+        return {
+          ...fallbackResult,
+          confidence: Math.max(0, fallbackResult.confidence - 20), // Reduce confidence for fallback
+          source: 'basic_fallback'
+        };
+        
+      } catch (fallbackError) {
+        console.error('[GEMINI VISION] Fallback analysis also failed:', fallbackError.message);
+        
+        // Return a generic fallback response as last resort
+        console.log('[GEMINI VISION] 🛑 Using generic fallback response');
+        return this.createFallbackResponse();
+      }
+    }
+  }
+
+  /**
+   * Generates content with retry logic for 503 Service Unavailable errors
+   * @param {Array} content - Content array for Gemini (prompt + image)
+   * @returns {Promise} Gemini response
+   */
+  async generateContentWithRetry(content, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[GEMINI VISION] Attempt ${attempt}/${maxRetries}`);
+        
+        const result = await this.model.generateContent(content);
+        console.log(`[GEMINI VISION] ✅ Success on attempt ${attempt}`);
+        return result;
+        
+      } catch (error) {
+        const isServiceUnavailable = error.message.includes('503') || 
+                                   error.message.includes('Service Unavailable') ||
+                                   error.message.includes('overloaded');
+        
+        if (isServiceUnavailable && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+          console.log(`[GEMINI VISION] ⚠️ Service unavailable (attempt ${attempt}), retrying in ${delay}ms...`);
+          console.log(`[GEMINI VISION] Error: ${error.message}`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a 503 error, or we've exhausted retries, throw the error
+        throw error;
+      }
     }
   }
 

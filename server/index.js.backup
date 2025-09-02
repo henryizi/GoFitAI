@@ -454,7 +454,7 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // Provider selection (OpenAI, DeepSeek)
 // AI Provider Configuration with Fallbacks
-const ***REMOVED*** = process.env.***REMOVED*** || process.env.EXPO_PUBLIC_***REMOVED***;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 // OpenRouter removed - using DeepSeek only
 
@@ -512,10 +512,10 @@ const AI_PROVIDERS = [
   // OpenRouter removed - using DeepSeek only
   {
     name: 'openai',
-    apiKey: ***REMOVED***,
+    apiKey: OPENAI_API_KEY,
     apiUrl: 'https://api.openai.com/v1/chat/completions',
     model: OPENAI_MODEL,
-    enabled: !!***REMOVED***
+    enabled: !!OPENAI_API_KEY
   },
   {
     name: 'gemini',
@@ -544,7 +544,7 @@ const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'gemini')?.name ||
 const AI_PROVIDER = AI_DEEPSEEK_ONLY ? 'deepseek' : (process.env.AI_PROVIDER || DEFAULT_PROVIDER);
 
 // Legacy AI configuration for backward compatibility
-const AI_API_KEY = ***REMOVED*** || DEEPSEEK_API_KEY;
+const AI_API_KEY = OPENAI_API_KEY || DEEPSEEK_API_KEY;
 const AI_API_URL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.apiUrl || 'https://api.openai.com/v1/chat/completions';
 const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || OPENAI_MODEL;
 
@@ -4189,7 +4189,7 @@ app.get('/api/test', (req, res) => {
     environment: {
       node_version: process.version,
       deepseek_api_configured: !!DEEPSEEK_API_KEY,
-      openai_configured: !!***REMOVED***,
+      openai_configured: !!OPENAI_API_KEY,
       server_port: port,
       server_ip: getLocalIpAddress(),
       ai_provider: AI_PROVIDER,

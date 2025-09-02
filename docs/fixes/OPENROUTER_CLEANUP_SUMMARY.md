@@ -58,7 +58,7 @@ The application is now ready for production use with the updated AI provider con
 ## Environment Variables Required
 Make sure these environment variables are set:
 - `DEEPSEEK_API_KEY` - For primary AI functionality
-- `***REMOVED***` - For fallback AI functionality  
+- `OPENAI_API_KEY` - For fallback AI functionality  
 - `CF_ACCOUNT_ID` and `CF_API_TOKEN` - For vision analysis
 - `SUPABASE_URL` and `SUPABASE_ANON_KEY` - For database operations
 

@@ -259,7 +259,7 @@ class CloudflareVisionFix {
     showAlternativeInstructions() {
         console.log('\n🔄 ALTERNATIVE SOLUTIONS:');
         console.log('1. OpenAI GPT-4 Vision (recommended):');
-        console.log('   railway variables set ***REMOVED***="your_key"');
+        console.log('   railway variables set OPENAI_API_KEY="your_key"');
         console.log('');
         console.log('2. Anthropic Claude Vision:');
         console.log('   railway variables set ANTHROPIC_API_KEY="your_key"');

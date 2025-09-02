@@ -30,7 +30,7 @@
 railway variables set HUGGINGFACE_API_TOKEN="your_hf_token_here"
 
 # Optional fallback providers (if you want them)
-railway variables set ***REMOVED***="your_openai_key" 
+railway variables set OPENAI_API_KEY="your_openai_key" 
 railway variables set CF_ACCOUNT_ID="your_cf_account"
 railway variables set CF_API_TOKEN="your_cf_token"
 
