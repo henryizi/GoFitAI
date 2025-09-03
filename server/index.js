@@ -5035,10 +5035,35 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
     console.log('[FOOD ANALYZE] Using Gemini Vision API for image analysis');
 
     if (!visionService) {
-      return res.status(503).json({
-        success: false, 
-        error: 'Vision service not available'
-      });
+      console.warn('[FOOD ANALYZE] Vision service unavailable. Using basic fallback analyzer');
+
+      // Use the basic analyzer to return a reasonable fallback instead of 503
+      try {
+        const fallbackResult = basicFoodAnalyzer.analyzeFood('food photo');
+
+        // Clean up uploaded file if present
+        if (req.file?.path) {
+          try { fs.unlinkSync(req.file.path); } catch (_) {}
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            success: true,
+            foodItems: fallbackResult.foodItems || [],
+            totalNutrition: fallbackResult.totalNutrition,
+            nutrition: fallbackResult.totalNutrition,
+            message: 'Analyzed using fallback (vision unavailable)',
+            analysisProvider: 'fallback',
+            confidence: typeof fallbackResult.confidence === 'number' ? fallbackResult.confidence : 50,
+            assumptions: [],
+            notes: fallbackResult.notes || 'Food recognition unavailable - using generic nutritional estimate'
+          }
+        });
+      } catch (fallbackErr) {
+        console.error('[FOOD ANALYZE] Fallback analyzer failed:', fallbackErr.message);
+        return res.status(503).json({ success: false, error: 'Vision service not available' });
+      }
     }
 
     // Convert base64 to Buffer for GeminiVisionService
