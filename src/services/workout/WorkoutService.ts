@@ -31,6 +31,7 @@ interface CreatePlanInput {
   fatLossGoal: number;
   muscleGainGoal: number;
   trainingLevel: 'beginner' | 'intermediate' | 'advanced';
+  primaryGoal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance';
   emulateBodybuilder?: string; // Optional parameter to emulate a famous bodybuilder's workout style
 
   // Enhanced onboarding data - will be fetched from database if not provided
@@ -57,10 +58,11 @@ const getWorkoutApiUrl = () => {
   // Use centralized environment configuration
   let apiUrl = environment.apiUrl;
 
-  // Guard against invalid local URLs that won't work on device
+  // Allow localhost for testing (comment out for production)
   if (apiUrl && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
-    console.warn('[WORKOUT] Detected localhost API URL; switching to Railway production URL');
-    apiUrl = 'https://gofitai-production.up.railway.app';
+    console.log('[WORKOUT] Using localhost for testing');
+    // Uncomment the line below to switch to Railway production URL
+    // apiUrl = 'https://gofitai-production.up.railway.app';
   }
   
   if (environment.isProduction) {
@@ -72,50 +74,23 @@ const getWorkoutApiUrl = () => {
   return apiUrl;
 };
 
-// Helper function to try multiple server URLs
-const tryMultipleServers = async (endpoint: string, options: any) => {
-  // Always try the sanitized, non-localhost API URL first
-  const primaryUrl = WorkoutService.API_URL;
+// Helper function to try the configured server URL
+const tryServer = async (endpoint: string, options: any) => {
+  const serverUrl = WorkoutService.API_URL;
 
   try {
-    console.log(`[WORKOUT] Trying primary server: ${primaryUrl}${endpoint}`);
-    const response = await fetch(`${primaryUrl}${endpoint}`, options);
+    console.log(`[WORKOUT] Trying server: ${serverUrl}${endpoint}`);
+    const response = await fetch(`${serverUrl}${endpoint}`, options);
 
     if (response.ok) {
-      console.log(`[WORKOUT] Success with primary server: ${primaryUrl}`);
+      console.log(`[WORKOUT] Success with server: ${serverUrl}`);
       return response;
     } else {
-      console.warn(`[WORKOUT] Primary server returned status: ${response.status}`);
-      throw new Error(`Primary server returned status: ${response.status}`);
+      console.warn(`[WORKOUT] Server returned status: ${response.status}`);
+      throw new Error(`Server returned status: ${response.status}`);
     }
   } catch (error) {
-    console.error(`[WORKOUT] Failed to connect to primary server ${primaryUrl}:`, error);
-
-    // Try a minimal, safe fallback set (never localhost)
-    const fallbackOptions: string[] = [];
-    const railwayUrl = 'https://gofitai-production.up.railway.app';
-
-    if (primaryUrl !== railwayUrl) {
-      fallbackOptions.push(railwayUrl);
-    }
-
-    // Removed global URL fallback to enforce env/Railway-only bases
-
-    for (const fallbackUrl of fallbackOptions) {
-      try {
-        console.log(`[WORKOUT] Trying fallback: ${fallbackUrl}${endpoint}`);
-        const response = await fetch(`${fallbackUrl}${endpoint}`, options);
-        if (response.ok) {
-          console.log(`[WORKOUT] Success with fallback: ${fallbackUrl}`);
-          return response;
-        } else {
-          console.warn(`[WORKOUT] Fallback ${fallbackUrl} returned status: ${response.status}`);
-        }
-      } catch (fallbackError) {
-        console.warn(`[WORKOUT] Fallback ${fallbackUrl} failed:`, fallbackError);
-      }
-    }
-
+    console.error(`[WORKOUT] Failed to connect to server ${serverUrl}:`, error);
     throw error;
   }
 };
@@ -207,7 +182,7 @@ export class WorkoutService {
           new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`[Timeout] ${label} exceeded ${ms}ms`)), ms))
         ]);
       };
-      const AI_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_AI_TIMEOUT_MS) || 45000;
+      const AI_TIMEOUT_MS = Number(Constants?.expoConfig?.extra?.AI_TIMEOUT_MS || process.env.EXPO_PUBLIC_AI_TIMEOUT_MS) || 45000;
       const DB_TIMEOUT_MS = 12000;
       const RPC_TIMEOUT_MS = 20000;
 
@@ -258,7 +233,7 @@ export class WorkoutService {
               const healthController = new AbortController();
               const healthTimeout = setTimeout(() => healthController.abort(), 5000);
               
-              const healthCheck = await tryMultipleServers('/api/health', {
+              const healthCheck = await tryServer('/api/health', {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 signal: healthController.signal,
@@ -293,16 +268,16 @@ export class WorkoutService {
                   reject(new Error(`Request timed out after ${timeout / 1000} seconds`));
                 }, timeout);
                 
-                // Make the request through tryMultipleServers
-                tryMultipleServers(endpoint, {
+                        // Make the request through tryServer
+        tryServer(endpoint, {
                   ...options,
                   signal: controller.signal
                 })
-                .then(response => {
+                .then((response: Response) => {
                   if (timeoutId) clearTimeout(timeoutId);
                   resolve(response);
                 })
-                .catch(error => {
+                .catch((error: any) => {
                   if (timeoutId) clearTimeout(timeoutId);
                   if (error.name === 'AbortError') {
                     reject(new Error(`Request timed out after ${timeout / 1000} seconds`));
@@ -316,23 +291,23 @@ export class WorkoutService {
             const res = await fetchWithRNTimeout('/api/generate-workout-plan', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ profile: {
-                full_name: input.fullName,
-                gender: input.gender,
-                age: enhancedInput.age,
-                height: enhancedInput.height,
-                weight: enhancedInput.weight,
-                training_level: input.trainingLevel,
-                goal_fat_reduction: input.fatLossGoal,
-                goal_muscle_gain: input.muscleGainGoal,
-                exercise_frequency: enhancedInput.exerciseFrequency,
-                workout_frequency: enhancedInput.workoutFrequency,
-                activity_level: enhancedInput.activityLevel,
-                body_fat: enhancedInput.bodyFat,
-                weight_trend: enhancedInput.weightTrend,
-                body_analysis: enhancedInput.bodyAnalysis,
-                emulate_bodybuilder: input.emulateBodybuilder,
-              } })
+              body: JSON.stringify({ 
+                userProfile: {
+                  fitnessLevel: input.trainingLevel,
+                  primaryGoal: enhancedInput.primaryGoal || (input.fatLossGoal > input.muscleGainGoal ? 'fat_loss' : 'muscle_gain'),
+                  fullName: input.fullName,
+                  age: enhancedInput.age,
+                  gender: input.gender,
+                  height: enhancedInput.height,
+                  weight: enhancedInput.weight,
+                  bodyFat: enhancedInput.bodyFat,
+                  workoutFrequency: enhancedInput.workoutFrequency,
+                  exerciseFrequency: enhancedInput.exerciseFrequency,
+                  activityLevel: enhancedInput.activityLevel,
+                  emulateBodybuilder: input.emulateBodybuilder,
+                  bodyAnalysis: enhancedInput.bodyAnalysis
+                }
+              })
             }, timeoutMs);
             
             if (!res.ok) {
@@ -372,23 +347,72 @@ export class WorkoutService {
               throw new Error(userFriendlyMessage);
             }
             
-            if (!data?.plan) {
-              console.error('[WORKOUT] Server response missing plan data');
+            // Handle Railway server response format
+            if (data?.workoutPlan) {
+              // Railway format: { success: true, workoutPlan: { weekly_schedule: [...] } }
+              if (!data.workoutPlan.weekly_schedule || !Array.isArray(data.workoutPlan.weekly_schedule)) {
+                console.error('[WORKOUT] Railway response missing weekly_schedule array');
+                throw new Error('Server response missing weekly schedule data');
+              }
+              
+              // Convert Railway format to expected format
+              // The fallback plan has a different structure, so we need to transform it
+              const transformedSchedule = data.workoutPlan.weekly_schedule.map((day: any) => {
+                // Handle fallback plan structure
+                if (day.main_workout) {
+                  // Fallback plan format
+                  return {
+                    day: day.day_name || day.day || 'Day',
+                    focus: day.focus || day.workout_type || 'Full Body',
+                    exercises: day.main_workout.map((exercise: any) => ({
+                      name: exercise.exercise,
+                      sets: exercise.sets,
+                      reps: exercise.reps,
+                      restBetweenSets: `${exercise.rest_seconds || 60}s`
+                    }))
+                  };
+                } else if (day.exercises) {
+                  // Standard format
+                  return {
+                    day: day.day || day.day_name || 'Day',
+                    focus: day.focus || 'Full Body',
+                    exercises: day.exercises.map((exercise: any) => ({
+                      name: exercise.name || exercise.exercise,
+                      sets: exercise.sets,
+                      reps: exercise.reps,
+                      restBetweenSets: exercise.restBetweenSets || `${exercise.rest_seconds || 60}s`
+                    }))
+                  };
+                } else {
+                  console.error('[WORKOUT] Unknown day structure:', day);
+                  throw new Error('Unknown workout day structure received from server');
+                }
+              });
+              
+              aiPlan = {
+                weeklySchedule: transformedSchedule,
+                estimatedTimePerSession: data.workoutPlan.estimatedTimePerSession || '45-60 minutes',
+                name: data.workoutPlan.plan_name || `${input.fullName || 'User'}'s Personalized Plan`
+              };
+              
+              console.log('[WORKOUT] Successfully received Railway plan with', 
+                          aiPlan.weeklySchedule.length, 'workout days');
+            } else if (data?.plan) {
+              // Legacy format: { plan: { weeklySchedule: [...] } }
+              if (!data.plan.weeklySchedule || !Array.isArray(data.plan.weeklySchedule)) {
+                console.error('[WORKOUT] Legacy response missing weeklySchedule array');
+                throw new Error('Server response missing weekly schedule data');
+              }
+              
+              aiPlan = data.plan;
+              console.log('[WORKOUT] Successfully received legacy plan with', 
+                          data.plan.weeklySchedule.length, 'workout days and',
+                          data.plan.weeklySchedule.reduce((total: number, day: any) => total + (day.exercises?.length || 0), 0), 
+                          'total exercises');
+            } else {
+              console.error('[WORKOUT] Server response missing both plan and workoutPlan data');
               throw new Error('Server response missing plan data');
             }
-            
-            if (!data?.plan?.weeklySchedule || !Array.isArray(data.plan.weeklySchedule)) {
-              console.error('[WORKOUT] Server response missing weekly schedule array');
-              throw new Error('Server response missing weekly schedule data');
-            }
-            
-            // Log the plan structure to help with debugging
-            console.log('[WORKOUT] Successfully received plan with', 
-                        data.plan.weeklySchedule.length, 'workout days and',
-                        data.plan.weeklySchedule.reduce((total: number, day: any) => total + (day.exercises?.length || 0), 0), 
-                        'total exercises');
-            
-            aiPlan = data.plan;
             console.log(`[WorkoutService] Step 3 successful: AI plan generated.`);
             analyticsTrack('ai_plan_generated', { user_id: input.userId, days: aiPlan?.weeklySchedule?.length || 0 });
           } catch (error) {
@@ -412,51 +436,12 @@ export class WorkoutService {
               stage: 'ai_generation'
             });
             
-            // Attempt local DeepSeekService fallback before offline template
-            try {
-              console.log('[WORKOUT] Falling back to local DeepSeekService generator...');
-              const dsPlan = await DeepSeekService.generateWorkoutPlan({
-                fullName: input.fullName,
-                height: input.height,
-                weight: input.weight,
-                age: enhancedInput.age,
-                gender: input.gender,
-                fatLossGoal: input.fatLossGoal,
-                muscleGainGoal: input.muscleGainGoal,
-                trainingLevel: input.trainingLevel,
-                emulateBodybuilder: input.emulateBodybuilder,
-                bodyFat: enhancedInput.bodyFat,
-                weightTrend: enhancedInput.weightTrend,
-                exerciseFrequency: enhancedInput.exerciseFrequency,
-                workoutFrequency: enhancedInput.workoutFrequency,
-                activityLevel: enhancedInput.activityLevel,
-                bodyAnalysis: enhancedInput.bodyAnalysis,
-              });
-              if (dsPlan && Array.isArray((dsPlan as any).weeklySchedule)) {
-                aiPlan = dsPlan as any;
-                console.log('[WORKOUT] DeepSeekService fallback succeeded.');
-                analyticsTrack('ai_plan_generated', { 
-                  user_id: input.userId, 
-                  days: (aiPlan?.weeklySchedule?.length || 0),
-                  method: 'deepseek_fallback'
-                });
-              }
-            } catch (fallbackError) {
-              console.error('[WORKOUT] DeepSeekService fallback failed:', fallbackError);
-            }
-            
-            // Don't throw - let it fall through to fallback
-            console.error('[WorkoutService] Database unavailable or timed out. Returning offline plan.', error);
+            // No fallback - throw the error to show proper error message to user
+            throw error;
           }
         }
         if (!aiPlan || !aiPlan.weeklySchedule || !Array.isArray(aiPlan.weeklySchedule)) {
-          console.log('[WorkoutService] AI plan generation failed or invalid - using comprehensive offline fallback plan');
-          // Create a fallback AI plan structure to ensure consistency
-          aiPlan = {
-            weeklySchedule: [],
-            estimatedTimePerSession: '45-60 minutes',
-            name: `${input.fullName || 'User'}'s Personalized Plan`
-          };
+          throw new Error('AI plan generation failed - no valid plan received from server');
         }
       }
 
@@ -825,15 +810,45 @@ export class WorkoutService {
       // Get the local bodybuilder workout data
       const bodybuilderData = this.getBodybuilderWorkoutData(input.emulateBodybuilder!, input.trainingLevel);
 
+      // Adapt the workout schedule based on user's workout frequency preference
+      let adaptedSchedule = bodybuilderData.weeklySchedule;
+      
+      // DEBUG: Log the input data to see what's being received
+      console.log(`[WorkoutService] DEBUG - Input data:`, {
+        workoutFrequency: input.workoutFrequency,
+        type: typeof input.workoutFrequency,
+        hasValue: !!input.workoutFrequency,
+        fullInput: JSON.stringify(input, null, 2)
+      });
+      
+      if (input.workoutFrequency) {
+        const targetDays = this.getTargetTrainingDays(input.workoutFrequency);
+        const currentTrainingDays = bodybuilderData.weeklySchedule.filter(day => 
+          day.exercises && day.exercises.length > 0
+        ).length;
+
+        console.log(`[WorkoutService] Adapting bodybuilder plan: ${currentTrainingDays} days → ${targetDays} days (user preference: ${input.workoutFrequency})`);
+
+        if (currentTrainingDays !== targetDays) {
+          adaptedSchedule = this.adaptWorkoutScheduleForFrequency(
+            bodybuilderData.weeklySchedule, 
+            targetDays, 
+            input.workoutFrequency
+          );
+        }
+      } else {
+        console.log(`[WorkoutService] WARNING: No workout frequency provided! Using default schedule.`);
+      }
+
       console.log(`DEBUG: Bodybuilder data received:`, {
-        totalDays: bodybuilderData.weeklySchedule.length,
-        trainingDays: bodybuilderData.weeklySchedule.filter(day => day.exercises.length > 0).length,
+        totalDays: adaptedSchedule?.length || 0,
+        trainingDays: adaptedSchedule?.filter(day => day.exercises && day.exercises.length > 0).length || 0,
         estimatedTime: bodybuilderData.estimatedTimePerSession,
-        sampleDays: bodybuilderData.weeklySchedule.slice(0, 3).map(day => ({
+        sampleDays: adaptedSchedule?.slice(0, 3).map(day => ({
           day: day.day,
           focus: day.focus,
-          exerciseCount: day.exercises.length
-        }))
+          exerciseCount: day.exercises?.length || 0
+        })) || []
       });
 
       // Create a plan name based on the bodybuilder
@@ -866,8 +881,8 @@ export class WorkoutService {
         deload_week: false,
         is_active: true,
         status: 'active' as const,
-        weekly_schedule: bodybuilderData.weeklySchedule,
-        weeklySchedule: bodybuilderData.weeklySchedule,
+        weekly_schedule: adaptedSchedule,
+        weeklySchedule: adaptedSchedule,
         goal_fat_loss: input.fatLossGoal || 0,
         goal_muscle_gain: input.muscleGainGoal || 0,
         estimatedTimePerSession: bodybuilderData.estimatedTimePerSession,
@@ -876,19 +891,19 @@ export class WorkoutService {
         updated_at: new Date().toISOString()
       };
 
-      console.log(`[WorkoutService] Created offline bodybuilder plan:`, {
-        id: planWithWeeklySchedule.id,
-        name: planWithWeeklySchedule.name,
-        bodybuilder: input.emulateBodybuilder,
-        days: bodybuilderData.weeklySchedule.length,
-        trainingDays: bodybuilderData.weeklySchedule.filter(day => day.exercises.length > 0).length,
-        training_level: planWithWeeklySchedule.training_level,
-        weeklyScheduleSample: bodybuilderData.weeklySchedule.slice(0, 3).map(day => ({
-          day: day.day,
-          focus: day.focus,
-          exercises: day.exercises.length
-        }))
-      });
+              console.log(`[WorkoutService] Created offline bodybuilder plan:`, {
+          id: planWithWeeklySchedule.id,
+          name: planWithWeeklySchedule.name,
+          bodybuilder: input.emulateBodybuilder,
+          days: adaptedSchedule?.length || 0,
+          trainingDays: adaptedSchedule?.filter(day => day.exercises && day.exercises.length > 0).length || 0,
+          training_level: planWithWeeklySchedule.training_level,
+          weeklyScheduleSample: adaptedSchedule?.slice(0, 3).map(day => ({
+            day: day.day,
+            focus: day.focus,
+            exercises: day.exercises?.length || 0
+          })) || []
+        });
 
       // Save to local storage only
       try {
@@ -979,20 +994,35 @@ export class WorkoutService {
     if (mappedKey && bodybuilderWorkouts[mappedKey]) {
       const workoutData = bodybuilderWorkouts[mappedKey];
       console.log(`DEBUG: Found bodybuilder data for ${bodybuilder} -> ${mappedKey}`);
+      
+      // Defensive check for weeklySchedule
+      if (!workoutData.weeklySchedule || !Array.isArray(workoutData.weeklySchedule)) {
+        console.error(`DEBUG: Invalid weeklySchedule for ${mappedKey}:`, workoutData.weeklySchedule);
+        throw new Error(`Invalid weeklySchedule data for bodybuilder: ${mappedKey}`);
+      }
+      
       console.log(`DEBUG: Weekly schedule has ${workoutData.weeklySchedule.length} days`);
-      console.log(`DEBUG: Training days:`, workoutData.weeklySchedule.filter(day => day.exercises.length > 0).length);
+      console.log(`DEBUG: Training days:`, workoutData.weeklySchedule.filter(day => day.exercises && day.exercises.length > 0).length);
 
       return {
-        weeklySchedule: workoutData.weeklySchedule.map(day => ({
-          day: day.day,
-          focus: day.bodyParts.join(' & '),
-          exercises: day.exercises.map(exercise => ({
-            name: exercise.name,
-            sets: parseInt(exercise.sets),
-            reps: exercise.reps,
-            restBetweenSets: exercise.restTime || '60s'
-          }))
-        })),
+        weeklySchedule: workoutData.weeklySchedule.map(day => {
+          // Defensive check for day structure
+          if (!day || !day.exercises || !Array.isArray(day.exercises)) {
+            console.error(`DEBUG: Invalid day structure:`, day);
+            throw new Error(`Invalid day structure in bodybuilder data: ${mappedKey}`);
+          }
+          
+          return {
+            day: day.day,
+            focus: day.bodyParts ? day.bodyParts.join(' & ') : 'Full Body',
+            exercises: day.exercises.map(exercise => ({
+              name: exercise.name,
+              sets: parseInt(exercise.sets),
+              reps: exercise.reps,
+              restBetweenSets: exercise.restTime || '60s'
+            }))
+          };
+        }),
         estimatedTimePerSession: workoutData.estimatedTimePerSession
       };
     }
@@ -1131,6 +1161,7 @@ export class WorkoutService {
       const enhancedInput: CreatePlanInput = {
         ...input,
         age,
+        primaryGoal: input.primaryGoal || profile.primary_goal || undefined,
         bodyFat: input.bodyFat || profile.body_fat || undefined,
         weightTrend: input.weightTrend || profile.weight_trend || undefined,
         exerciseFrequency: input.exerciseFrequency || profile.exercise_frequency || undefined,
@@ -1148,6 +1179,18 @@ export class WorkoutService {
           ai_feedback: bodyAnalysis.ai_feedback,
         } : undefined),
       };
+
+      // DEBUG: Log the workout frequency specifically
+      console.log('[WorkoutService] DEBUG - Workout frequency in enhanceInputWithUserData:', {
+        inputWorkoutFrequency: input.workoutFrequency,
+        profileWorkoutFrequency: profile.workout_frequency,
+        finalWorkoutFrequency: enhancedInput.workoutFrequency,
+        profileData: {
+          id: profile.id,
+          workout_frequency: profile.workout_frequency,
+          training_level: profile.training_level
+        }
+      });
 
       console.log('[WorkoutService] Enhanced input with user data:', enhancedInput);
       return enhancedInput;
@@ -1242,16 +1285,18 @@ export class WorkoutService {
       return;
     }
 
-    for (const [index, splitData] of splits.entries()) {
+    for (let index = 0; index < splits.length; index++) {
+      const splitData = splits[index];
       const focusAreas = splitData.focus ? (Array.isArray(splitData.focus) ? splitData.focus : [splitData.focus]) : [];
-      console.log(`[WorkoutService] Processing split "${splitData.focus}" with focus:`, focusAreas);
+      const splitName = splitData.focus || splitData.workout_type || `Day ${index + 1} Workout`;
+      console.log(`[WorkoutService] Processing split "${splitName}" with focus:`, focusAreas);
       
       // Create the split for the day
       const { data: split, error: splitError } = await supabase
         .from('training_splits')
         .insert({
           plan_id: planId,
-          name: splitData.focus, // Use the focus as the split name
+          name: splitName, // Use the focus as the split name, with fallback
           order_in_week: index + 1,
           focus_areas: focusAreas,
           frequency_per_week: 1, // Assuming 1 for now
@@ -1260,7 +1305,7 @@ export class WorkoutService {
         .single();
       
       if (splitError) {
-        console.error(`[WorkoutService] Error creating split for "${splitData.focus}":`, splitError);
+        console.error(`[WorkoutService] Error creating split for "${splitName}":`, splitError);
         continue;
       }
       console.log(`[WorkoutService] Created split:`, split);
@@ -1286,7 +1331,7 @@ export class WorkoutService {
 
         // If error is about missing estimated_calories column, retry without it
         if (sessionError && sessionError.message && sessionError.message.includes('estimated_calories')) {
-          console.log(`[WorkoutService] Retrying session creation without estimated_calories for "${splitData.focus}"`);
+          console.log(`[WorkoutService] Retrying session creation without estimated_calories for "${splitName}"`);
           
           const fallbackSessionData = {
             plan_id: planId,
@@ -1306,13 +1351,14 @@ export class WorkoutService {
         }
 
         if (sessionError) {
-          console.error(`[WorkoutService] Error creating session for "${splitData.focus}":`, sessionError);
+          console.error(`[WorkoutService] Error creating session for "${splitName}":`, sessionError);
           continue;
         }
-        console.log(`[WorkoutService] Created session for "${splitData.focus}":`, session);
+        console.log(`[WorkoutService] Created session for "${splitName}":`, session);
 
         // Create exercise sets for the session
-        for (const [exerciseIndex, exerciseData] of splitData.exercises.entries()) {
+        for (let exerciseIndex = 0; exerciseIndex < splitData.exercises.length; exerciseIndex++) {
+          const exerciseData = splitData.exercises[exerciseIndex];
           const exercise = await this.findOrCreateExercise(planId, exerciseData.name);
           if (exercise) {
             const { error: setError } = await supabase.from('exercise_sets').insert({
@@ -2300,15 +2346,105 @@ export class WorkoutService {
   }
 
   /**
- * Get the current user ID from Supabase
- */
-private static async getCurrentUserId(): Promise<string | null> {
-  try {
-    const { data } = await supabase.auth.getUser();
-    return data?.user?.id || null;
-  } catch (error) {
-    console.error('[WorkoutService] Error getting current user ID:', error);
-    return null;
+   * Get the current user ID from Supabase
+   */
+  private static async getCurrentUserId(): Promise<string | null> {
+    try {
+      const { data } = await supabase.auth.getUser();
+      return data?.user?.id || null;
+    } catch (error) {
+      console.error('[WorkoutService] Error getting current user ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get target training days based on workout frequency
+   */
+  private static getTargetTrainingDays(workoutFrequency: string): number {
+    switch (workoutFrequency) {
+      case '2_3':
+        return 3; // Use 3 days as middle ground
+      case '4_5':
+        return 4; // Use 4 days as middle ground
+      case '6':
+        return 6;
+      default:
+        return 4; // Default fallback
+    }
+  }
+
+  /**
+   * Adapt workout schedule to match user's frequency preference
+   */
+  private static adaptWorkoutScheduleForFrequency(
+    originalSchedule: any[], 
+    targetDays: number, 
+    frequency: string
+  ): any[] {
+    const trainingDays = originalSchedule.filter(day => 
+      day.exercises && day.exercises.length > 0
+    );
+    const restDays = originalSchedule.filter(day => 
+      !day.exercises || day.exercises.length === 0
+    );
+
+    console.log(`[WorkoutService] Adapting schedule: ${trainingDays.length} training days → ${targetDays} days`);
+
+    if (trainingDays.length === targetDays) {
+      return originalSchedule; // No adaptation needed
+    }
+
+    if (trainingDays.length > targetDays) {
+      // Need to reduce training days - select the most important ones
+      const priorityOrder = [
+        'chest', 'back', 'legs', 'shoulders', 'arms',
+        'chest and back', 'upper body', 'lower body', 'full body'
+      ];
+
+      const prioritizedDays = trainingDays.sort((a, b) => {
+        const aPriority = priorityOrder.findIndex(p =>
+          a.focus.toLowerCase().includes(p)
+        );
+        const bPriority = priorityOrder.findIndex(p =>
+          b.focus.toLowerCase().includes(p)
+        );
+        return (aPriority === -1 ? 999 : aPriority) - (bPriority === -1 ? 999 : bPriority);
+      });
+
+      const selectedDays = prioritizedDays.slice(0, targetDays);
+      
+      // Reconstruct schedule with selected days and rest days
+      const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const adaptedSchedule: any[] = [];
+      
+      let dayIndex = 0;
+      let trainingDayIndex = 0;
+      
+      for (const dayName of daysOfWeek) {
+        if (trainingDayIndex < selectedDays.length && dayIndex % 2 === 0) {
+          // Add training day
+          adaptedSchedule.push({
+            ...selectedDays[trainingDayIndex],
+            day: dayName
+          });
+          trainingDayIndex++;
+        } else {
+          // Add rest day
+          adaptedSchedule.push({
+            day: dayName,
+            focus: 'Rest',
+            exercises: []
+          });
+        }
+        dayIndex++;
+      }
+
+      return adaptedSchedule;
+    } else {
+      // Need to add training days - this is less common but could happen
+      console.log(`[WorkoutService] User requested more days (${targetDays}) than template has (${trainingDays.length}). Keeping all available days.`);
+      return originalSchedule;
+    }
   }
 }
-} 

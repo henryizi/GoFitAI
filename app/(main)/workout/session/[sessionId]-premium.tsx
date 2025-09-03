@@ -49,7 +49,7 @@ export default function SessionExecutionScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(1)).current;
   const sessionStartTime = useRef(Date.now()).current;
 
   const handleBackButtonPress = () => {
@@ -212,11 +212,7 @@ export default function SessionExecutionScreen() {
         duration: 600,
         useNativeDriver: true,
       }),
-      Animated.timing(headerOpacity, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
+
     ]).start();
   }, [fadeAnim, slideAnim, headerOpacity]);
 
@@ -917,7 +913,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   backButton: {
-    padding: 8,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    marginRight: 8,
   },
   headerTitle: {
     fontSize: 20,

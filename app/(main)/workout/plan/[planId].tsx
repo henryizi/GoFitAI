@@ -218,7 +218,7 @@ export default function PlanDetailScreen() {
       }
     };
 
-    const CHAT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 240000; // Increased to 240 seconds (4 minutes) for complex AI reasoning
+    const CHAT_TIMEOUT_MS = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 240000; // Increased to 240 seconds (4 minutes) for complex AI reasoning
 
     try {
       if (environment.enableVerboseLogging) {

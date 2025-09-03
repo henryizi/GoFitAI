@@ -36,7 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     DEEPSEEK_API_URL: process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
 
     // Local API server
-    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL || 'https://gofitai-production.up.railway.app',
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:4001' : 'https://gofitai-production.up.railway.app'),
     NGROK_AUTHTOKEN: process.env.NGROK_AUTHTOKEN,
 
     // Storage

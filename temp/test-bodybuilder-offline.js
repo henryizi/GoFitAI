@@ -1,5 +1,5 @@
 // Test script to verify bodybuilder templates work completely offline
-const { WorkoutService } = require('./src/services/workout/WorkoutService.ts');
+const { WorkoutService } = require('../src/services/workout/WorkoutService.ts');
 
 async function testBodybuilderOffline() {
   console.log('🧪 Testing Bodybuilder Templates Offline Mode...\n');

@@ -19,6 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
+import { ShareService } from '../../../src/services/sharing/ShareService';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSubscription } from '../../../src/hooks/useSubscription';
@@ -417,7 +418,12 @@ const RecipeGeneratorScreen = () => {
                     }
                   }} 
                 />
-                <IconButton icon="share-variant-outline" iconColor={colors.primary} size={24} onPress={() => Alert.alert('Shared!')} />
+                <IconButton 
+                  icon="share-variant-outline" 
+                  iconColor={colors.primary} 
+                  size={24} 
+                  onPress={() => ShareService.showShareOptions(recipe)} 
+                />
               </View>
             </View>
 

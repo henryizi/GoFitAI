@@ -1,5 +1,8 @@
 console.log('--- SERVER RESTARTED ---');
-console.log('--- Code version: 2.2 ---');
+console.log('--- Code version: 2.3 ---');
+
+// Load environment variables
+require('dotenv').config();
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
@@ -58,6 +61,80 @@ function getLocalIpAddress() {
     }
   }
   return 'localhost';
+}
+
+// Enhanced fallback nutrition analysis
+function getFallbackNutrition(description) {
+  const food = description.toLowerCase().trim();
+  
+  // Common food database with realistic nutrition values
+  const foodDatabase = {
+    'apple': { calories: 95, protein: 0.5, carbs: 25, fat: 0.3, fiber: 4.4, sugar: 19 },
+    'banana': { calories: 105, protein: 1.3, carbs: 27, fat: 0.4, fiber: 3.1, sugar: 14 },
+    'orange': { calories: 62, protein: 1.2, carbs: 15, fat: 0.2, fiber: 3.1, sugar: 12 },
+    'chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, sugar: 0 },
+    'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, sugar: 0 },
+    'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, sugar: 0.1 },
+    'salmon': { calories: 208, protein: 25, carbs: 0, fat: 12, fiber: 0, sugar: 0 },
+    'salad': { calories: 20, protein: 2, carbs: 4, fat: 0.2, fiber: 1.5, sugar: 2 },
+    'pizza': { calories: 266, protein: 11, carbs: 33, fat: 10, fiber: 2.5, sugar: 3.5 },
+    'burger': { calories: 354, protein: 17, carbs: 30, fat: 17, fiber: 2, sugar: 6 },
+    'sandwich': { calories: 250, protein: 12, carbs: 35, fat: 8, fiber: 3, sugar: 5 },
+    'pasta': { calories: 131, protein: 5, carbs: 25, fat: 1.1, fiber: 1.8, sugar: 0.8 },
+    'bread': { calories: 79, protein: 3.1, carbs: 15, fat: 1, fiber: 1.2, sugar: 1.5 },
+    'milk': { calories: 103, protein: 8, carbs: 12, fat: 2.4, fiber: 0, sugar: 12 },
+    'yogurt': { calories: 59, protein: 10, carbs: 3.6, fat: 0.4, fiber: 0, sugar: 3.2 },
+    'eggs': { calories: 74, protein: 6.3, carbs: 0.4, fat: 5, fiber: 0, sugar: 0.4 },
+    'steak': { calories: 271, protein: 26, carbs: 0, fat: 18, fiber: 0, sugar: 0 },
+    'fish': { calories: 206, protein: 22, carbs: 0, fat: 12, fiber: 0, sugar: 0 },
+    'vegetables': { calories: 25, protein: 2, carbs: 5, fat: 0.2, fiber: 2, sugar: 2 },
+    'fruits': { calories: 60, protein: 0.5, carbs: 15, fat: 0.2, fiber: 2.5, sugar: 12 }
+  };
+  
+  // Try to find exact match first
+  if (foodDatabase[food]) {
+    return {
+      food_name: description,
+      calories: foodDatabase[food].calories,
+      protein: foodDatabase[food].protein,
+      carbs: foodDatabase[food].carbs,
+      fat: foodDatabase[food].fat,
+      fiber: foodDatabase[food].fiber,
+      sugar: foodDatabase[food].sugar,
+      assumptions: "Based on standard serving size",
+      confidence: "medium"
+    };
+  }
+  
+  // Try partial matches
+  for (const [key, nutrition] of Object.entries(foodDatabase)) {
+    if (food.includes(key) || key.includes(food)) {
+      return {
+        food_name: description,
+        calories: nutrition.calories,
+        protein: nutrition.protein,
+        carbs: nutrition.carbs,
+        fat: nutrition.fat,
+        fiber: nutrition.fiber,
+        sugar: nutrition.sugar,
+        assumptions: `Estimated based on similar food: ${key}`,
+        confidence: "low"
+      };
+    }
+  }
+  
+  // Generic fallback for unknown foods
+  return {
+    food_name: description,
+    calories: 200,
+    protein: 10,
+    carbs: 25,
+    fat: 8,
+    fiber: 3,
+    sugar: 5,
+    assumptions: "Generic estimate for unknown food item",
+    confidence: "low"
+  };
 }
 
 // Helper function to convert markdown nutrition response to JSON
@@ -2704,6 +2781,33 @@ app.post('/api/log-food-entry', async (req, res) => {
   }
 });
 
+app.get('/api/recent-nutrition/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { limit = 10 } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('nutrition_log_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('logged_at', { ascending: false })
+      .limit(parseInt(limit));
+
+    if (error) {
+      console.error('[RECENT NUTRITION] Error fetching entries:', error);
+      throw new Error(error.message);
+    }
+
+    res.json({ success: true, data: data || [] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 function composeReevaluationPrompt(userProfile, metrics, nutritionLogs, currentTargets) {
   const birthDate = new Date(userProfile.birthday);
   const age = new Date().getFullYear() - birthDate.getFullYear();
@@ -4862,22 +4966,19 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
 
       } catch (geminiError) {
         console.error('[FOOD ANALYZE] Gemini API error:', geminiError.message);
-        console.warn('[FOOD ANALYZE] Using fallback analysis');
-            return res.json({
-              success: true,
-              data: {
-                success: true,
-                nutrition: {
-                  food_name: description || "Unknown Food",
-                  calories: 0,
-                  protein: 0,
-                  carbs: 0,
-                  fat: 0,
-              assumptions: "Unable to analyze - basic estimate",
-                  confidence: "low"
-                },
-            message: "Analysis completed with basic estimation"
-              }
+        console.warn('[FOOD ANALYZE] Using enhanced fallback analysis');
+        
+        // Enhanced fallback with realistic nutrition estimates
+        const fallbackNutrition = getFallbackNutrition(description);
+        
+        return res.json({
+          success: true,
+          data: {
+            success: true,
+            nutrition: fallbackNutrition,
+            message: "Analysis completed with enhanced estimation (Gemini API unavailable)",
+            analysisProvider: 'fallback'
+          }
         });
       }
     }
@@ -4940,103 +5041,13 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
       });
     }
 
-    const visionResult = await visionService.analyzeFoodImage(base64Image);
-    const imageDescription = visionResult.imageDescription;
-
-    console.log('[FOOD ANALYZE] Gemini vision completed, analyzing nutrition');
-
-    // Use Gemini to analyze nutrition from the description
-    const messages = [
-      {
-        role: 'system',
-        content: `You are an expert nutritionist. Based on this food image description, provide accurate nutritional estimates.
-
-REQUIREMENTS:
-1. Identify the main food/dish clearly
-2. Estimate calories and macronutrients for a typical serving
-3. Be realistic - don't overestimate portions
-4. State assumptions clearly if portion size is uncertain
-
-Return ONLY this JSON structure:
-{
-  "food_name": "Specific food/dish name (e.g., 'Grilled Chicken Breast', 'Caesar Salad')",
-  "calories": 350,
-    "protein": 25,
-  "carbs": 45,
-    "fat": 15,
-  "assumptions": "Assumptions about portion size (e.g., 'assuming 6oz serving', 'based on restaurant portion')",
-  "confidence": "high|medium|low"
-}
-
-Focus on accuracy and realistic estimates. If multiple foods are present, focus on the main item or combine appropriately.`
-      },
-      {
-        role: 'user',
-        content: `Based on this food image description: "${imageDescription}", provide nutritional analysis.`
-      }
-    ];
-
-    console.log('[FOOD ANALYZE] Calling Gemini exclusively for nutrition analysis');
-    // CALL GEMINI DIRECTLY - NO FALLBACK TO DEEPSEEK
-    let analysisResult;
-    try {
-      // Convert to Gemini format
-      let geminiContents = [];
-      let systemInstruction = '';
-
-      const systemMessage = messages.find(msg => msg.role === 'system');
-      if (systemMessage) {
-        systemInstruction = systemMessage.content;
-      }
-
-      const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
-      geminiContents = nonSystemMessages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
-
-      const geminiRequestBody = {
-        contents: geminiContents,
-        generationConfig: {
-          temperature: 0.1,
-          topP: 0.95,
-          maxOutputTokens: 2000,
-          responseMimeType: 'application/json'
-        }
-      };
-
-      if (systemInstruction) {
-        geminiRequestBody.systemInstruction = {
-          parts: [{ text: systemInstruction }]
-        };
-      }
-
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-      const response = await axios.post(
-        geminiUrl,
-        geminiRequestBody,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 30000
-        }
-      );
-
-      const textResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!textResponse) {
-        throw new Error('No response from Gemini');
-      }
-
-      analysisResult = JSON.parse(textResponse);
-      console.log('[FOOD ANALYZE] Gemini nutrition analysis completed successfully (no DeepSeek fallback)');
-    } catch (geminiError) {
-      console.error('[FOOD ANALYZE] Gemini nutrition analysis failed:', geminiError.message);
-      return res.json({
-        success: false,
-        error: 'Gemini nutrition analysis failed. Please check your API configuration.',
-        message: "Failed to analyze nutrition with Gemini"
-      });
-    }
+    // Convert base64 to Buffer for GeminiVisionService
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+    const visionResult = await visionService.analyzeFoodImage(imageBuffer, mimeType);
+    
+    console.log('[FOOD ANALYZE] Gemini vision analysis completed successfully');
+    console.log('[FOOD ANALYZE] Food identified:', visionResult.foodName);
+    console.log('[FOOD ANALYZE] Confidence:', visionResult.confidence);
 
     // Clean up uploaded file
     if (req.file?.path) {
@@ -5047,14 +5058,19 @@ Focus on accuracy and realistic estimates. If multiple foods are present, focus 
       }
     }
 
+    // Return the vision analysis result directly
     res.json({
       success: true,
       data: {
         success: true,
-        totalNutrition: analysisResult,
-        nutrition: analysisResult, // Keep for backward compatibility
-        message: "Analyzed using Gemini Vision + Gemini nutrition analysis",
-        analysisProvider: 'gemini'
+        foodItems: visionResult.foodItems || [],
+        totalNutrition: visionResult.totalNutrition,
+        nutrition: visionResult.totalNutrition, // Keep for backward compatibility
+        message: `Analyzed using Gemini Vision. Confidence: ${visionResult.confidence}%`,
+        analysisProvider: 'gemini',
+        confidence: visionResult.confidence,
+        assumptions: visionResult.assumptions || [],
+        notes: visionResult.notes || "Nutritional analysis completed successfully"
       }
     });
 

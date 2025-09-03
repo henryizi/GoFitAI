@@ -85,13 +85,7 @@ export default function WorkoutHistoryDetailScreen() {
         
         if (data) {
           console.log(`[WorkoutHistoryDetail] Successfully loaded session with ${data.exercises.length} exercises`);
-          
-          // Log exercise details for debugging
-          data.exercises.forEach((ex, idx) => {
-            console.log(`[WorkoutHistoryDetail] Exercise ${idx+1}: ${ex.exercise_name}, ${ex.logs.length} logs`);
-          });
-          
-        setDetails(data);
+          setDetails(data);
         } else {
           console.error(`[WorkoutHistoryDetail] Failed to load session details`);
         }
@@ -465,7 +459,7 @@ export default function WorkoutHistoryDetailScreen() {
         </View>
 
         {/* Exercises */}
-      {details.exercises.map((ex, idx) => (
+        {details.exercises.map((ex, idx) => (
           <Animated.View
             key={ex.exercise_set_id}
             style={[

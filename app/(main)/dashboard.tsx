@@ -27,6 +27,7 @@ import { NutritionService } from '../../src/services/nutrition/NutritionService'
 import { WorkoutHistoryService } from '../../src/services/workout/WorkoutHistoryService';
 import { WorkoutService } from '../../src/services/workout/WorkoutService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { environment } from '../../src/config/environment';
 
 // Modern, premium colors matching nutrition page
 const colors = {
@@ -69,6 +70,7 @@ const DashboardScreen = () => {
     fat: 0
   });
   const [recentWorkouts, setRecentWorkouts] = useState<any[]>([]);
+  const [recentMeals, setRecentMeals] = useState<any[]>([]);
   const [nextWorkout, setNextWorkout] = useState<any | null>(null);
 
   // Type definitions for items used in UI lists
@@ -186,6 +188,33 @@ const DashboardScreen = () => {
     }
   }, [user?.id]);
 
+  // Fetch recent nutrition entries
+  const fetchRecentMeals = useCallback(async () => {
+    try {
+      if (!user?.id || user.id === 'guest') {
+        console.log('[DASHBOARD] Skipping meal fetch for guest user');
+        return;
+      }
+      
+      console.log('[DASHBOARD] Fetching recent meals...');
+      
+      const response = await fetch(`${environment.apiUrl}/api/recent-nutrition/${user.id}?limit=5`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[DASHBOARD] Found meals:', result.data?.length || 0);
+        setRecentMeals(result.data || []);
+      } else {
+        console.warn('[DASHBOARD] Failed to fetch meals:', response.status);
+        setRecentMeals([]);
+      }
+      
+    } catch (error) {
+      console.error('[DASHBOARD] Error fetching meal data:', error);
+      setRecentMeals([]);
+    }
+  }, [user?.id]);
+
   // Fetch nutrition plan and food entries
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -206,12 +235,15 @@ const DashboardScreen = () => {
       // Get workout data
       await fetchWorkoutData();
       
+      // Get recent meals
+      await fetchRecentMeals();
+      
     } catch (error) {
       console.error('[DASHBOARD] Error fetching data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [user, fetchFoodEntries, fetchWorkoutData]);
+  }, [user, fetchFoodEntries, fetchWorkoutData, fetchRecentMeals]);
 
   // Fetch data on focus
   useFocusEffect(

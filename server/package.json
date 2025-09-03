@@ -4,8 +4,8 @@
   "description": "Backend server for GoFitAI",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node index-railway-clean.js",
+    "dev": "nodemon index-railway-clean.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -1,39 +1,88 @@
-# Ignore client/node modules and build artifacts
+# Development files
 node_modules/
-**/node_modules/
-.next/
-dist/
-build/
-.out/
-.cache/
+.env
+.env.local
+.env.development
+.env.test
+.env.production
 
-# Ignore local logs and uploads
+# Logs
 *.log
-server/uploads/
-server_local.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Ignore tests and scripts not needed for deploy
-scripts/
-**/test-*.js
-**/*.test.*
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Ignore images and large assets not needed for server
-**/*.png
-**/*.jpg
-**/*.jpeg
-**/*.gif
-**/*.mp4
-**/*.mov
-**/*.webm
+# Coverage directory used by tools like istanbul
+coverage/
 
-# Ignore local env files
-.env*
+# nyc test coverage
+.nyc_output
 
-# Ignore notebooks and docs
-**/*.ipynb
-**/*.md
+# Dependency directories
+node_modules/
+jspm_packages/
 
-# Keep server and essential files
-!server/**
-!railway.json
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test files
+test-*.js
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+docs/
+
+# Git
+.git/
+.gitignore
+
+# Mobile app files (not needed for server deployment)
+app/
+assets/
+components/
+constants/
+hooks/
+navigation/
+screens/
+utils/
+app.json
+babel.config.js
+metro.config.js
+expo.json
+eas.json
 

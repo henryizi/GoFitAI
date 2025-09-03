@@ -20,6 +20,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
+import { ShareService } from '../../../src/services/sharing/ShareService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // Modern, premium colors
@@ -111,12 +112,20 @@ const SavedRecipesScreen = () => {
         <Card.Content>
           <View style={styles.cardHeader}>
             <Text style={styles.recipeName}>{item.recipe_name}</Text>
-            <IconButton 
-              icon="delete-outline" 
-              iconColor={colors.error}
-              size={20}
-              onPress={() => handleDeleteRecipe(item.id)}
-            />
+            <View style={styles.cardActions}>
+              <IconButton 
+                icon="share-variant" 
+                iconColor={colors.primary}
+                size={20}
+                onPress={() => ShareService.showShareOptions(item)}
+              />
+              <IconButton 
+                icon="delete-outline" 
+                iconColor={colors.error}
+                size={20}
+                onPress={() => handleDeleteRecipe(item.id)}
+              />
+            </View>
           </View>
           <Text style={styles.savedDate}>Saved on {formatDate(item.savedAt)}</Text>
           
@@ -177,12 +186,20 @@ const SavedRecipesScreen = () => {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{selectedRecipe.recipe_name}</Text>
-                <IconButton 
-                  icon="close" 
-                  iconColor={colors.text} 
-                  size={24} 
-                  onPress={() => setSelectedRecipe(null)} 
-                />
+                <View style={styles.modalHeaderActions}>
+                  <IconButton 
+                    icon="share-variant" 
+                    iconColor={colors.primary} 
+                    size={24} 
+                    onPress={() => ShareService.showShareOptions(selectedRecipe)} 
+                  />
+                  <IconButton 
+                    icon="close" 
+                    iconColor={colors.text} 
+                    size={24} 
+                    onPress={() => setSelectedRecipe(null)} 
+                  />
+                </View>
               </View>
               
               <ScrollView style={styles.modalScrollContent}>
@@ -266,7 +283,25 @@ const SavedRecipesScreen = () => {
                   })}
                 </View>
                 
-                {/* Delete button */}
+                {/* Action buttons */}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity 
+                    style={styles.shareButton} 
+                    onPress={() => ShareService.shareRecipe(selectedRecipe)}
+                  >
+                    <Icon name="share-variant" size={16} color={colors.white} style={{ marginRight: 8 }} />
+                    <Text style={styles.shareButtonText}>Share Recipe</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.copyButton} 
+                    onPress={() => ShareService.copyRecipeToClipboard(selectedRecipe)}
+                  >
+                    <Icon name="content-copy" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={styles.copyButtonText}>Copy to Clipboard</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity 
                   style={styles.deleteButton} 
                   onPress={() => {
@@ -367,6 +402,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   recipeName: {
     color: colors.text,
     fontSize: 18,
@@ -449,6 +488,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   modalScrollContent: {
     padding: 16,
@@ -566,6 +609,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  shareButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+  },
+  shareButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  copyButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+  },
+  copyButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,7 +656,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 30,
-    marginTop: 20,
+    marginTop: 8,
   },
   deleteButtonText: {
     color: colors.text,

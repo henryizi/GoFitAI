@@ -341,6 +341,19 @@ export default function PlanCreateScreen() {
 
       console.log('[PlanCreate] About to call createAIPlan with user ID:', user.id, 'bodybuilder:', selectedBodybuilder);
 
+      // DEBUG: Log the workout frequency value
+      console.log('[PlanCreate] DEBUG - Workout frequency data:', {
+        workout_frequency: effectiveProfile.workout_frequency,
+        type: typeof effectiveProfile.workout_frequency,
+        hasValue: !!effectiveProfile.workout_frequency,
+        fullProfile: {
+          id: effectiveProfile.id,
+          workout_frequency: effectiveProfile.workout_frequency,
+          training_level: effectiveProfile.training_level,
+          primary_goal: effectiveProfile.primary_goal
+        }
+      });
+
       analyticsTrack('ai_plan_create_start', { user_id: user.id, emulate: selectedPlanType === 'bodybuilder' ? selectedBodybuilder : null, level: trLevel });
       const plan = await WorkoutService.createAIPlan({
         userId: user.id,
@@ -350,8 +363,10 @@ export default function PlanCreateScreen() {
         gender,
         fullName: effectiveProfile.full_name || 'My',
         trainingLevel: trLevel,
+        primaryGoal: effectiveProfile.primary_goal || undefined,
         fatLossGoal: fatLossPriority,
         muscleGainGoal: muscleGainPriority,
+        workoutFrequency: effectiveProfile.workout_frequency || undefined,
         emulateBodybuilder: selectedPlanType === 'bodybuilder' ? selectedBodybuilder : undefined,
       });
 

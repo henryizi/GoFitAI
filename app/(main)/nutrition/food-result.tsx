@@ -72,6 +72,10 @@ export default function FoodResultScreen() {
   const dispCarbs = Math.round(carbsG * mult);
   const dispFat = Math.round(fatG * mult);
 
+  // Debug logging to track values (can be removed in production)
+  console.log('[FOOD RESULT] Base nutrition - Calories:', totalCalories, 'Protein:', proteinG, 'Carbs:', carbsG, 'Fat:', fatG);
+  console.log('[FOOD RESULT] Display with', mult + 'x multiplier - Calories:', dispCalories, 'Protein:', dispProtein, 'Carbs:', dispCarbs, 'Fat:', dispFat);
+
   const proteinShare = Math.min((proteinG * 4) / safeTotal, 0.4) / 0.4;
   const fatShare = (fatG * 9) / safeTotal;
   const fatPenalty = Math.max(0, fatShare - 0.45) / 0.35;
@@ -82,13 +86,18 @@ export default function FoodResultScreen() {
     if (!user || !parsed) return;
     setLoading(true);
     try {
+      // IMPORTANT: Log the BASE nutrition values (not multiplied by servings)
+      // because the AI already estimated nutrition for the visible food portion.
+      // The servings multiplier is only for display/preview purposes.
       const entry = {
         food_name: String(foodName || 'Food'),
-        calories: dispCalories,
-        protein_grams: dispProtein,
-        carbs_grams: dispCarbs,
-        fat_grams: dispFat,
+        calories: Math.round(totalCalories), // Use base calories, not dispCalories
+        protein_grams: Math.round(proteinG), // Use base protein, not dispProtein
+        carbs_grams: Math.round(carbsG),     // Use base carbs, not dispCarbs
+        fat_grams: Math.round(fatG),         // Use base fat, not dispFat
       };
+      
+      console.log('[FOOD RESULT] Logging base nutrition values (ignoring portion multiplier):', entry);
       await NutritionService.logFoodEntry(user.id, entry);
       Alert.alert('Food Logged', `${entry.food_name} has been added to today's nutrition progress.`, [{ 
         text: 'OK', 
@@ -152,7 +161,7 @@ export default function FoodResultScreen() {
           </View>
 
           <View style={styles.servingsRow}>
-            <Text style={styles.servingsLabel}>Servings</Text>
+            <Text style={styles.servingsLabel}>Portion multiplier</Text>
             <View style={styles.stepper}>
               <TouchableOpacity disabled={servings <= 1} onPress={() => setServings(Math.max(1, servings - 1))} style={[styles.stepperBtn, servings <= 1 && { opacity: 0.4 }]}>
                 <Icon name="minus" size={18} color={colors.text} />
@@ -163,6 +172,10 @@ export default function FoodResultScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          
+          <Text style={styles.portionHint}>
+            {servings === 1 ? 'Nutrition for the food shown in your photo' : `Preview: if you ate ${servings}x this portion`}
+          </Text>
 
           <View style={styles.macrosRow}>
             <View style={[styles.macroChip, { backgroundColor: 'rgba(59, 130, 246, 0.12)', borderColor: 'rgba(59,130,246,0.35)' }]}>
@@ -345,6 +358,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   servingsLabel: { color: colors.textSecondary, fontSize: 13 },
+  portionHint: { 
+    color: colors.textSecondary, 
+    fontSize: 11, 
+    textAlign: 'center', 
+    marginTop: 6,
+    fontStyle: 'italic',
+    opacity: 0.8
+  },
   stepper: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden',

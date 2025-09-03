@@ -110,6 +110,7 @@ export default function FitnessGoalsScreen() {
       };
 
       console.log('💾 Saving fitness goals:', updateData);
+      console.log('🌐 Using API URL:', environment.apiUrl);
 
       // Use proper environment configuration
       const response = await fetch(`${environment.apiUrl}/api/profile`, {

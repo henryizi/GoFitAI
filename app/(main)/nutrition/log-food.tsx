@@ -318,60 +318,17 @@ const LogFoodScreen = () => {
           food_items: foodData.foodItems || []
         };
 
-        // Show detailed analysis results to user
-        Alert.alert(
-          '🍽️ Food Analysis Complete',
-          `${foodData.foodName}\n\n` +
-          `📊 Nutritional Information:\n` +
-          `• Calories: ${foodData.nutrition.calories} kcal\n` +
-          `• Protein: ${foodData.nutrition.protein}g\n` +
-          `• Carbs: ${foodData.nutrition.carbohydrates}g\n` +
-          `• Fat: ${foodData.nutrition.fat}g\n\n` +
-          `📏 Estimated serving: ${foodData.estimatedServingSize}\n` +
-          `🎯 Confidence: ${foodData.confidence}%\n\n` +
-          `Would you like to log this food entry?`,
-          [
-            { 
-              text: 'Log Food', 
-              onPress: async () => {
-                try {
-                  await NutritionService.logFoodEntry(user?.id || 'guest', foodEntry);
-                  console.log('[FOOD ANALYZE] Food entry logged successfully');
-                  
-                  Alert.alert(
-                    '✅ Success', 
-                    'Food entry logged successfully!',
-                    [{ text: 'OK', onPress: () => {
-                      setImageUri(null);
-                      setMode('manual');
-                    }}]
-                  );
-                } catch (logError) {
-                  console.error('[FOOD ANALYZE] Error logging food entry:', logError);
-                  Alert.alert('Error', 'Failed to log food entry. Please try again.');
-                }
-              }
-            },
-            { 
-              text: 'Edit Manually', 
-              onPress: () => {
-                // Pre-fill the manual form with analysis data
-                setFoodName(foodData.foodName);
-                setCalories(foodData.nutrition.calories.toString());
-                setProtein(foodData.nutrition.protein.toString());
-                setCarbs(foodData.nutrition.carbohydrates.toString());
-                setFat(foodData.nutrition.fat.toString());
-                setMode('manual');
-                setImageUri(null);
-              }
-            },
-            { 
-              text: 'Try Again', 
-              style: 'cancel',
-              onPress: () => setImageUri(null)
-            }
-          ]
-        );
+        // Navigate to the food results page instead of showing popup
+        console.log('[FOOD ANALYZE] Navigating to food results page');
+        
+        // Navigate to the food-result page with the analysis data and image
+        router.push({
+          pathname: '/(main)/nutrition/food-result',
+          params: {
+            data: JSON.stringify(result.data),
+            image: imageUri
+          }
+        });
       } else {
         throw new Error(result.message || 'Analysis failed');
       }
@@ -379,8 +336,8 @@ const LogFoodScreen = () => {
       console.error('[FOOD ANALYZE] Error:', error.message);
       
       Alert.alert(
-        'Analysis Failed',
-        error.message || 'Could not analyze the food image. Please try again or log manually.',
+        '🔍 Analysis Failed',
+        error.message || 'Could not analyze the food image. Please try again with a clearer photo or log manually.',
         [
           { text: 'Try Again', onPress: () => setImageUri(null) },
           { text: 'Log Manually', onPress: () => setMode('manual') }

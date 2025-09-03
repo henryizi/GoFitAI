@@ -33,6 +33,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
+import { ShareService } from '../../../src/services/sharing/ShareService';
 import { colors } from '../../../src/styles/colors';
 import { theme } from '../../../src/styles/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -406,13 +407,20 @@ const RecipeGeneratorScreen = () => {
                     icon="content-save-outline"
                     iconColor={colors.textInverse}
                     size={24}
-                    onPress={() => Alert.alert('Recipe Saved', 'Recipe has been saved to your collection.')}
+                    onPress={() => {
+                      const saved = NutritionService.saveRecipe(recipe);
+                      if (saved) {
+                        Alert.alert('Recipe Saved!', 'Recipe has been saved to your collection.');
+                      } else {
+                        Alert.alert('Error', 'Failed to save recipe. Please try again.');
+                      }
+                    }}
                   />
                   <IconButton
                     icon="share-variant-outline"
                     iconColor={colors.textInverse}
                     size={24}
-                    onPress={() => Alert.alert('Share', 'Sharing functionality coming soon!')}
+                    onPress={() => ShareService.showShareOptions(recipe)}
                   />
                 </View>
               </LinearGradient>

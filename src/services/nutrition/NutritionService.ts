@@ -2,7 +2,7 @@ import { supabase } from '../supabase/client';
 // import { Database } from '../../types/database';
 import { mockNutritionPlan, mockPlansStore, mockMotivationalMessage } from '../../mock-data';
 import { Platform } from 'react-native';
-// import Constants from 'expo-constants'; // Disabled during rebuild
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // TODO: Update database types to include nutrition_plans
@@ -1293,7 +1293,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
         }
       };
 
-      const DEFAULT_TIMEOUT = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 90000; // 90s for AI recipe
+      const DEFAULT_TIMEOUT = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 90000; // 90s for AI recipe
       const MIN_TIMEOUT = 90000; // Minimum 90 seconds
       const baseTimeout = Math.max(MIN_TIMEOUT, DEFAULT_TIMEOUT); // At least 90 seconds
       const MAX_RETRIES = 1; // Try up to 2 times total (initial + 1 retry)
@@ -1507,7 +1507,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     };
 
     // Basic timeout wrapper
-    const timeoutMs = Number(process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 20000;
+    const timeoutMs = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 20000;
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
     try {
