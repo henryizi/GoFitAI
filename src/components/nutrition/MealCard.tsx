@@ -134,9 +134,9 @@ export const MealCard: React.FC<MealCardProps> = ({
         {/* Content */}
         <View style={styles.content}>
           <View style={styles.mealInfo}>
-            <Text style={styles.mealName}>{meal.name}</Text>
+            <Text style={styles.mealName} numberOfLines={3} ellipsizeMode="tail">{meal.name}</Text>
             {meal.description && (
-              <Text style={styles.mealDescription} numberOfLines={2}>
+              <Text style={styles.mealDescription} numberOfLines={2} ellipsizeMode="tail">
                 {meal.description}
               </Text>
             )}
@@ -268,6 +268,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
+    lineHeight: 22,
+    minHeight: 44, // 确保至少2行的空间
   },
   mealDescription: {
     fontSize: 14,

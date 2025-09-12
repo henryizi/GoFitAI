@@ -20,6 +20,12 @@ CREATE TABLE public.nutrition_plans (
   goal_type VARCHAR(50) NOT NULL, -- 'fat_loss', 'muscle_gain', 'maintenance'
   preferences JSONB, -- { "dietary": ["vegan"], "intolerances": ["gluten"] }
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
+  daily_targets JSONB, -- { "calories": 2300, "protein": 180, "carbs": 250, "fat": 70 }
+  micronutrients_targets JSONB, -- { "vitamin_d_mcg": 15, "calcium_mg": 1000 }
+  daily_schedule JSONB, -- Array of meals with macros
+  food_suggestions JSONB, -- { "proteins": [...], "carbs": [...], "fats": [...], "vegetables": [...] }
+  snack_suggestions JSONB, -- Array of snack suggestions
+  metabolic_calculations JSONB, -- { "bmr": 1800, "tdee": 2400, "activity_level": "moderately_active", ... }
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -63,10 +63,10 @@ async function testAllGoalWorkoutPlans() {
         };
 
         try {
-            console.log('📤 Sending request to: http://localhost:4001/api/generate-workout-plan');
-            const response = await axios.post('http://localhost:4001/api/generate-workout-plan', testData, {
+            console.log('📤 Sending request to: http://localhost:4000/api/generate-workout-plan');
+            const response = await axios.post('http://localhost:4000/api/generate-workout-plan', testData, {
                 headers: { 'Content-Type': 'application/json' },
-                timeout: 30000
+                timeout: 60000
             });
 
             if (response.data.success) {
@@ -188,6 +188,48 @@ async function testAllGoalWorkoutPlans() {
 }
 
 testAllGoalWorkoutPlans().catch(console.error);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -19,9 +19,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
+import { formatHeightWithUnit, formatWeightWithUnit } from '../../../src/utils/unitConversions';
 
 import { WorkoutLocalStore } from '../../../src/services/workout/WorkoutLocalStore';
 import { track as analyticsTrack } from '../../../src/services/analytics/analytics';
+import { environment } from '../../../src/config/environment';
 
 
 // Local dependencies
@@ -195,18 +197,23 @@ export default function PlanCreateScreen() {
         id: 'guest',
         height: 175,
         weight: 75,
-        training_level: 'intermediate',
-        gender: 'male',
+        height_cm: 175,
+        weight_kg: 75,
+        height_unit_preference: 'cm' as const,
+        weight_unit_preference: 'kg' as const,
+        training_level: 'intermediate' as const,
+        gender: 'male' as const,
         birthday: '1995-01-01',
         goal_fat_reduction: 5,
         goal_muscle_gain: 5,
         full_name: 'Guest User',
+        primary_goal: 'general_fitness' as const,
+        workout_frequency: '4_5' as const,
         // Add more fields that might be needed
         body_fat: 15,
-        activity_level: 'moderate',
-        exercise_frequency: '4-6',
-        workout_frequency: '4_5', // Default workout frequency for guest
-        weight_trend: 'stable',
+        activity_level: 'moderately_active' as const,
+        exercise_frequency: '4-6' as const,
+        weight_trend: 'stable' as const,
         onboarding_completed: true
       };
     }
@@ -237,6 +244,28 @@ export default function PlanCreateScreen() {
  
    // REMOVED: checkServerStatus function
   
+  const resolvedPrimaryGoal = useMemo(() => {
+    if (!effectiveProfile) return null as
+      | 'general_fitness'
+      | 'fat_loss'
+      | 'muscle_gain'
+      | 'athletic_performance'
+      | null;
+    const explicit = (effectiveProfile as any).primary_goal as
+      | 'general_fitness'
+      | 'fat_loss'
+      | 'muscle_gain'
+      | 'athletic_performance'
+      | undefined;
+    if (explicit) return explicit;
+    const fat = Number((effectiveProfile as any).goal_fat_reduction || 0);
+    const muscle = Number((effectiveProfile as any).goal_muscle_gain || 0);
+    if (fat === 0 && muscle === 0) return 'general_fitness';
+    if (muscle > fat) return 'muscle_gain';
+    if (fat > muscle) return 'fat_loss';
+    return 'general_fitness';
+  }, [effectiveProfile]);
+
   const handleGeneratePlan = async () => {
     console.log('handleGeneratePlan started');
     try {
@@ -261,25 +290,27 @@ export default function PlanCreateScreen() {
 
       // Extract required data from the profile
       const {
-        height,
-        weight,
+        height_cm,
+        weight_kg,
         training_level,
-        goal_fat_reduction,
-        goal_muscle_gain,
         birthday,
       } = effectiveProfile;
 
-      console.log('Profile data:', { 
-        height, 
-        weight, 
-        training_level, 
-        goal_fat_reduction, 
+      // Handle goal properties that may not exist in the type
+      const goal_fat_reduction = (effectiveProfile as any).goal_fat_reduction || 0;
+      const goal_muscle_gain = (effectiveProfile as any).goal_muscle_gain || 0;
+
+      console.log('Profile data:', {
+        height_cm,
+        weight_kg,
+        training_level,
+        goal_fat_reduction,
         goal_muscle_gain,
         birthday,
       });
 
       // Validate required fields and compute age
-      if (!height || !weight || !training_level || !birthday || !effectiveProfile.gender) {
+      if (!height_cm || !weight_kg || !training_level || !birthday || !effectiveProfile.gender) {
         console.log('Error: Incomplete profile');
         setError('Your profile is incomplete. Please complete onboarding first.');
         return;
@@ -293,8 +324,8 @@ export default function PlanCreateScreen() {
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
-      const h = Number(height);
-      const w = Number(weight);
+      const h = Number(height_cm);
+      const w = Number(weight_kg);
       const trLevel = training_level as 'beginner' | 'intermediate' | 'advanced';
       const gender = effectiveProfile.gender as 'male' | 'female';
 
@@ -316,6 +347,33 @@ export default function PlanCreateScreen() {
 
       const fatLossPriority = convertFatLossToPriority(goal_fat_reduction || 0);
       const muscleGainPriority = convertMuscleGainToPriority(goal_muscle_gain || 0);
+
+      // Compute and persist primary goal to profile before plan generation
+      const computedPrimaryGoal = (
+        effectiveProfile.primary_goal ||
+        (selectedPlanType === 'bodybuilder'
+          ? 'muscle_gain'
+          : fatLossPriority > muscleGainPriority
+            ? 'fat_loss'
+            : muscleGainPriority > fatLossPriority
+              ? 'muscle_gain'
+              : 'general_fitness')
+      ) as 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance';
+
+      try {
+        if (user?.id && user.id !== 'guest' && computedPrimaryGoal !== effectiveProfile.primary_goal) {
+          await fetch(`${environment.apiUrl}/api/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              updates: { primary_goal: computedPrimaryGoal }
+            })
+          });
+        }
+      } catch (e) {
+        console.warn('[PlanCreate] Failed to persist primary goal (continuing):', e);
+      }
 
       analyticsTrack('ai_plan_create_clicked', { user_id: user.id, plan_type: selectedPlanType, emulate: selectedPlanType === 'bodybuilder' ? selectedBodybuilder : null });
       console.log('Setting isSubmitting to true');
@@ -363,7 +421,7 @@ export default function PlanCreateScreen() {
         gender,
         fullName: effectiveProfile.full_name || 'My',
         trainingLevel: trLevel,
-        primaryGoal: effectiveProfile.primary_goal || undefined,
+        primaryGoal: computedPrimaryGoal,
         fatLossGoal: fatLossPriority,
         muscleGainGoal: muscleGainPriority,
         workoutFrequency: effectiveProfile.workout_frequency || undefined,
@@ -395,6 +453,15 @@ export default function PlanCreateScreen() {
           }
         } else {
           console.log('[PlanCreate] Skipping local storage save for bodybuilder plan - already saved in offline creation');
+        }
+
+        // Ensure the newly created plan is set as active (and others archived)
+        try {
+          if (user?.id && (plan as any)?.id) {
+            await WorkoutService.setActivePlan(user.id, (plan as any).id);
+          }
+        } catch (e) {
+          console.warn('[PlanCreate] setActivePlan failed (continuing):', e);
         }
         console.log('Plan created successfully, navigating with plan data:', plan);
         // Add a small delay to ensure plan is fully saved before navigation
@@ -483,17 +550,18 @@ export default function PlanCreateScreen() {
     // Force a plan generation with default values
     const defaultPlan = {
       id: `plan-${Date.now()}`,
-      name: selectedPlanType === 'bodybuilder' && selectedBodybuilder ? 
-        `${famousBodybuilders.find(b => b.id === selectedBodybuilder)?.name} Inspired Plan` : 
+      name: selectedPlanType === 'bodybuilder' && selectedBodybuilder ?
+        `${famousBodybuilders.find(b => b.id === selectedBodybuilder)?.name} Inspired Plan` :
         "Custom Workout Plan",
-      training_level: "intermediate",
+      training_level: "intermediate" as const,
       goal_fat_loss: 2,
       goal_muscle_gain: 3,
       mesocycle_length_weeks: 4,
       estimated_time_per_session: "45-60 min",
-      status: "active",
+      status: "active" as const,
       is_active: true,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       user_id: "guest",
       weeklySchedule: [
         {
@@ -724,7 +792,7 @@ export default function PlanCreateScreen() {
                   colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
                   style={styles.profileCardGradient}
                 >
-                  {effectiveProfile && effectiveProfile.height && effectiveProfile.weight && effectiveProfile.training_level ? (
+                  {effectiveProfile && effectiveProfile.height_cm && effectiveProfile.weight_kg && effectiveProfile.training_level ? (
                     <>
                       <View style={styles.profileMetrics}>
                         <View style={styles.profileMetric}>
@@ -732,12 +800,12 @@ export default function PlanCreateScreen() {
                           <Text style={styles.metricLabel}>LEVEL</Text>
                         </View>
                         <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>{effectiveProfile?.height ? `${effectiveProfile.height}` : '--'}</Text>
-                          <Text style={styles.metricLabel}>HEIGHT (CM)</Text>
+                          <Text style={styles.metricValue}>{effectiveProfile?.height_cm ? formatHeightWithUnit(effectiveProfile.height_cm, effectiveProfile?.height_unit_preference) : '--'}</Text>
+                          <Text style={styles.metricLabel}>HEIGHT</Text>
                         </View>
                         <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>{effectiveProfile?.weight ? `${effectiveProfile.weight}` : '--'}</Text>
-                          <Text style={styles.metricLabel}>WEIGHT (KG)</Text>
+                          <Text style={styles.metricValue}>{effectiveProfile?.weight_kg ? formatWeightWithUnit(effectiveProfile.weight_kg, effectiveProfile?.weight_unit_preference) : '--'}</Text>
+                          <Text style={styles.metricLabel}>WEIGHT</Text>
                         </View>
                         <View style={styles.profileMetric}>
                           <Text style={styles.metricValue}>
@@ -749,28 +817,14 @@ export default function PlanCreateScreen() {
                           <Text style={styles.metricLabel}>WORKOUT FREQ</Text>
                         </View>
                       </View>
-                      
-                      <View style={styles.divider} />
-                      
-                      <View style={styles.goalSection}>
-                        <Text style={styles.goalSectionTitle}>GOALS</Text>
-                        
-                        <View style={styles.goalRow}>
-                          <View style={styles.goalItem}>
-                            <Icon name="trending-down" size={20} color={colors.accent} style={styles.goalIcon} />
-                            <View>
-                              <Text style={styles.goalLabel}>FAT LOSS</Text>
-                              <Text style={styles.goalValue}>{effectiveProfile?.goal_fat_reduction ? `${effectiveProfile.goal_fat_reduction}%` : '--'}</Text>
-                            </View>
-                          </View>
-                          
-                          <View style={styles.goalItem}>
-                            <Icon name="arm-flex" size={20} color={colors.success} style={styles.goalIcon} />
-                            <View>
-                              <Text style={styles.goalLabel}>MUSCLE GAIN</Text>
-                              <Text style={styles.goalValue}>{effectiveProfile?.goal_muscle_gain ? `${effectiveProfile.goal_muscle_gain} kg` : '--'}</Text>
-                            </View>
-                          </View>
+
+                      {/* Primary goal centered below weight & workout frequency */}
+                      <View style={styles.profileMetrics}>
+                        <View style={[styles.profileMetric, styles.profileMetricFull]}>
+                          <Text style={styles.metricValue} numberOfLines={1}>
+                            {resolvedPrimaryGoal ? resolvedPrimaryGoal.replace(/_/g, '\u00A0') : '--'}
+                          </Text>
+                          <Text style={styles.metricLabel}>PRIMARY GOAL</Text>
                         </View>
                       </View>
                     </>
@@ -1106,7 +1160,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bodybuilderStyleSelected: {
-    color: colors.primaryLight,
+    color: colors.accent,
   },
   bodybuilderDescription: {
     color: colors.textTertiary,
@@ -1137,6 +1191,9 @@ const styles = StyleSheet.create({
     width: '45%', // Allow for 2 metrics per row with some spacing
     marginBottom: 16,
   },
+  profileMetricFull: {
+    width: '100%',
+  },
   metricValue: {
     color: colors.white,
     fontSize: 22,
@@ -1154,39 +1211,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginVertical: 20,
   },
-  goalSection: {
-  },
-  goalSectionTitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: 16,
-  },
-  goalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  goalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '48%',
-  },
-  goalIcon: {
-    marginRight: 12,
-  },
-  goalLabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  goalValue: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 2,
-  },
+  
   errorCard: {
     flexDirection: 'row',
     alignItems: 'center',

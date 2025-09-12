@@ -158,7 +158,7 @@ export default function PrivacySecurityScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop' }}
         style={styles.backgroundImage}
       >
         <LinearGradient

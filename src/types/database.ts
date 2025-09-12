@@ -18,17 +18,22 @@ export interface Database {
           birthday: string | null;
           height: number | null;
           weight: number | null;
+          height_cm: number | null;
+          weight_kg: number | null;
           training_level: 'beginner' | 'intermediate' | 'advanced' | null;
-          primary_goal: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          primary_goal: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency: '2_3' | '4_5' | '6' | null;
           onboarding_completed: boolean;
-          goal_fat_reduction: number | null;
-          goal_muscle_gain: number | null;
           body_fat: number | null;
           weight_trend: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
-          exercise_frequency: '0' | '1-3' | '4-6' | '7+' | null;
-          activity_level: 'sedentary' | 'moderate' | 'very-active' | null;
+          exercise_frequency: '1' | '2-3' | '4-5' | '6-7' | null;
+          activity_level: 'sedentary' | 'moderately_active' | 'very_active' | null;
+          fitness_strategy: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender: 'male' | 'female' | null;
+          height_unit_preference: 'cm' | 'ft' | null;
+          weight_unit_preference: 'kg' | 'lbs' | null;
+          height_original_value: number | null;
+          weight_original_value: number | null;
         };
         Insert: {
           id: string;
@@ -38,17 +43,22 @@ export interface Database {
           birthday?: string | null;
           height?: number | null;
           weight?: number | null;
+          height_cm?: number | null;
+          weight_kg?: number | null;
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
-          primary_goal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
           onboarding_completed?: boolean;
-          goal_fat_reduction?: number | null;
-          goal_muscle_gain?: number | null;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
-          exercise_frequency?: '0' | '1-3' | '4-6' | '7+' | null;
-          activity_level?: 'sedentary' | 'moderate' | 'very-active' | null;
+          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
+          activity_level?: 'sedentary' | 'moderately_active' | 'very_active' | null;
+          fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender?: 'male' | 'female' | null;
+          height_unit_preference?: 'cm' | 'ft' | null;
+          weight_unit_preference?: 'kg' | 'lbs' | null;
+          height_original_value?: number | null;
+          weight_original_value?: number | null;
         };
         Update: {
           id?: string;
@@ -58,16 +68,21 @@ export interface Database {
           birthday?: string | null;
           height?: number | null;
           weight?: number | null;
+          height_cm?: number | null;
+          weight_kg?: number | null;
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
-          primary_goal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance' | null;
+          primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
           onboarding_completed?: boolean;
-          goal_fat_reduction?: number | null;
-          goal_muscle_gain?: number | null;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
-          exercise_frequency?: '0' | '1-3' | '4-6' | '7+' | null;
+          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
+          fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender?: 'male' | 'female' | null;
+          height_unit_preference?: 'cm' | 'ft' | null;
+          weight_unit_preference?: 'kg' | 'lbs' | null;
+          height_original_value?: number | null;
+          weight_original_value?: number | null;
         };
       };
       body_photos: {
@@ -516,4 +531,4 @@ export interface Database {
       [_ in never]: never
     }
   }
-} 
+}

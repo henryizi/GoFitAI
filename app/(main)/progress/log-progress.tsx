@@ -17,6 +17,7 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { colors } from '../../../src/styles/colors';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ProgressService } from '../../../src/services/progressService';
+import { formatWeight, getWeightDisplayUnit, kgToLbs, lbsToKg } from '../../../src/utils/unitConversions';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -25,18 +26,19 @@ import { StatusBar } from 'expo-status-bar';
 import { usePhotoUpload } from '../../../src/hooks/usePhotoUpload';
 import { BlurView } from 'expo-blur';
 import { supabase } from '../../../src/services/supabase/client';
+import { Database } from '../../../src/types/database';
 import { SafeImage } from '../../../src/components/ui/SafeImage';
 
 const { width } = Dimensions.get('window');
 
 export default function LogProgressScreen() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
   
   // Weight state
   const [weight, setWeight] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
-  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const [unit, setUnit] = useState<'kg' | 'lbs'>(profile?.weight_unit_preference || 'kg');
   const [bodyFat, setBodyFat] = useState<string>('');
   
   // Photo state
@@ -73,6 +75,13 @@ export default function LogProgressScreen() {
       friction: 8,
     }).start();
   }, []);
+
+  // Update unit when profile changes
+  useEffect(() => {
+    if (profile?.weight_unit_preference) {
+      setUnit(profile.weight_unit_preference);
+    }
+  }, [profile?.weight_unit_preference]);
 
   // Fetch progress entries for calendar
   useEffect(() => {
@@ -278,7 +287,7 @@ export default function LogProgressScreen() {
               onPress={() => handleTakePhoto(type)}
               activeOpacity={0.7}
             >
-              <Icon name="camera" size={16} color={colors.white} />
+              <Icon name="camera" size={16} color={colors.text} />
               <Text style={styles.photoButtonText}>Take Photo</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -286,7 +295,7 @@ export default function LogProgressScreen() {
               onPress={() => handlePickImage(type)}
               activeOpacity={0.7}
             >
-              <Icon name="image" size={16} color={colors.white} />
+              <Icon name="image" size={16} color={colors.text} />
               <Text style={styles.photoButtonText}>Choose</Text>
             </TouchableOpacity>
           </View>
@@ -332,7 +341,7 @@ export default function LogProgressScreen() {
         try {
           await supabase
             .from('profiles')
-            .update({ body_fat: bodyFatNum })
+            .update({ body_fat: bodyFatNum } as Database['public']['Tables']['profiles']['Update'])
             .eq('id', user.id);
         } catch (e) {
           console.warn('Failed to update body fat percentage:', e);
@@ -400,7 +409,7 @@ export default function LogProgressScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Icon name="chevron-left" size={24} color={colors.white} />
+          <Icon name="chevron-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Log Progress</Text>
         <View style={{ width: 40 }} />
@@ -478,7 +487,7 @@ export default function LogProgressScreen() {
                     onPress={() => adjustWeight(-0.5)}
                     activeOpacity={0.7}
                   >
-                    <Icon name="minus" size={24} color={colors.white} />
+                    <Icon name="minus" size={24} color={colors.text} />
                   </TouchableOpacity>
                   
                   <TextInput
@@ -496,7 +505,7 @@ export default function LogProgressScreen() {
                     onPress={() => adjustWeight(0.5)}
                     activeOpacity={0.7}
                   >
-                    <Icon name="plus" size={24} color={colors.white} />
+                    <Icon name="plus" size={24} color={colors.text} />
                   </TouchableOpacity>
                 </View>
 
@@ -554,12 +563,11 @@ export default function LogProgressScreen() {
                   textMonthFontSize: 18,
                   textDayHeaderFontSize: 14,
                   textSectionTitleColor: colors.text,
-                  selectedDayTextColor: colors.white,
+                  selectedDayTextColor: colors.text,
                   todayBackgroundColor: 'transparent',
                   dotColor: colors.primary,
-                  selectedDotColor: colors.white,
+                  selectedDotColor: colors.text,
                   disabledArrowColor: colors.textSecondary,
-                  monthTextColor: colors.text,
                   indicatorColor: colors.primary,
                   textDayFontWeight: '400',
                   textMonthFontWeight: '600',
@@ -591,10 +599,10 @@ export default function LogProgressScreen() {
               style={styles.saveButtonGradient}
             >
               {isSaving ? (
-                <ActivityIndicator color={colors.white} size="small" />
+                <ActivityIndicator color={colors.text} size="small" />
               ) : (
                 <>
-                  <Icon name="check" size={20} color={colors.white} />
+                  <Icon name="check" size={20} color={colors.text} />
                   <Text style={styles.saveButtonText}>Save Progress</Text>
                 </>
               )}
@@ -621,7 +629,7 @@ export default function LogProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.background,
   },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
@@ -650,7 +658,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -699,7 +707,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 20,
     fontWeight: '700',
     marginLeft: 12,
@@ -726,7 +734,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weightValue: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 48,
     fontWeight: '800',
     marginRight: 12,
@@ -740,7 +748,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   unitText: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -767,7 +775,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: colors.white,
+    color: colors.text,
     fontSize: 18,
     fontWeight: '600',
     borderWidth: 1,
@@ -778,7 +786,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: colors.white,
+    color: colors.text,
     fontSize: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
@@ -796,7 +804,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   photoLabel: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
@@ -818,7 +826,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   photoButtonText: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
@@ -853,7 +861,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   saveButtonText: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
@@ -874,7 +882,7 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   successText: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
@@ -893,7 +901,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: colors.white,
+    color: colors.text,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
@@ -917,7 +925,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   calendarPhotoLabel: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,

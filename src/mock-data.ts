@@ -110,6 +110,15 @@ export const mockNutritionPlan = {
     carbs_grams: 150,
     fat_grams: 60
   },
+  metabolic_calculations: {
+    bmr: 1650,
+    tdee: 2557,
+    activity_level: 'moderately_active',
+    activity_multiplier: 1.55,
+    goal_calories: 1800,
+    goal_adjustment: -757,
+    calculation_method: 'Mifflin-St Jeor Equation'
+  },
   weekly_meal_plan: {
     monday: {
       breakfast: 'Vegetarian protein smoothie with spinach, banana, and plant-based protein powder',

@@ -19,7 +19,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 // import { BlurView } from 'expo-blur'; // Disabled during rebuild
 
@@ -54,7 +54,7 @@ const colors = {
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-const LogFoodScreen = () => {
+export default function LogFoodScreen() {
   const { user } = useAuth();
   // const serverStatus = useServerStatus(); // Disabled during rebuild
   // const { isServerConnected, checkServerStatus } = serverStatus; // Disabled during rebuild
@@ -116,7 +116,7 @@ const LogFoodScreen = () => {
           <View style={styles.analysisHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.foodTitle} numberOfLines={2}>{analysisResult.food_name || analysisResult.meal_name || 'Detected Food'}</Text>
-              <Text style={styles.foodSubtitle}>AI captured nutrition</Text>
+              <Text style={styles.foodSubtitle}>Analyzed nutrition</Text>
             </View>
             <View style={styles.calorieBadge}>
               <Text style={styles.calorieValue}>{dispCalories || 0}</Text>
@@ -1186,4 +1186,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LogFoodScreen; 
+ 

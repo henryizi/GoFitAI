@@ -4,7 +4,6 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     plugins: [
       '@babel/plugin-transform-class-static-block',
-      'react-native-reanimated/plugin',
       [
         'module-resolver',
         {
@@ -16,6 +15,7 @@ module.exports = function (api) {
         },
       ],
       // 'expo-router/babel' removed as it's deprecated in SDK 50
+      'react-native-reanimated/plugin',
     ],
   };
 }; 

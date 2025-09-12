@@ -5,7 +5,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 
@@ -42,15 +42,50 @@ export default function FoodResultScreen() {
   const nutritionData = parsed?.data?.nutrition || parsed?.data?.totalNutrition || parsed?.totalNutrition || parsed?.nutrition || parsed || {};
   const foodItems = parsed?.data?.foodItems || parsed?.foodItems || [];
   
-  // Use AI-generated meal name from backend or fall back to first food item
-  const mealName = parsed?.data?.foodName || parsed?.foodName || parsed?.data?.dishName || parsed?.dishName || parsed?.data?.food_name || parsed?.food_name || parsed?.mealName || parsed?.meal_name;
-  const foodName = mealName || foodItems?.[0]?.name || 'Detected Food';
+  // Use AI-generated meal name from backend or fall back to generated meal name from food items
+  // Support both local server format (data.foodName) and Railway format (data.nutrition.food_name)
+  const mealName = parsed?.data?.foodName || parsed?.foodName || 
+                   parsed?.data?.dishName || parsed?.dishName || 
+                   parsed?.data?.food_name || parsed?.food_name || 
+                   parsed?.mealName || parsed?.meal_name ||
+                   nutritionData?.food_name; // ✅ Add Railway server support
+
+  // ✅ ENHANCED FALLBACK: Generate comprehensive meal name from all food items if needed
+  const generateMealNameFromItems = (items: any[]) => {
+    if (!items || items.length === 0) return 'Detected Food';
+    if (items.length === 1) return items[0].name || 'Detected Food';
+    if (items.length === 2) return `${items[0].name} with ${items[1].name}`;
+    if (items.length === 3) return `${items[0].name}, ${items[1].name} & ${items[2].name}`;
+    // For 4+ items, list all items with commas and "&" before the last one
+    if (items.length >= 4) {
+      const allButLast = items.slice(0, -1).map(item => item.name).join(', ');
+      const lastItem = items[items.length - 1].name;
+      return `${allButLast} & ${lastItem}`;
+    }
+    return items[0].name || 'Detected Food';
+  };
+
+  // ✅ SMART DISH NAME HANDLING: Respect AI-recognized dish names
+  // Only generate combined name if AI didn't provide a meaningful dish name
+  const isGenericName = !mealName || mealName === 'Food Item' || mealName === 'Unknown Food' || mealName === 'Detected Food';
+  const shouldGenerateCombinedName = isGenericName && foodItems?.length > 0;
   
-  // Create display name for verified foods in bubble
-  const verifiedItems = foodItems?.filter((item: any) => item.usdaVerified) || [];
-  const bubbleDisplayName = verifiedItems.length > 0 
-    ? verifiedItems.map((item: any) => item.name).join(' + ')
-    : foodName;
+  const foodName = shouldGenerateCombinedName 
+    ? generateMealNameFromItems(foodItems) 
+    : (mealName || 'Detected Food');
+
+  // Debug logging to track meal name resolution (can be removed in production)
+  console.log('[FOOD RESULT] Meal name resolution:');
+  console.log('  - mealName from API:', mealName);
+  console.log('  - foodItems count:', foodItems?.length || 0);
+  console.log('  - final foodName:', foodName);
+  console.log('  - shouldGenerateCombinedName:', shouldGenerateCombinedName);
+  console.log('  - isGenericName:', isGenericName);
+  
+  // Create display name for bubble - use the comprehensive meal name
+  // This ensures the bubble shows our AI-generated comprehensive meal name 
+  // that includes all detected food items, not just USDA verified ones
+  const bubbleDisplayName = foodName;
   
   // Check if any food items are USDA verified
   const hasUSDAData = foodItems?.some((item: any) => item.usdaVerified);
@@ -130,17 +165,17 @@ export default function FoodResultScreen() {
           <View style={[styles.heroImage, { backgroundColor: '#000' }]} />
         )}
         {bubbleDisplayName && bubbleDisplayName !== 'Detected Food' ? (
-          <View style={[styles.bubbleTag, { left: 16, top: 16 }]}>
-            <Text style={styles.bubbleText}>{String(bubbleDisplayName)}</Text>
+          <View style={[styles.bubbleTag, styles.foodNameBubble]}>
+            <Text style={styles.bubbleText} numberOfLines={3} ellipsizeMode="tail">{String(bubbleDisplayName)}</Text>
           </View>
         ) : null}
         {hasUSDAData ? (
-          <View style={[styles.usdaBadge, { left: 16, top: 60 }]}>
+          <View style={[styles.usdaBadge, styles.usdaBadgePosition]}>
             <Icon name="shield-check" size={14} color="#4CAF50" style={{ marginRight: 4 }} />
-            <Text style={styles.usdaBadgeText}>{verifiedItems.length} USDA Verified</Text>
+            <Text style={styles.usdaBadgeText}>{usdaVerifiedCount} USDA Verified</Text>
           </View>
         ) : null}
-        <View style={[styles.bubbleTag, { right: 16, top: 24 }]}>
+        <View style={[styles.bubbleTag, styles.caloriesBubble]}>
           <Text style={styles.bubbleText}>{dispCalories} kcal</Text>
         </View>
       </View>
@@ -151,8 +186,8 @@ export default function FoodResultScreen() {
 
           <View style={styles.topRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.foodTitle} numberOfLines={2}>{foodName}</Text>
-              <Text style={styles.subtitle}>AI captured nutrition</Text>
+              <Text style={styles.foodTitle} numberOfLines={3} ellipsizeMode="tail">{foodName}</Text>
+              <Text style={styles.subtitle}>Analyzed nutrition</Text>
             </View>
             <View style={styles.calorieBadge}>
               <Text style={styles.calorieValue}>{dispCalories}</Text>
@@ -305,6 +340,20 @@ const styles = StyleSheet.create({
     color: '#111',
     fontSize: 12,
     fontWeight: '700',
+    lineHeight: 16,
+  },
+  foodNameBubble: {
+    left: 16,
+    top: 16,
+    maxWidth: width - 130, // Ensure proper spacing from calories bubble
+    flexShrink: 1, // Allow shrinking to fit content
+    minHeight: 32, // 确保至少有两行空间
+  },
+  caloriesBubble: {
+    right: 16,
+    top: 16, // Align with food name bubble for better layout
+    minWidth: 80, // Ensure consistent width for calories
+    alignItems: 'center',
   },
   card: {
     paddingHorizontal: 16,
@@ -327,6 +376,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: '800',
+    lineHeight: 28,
+    minHeight: 56, // 确保至少有两行空间
   },
   subtitle: {
     color: colors.textSecondary,
@@ -467,6 +518,11 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     letterSpacing: 0.3,
   },
+  usdaBadgePosition: {
+    left: 16,
+    top: 68, // Moved down slightly to avoid overlap with potentially multi-line food names
+    maxWidth: width - 120, // Same constraint as food name to prevent overlap with calories
+  },
   usdaNoticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -484,4 +540,4 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-}); 
+});

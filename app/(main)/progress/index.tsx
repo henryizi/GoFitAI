@@ -550,9 +550,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
   // Habit score removed per request
 
   return (
-    <FlatList
-      data={[0]}
-      keyExtractor={() => 'dashboard'}
+    <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
       onScroll={Animated.event(
@@ -569,9 +567,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
           progressBackgroundColor="rgba(255,255,255,0.1)"
         />
       }
-      renderItem={null}
-      ListHeaderComponent={
-        <>
+    >
       <TodayCard
         weightToday={weightToday}
         streakDays={streakDays}
@@ -656,9 +652,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
       )}
 
 
-        </>
-      }
-    />
+    </ScrollView>
   );
 };
 
@@ -897,39 +891,40 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
 
   if (viewMode === 'comparison') {
     return (
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            colors={[colors.primary]} 
-            tintColor={colors.primary}
-            progressBackgroundColor="rgba(255,255,255,0.1)"
-          />
-        }
-      >
-        {renderViewModeToggle()}
-        
-        <View style={styles.comparisonContainer}>
-          <Text style={styles.comparisonTitle}>Progress Comparison</Text>
-          <Text style={styles.comparisonSubtitle}>
-            Track your transformation with before/after photos
-          </Text>
-        </View>
-
-        {/* Before/After Comparison Component */}
+      <View style={styles.content}>
+        {/* Before/After Comparison Component - now handles its own scrolling */}
         <BeforeAfterComparison 
           userId={user?.id || ''} 
           onPhotoUpload={() => router.push('/(main)/progress/photo-upload')}
+          showScrollView={true}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              colors={[colors.primary]} 
+              tintColor={colors.primary}
+              progressBackgroundColor="rgba(255,255,255,0.1)"
+            />
+          }
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
+          scrollEventThrottle={16}
+          headerComponent={
+            <>
+              {renderViewModeToggle()}
+              
+              <View style={styles.comparisonContainer}>
+                <Text style={styles.comparisonTitle}>Progress Comparison</Text>
+                <Text style={styles.comparisonSubtitle}>
+                  Track your transformation with before/after photos
+                </Text>
+              </View>
+            </>
+          }
         />
-      </ScrollView>
+      </View>
     );
   }
   

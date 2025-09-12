@@ -88,6 +88,7 @@ class BasicFoodAnalyzer {
         // If no foods detected, provide a generic response
         if (detectedFoods.length === 0) {
             return {
+                foodName: "Unknown Food", // ✅ Add foodName for API response consistency
                 dishName: "Unknown Food",
                 cuisineType: "Unknown",
                 cookingMethod: "Unknown",
@@ -120,7 +121,8 @@ class BasicFoodAnalyzer {
         const dishInfo = this.categorizeDish(detectedFoods, lowerDesc);
 
         return {
-            dishName: dishInfo.dishName,
+            foodName: dishInfo.dishName, // ✅ Use foodName to match expected API response structure
+            dishName: dishInfo.dishName, // Keep dishName for backward compatibility
             cuisineType: dishInfo.cuisineType,
             cookingMethod: dishInfo.cookingMethod,
             foodItems: detectedFoods,

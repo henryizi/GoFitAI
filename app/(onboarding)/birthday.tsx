@@ -1,15 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Dimensions } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
-import { theme } from '../../src/styles/theme';
-import { Appbar } from 'react-native-paper';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
 import { identify } from '../../src/services/analytics/analytics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 
 const { width } = Dimensions.get('window');
 
@@ -39,11 +39,6 @@ const BirthdayScreen = () => {
   };
 
   const handleBack = () => {
-    try { analyticsTrack('onboarding_step_prev', { step: 'birthday' }); } catch {}
-    router.replace('/(onboarding)/birthday');
-  };
-
-  const handleBackToGender = () => {
     try { analyticsTrack('onboarding_step_prev', { step: 'birthday' }); } catch {}
     router.replace('/(onboarding)/gender');
   };
@@ -150,101 +145,69 @@ const BirthdayScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={handleBackToGender} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '25%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={handleClose} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="What's your birthday?"
+      subtitle="Your birthday helps us customize your experience based on your age"
+      progress={0.27}
+      currentStep={3}
+      totalSteps={12}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/gender"
+      onClose={handleClose}
+      disableScroll={true}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>What's your birthday?</Text>
-        <Text style={styles.subtitle}>Your birthday helps us customize your experience based on your age</Text>
-        
-        <View style={styles.pickerRow}>
-          <ModernPicker
-            data={months}
-            selectedValue={selectedMonth}
-            onValueChange={setSelectedMonth}
-            label="Month"
-          />
-          <ModernPicker
-            data={days}
-            selectedValue={selectedDay}
-            onValueChange={setSelectedDay}
-            label="Day"
-          />
-          <ModernPicker
-            data={years}
-            selectedValue={selectedYear}
-            onValueChange={setSelectedYear}
-            label="Year"
-          />
-        </View>
+        <View style={styles.mainContent}>
+          <View style={styles.pickerRow}>
+            <ModernPicker
+              data={months}
+              selectedValue={selectedMonth}
+              onValueChange={setSelectedMonth}
+              label="Month"
+            />
+            <ModernPicker
+              data={days}
+              selectedValue={selectedDay}
+              onValueChange={setSelectedDay}
+              label="Day"
+            />
+            <ModernPicker
+              data={years}
+              selectedValue={selectedYear}
+              onValueChange={setSelectedYear}
+              label="Year"
+            />
+          </View>
 
-        <View style={styles.birthdayPreview}>
-          <Text style={styles.previewText}>
-            {months[selectedMonth - 1]} {selectedDay}, {selectedYear}
-          </Text>
+          <View style={styles.birthdayPreview}>
+            <Text style={styles.previewText}>
+              {months[selectedMonth - 1]} {selectedDay}, {selectedYear}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.footer}>
+          <OnboardingButton
+            title="Continue"
+            onPress={handleNext}
+          />
         </View>
       </View>
-      
-      <View style={styles.footer}>
-        <Button 
-          mode="contained" 
-          onPress={handleNext} 
-          style={styles.nextButton}
-          contentStyle={styles.nextButtonContent}
-          buttonColor={colors.accent}
-          labelStyle={styles.buttonLabel}
-        >
-          Continue
-        </Button>
-      </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
+    paddingTop: 20,
+  },
+  mainContent: {
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
+    paddingTop: 20,
   },
   pickerRow: {
     flexDirection: 'row',
@@ -332,24 +295,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footer: {
-    padding: 24,
-    backgroundColor: colors.background, // Ensure footer has background
-    position: 'absolute', // Position footer at bottom
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  nextButton: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  nextButtonContent: {
-    height: 56,
-  },
-  buttonLabel: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
+    backgroundColor: colors.background,
   },
   buttonDisabled: {
     backgroundColor: colors.border,

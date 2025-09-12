@@ -1,0 +1,40 @@
+# Exclude heavy and local-only files from Railway upload
+node_modules/
+uploads/
+
+# Environment files (use Railway variables instead)
+.env
+.env.*
+
+# Logs and temporary files
+*.log
+server.log
+mock-server.log
+*.tmp
+*.temp
+
+# Local backups and variants
+*.backup.*
+*.bak
+*.old-railway
+index.js.backup
+index.js.bak
+index.js.old-railway
+index.js.pre-gemini-fix
+index.js.temp
+
+# Test assets and scripts not needed in production
+test_*.js
+test-*.js
+tests/
+__tests__/
+*.test.js
+*.spec.js
+*.jpg
+*.png
+*.jpeg
+
+# Misc cache
+.cache/
+.DS_Store
+

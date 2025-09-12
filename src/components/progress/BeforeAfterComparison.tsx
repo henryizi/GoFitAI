@@ -23,11 +23,24 @@ type ProgressEntryWithPhotos = Database['public']['Tables']['progress_entries'][
 interface BeforeAfterComparisonProps {
   userId: string;
   onPhotoUpload?: () => void;
+  showScrollView?: boolean; // New prop to control whether to render ScrollView
+  refreshControl?: React.ReactElement<any>; // Optional refresh control
+  onScroll?: (event: any) => void; // Optional scroll event handler
+  scrollEventThrottle?: number; // Optional scroll throttle
+  headerComponent?: React.ReactElement; // Optional header component to render above content
 }
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeAfterComparisonProps) {
+export default function BeforeAfterComparison({ 
+  userId, 
+  onPhotoUpload, 
+  showScrollView = true, 
+  refreshControl, 
+  onScroll, 
+  scrollEventThrottle, 
+  headerComponent 
+}: BeforeAfterComparisonProps) {
 
   const [progressEntries, setProgressEntries] = useState<ProgressEntryWithPhotos[]>([]);
   const [selectedView, setSelectedView] = useState<'front' | 'back'>('front');
@@ -487,18 +500,11 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
     );
   }
 
-  return (
-    <View style={styles.container}>
-
-
-      {/* Main content */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-
-
+  const contentComponent = (
+    <>
+      {/* Optional header component */}
+      {headerComponent}
+      
       {/* Compact controls card */}
       <Card style={styles.controlsCard}>
         <Card.Content>
@@ -513,12 +519,34 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
       </Card>
 
       {renderPhotoComparison()}
+    </>
+  );
 
-      {/* Date selection modal */}
+  return (
+    <View style={styles.container}>
+      {/* Main content */}
+      {showScrollView ? (
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+          onScroll={onScroll}
+          scrollEventThrottle={scrollEventThrottle}
+        >
+          {contentComponent}
+        </ScrollView>
+      ) : (
+        <View style={styles.scrollContent}>
+          {contentComponent}
+        </View>
+      )}
+
+      {/* Date selection modal - moved outside ScrollView */}
       <Portal>
         <Modal visible={openSelector !== null} onDismiss={() => setOpenSelector(null)} contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalTitle}>{openSelector === 'before' ? 'Select Before Date' : 'Select After Date'}</Text>
-          <ScrollView style={styles.modalList}>
+          <View style={styles.modalList}>
             {photoEntriesForView.map((entry, index) => {
               const isDisabled = openSelector === 'before' ? index >= afterIndex : index <= beforeIndex;
               return (
@@ -545,13 +573,12 @@ export default function BeforeAfterComparison({ userId, onPhotoUpload }: BeforeA
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
           <Button mode="text" onPress={() => setOpenSelector(null)}>
             <Text>Close</Text>
           </Button>
         </Modal>
       </Portal>
-      </ScrollView>
     </View>
   );
 }

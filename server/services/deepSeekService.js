@@ -107,9 +107,10 @@ ${strictMode}
 
 CRITICAL RULES:
 1) Use realistic quantities (e.g., "120g chicken breast", "100g cooked rice", "1 tbsp olive oil"). Avoid absurd amounts.
-2) Instructions must be step-by-step and professional.
-3) Calculate nutrition to approximately match the targets.
-4) Ensure the recipe is practical and cookable.
+2) Recipe name must be COMPREHENSIVE and include ALL ingredients in an appetizing way (e.g., "Grilled Chicken with Roasted Broccoli, Rice & Sweet Potato" NOT just "Chicken Dinner").
+3) Instructions must be step-by-step and professional.
+4) Calculate nutrition to approximately match the targets.
+5) Ensure the recipe is practical and cookable.
 
 RETURN ONLY VALID JSON in this exact format:
 {
@@ -222,6 +223,42 @@ RETURN ONLY VALID JSON in this exact format:
 }
 
 module.exports = DeepSeekService;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

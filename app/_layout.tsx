@@ -1,3 +1,5 @@
+import 'react-native-url-polyfill/auto';
+import 'react-native-get-random-values';
 import { LogBox } from 'react-native';
 
 // Suppress Animated `useNativeDriver` warning
@@ -10,6 +12,7 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'expo-status-bar';
 import { theme } from '../src/styles/theme';
 import { AuthProvider } from '../src/hooks/useAuth';
 import { ServerStatusProvider } from '../src/contexts/ServerStatusContext';
@@ -31,7 +34,7 @@ const InitialLayout = () => {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
   )
 }
@@ -72,6 +75,7 @@ export default function RootLayout() {
         <PaperProvider theme={theme}>
           <FontLoader>
             <GestureHandlerRootView style={{ flex: 1 }}>
+              <StatusBar style="auto" backgroundColor="transparent" translucent />
               <InitialLayout />
             </GestureHandlerRootView>
             <Toast />

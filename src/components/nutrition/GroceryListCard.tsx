@@ -10,7 +10,7 @@ export default function GroceryListCard({ items, onCopy, onShare }: { items: Gro
     <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']} style={styles.card}>
       <Text style={styles.title}>Grocery List</Text>
       {items?.length ? items.map((g, i) => (
-        <Text key={i} style={styles.item}>• {g.name}{g.quantity ? ` — ${g.quantity}` : ''}{g.note ? ` (${g.note})` : ''}</Text>
+        <Text key={i} style={styles.item} numberOfLines={2} ellipsizeMode="tail">• {g.name}{g.quantity ? ` — ${g.quantity}` : ''}{g.note ? ` (${g.note})` : ''}</Text>
       )) : <Text style={styles.empty}>No items</Text>}
       <View style={styles.row}>
         <TouchableOpacity onPress={onCopy}><Text style={styles.link}>Copy</Text></TouchableOpacity>

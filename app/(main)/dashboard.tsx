@@ -40,6 +40,7 @@ const colors = {
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
   textTertiary: 'rgba(235, 235, 245, 0.3)',
+  mediumGray: 'rgba(255, 255, 255, 0.5)',
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF453A',
@@ -201,7 +202,7 @@ const DashboardScreen = () => {
       const response = await fetch(`${environment.apiUrl}/api/recent-nutrition/${user.id}?limit=5`);
       
       if (response.ok) {
-        const result = await response.json();
+        const result = await response.json() as { data?: any[] };
         console.log('[DASHBOARD] Found meals:', result.data?.length || 0);
         setRecentMeals(result.data || []);
       } else {
@@ -482,7 +483,7 @@ const DashboardScreen = () => {
         icon: 'dumbbell',
         color: colors.primary,
         time: formatWorkoutTime(workout.completed_at),
-        route: `/workout/history/${workout.id}`,
+        route: `/(main)/workout/history-session/${workout.id}`,
       }))
     : [
         {
@@ -642,10 +643,19 @@ const DashboardScreen = () => {
         <View style={styles.headerLine} />
       </View>
 
-      <FlatList
-        data={[1]} // Single item to render the content
-        renderItem={() => (
-          <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <View style={styles.content}>
             {/* Today's Date and Title */}
             <View style={styles.titleSection}>
               <Text style={styles.titleDate}>{formattedDate.toUpperCase()}</Text>
@@ -879,19 +889,7 @@ const DashboardScreen = () => {
               ))}
             </View>
           </View>
-        )}
-        keyExtractor={() => 'dashboard'}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      />
+      </ScrollView>
     </View>
   );
 };

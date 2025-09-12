@@ -11,6 +11,7 @@ import * as Application from 'expo-application';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
+import { formatHeightWithUnit, formatWeightWithUnit } from '../../../src/utils/unitConversions';
 
 const colors = {
   primary: '#FF6B35',
@@ -43,8 +44,8 @@ export default function ProfileSettingsScreen() {
   // Use actual user data or fallback to defaults
   const [name, setName] = useState(profile?.full_name || 'User Name');
   const [email, setEmail] = useState(user?.email || 'user@example.com');
-  const [height, setHeight] = useState(profile?.height?.toString() || '180');
-  const [weight, setWeight] = useState(profile?.weight?.toString() || '75');
+  const [height, setHeight] = useState(profile?.height_cm?.toString() || '180');
+  const [weight, setWeight] = useState(profile?.weight_kg?.toString() || '75');
   
   // Calculate age from birthday
   const calculateAge = (birthday: string | null): string => {
@@ -403,7 +404,7 @@ export default function ProfileSettingsScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop' }}
         style={styles.backgroundImage}
       >
         <LinearGradient
@@ -447,8 +448,8 @@ export default function ProfileSettingsScreen() {
         {/* Stats Section */}
         <Text style={styles.sectionTitle}>01 <Text style={styles.sectionTitleText}>BODY METRICS</Text></Text>
         <View style={styles.statsContainer}>
-          <StatCard value={`${height} cm`} label="Height" icon="human-male-height" color={colors.primary} />
-          <StatCard value={`${weight} kg`} label="Weight" icon="weight-kilogram" color={colors.accent} />
+          <StatCard value={formatHeightWithUnit(profile?.height_cm || parseInt(height), profile?.height_unit_preference)} label="Height" icon="human-male-height" color={colors.primary} />
+          <StatCard value={formatWeightWithUnit(profile?.weight_kg || parseInt(weight), profile?.weight_unit_preference)} label="Weight" icon="weight-kilogram" color={colors.accent} />
           <StatCard value={`${age} yrs`} label="Age" icon="calendar" color={colors.success} />
         </View>
 

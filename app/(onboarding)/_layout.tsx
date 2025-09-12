@@ -3,8 +3,24 @@ import { Stack } from 'expo-router';
 
 export default function OnboardingLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="name" />
+    <Stack 
+      screenOptions={{ 
+        headerShown: false
+      }}
+    >
+      <Stack.Screen 
+        name="name" 
+        options={{ 
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+          swipeEnabled: false,
+          animationEnabled: true,
+          gestureResponseDistance: 0,
+          gestureVelocityImpact: 0,
+          presentation: 'card',
+          animationTypeForReplace: 'push'
+        }} 
+      />
       <Stack.Screen name="gender" />
       <Stack.Screen name="birthday" />
       <Stack.Screen name="height" />
@@ -13,8 +29,8 @@ export default function OnboardingLayout() {
       <Stack.Screen name="exercise-frequency" />
       <Stack.Screen name="activity-level" />
       <Stack.Screen name="body-fat" />
-      <Stack.Screen name="fat-reduction" />
-      <Stack.Screen name="muscle-gain" />
+      <Stack.Screen name="primary-goal" />
+      <Stack.Screen name="fitness-strategy" />
       <Stack.Screen name="level" />
     </Stack>
   );

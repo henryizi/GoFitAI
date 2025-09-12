@@ -31,15 +31,15 @@ interface CreatePlanInput {
   fatLossGoal: number;
   muscleGainGoal: number;
   trainingLevel: 'beginner' | 'intermediate' | 'advanced';
-  primaryGoal?: 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance';
+  primaryGoal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain';
   emulateBodybuilder?: string; // Optional parameter to emulate a famous bodybuilder's workout style
 
   // Enhanced onboarding data - will be fetched from database if not provided
   bodyFat?: number;
   weightTrend?: 'losing' | 'gaining' | 'stable' | 'unsure';
-  exerciseFrequency?: '0' | '1-3' | '4-6' | '7+';
+  exerciseFrequency?: '1' | '2-3' | '4-5' | '6-7';
   workoutFrequency?: '2_3' | '4_5' | '6';
-  activityLevel?: 'sedentary' | 'moderate' | 'very-active';
+  activityLevel?: 'sedentary' | 'moderately_active' | 'very_active';
   bodyAnalysis?: {
     chest_rating?: number;
     arms_rating?: number;
@@ -294,7 +294,7 @@ export class WorkoutService {
               body: JSON.stringify({ 
                 userProfile: {
                   fitnessLevel: input.trainingLevel,
-                  primaryGoal: enhancedInput.primaryGoal || (input.fatLossGoal > input.muscleGainGoal ? 'fat_loss' : 'muscle_gain'),
+                  primaryGoal: enhancedInput.primaryGoal || 'general_fitness',
                   fullName: input.fullName,
                   age: enhancedInput.age,
                   gender: input.gender,
@@ -585,7 +585,26 @@ export class WorkoutService {
         if (fetchErr) {
           throw fetchErr;
         }
-        return { ...fetchedPlan, weekly_schedule: aiPlan.weeklySchedule } as any;
+        // Attach weekly schedule to the returned plan for client rendering
+        const returnedPlan = { 
+          ...fetchedPlan, 
+          weekly_schedule: aiPlan.weeklySchedule,
+          weeklySchedule: aiPlan.weeklySchedule,
+          is_active: true,
+          status: 'active'
+        } as any;
+
+        // Persist the UUID plan with its schedule into local storage for immediate availability
+        try {
+          if (typeof WorkoutLocalStore?.addPlan === 'function') {
+            await WorkoutLocalStore.addPlan(input.userId, returnedPlan);
+            console.log('[WorkoutService] Synced RPC-created plan with schedule to local storage');
+          }
+        } catch (syncErr) {
+          console.warn('[WorkoutService] Failed to sync RPC-created plan to local storage (continuing):', syncErr);
+        }
+
+        return returnedPlan;
       } catch (rpcError) {
         console.warn('[WorkoutService] RPC path failed, falling back to multi-step inserts:', rpcError);
         analyticsTrack('ai_plan_save_fallback', { user_id: input.userId });

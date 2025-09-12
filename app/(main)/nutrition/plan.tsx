@@ -57,7 +57,7 @@ const colors = {
 
 const NutritionPlanScreen = () => {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { isPremium, openPaywall } = useSubscription();
   const { top, bottom } = useSafeAreaInsets();
   const { planId } = useLocalSearchParams();
@@ -100,32 +100,39 @@ const NutritionPlanScreen = () => {
     };
   }, [targets]);
 
-  // Get macros from plan.daily_targets or latestTarget
+  // Get macros from latestTarget (current mathematical calculations) or fallback to plan.daily_targets
   const macros = useMemo(() => {
-    // First try to get from plan.daily_targets or plan.daily_targets_json
-    const dailyTargets = plan?.daily_targets || plan?.daily_targets_json;
-    
-    // Log the dailyTargets for debugging
-    console.log('[NUTRITION PLAN] Daily targets:', dailyTargets);
-    
-    if (dailyTargets) {
-      return {
-        calories: dailyTargets.calories || 0,
-        protein: dailyTargets.protein || dailyTargets.protein_grams || 0,
-        carbs: dailyTargets.carbs || dailyTargets.carbs_grams || 0,
-        fat: dailyTargets.fat || dailyTargets.fat_grams || 0
-      };
-    } else if (latestTarget) {
+    // Prioritize latest target (current mathematical calculations from database)
+    if (latestTarget) {
+      console.log('[NUTRITION PLAN] Using latest mathematical target:', {
+        calories: latestTarget.daily_calories,
+        protein: latestTarget.protein_grams,
+        carbs: latestTarget.carbs_grams,
+        fat: latestTarget.fat_grams
+      });
       return {
         calories: latestTarget.daily_calories || 0,
         protein: latestTarget.protein_grams || 0,
         carbs: latestTarget.carbs_grams || 0,
         fat: latestTarget.fat_grams || 0
       };
-    } else {
-      return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-    }
-  }, [plan, latestTarget]);
+    } 
+    
+    // Fallback to plan.daily_targets if no historical targets available
+    const dailyTargets = plan?.daily_targets || plan?.daily_targets_json;
+    if (dailyTargets) {
+      console.log('[NUTRITION PLAN] Falling back to plan daily targets:', dailyTargets);
+      return {
+        calories: dailyTargets.calories || 0,
+        protein: dailyTargets.protein || dailyTargets.protein_grams || 0,
+        carbs: dailyTargets.carbs || dailyTargets.carbs_grams || 0,
+        fat: dailyTargets.fat || dailyTargets.fat_grams || 0
+      };
+    } 
+    
+    // Final fallback
+    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  }, [latestTarget, plan]);
 
   useEffect(() => {
     // Start entrance animations
@@ -197,7 +204,7 @@ const NutritionPlanScreen = () => {
     }
     setIsReevaluating(true);
     try {
-      const result = await NutritionService.reevaluatePlan(user.id);
+      const result = await NutritionService.reevaluatePlan(user.id, profile);
       if (result.success) {
         Alert.alert(
           'Plan Adjusted',
@@ -388,29 +395,54 @@ const NutritionPlanScreen = () => {
     );
   }
 
-  const getGoalEmoji = (goalType: string) => {
-    switch (goalType?.toLowerCase()) {
-      case 'fat_loss':
-        return '🔥';
-      case 'muscle_gain':
+  const getFitnessStrategyEmoji = (strategy: string) => {
+    switch (strategy?.toLowerCase()) {
+      case 'bulk':
         return '💪';
+      case 'cut':
+        return '🔥';
       case 'maintenance':
         return '⚖️';
+      case 'recomp':
+        return '🔄';
+      case 'maingaining':
+        return '📈';
       default:
         return '🎯';
     }
   };
 
-  const getGoalColor = (goalType: string) => {
-    switch (goalType?.toLowerCase()) {
-      case 'fat_loss':
+  const getFitnessStrategyColor = (strategy: string) => {
+    switch (strategy?.toLowerCase()) {
+      case 'bulk':
+        return colors.primary;
+      case 'cut':
         return colors.error;
-      case 'muscle_gain':
-        return colors.success;
       case 'maintenance':
         return colors.accent;
+      case 'recomp':
+        return '#8B5CF6';
+      case 'maingaining':
+        return '#10B981';
       default:
         return colors.primary;
+    }
+  };
+
+  const getFitnessStrategyDisplayName = (strategy: string) => {
+    switch (strategy?.toLowerCase()) {
+      case 'bulk':
+        return 'BULK';
+      case 'cut':
+        return 'CUT';
+      case 'maintenance':
+        return 'MAINTENANCE';
+      case 'recomp':
+        return 'BODY RECOMPOSITION';
+      case 'maingaining':
+        return 'MAINGAINING';
+      default:
+        return 'FITNESS PLAN';
     }
   };
 
@@ -435,12 +467,6 @@ const NutritionPlanScreen = () => {
       <Appbar.Header statusBarHeight={top} style={styles.transparentHeader}>
         <Appbar.BackAction onPress={() => router.push('/(main)/nutrition')} color={colors.white} />
         <Appbar.Content title={plan.plan_name || 'Nutrition Plan'} titleStyle={{ color: colors.white }} />
-        <Appbar.Action
-          icon="robot-outline"
-          onPress={() => router.push({ pathname: '/(main)/nutrition/ai-chat', params: { planId: String(plan?.id || planId) } })}
-          disabled={isReevaluating || isDeleting}
-          iconColor={colors.secondary}
-        />
         <Appbar.Action
           icon="delete"
           onPress={handleDeletePlan}
@@ -469,11 +495,11 @@ const NutritionPlanScreen = () => {
             <Text style={styles.sectionTitle}>Plan Overview</Text>
             
             <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>{getGoalEmoji(plan.goal_type)}</Text>
+              <Text style={styles.overviewEmoji}>{getFitnessStrategyEmoji(profile?.fitness_strategy || 'maintenance')}</Text>
               <View style={styles.overviewContent}>
-                <Text style={styles.overviewLabel}>Goal</Text>
-                <Text style={[styles.overviewValue, { color: getGoalColor(plan.goal_type) }]}>
-                  {plan.goal_type?.toUpperCase().replace(/_/g, ' ')}
+                <Text style={styles.overviewLabel}>Fitness Strategy</Text>
+                <Text style={[styles.overviewValue, { color: getFitnessStrategyColor(profile?.fitness_strategy || 'maintenance') }]}>
+                  {getFitnessStrategyDisplayName(profile?.fitness_strategy || 'maintenance')}
                 </Text>
               </View>
             </View>
@@ -532,17 +558,17 @@ const NutritionPlanScreen = () => {
               <View style={styles.reevaluatingOverlay}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={styles.reevaluatingText}>
-                  AI is analyzing your week...
+                  Recalculating your targets...
                 </Text>
               </View>
             )}
-            
+
             <Text style={styles.sectionTitle}>Current Daily Targets</Text>
             <Text style={{ color: 'rgba(235,235,245,0.6)', marginBottom: 8 }}>Per day · Updated just now</Text>
             <Button mode="contained" onPress={handleReevaluate} disabled={isReevaluating} style={{ marginBottom: 12 }}>
-              Auto‑Adjust Targets (AI)
+              {isReevaluating ? 'Recalculating...' : 'Recalculate Targets'}
             </Button>
-            
+
             <View style={styles.macroGrid}>
               <View style={[styles.macroCard, { backgroundColor: `${colors.primary}20` }]}>
                 <Text style={styles.macroEmoji}>🔥</Text>
@@ -552,7 +578,7 @@ const NutritionPlanScreen = () => {
                   <Text style={styles.macroUnit}> kcal</Text>
                 </Text>
               </View>
-              
+
               <View style={[styles.macroCard, { backgroundColor: `${colors.success}20` }]}>
                 <Text style={styles.macroEmoji}>🥩</Text>
                 <Text style={styles.macroLabel}>Protein</Text>
@@ -561,7 +587,7 @@ const NutritionPlanScreen = () => {
                   <Text style={styles.macroUnit}>g</Text>
                 </Text>
               </View>
-              
+
               <View style={[styles.macroCard, { backgroundColor: `${colors.accent}20` }]}>
                 <Text style={styles.macroEmoji}>🌾</Text>
                 <Text style={styles.macroLabel}>Carbs</Text>
@@ -570,7 +596,7 @@ const NutritionPlanScreen = () => {
                   <Text style={styles.macroUnit}>g</Text>
                 </Text>
               </View>
-              
+
               <View style={[styles.macroCard, { backgroundColor: `${colors.warning}20` }]}>
                 <Text style={styles.macroEmoji}>🧈</Text>
                 <Text style={styles.macroLabel}>Fat</Text>
@@ -580,7 +606,7 @@ const NutritionPlanScreen = () => {
                 </Text>
               </View>
             </View>
-            
+
             {latestTarget && latestTarget.reasoning && (
               <View style={styles.reasoningContainer}>
                 <LinearGradient
@@ -597,23 +623,112 @@ const NutritionPlanScreen = () => {
           </LinearGradient>
         </View>
 
-        {/* Daily Menu or Paywall */}
-        <View style={styles.sectionContainer}>
-          {isPremium ? (
-            <DailyMenuCard
-              items={dailyMenu}
-              onRegenerate={loadDailyMenu}
-              onSwap={(meal) => router.push('/(main)/nutrition/recipe-generator-simple')}
-              onSave={() => Alert.alert('Saved', 'Suggestions saved for today')}
-            />
-          ) : (
-            <PaywallPreview
-              title="Today’s AI Menu (Premium)"
-              bullets={["Get 4 meals tailored to your targets", "Swap ingredients instantly", "Save and reuse"]}
-              onUpgrade={openPaywall}
-            />
-          )}
-        </View>
+        {/* Metabolic Calculations - Enhanced */}
+        {(plan?.metabolic_calculations || macros.calories > 0) && (
+          <View style={styles.sectionContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
+              style={styles.card}
+            >
+              <Text style={styles.sectionTitle}>⚡ How Your Nutrition is Calculated</Text>
+              <Text style={styles.metabolicSubtitle}>Understanding your personalized daily targets</Text>
+
+              {plan?.metabolic_calculations ? (
+                <>
+                  {/* Goal-Adjusted Calories - Primary Display */}
+                  <View style={styles.goalCaloriesCard}>
+                    <Text style={styles.goalCaloriesEmoji}>🎯</Text>
+                    <View style={styles.goalCaloriesContent}>
+                      <Text style={styles.goalCaloriesValue}>
+                        {plan.metabolic_calculations.adjusted_calories || plan.metabolic_calculations.goal_calories}
+                      </Text>
+                      <Text style={styles.goalCaloriesUnit}>calories/day</Text>
+                      <Text style={styles.goalCaloriesLabel}>Goal-Adjusted Target</Text>
+                      <Text style={styles.goalCaloriesReason}>
+                        {plan.metabolic_calculations.calorie_adjustment_reason || 
+                         plan.metabolic_calculations.goal_adjustment_reason || 
+                         'Customized for your goals'}
+                      </Text>
+                      {plan.metabolic_calculations.goal_adjustment !== 0 && (
+                        <Text style={[
+                          styles.goalAdjustmentBadge,
+                          { color: plan.metabolic_calculations.goal_adjustment > 0 ? colors.accent : colors.secondary }
+                        ]}>
+                          {plan.metabolic_calculations.goal_adjustment > 0 ? '+' : ''}
+                          {plan.metabolic_calculations.goal_adjustment} cal from TDEE
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* BMR & TDEE Cards */}
+                  <View style={styles.simpleMetabolicGrid}>
+                    <View style={[styles.simpleMetabolicCard, { backgroundColor: `${colors.secondary}20` }]}>
+                      <Text style={styles.simpleMetabolicEmoji}>🔥</Text>
+                      <Text style={styles.simpleMetabolicValue}>
+                        {plan.metabolic_calculations.bmr}
+                      </Text>
+                      <Text style={styles.simpleMetabolicLabel}>BMR</Text>
+                      <Text style={styles.simpleMetabolicSubtext}>Basal Metabolic Rate{'\n'}Calories burned at rest</Text>
+                    </View>
+
+                    <View style={[styles.simpleMetabolicCard, { backgroundColor: `${colors.primary}20` }]}>
+                      <Text style={styles.simpleMetabolicEmoji}>🏃</Text>
+                      <Text style={styles.simpleMetabolicValue}>
+                        {plan.metabolic_calculations.tdee}
+                      </Text>
+                      <Text style={styles.simpleMetabolicLabel}>TDEE</Text>
+                      <Text style={styles.simpleMetabolicSubtext}>Total Daily Energy{'\n'}Including activity</Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.fallbackMetabolicInfo}>
+                  <Text style={styles.fallbackTitle}>🔬 Scientific Approach</Text>
+                  <Text style={styles.fallbackText}>
+                    Your nutrition plan is calculated using proven metabolic formulas including BMR (Basal Metabolic Rate) and TDEE (Total Daily Energy Expenditure). 
+                    Create a new plan to see detailed calculations!
+                  </Text>
+                </View>
+              )}
+
+              {plan?.metabolic_calculations && (
+                <View style={styles.calculationDetails}>
+                  <Text style={styles.formulaTitle}>📐 Scientific Calculation:</Text>
+                  <View style={styles.formulaBox}>
+                    <Text style={styles.formulaText}>
+                      BMR = {plan.metabolic_calculations.formula || 'Henry/Oxford Equation'}
+                    </Text>
+                    <Text style={styles.formulaText}>
+                      TDEE = BMR × {plan.metabolic_calculations.activity_multiplier || '1.55'} (activity factor)
+                    </Text>
+                    <Text style={styles.formulaText}>
+                      Target = TDEE {plan.metabolic_calculations.calorie_adjustment_reason?.includes('deficit') ? '- deficit' : 
+                      plan.metabolic_calculations.calorie_adjustment_reason?.includes('surplus') ? '+ surplus' : ''} for {plan.goal_type}
+                    </Text>
+                  </View>
+                  <Text style={styles.activityLevelText}>
+                    Activity Level: {(plan.metabolic_calculations.activity_level || 'moderately_active').replace('_', ' ').toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.explainerBox}>
+                <Text style={styles.explainerTitle}>💡 Why this matters:</Text>
+                <Text style={styles.explainerText}>
+                  {plan?.metabolic_calculations ? (
+                    `Your BMR is the minimum calories your body needs to function. Your TDEE includes daily activities and exercise. 
+                    We adjust this based on your ${plan.goal_type} goals to create the perfect nutrition plan for you.`
+                  ) : (
+                    `Your nutrition targets are calculated using scientifically proven formulas that consider your body composition, 
+                    activity level, and fitness goals. This ensures optimal results for ${plan.goal_type || 'your goals'}.`
+                  )}
+                </Text>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
 
         {/* Calorie Trend Chart */}
         {targets.length > 1 && (
@@ -652,32 +767,6 @@ const NutritionPlanScreen = () => {
           </View>
         )}
 
-        {/* Micronutrients */}
-        {latestTarget && latestTarget.micronutrients_targets && (
-          <View style={styles.sectionContainer}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
-              style={styles.card}
-            >
-              <Text style={styles.sectionTitle}>🧪 Micronutrient Targets</Text>
-              {Object.entries(latestTarget.micronutrients_targets).map(
-                ([key, value]) => (
-                  <View key={key} style={styles.micronutrientItem}>
-                    <Text style={styles.micronutrientEmoji}>⚛️</Text>
-                    <View style={styles.micronutrientInfo}>
-                      <Text style={styles.micronutrientName}>
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </Text>
-                      <Text style={styles.micronutrientValue}>
-                        {String(value)} {key.split('_')[1] || ''}
-                      </Text>
-                    </View>
-                  </View>
-                )
-              )}
-            </LinearGradient>
-          </View>
-        )}
 
         {/* Bottom padding for safe area */}
         <View style={{ height: bottom + 100 }} />
@@ -903,6 +992,166 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
   },
+  metabolicGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  metabolicCard: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  metabolicEmoji: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  metabolicLabel: {
+    fontSize: 12,
+    color: colors.gray,
+    marginBottom: 4,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  metabolicValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.white,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  metabolicUnit: {
+    fontSize: 14,
+    fontWeight: 'normal',
+    color: colors.gray,
+  },
+  metabolicSubtext: {
+    fontSize: 10,
+    color: colors.gray,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  simpleMetabolicGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+  },
+  simpleMetabolicCard: {
+    width: '45%',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  simpleMetabolicEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  simpleMetabolicValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  simpleMetabolicLabel: {
+    fontSize: 14,
+    color: colors.gray,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  simpleMetabolicSubtext: {
+    fontSize: 12,
+    color: colors.gray,
+    textAlign: 'center',
+  },
+  goalCaloriesCard: {
+    backgroundColor: `${colors.accent}15`,
+    borderRadius: 20,
+    padding: 24,
+    marginTop: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: `${colors.accent}30`,
+  },
+  goalCaloriesEmoji: {
+    fontSize: 48,
+    marginRight: 20,
+  },
+  goalCaloriesContent: {
+    flex: 1,
+  },
+  goalCaloriesValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 2,
+  },
+  goalCaloriesUnit: {
+    fontSize: 14,
+    color: colors.gray,
+    marginBottom: 8,
+  },
+  goalCaloriesLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.accent,
+    marginBottom: 4,
+  },
+  goalCaloriesReason: {
+    fontSize: 13,
+    color: colors.gray,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  goalAdjustmentBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'flex-start',
+  },
+  calculationDetails: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  formulaBox: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  activityLevelText: {
+    fontSize: 12,
+    color: 'rgba(235,235,245,0.7)',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  calculationFormula: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  formulaTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 8,
+  },
+  formulaText: {
+    fontSize: 12,
+    color: colors.gray,
+    marginBottom: 4,
+    fontFamily: 'monospace',
+  },
   detailsContainer: {
     marginTop: 16,
   },
@@ -920,6 +1169,86 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
+  },
+  metabolicSubtitle: {
+    fontSize: 14,
+    color: 'rgba(235,235,245,0.7)',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  targetCaloriesCard: {
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    padding: 20,
+    borderRadius: 16,
+    marginVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.3)',
+  },
+  targetCaloriesEmoji: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  targetCaloriesContent: {
+    flex: 1,
+  },
+  targetCaloriesValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  targetCaloriesLabel: {
+    fontSize: 14,
+    color: colors.white,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  targetCaloriesReason: {
+    fontSize: 12,
+    color: 'rgba(235,235,245,0.7)',
+    fontStyle: 'italic',
+  },
+  explainerBox: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+  },
+  explainerTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.accent,
+    marginBottom: 8,
+  },
+  explainerText: {
+    fontSize: 13,
+    color: 'rgba(235,235,245,0.8)',
+    lineHeight: 18,
+  },
+  fallbackMetabolicInfo: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  fallbackText: {
+    fontSize: 14,
+    color: 'rgba(235,235,245,0.8)',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

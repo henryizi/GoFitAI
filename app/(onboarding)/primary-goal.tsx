@@ -1,0 +1,233 @@
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { router } from 'expo-router';
+import { colors } from '../../src/styles/colors';
+import { theme } from '../../src/styles/theme';
+import { useAuth } from '../../src/hooks/useAuth';
+import { supabase } from '../../src/services/supabase/client';
+import { identify } from '../../src/services/analytics/analytics';
+import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+
+type PrimaryGoal = 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_performance';
+
+const PrimaryGoalScreen = () => {
+  const { user } = useAuth();
+  const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | null>(null);
+
+  const handleNext = async () => {
+    if (user && primaryGoal) {
+      await supabase.from('profiles').update({ primary_goal: primaryGoal }).eq('id', user.id);
+      try { identify(user.id, { primary_goal: primaryGoal }); } catch {}
+      try { analyticsTrack('onboarding_step_next', { step: 'primary-goal' }); } catch {}
+      router.push('/(onboarding)/fitness-strategy');
+    }
+  };
+
+  const handleBack = () => {
+    try { analyticsTrack('onboarding_step_prev', { step: 'primary-goal' }); } catch {}
+    router.replace('/(onboarding)/body-fat');
+  };
+
+  const handleClose = () => {
+    try { analyticsTrack('onboarding_step_close', { step: 'primary-goal' }); } catch {}
+    router.replace('/(main)/dashboard');
+  };
+
+  const options = [
+    {
+      value: 'general_fitness' as PrimaryGoal,
+      title: 'General Fitness',
+      subtitle: 'Improve overall health and physical conditioning',
+      icon: 'fitness-outline' as const,
+    },
+    {
+      value: 'muscle_gain' as PrimaryGoal,
+      title: 'Muscle Gain',
+      subtitle: 'Build muscle mass and strength',
+      icon: 'barbell-outline' as const,
+    },
+    {
+      value: 'fat_loss' as PrimaryGoal,
+      title: 'Fat Loss',
+      subtitle: 'Lose body fat while preserving muscle',
+      icon: 'scale-outline' as const,
+    },
+    {
+      value: 'athletic_performance' as PrimaryGoal,
+      title: 'Athletic Performance',
+      subtitle: 'Enhance speed, power, and sports performance',
+      icon: 'flash-outline' as const,
+    },
+  ];
+
+  return (
+    <OnboardingLayout
+      title="What's your primary fitness goal?"
+      subtitle="This helps us personalize your workout and nutrition plans"
+      progress={0.83}
+      currentStep={10}
+      totalSteps={12}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/body-fat"
+      onClose={handleClose}
+    >
+      <View style={styles.content}>
+        <View style={styles.optionsContainer}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[styles.optionCard, primaryGoal === option.value && styles.selectedCard]}
+              onPress={() => setPrimaryGoal(option.value)}
+            >
+              <LinearGradient
+                colors={primaryGoal === option.value
+                  ? ['rgba(255, 107, 53, 0.3)', 'rgba(255, 142, 83, 0.2)']
+                  : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons
+                      name={option.icon}
+                      size={28}
+                      color={primaryGoal === option.value ? '#FFFFFF' : colors.textSecondary}
+                    />
+                  </View>
+                  <View style={styles.textContainer}>
+                    <Text style={[styles.cardTitle, primaryGoal === option.value && styles.selectedText]}>
+                      {option.title}
+                    </Text>
+                    <Text style={[styles.cardSubtitle, primaryGoal === option.value && styles.selectedSubText]}>
+                      {option.subtitle}
+                    </Text>
+                  </View>
+                  <View style={[styles.radioButton, primaryGoal === option.value && styles.radioButtonSelected]}>
+                    {primaryGoal === option.value && (
+                      <View style={styles.radioButtonInner} />
+                    )}
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.footer}>
+        <OnboardingButton
+          title="Continue"
+          onPress={handleNext}
+          disabled={!primaryGoal}
+        />
+      </View>
+    </OnboardingLayout>
+  );
+};
+
+const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    justifyContent: 'flex-start',
+  },
+  optionsContainer: {
+    width: '100%',
+    gap: 16,
+  },
+  optionCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+  },
+  selectedCard: {
+    borderColor: '#FF6B35',
+    elevation: 12,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  cardGradient: {
+    borderRadius: 18,
+    minHeight: 100,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+  },
+  iconContainer: {
+    marginRight: 16,
+    width: 32,
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  selectedText: {
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(255, 107, 53, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  selectedSubText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    borderColor: '#FFFFFF',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  footer: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+});
+
+export default PrimaryGoalScreen;

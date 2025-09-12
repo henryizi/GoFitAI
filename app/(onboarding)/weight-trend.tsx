@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
-import { Appbar } from 'react-native-paper';
 import { identify } from '../../src/services/analytics/analytics';
 import { Ionicons } from '@expo/vector-icons';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type WeightTrend = 'losing' | 'gaining' | 'stable' | 'unsure';
 
@@ -22,6 +24,14 @@ const WeightTrendScreen = () => {
       try { identify(user.id, { weight_trend: weightTrend }); } catch {}
       router.push('/(onboarding)/exercise-frequency');
     }
+  };
+
+  const handleBack = () => {
+    router.replace('/(onboarding)/weight');
+  };
+
+  const handleClose = () => {
+    router.replace('/(main)/dashboard');
   };
 
   const options = [
@@ -48,18 +58,19 @@ const WeightTrendScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={() => router.replace('/(onboarding)/weight')} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '33%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={() => router.replace('/(main)/dashboard')} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="How has your weight trended for the past few weeks?"
+      subtitle="This helps us understand your current progress"
+      progress={0.54}
+      currentStep={6}
+      totalSteps={11}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/weight"
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>How has your weight trended for the past few weeks?</Text>
-        
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -67,160 +78,127 @@ const WeightTrendScreen = () => {
               style={[styles.optionCard, weightTrend === option.value && styles.selectedCard]}
               onPress={() => setWeightTrend(option.value)}
             >
-              <Ionicons 
-                name={option.icon as any} 
-                size={24} 
-                color={weightTrend === option.value ? colors.primary : colors.textSecondary} 
-                style={styles.optionIcon}
-              />
-              <View style={styles.optionContent}>
-                <Text style={[styles.cardTitle, weightTrend === option.value && styles.selectedText]}>
-                  {option.title}
-                </Text>
-              </View>
-              <View style={[styles.radioButton, weightTrend === option.value && styles.radioButtonSelected]}>
-                {weightTrend === option.value && (
-                  <View style={styles.radioButtonInner} />
-                )}
-              </View>
+              <LinearGradient
+                colors={weightTrend === option.value 
+                  ? ['rgba(255, 107, 53, 0.3)', 'rgba(255, 142, 83, 0.2)']
+                  : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <Ionicons 
+                  name={option.icon as any} 
+                  size={24} 
+                  color={weightTrend === option.value ? '#FFFFFF' : colors.textSecondary} 
+                  style={styles.optionIcon}
+                />
+                <View style={styles.optionContent}>
+                  <Text style={[styles.cardTitle, weightTrend === option.value && styles.selectedText]}>
+                    {option.title}
+                  </Text>
+                </View>
+                <View style={[styles.radioButton, weightTrend === option.value && styles.radioButtonSelected]}>
+                  {weightTrend === option.value && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
       </View>
       
       <View style={styles.footer}>
-        <Button 
-          mode="contained" 
-          onPress={handleNext} 
-          style={styles.nextButton}
-          contentStyle={styles.nextButtonContent}
-          buttonColor={weightTrend ? colors.accent : colors.border}
-          labelStyle={{color: 'white'}}
+        <OnboardingButton
+          title="Continue"
+          onPress={handleNext}
           disabled={!weightTrend}
-        >
-          Continue
-        </Button>
+        />
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 40,
-    marginTop: 20, // Better positioning
-    paddingBottom: 140, // Adequate space for footer
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32, // Better spacing
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    justifyContent: 'flex-start',
   },
   optionsContainer: {
     width: '100%',
-    gap: theme.spacing.lg, // Better spacing between options
-    marginTop: 16, // Better spacing from subtitle
+    gap: 16,
   },
   optionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xl, // Better padding for aesthetics
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+  },
+  selectedCard: {
+    borderColor: '#FF6B35',
+    elevation: 12,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  cardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 72, // Consistent height for better appearance
+    padding: 20,
+    borderRadius: 18,
+    minHeight: 80,
   },
   optionIcon: {
-    marginRight: theme.spacing.lg,
-    width: 24,
-    height: 24,
+    marginRight: 16,
   },
   optionContent: {
     flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  selectedText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textShadowColor: 'rgba(255, 107, 53, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   radioButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   radioButtonSelected: {
-    borderColor: colors.primary,
+    borderColor: '#FFFFFF',
   },
   radioButtonInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
-  },
-  selectedCard: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  selectedText: {
-    color: colors.text,
+    backgroundColor: '#FFFFFF',
   },
   footer: {
     padding: 24,
-    backgroundColor: colors.background,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  nextButton: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  nextButtonContent: {
-    height: 56,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.border,
+    paddingBottom: 40,
   },
 });
 
-export default WeightTrendScreen; 
+export default WeightTrendScreen;

@@ -24,7 +24,7 @@ export class ProgressService {
   private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
     const bases = [
       environment.apiUrl,
-      'https://gofitai-production.up.railway.app',
+      'http://192.168.0.100:4000', // Add machine IP as backup
     ].filter(Boolean) as string[];
 
     let lastError: unknown = null;
@@ -33,6 +33,31 @@ export class ProgressService {
       try {
         if (__DEV__) console.log('[ProgressService] Trying base:', base, '→', url);
         const response = await fetch(url, init);
+        
+        // Special handling for Railway's "Route not found" errors
+        if (response.status === 404) {
+          const responseClone = response.clone();
+          try {
+            const errorData = await responseClone.json();
+            if (__DEV__) console.log('[ProgressService] 404 Response from', base, ':', errorData);
+            
+            // Check for Railway-specific error patterns
+            if (errorData.message?.includes('does not exist on the Railway server') || 
+                errorData.error === 'Route not found' ||
+                errorData.message === 'Route not found') {
+              if (__DEV__) console.log('[ProgressService] Railway missing endpoint, trying next base...');
+              continue; // Try the next base
+            }
+          } catch (parseError) {
+            if (__DEV__) console.log('[ProgressService] Could not parse 404 response as JSON:', parseError);
+            // If we can't parse response and it's from Railway, assume it's missing endpoint
+            if (base.includes('railway.app')) {
+              if (__DEV__) console.log('[ProgressService] Assuming Railway 404 is missing endpoint, trying next base...');
+              continue;
+            }
+          }
+        }
+        
         // Consider any network-level success a success path; status handling is done by callers
         return { base, response };
       } catch (err) {
@@ -295,7 +320,7 @@ export class ProgressService {
       console.log('Adding weight entry to database:', data);
       
       // Send to the real database via API with base fallback
-      const { response } = await ProgressService.fetchWithBaseFallback('/api/log-daily-metric', {
+      const { base, response } = await ProgressService.fetchWithBaseFallback('/api/log-daily-metric', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -309,13 +334,16 @@ export class ProgressService {
         }),
       });
 
+      console.log(`Weight entry request sent to: ${base}, status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`Weight entry failed on ${base}:`, errorData);
         throw new Error(errorData.error || 'Failed to save weight entry.');
       }
 
       const result = await response.json();
-      console.log('Weight entry saved successfully:', result);
+      console.log(`Weight entry saved successfully via ${base}:`, result);
       
       // Also add to mock store for immediate UI feedback
       const newEntry = {
@@ -345,4 +373,4 @@ export class ProgressService {
       throw error;
     }
   }
-} 
+}

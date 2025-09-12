@@ -3,22 +3,22 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, To
 import { Text, TextInput, HelperText } from 'react-native-paper';
 import { colors } from '../../../src/styles/colors';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { ProgressService } from '../../../src/services/progressService';
+import { Database } from '../../../src/types/database';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../src/services/supabase/client';
 
-export default function LogMetricsScreen() {
-  const { user } = useAuth();
+export default function DailyMealPlanScreen() {
+  const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
-  const [weight, setWeight] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const [calories, setCalories] = useState<string>('');
+  const [dietType, setDietType] = useState<string>('balanced');
+  const [allergies, setAllergies] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [bodyFat, setBodyFat] = useState<string>('');
+  const [mealPlan, setMealPlan] = useState<any>(null);
   
   // Animations
   const scaleAnim = new Animated.Value(1);
@@ -35,47 +35,26 @@ export default function LogMetricsScreen() {
     }).start();
   }, []);
 
-  const handleWeightChange = (value: string) => {
-    const withDot = value.replace(/,/g, '.');
-    const cleaned = withDot.replace(/[^0-9.]/g, '');
-    const parts = cleaned.split('.');
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : parts[0];
-    setWeight(normalized);
+  const handleCaloriesChange = (value: string) => {
+    const cleaned = value.replace(/[^0-9]/g, '');
+    setCalories(cleaned);
   };
 
-  const weightNum = weight ? parseFloat(weight) : NaN;
-  const isWeightInvalid = Number.isNaN(weightNum) || weightNum <= 0;
+  const caloriesNum = calories ? parseInt(calories) : NaN;
+  const isCaloriesInvalid = Number.isNaN(caloriesNum) || caloriesNum <= 0 || caloriesNum > 5000;
   const todayLabel = new Date().toLocaleDateString();
- 
-  const convertWeight = (value: number, fromUnit: 'kg' | 'lbs', toUnit: 'kg' | 'lbs') => {
-    if (fromUnit === toUnit) return value;
-    if (fromUnit === 'kg' && toUnit === 'lbs') return value * 2.20462;
-    if (fromUnit === 'lbs' && toUnit === 'kg') return value / 2.20462;
-    return value;
-  };
 
-  const getDisplayWeight = () => {
-    if (!weight) return '';
-    const weightNum = parseFloat(weight);
-    if (Number.isNaN(weightNum)) return weight;
-    return unit === 'kg' ? weightNum.toFixed(1) : convertWeight(weightNum, 'kg', 'lbs').toFixed(1);
-  };
-
-  const handleBodyFatChange = (value: string) => {
-    const withDot = value.replace(/,/g, '.');
-    const cleaned = withDot.replace(/[^0-9.]/g, '');
-    const parts = cleaned.split('.');
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : parts[0];
-    setBodyFat(normalized);
-  };
-  const bodyFatNum = bodyFat ? parseFloat(bodyFat) : NaN;
-  const isBodyFatInvalid = bodyFat.length > 0 && (Number.isNaN(bodyFatNum) || bodyFatNum < 0 || bodyFatNum > 100);
-
-  const adjustWeight = (delta: number) => {
-    const current = Number.isNaN(weightNum) ? 0 : weightNum;
-    const adjustedDelta = unit === 'lbs' ? delta / 2.20462 : delta; // Convert delta to kg for storage
-    const next = Math.max(0, current + adjustedDelta);
-    setWeight(next ? next.toFixed(1) : '');
+  const dietTypes = [
+    { key: 'balanced', label: '均衡饮食', icon: 'scale-balance' },
+    { key: 'low-carb', label: '低碳水', icon: 'leaf' },
+    { key: 'high-protein', label: '高蛋白', icon: 'dumbbell' },
+    { key: 'vegetarian', label: '素食', icon: 'sprout' },
+    { key: 'keto', label: '生酮饮食', icon: 'fire' }
+  ];
+  const adjustCalories = (delta: number) => {
+    const current = Number.isNaN(caloriesNum) ? 0 : caloriesNum;
+    const next = Math.max(0, current + delta);
+    setCalories(next.toString());
     
     // Haptic feedback
     Vibration.vibrate(50);
@@ -100,17 +79,16 @@ export default function LogMetricsScreen() {
     });
   };
 
-  const handleSave = async () => {
+  const generateMealPlan = async () => {
     if (!user) {
-      Alert.alert('Not logged in', 'Please log in first.');
+      Alert.alert('未登录', '请先登录。');
       return;
     }
-    const weightNum = weight ? parseFloat(weight) : NaN;
-    if (Number.isNaN(weightNum) || weightNum <= 0) {
-      Alert.alert('Invalid weight', 'Please enter a valid weight.');
+    if (Number.isNaN(caloriesNum) || caloriesNum <= 0) {
+      Alert.alert('无效卡路里', '请输入有效的卡路里目标。');
       return;
     }
-    setIsSaving(true);
+    setIsGenerating(true);
     
     // Button press animation
     Animated.sequence([
@@ -119,39 +97,25 @@ export default function LogMetricsScreen() {
     ]).start();
     
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await ProgressService.addWeightEntry({
-        user_id: user.id,
-        weight_kg: weightNum, // Always store in kg
-        metric_date: today,
-        notes: notes || null,
-        body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
-      });
-      // Optionally update profile body fat percentage; non-blocking
-      if (bodyFat && !isBodyFatInvalid) {
-        try {
-          await supabase
-            .from('profiles')
-            .update({ body_fat: bodyFatNum })
-            .eq('id', user.id);
-        } catch (e) {
-          console.warn('Failed to update body fat percentage:', e);
-        }
-      }
-      if (result) {
-        Vibration.vibrate([100, 50, 100]); // Success vibration pattern
-        showSuccessAlert();
-        setTimeout(() => {
-          router.replace('/(main)/progress?saved=weight');
-        }, 1000);
-      } else {
-        Alert.alert('Failed', 'Save failed. Please try again later.');
-      }
+      // Mock meal plan generation - replace with actual API call
+      const mockMealPlan = {
+        breakfast: { name: '燕麦粥配蓝莓', calories: Math.floor(caloriesNum * 0.25) },
+        lunch: { name: '烤鸡胸配蔬菜', calories: Math.floor(caloriesNum * 0.4) },
+        dinner: { name: '三文鱼配糙米', calories: Math.floor(caloriesNum * 0.35) }
+      };
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setMealPlan(mockMealPlan);
+      Vibration.vibrate([100, 50, 100]); // Success vibration pattern
+      showSuccessAlert();
+      
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'An error occurred. Please try again later.');
+      Alert.alert('错误', '生成膳食计划时发生错误，请稍后重试。');
     } finally {
-      setIsSaving(false);
+      setIsGenerating(false);
     }
   };
 
@@ -184,22 +148,16 @@ export default function LogMetricsScreen() {
               }
             ]}
           >
-            <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(main)/progress')}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(main)/nutrition')}>
               <Icon name="chevron-left" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Log Weight</Text>
-            <View style={styles.unitToggle}>
+            <Text style={styles.headerTitle}>每日膳食计划</Text>
+            <View style={styles.refreshButton}>
               <TouchableOpacity 
-                style={[styles.unitButton, unit === 'kg' && styles.unitButtonActive]}
-                onPress={() => setUnit('kg')}
+                style={styles.refreshButtonInner}
+                onPress={() => setMealPlan(null)}
               >
-                <Text style={[styles.unitButtonText, unit === 'kg' && styles.unitButtonTextActive]}>kg</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.unitButton, unit === 'lbs' && styles.unitButtonActive]}
-                onPress={() => setUnit('lbs')}
-              >
-                <Text style={[styles.unitButtonText, unit === 'lbs' && styles.unitButtonTextActive]}>lbs</Text>
+                <Icon name="refresh" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -222,37 +180,37 @@ export default function LogMetricsScreen() {
               colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.08)"]}
               style={styles.mainCard}
             >
-              {/* Hero Weight Display */}
+              {/* Hero Meal Plan Display */}
               <View style={styles.weightDisplayContainer}>
                 <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.weightIconContainer}>
-                  <Icon name="scale-bathroom" size={32} color={colors.text} />
+                  <Icon name="food-apple" size={32} color={colors.text} />
                 </LinearGradient>
-                <Text style={styles.weightDisplayLabel}>Today's Weight</Text>
+                <Text style={styles.weightDisplayLabel}>今日膳食计划</Text>
                 <Text style={styles.todayDate}>{todayLabel}</Text>
                 
-                {/* Large Weight Display */}
+                {/* Large Calories Display */}
                 <View style={styles.weightDisplayBox}>
                   <Text style={styles.weightDisplayNumber}>
-                    {getDisplayWeight() || '0.0'}
+                    {calories || '0'}
                   </Text>
-                  <Text style={styles.weightDisplayUnit}>{unit}</Text>
+                  <Text style={styles.weightDisplayUnit}>卡路里</Text>
                 </View>
               </View>
 
               {/* Enhanced Input Section */}
               <View style={styles.inputSection}>
                 <TextInput
-                  label={`Enter weight in ${unit}`}
-                  value={weight}
-                  onChangeText={handleWeightChange}
-                  inputMode="decimal"
-                  keyboardType="decimal-pad"
+                  label="目标卡路里"
+                  value={calories}
+                  onChangeText={handleCaloriesChange}
+                  inputMode="numeric"
+                  keyboardType="numeric"
                   returnKeyType="done"
                   mode="outlined"
                   style={styles.weightInput}
-                  error={!!weight && isWeightInvalid}
-                  left={<TextInput.Icon icon="scale-bathroom" />}
-                  right={<TextInput.Affix text={unit} />}
+                  error={!!calories && isCaloriesInvalid}
+                  left={<TextInput.Icon icon="fire" />}
+                  right={<TextInput.Affix text="卡路里" />}
                   outlineColor={'rgba(255,255,255,0.2)'}
                   activeOutlineColor={colors.primary}
                   theme={{ 
@@ -263,28 +221,47 @@ export default function LogMetricsScreen() {
                     }
                   }}
                   onSubmitEditing={() => {
-                    if (!isWeightInvalid && weight) {
-                      handleSave();
+                    if (!isCaloriesInvalid && calories) {
+                      generateMealPlan();
                     }
                   }}
                 />
-                <HelperText type="error" visible={!!weight && isWeightInvalid}>
-                  Please enter a positive number.
+                <HelperText type="error" visible={!!calories && isCaloriesInvalid}>
+                  请输入有效的卡路里数值 (1-5000)
                 </HelperText>
 
-                {/* Optional Body Fat % */}
+                {/* Diet Type Selection */}
+                <View style={styles.dietTypeSection}>
+                  <Text style={styles.dietTypeTitle}>饮食偏好</Text>
+                  <View style={styles.dietTypeGrid}>
+                    {dietTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type.key}
+                        style={[
+                          styles.dietTypeChip,
+                          dietType === type.key && styles.dietTypeChipActive
+                        ]}
+                        onPress={() => setDietType(type.key)}
+                      >
+                        <Icon name={type.icon} size={16} color={dietType === type.key ? colors.text : colors.textSecondary} />
+                        <Text style={[
+                          styles.dietTypeText,
+                          dietType === type.key && styles.dietTypeTextActive
+                        ]}>{type.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Allergies Input */}
                 <TextInput
-                  label="Body Fat % (optional)"
-                  value={bodyFat}
-                  onChangeText={handleBodyFatChange}
-                  inputMode="decimal"
-                  keyboardType="decimal-pad"
-                  returnKeyType="done"
+                  label="过敏食材 (可选)"
+                  value={allergies}
+                  onChangeText={setAllergies}
                   mode="outlined"
                   style={styles.weightInput}
-                  error={isBodyFatInvalid}
-                  left={<TextInput.Icon icon="human-male" />}
-                  right={<TextInput.Affix text="%" />}
+                  placeholder="例如：坚果、海鲜、乳制品"
+                  left={<TextInput.Icon icon="alert-circle" />}
                   outlineColor={'rgba(255,255,255,0.2)'}
                   activeOutlineColor={colors.primary}
                   theme={{ 
@@ -295,23 +272,20 @@ export default function LogMetricsScreen() {
                     }
                   }}
                 />
-                <HelperText type="error" visible={isBodyFatInvalid}>
-                  Enter a value between 0 and 100
-                </HelperText>
               </View>
 
               {/* Enhanced Quick Adjust Buttons */}
               <View style={styles.quickAdjustSection}>
-                <Text style={styles.quickAdjustTitle}>Quick Adjust</Text>
+                <Text style={styles.quickAdjustTitle}>快速调整卡路里</Text>
                 <Animated.View style={[styles.quickRow, { transform: [{ scale: scaleAnim }] }]}>
-                  {(unit === 'kg' ? [-1.0, -0.5, +0.5, +1.0] : [-2, -1, +1, +2]).map((delta) => (
+                  {[-200, -100, +100, +200].map((delta) => (
                     <TouchableOpacity 
                       key={delta} 
                       style={[
                         styles.quickChip,
                         delta > 0 ? styles.quickChipPositive : styles.quickChipNegative
                       ]} 
-                      onPress={() => adjustWeight(delta)}
+                      onPress={() => adjustCalories(delta)}
                       activeOpacity={0.7}
                     >
                       <Icon 
@@ -324,44 +298,50 @@ export default function LogMetricsScreen() {
                         styles.quickChipText,
                         delta > 0 ? styles.quickChipTextPositive : styles.quickChipTextNegative
                       ]}>
-                        {Math.abs(delta)} {unit}
+                        {Math.abs(delta)}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </Animated.View>
               </View>
 
-              {/* Enhanced Notes Section */}
-              <View style={styles.notesSection}>
-                <TextInput
-                  label="Add a note (optional)"
-                  value={notes}
-                  onChangeText={setNotes}
-                  mode="outlined"
-                  style={styles.notesInput}
-                  multiline
-                  numberOfLines={3}
-                  placeholder="How are you feeling? Any insights about your progress?"
-                  outlineColor={'rgba(255,255,255,0.2)'}
-                  activeOutlineColor={colors.primary}
-                  theme={{ 
-                    roundness: 16,
-                    colors: {
-                      onSurfaceVariant: colors.textSecondary,
-                      primary: colors.primary,
-                    }
-                  }}
-                  left={<TextInput.Icon icon="note-text-outline" />}
-                />
-              </View>
+              {/* Meal Plan Display Section */}
+              {mealPlan && (
+                <View style={styles.mealPlanSection}>
+                  <Text style={styles.mealPlanTitle}>今日膳食计划</Text>
+                  <View style={styles.mealList}>
+                    <View style={styles.mealItem}>
+                      <Icon name="weather-sunny" size={20} color={colors.warning} />
+                      <View style={styles.mealDetails}>
+                        <Text style={styles.mealName}>{mealPlan.breakfast.name}</Text>
+                        <Text style={styles.mealCalories}>{mealPlan.breakfast.calories} 卡路里</Text>
+                      </View>
+                    </View>
+                    <View style={styles.mealItem}>
+                      <Icon name="weather-partly-cloudy" size={20} color={colors.primary} />
+                      <View style={styles.mealDetails}>
+                        <Text style={styles.mealName}>{mealPlan.lunch.name}</Text>
+                        <Text style={styles.mealCalories}>{mealPlan.lunch.calories} 卡路里</Text>
+                      </View>
+                    </View>
+                    <View style={styles.mealItem}>
+                      <Icon name="weather-night" size={20} color={colors.primaryDark} />
+                      <View style={styles.mealDetails}>
+                        <Text style={styles.mealName}>{mealPlan.dinner.name}</Text>
+                        <Text style={styles.mealCalories}>{mealPlan.dinner.calories} 卡路里</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
 
-              {/* Enhanced Save Button */}
+              {/* Enhanced Generate Button */}
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <TouchableOpacity
-                  onPress={handleSave}
+                  onPress={generateMealPlan}
                   activeOpacity={0.8}
-                  disabled={isSaving || !weight.trim()}
-                  style={[styles.saveButtonContainer, (isSaving || !weight.trim()) && { opacity: 0.7 }]}
+                  disabled={isGenerating || !calories.trim()}
+                  style={[styles.saveButtonContainer, (isGenerating || !calories.trim()) && { opacity: 0.7 }]}
                 >
                   <LinearGradient 
                     colors={[colors.primary, colors.primaryDark]} 
@@ -369,15 +349,15 @@ export default function LogMetricsScreen() {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    {isSaving ? (
+                    {isGenerating ? (
                       <>
                         <Icon name="loading" size={20} color={colors.text} style={styles.saveButtonIcon} />
-                        <Text style={styles.saveText}>Saving...</Text>
+                        <Text style={styles.saveText}>正在生成...</Text>
                       </>
                     ) : (
                       <>
-                        <Icon name="check-circle" size={20} color={colors.text} style={styles.saveButtonIcon} />
-                        <Text style={styles.saveText}>Save Weight</Text>
+                        <Icon name="chef-hat" size={20} color={colors.text} style={styles.saveButtonIcon} />
+                        <Text style={styles.saveText}>生成膳食计划</Text>
                       </>
                     )}
                   </LinearGradient>
@@ -391,15 +371,15 @@ export default function LogMetricsScreen() {
             <Animated.View style={[styles.successOverlay, { opacity: successOpacity }]}>
               <View style={styles.successContent}>
                 <Icon name="check-circle" size={60} color={colors.success} />
-                <Text style={styles.successText}>Weight Saved!</Text>
-                <Text style={styles.successSubtext}>Great job tracking your progress</Text>
+                <Text style={styles.successText}>膳食计划已生成！</Text>
+                <Text style={styles.successSubtext}>为您量身定制的营养方案</Text>
               </View>
             </Animated.View>
           )}
 
           {/* Cancel Button */}
-          <TouchableOpacity onPress={() => router.replace('/(main)/progress')} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
+          <TouchableOpacity onPress={() => router.replace('/(main)/nutrition')} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>返回</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -446,7 +426,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  unitToggle: {
+  refreshButton: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 20,
@@ -454,28 +434,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  unitButton: {
+  refreshButtonInner: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 18,
-    minWidth: 40,
     alignItems: 'center',
-  },
-  unitButtonActive: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-  },
-  unitButtonText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  unitButtonTextActive: {
-    color: colors.text,
-    fontWeight: '700',
+    justifyContent: 'center',
   },
 
   // Main Card Styles
@@ -666,6 +630,86 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 16,
     textAlign: 'center',
+  },
+
+  // Diet Type Styles
+  dietTypeSection: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  dietTypeTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  dietTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dietTypeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  dietTypeChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dietTypeText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  dietTypeTextActive: {
+    color: colors.text,
+  },
+
+  // Meal Plan Styles
+  mealPlanSection: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  mealPlanTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  mealList: {
+    gap: 12,
+  },
+  mealItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  mealDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  mealName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  mealCalories: {
+    color: colors.textSecondary,
+    fontSize: 14,
   },
 
   // Cancel Button

@@ -92,13 +92,13 @@ const PlanCreateScreen = () => {
   // Automatically determine goal from onboarding data
   useEffect(() => {
     if (profile) {
-      const fatReductionGoal = profile.goal_fat_reduction || 0;
-      const muscleGainGoal = profile.goal_muscle_gain || 0;
-      
-      // Determine primary goal based on which is higher
-      if (fatReductionGoal > muscleGainGoal) {
+      const primaryGoal = profile.primary_goal;
+      const fitnessStrategy = profile.fitness_strategy;
+
+      // Determine goal based on primary_goal or fitness_strategy
+      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut') {
         setSelectedGoal('fat_loss');
-      } else if (muscleGainGoal > fatReductionGoal) {
+      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk') {
         setSelectedGoal('muscle_gain');
       } else {
         setSelectedGoal('maintenance');
@@ -119,7 +119,7 @@ const PlanCreateScreen = () => {
     setIsGenerating(true);
     setError(null);
     try {
-      const newPlan = await NutritionService.generateAIPlan(user.id, {
+      const newPlan = await NutritionService.generateNutritionPlan(user.id, {
         goal: selectedGoal,
         dietaryPreferences: selectedPreferences,
         intolerances: selectedIntolerances,

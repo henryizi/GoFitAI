@@ -30,7 +30,7 @@ const RegisterScreen = () => {
     }
     setIsLoading(true);
     setError(null);
-    const { error } = await signUp(email, password);
+    const { error } = await signUp(email, password, email, email);
     setIsLoading(false);
     if (error) {
       setError(error.message);
@@ -71,7 +71,7 @@ const RegisterScreen = () => {
           <View style={styles.headerSection}>
             <View style={styles.logoContainer}>
               <LinearGradient
-                colors={colors.gradients.primary}
+                colors={colors.gradients.primary as any}
                 style={styles.logoGradient}
               >
                 <Text style={styles.logoText}>GF</Text>
@@ -109,7 +109,7 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="email-outline" iconColor={colors.textSecondary} />}
+                    left={<TextInput.Icon icon="email-outline" />}
                     theme={{
                       colors: {
                         primary: colors.primary,
@@ -131,11 +131,10 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="lock-outline" iconColor={colors.textSecondary} />}
+                    left={<TextInput.Icon icon="lock-outline" />}
                     right={
                       <TextInput.Icon
                         icon={showPassword ? 'eye-off' : 'eye'}
-                        iconColor={colors.textSecondary}
                         onPress={() => setShowPassword(!showPassword)}
                       />
                     }
@@ -163,11 +162,10 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="lock-check-outline" iconColor={colors.textSecondary} />}
+                    left={<TextInput.Icon icon="lock-check-outline" />}
                     right={
                       <TextInput.Icon
                         icon={showConfirmPassword ? 'eye-off' : 'eye'}
-                        iconColor={colors.textSecondary}
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                       />
                     }

@@ -16,33 +16,282 @@ export type FoodSuggestion = {
 
 // Import environment configuration
 import { environment } from '../../config/environment';
+import { GeminiService } from '../ai/GeminiService';
 
-// Resolve API URL with proper Expo environment configuration (Railway/env only)
-const resolveApiUrl = () => {
-  const candidates = [
-    environment.apiUrl,
-    'https://gofitai-production.up.railway.app'
+// Base URLs for fallback system (Railway first, then local)
+const getBaseUrls = () => {
+  return [
+    'https://gofitai-production.up.railway.app', // Railway server first (always available)
+    environment.apiUrl, // Configured URL from environment
+    'http://192.168.0.100:4000', // Local server fallback (only if Railway fails)
   ].filter(Boolean) as string[];
-  const chosen = candidates[0];
-  console.log('[NUTRITION] Resolved API URL:', chosen);
-  return chosen;
 };
 
-// Use the resolver to get the API URL
-const API_URL = resolveApiUrl();
+// Activity level multipliers for TDEE calculation
+export const ACTIVITY_LEVELS = {
+  sedentary: { multiplier: 1.2, label: 'Sedentary (little/no exercise)' },
+  moderately_active: { multiplier: 1.55, label: 'Moderately active (moderate exercise 3-5 days/week)' },
+  very_active: { multiplier: 1.725, label: 'Very active (hard exercise 6-7 days/week)' }
+} as const;
+
+export type ActivityLevel = keyof typeof ACTIVITY_LEVELS;
+
+// Metabolic calculation results interface
+export interface MetabolicData {
+  bmr: number; // Basal Metabolic Rate
+  tdee: number; // Total Daily Energy Expenditure
+  activity_level: ActivityLevel;
+  activity_multiplier: number;
+  goal_calories: number; // Adjusted calories based on goal
+  goal_adjustment: number; // Calorie adjustment (+/- from TDEE)
+  goal_adjustment_reason: string; // Explanation of the calorie adjustment
+  calculation_method: string;
+}
 
 // Add code to load and save plans to AsyncStorage when app starts/changes
 export class NutritionService {
-  static API_URL = API_URL;
+  static getBaseUrls = getBaseUrls;
+  static API_URL = getBaseUrls()[0]; // Default to Railway, fallback handled in specific methods
+
+  /**
+   * Calculate Basal Metabolic Rate (BMR) using the Henry/Oxford equation
+   * This equation provides age-specific formulas for better accuracy
+   */
+  static calculateBMR(
+    weight: number, // in kg
+    height: number, // in cm
+    age: number, // in years
+    gender: 'male' | 'female'
+  ): number {
+    if (gender === 'male') {
+      if (age >= 18 && age <= 30) {
+        return 14.4 * weight + 3.13 * height + 113;
+      } else if (age >= 30 && age <= 60) {
+        return 11.4 * weight + 5.41 * height - 137;
+      } else { // 60+
+        return 11.4 * weight + 5.41 * height - 256;
+      }
+    } else {
+      if (age >= 18 && age <= 30) {
+        return 10.4 * weight + 6.15 * height - 282;
+      } else if (age >= 30 && age <= 60) {
+        return 8.18 * weight + 5.02 * height - 11.6;
+      } else { // 60+
+        return 8.52 * weight + 4.21 * height + 10.7;
+      }
+    }
+  }
+
+  /**
+   * Calculate Total Daily Energy Expenditure (TDEE) 
+   * TDEE = BMR × Activity Factor
+   */
+  static calculateTDEE(bmr: number, activityLevel: ActivityLevel): number {
+    const activityMultiplier = ACTIVITY_LEVELS[activityLevel].multiplier;
+    return Math.round(bmr * activityMultiplier);
+  }
+
+  /**
+   * Calculate goal-adjusted calories based on body fat percentage reduction and muscle gain targets
+   * 
+   * Goal-Adjusted Calories Logic:
+   * - Fat reduction: Based on % of body fat to lose (e.g., 5% means go from 20% to 15% body fat)
+   * - Converts body fat % to actual kg using user's weight and current body fat %
+   * - Assumes 12-week timeframe for fat loss goals (reasonable and sustainable)
+   * - Muscle gain: 1 kg muscle gain per week = 2200 calorie surplus per week = 314 cal/day surplus
+   * - Safety minimum of 1200 calories
+   * - If both goals exist, net the effects
+   */
+  static calculateGoalCalories(
+    tdee: number, 
+    fitnessStrategy: string = 'maintenance', // Fitness strategy: 'bulk', 'cut', 'maintenance', 'recomp', 'maingaining'
+    goalMuscleGain: number = 0,              // Legacy parameter - kept for backward compatibility
+    userWeight: number = 70,                 // user's current weight in kg
+    currentBodyFat: number = 20              // user's current body fat percentage
+  ): { goalCalories: number; adjustment: number; adjustmentReason: string } {
+    let adjustment = 0;
+    let adjustmentReason = '';
+    
+    // Strategy-based calorie adjustments
+    const strategyAdjustments = {
+      bulk: { calories: 400, description: 'Aggressive muscle building' },
+      cut: { calories: -400, description: 'Fat loss while preserving muscle' },
+      maintenance: { calories: 0, description: 'Maintain current physique' },
+      recomp: { calories: 0, description: 'Body recomposition' },
+      maingaining: { calories: 150, description: 'Slow, lean muscle gains' }
+    };
+    
+    // Get adjustment for the selected strategy
+    const strategy = strategyAdjustments[fitnessStrategy as keyof typeof strategyAdjustments] || strategyAdjustments.maintenance;
+    adjustment = strategy.calories;
+    
+    // Build explanation based on strategy
+    if (adjustment === 0) {
+      adjustmentReason = `${strategy.description}: Eating at maintenance calories`;
+    } else if (adjustment > 0) {
+      adjustmentReason = `${strategy.description}: ${adjustment} cal surplus for controlled growth`;
+    } else {
+      adjustmentReason = `${strategy.description}: ${Math.abs(adjustment)} cal deficit for fat loss`;
+    }
+
+    // Calculate goal calories with safety minimum
+    const rawGoalCalories = tdee + adjustment;
+    const goalCalories = Math.max(1200, rawGoalCalories); // Safety minimum of 1200 calories
+    
+    // Update reason if safety minimum was applied
+    if (rawGoalCalories < 1200) {
+      adjustmentReason += ` (adjusted to 1200 minimum for safety)`;
+    }
+
+    return { goalCalories, adjustment, adjustmentReason };
+  }
+
+  /**
+   * Get macronutrient ratios based on fitness strategy
+   * Returns protein, carbs, and fat percentages that sum to 100%
+   */
+  static getMacroRatiosForStrategy(fitnessStrategy: string = 'maintenance'): { protein: number; carbs: number; fat: number } {
+    const macroRatios = {
+      bulk: { protein: 25, carbs: 45, fat: 30 },           // High carbs for energy, moderate protein
+      cut: { protein: 35, carbs: 25, fat: 40 },            // Very high protein, lower carbs, higher fat for satiety
+      maintenance: { protein: 30, carbs: 35, fat: 35 },    // Balanced approach
+      recomp: { protein: 35, carbs: 35, fat: 30 },         // High protein for muscle building while in deficit
+      maingaining: { protein: 30, carbs: 40, fat: 30 }     // Moderate protein, good carbs for performance
+    };
+    
+    return macroRatios[fitnessStrategy as keyof typeof macroRatios] || macroRatios.maintenance;
+  }
+
+  /**
+   * Map goal_type to fitness_strategy for proper calorie adjustments
+   */
+  static mapGoalTypeToFitnessStrategy(goalType: string): string {
+    const goalMapping = {
+      'weight_loss': 'cut',
+      'fat_loss': 'cut', 
+      'muscle_gain': 'bulk',
+      'weight_gain': 'bulk',
+      'maintenance': 'maintenance',
+      'body_recomposition': 'recomp'
+    };
+    
+    return goalMapping[goalType as keyof typeof goalMapping] || 'maintenance';
+  }
+
+  /**
+   * Validates and normalizes an activity level to ensure it's a valid ActivityLevel
+   */
+  static validateActivityLevel(activityLevel: any): ActivityLevel {
+    if (typeof activityLevel === 'string' && activityLevel in ACTIVITY_LEVELS) {
+      return activityLevel as ActivityLevel;
+    }
+    return 'moderately_active'; // Default fallback
+  }
+
+  /**
+   * Get complete metabolic data for a user profile
+   */
+  static getMetabolicData(
+    profile: any, 
+    activityLevel: ActivityLevel = 'moderately_active'
+  ): MetabolicData {
+    const bmr = this.calculateBMR(
+      profile.weight,
+      profile.height,
+      profile.age,
+      profile.gender
+    );
+
+    const tdee = this.calculateTDEE(bmr, activityLevel);
+    
+    // Use fitness strategy for calorie adjustment
+    const { goalCalories, adjustment, adjustmentReason } = this.calculateGoalCalories(
+      tdee,
+      profile.fitness_strategy || 'maintenance', // Fitness strategy
+      profile.goal_muscle_gain || 0,             // Legacy parameter
+      profile.weight || 70,                      // user's current weight
+      profile.body_fat || 20                     // user's current body fat percentage
+    );
+
+    return {
+      bmr: Math.round(bmr),
+      tdee,
+      activity_level: activityLevel,
+      activity_multiplier: ACTIVITY_LEVELS[activityLevel].multiplier,
+      goal_calories: goalCalories,
+      goal_adjustment: adjustment,
+      goal_adjustment_reason: adjustmentReason,
+      calculation_method: 'Henry/Oxford Equation'
+    };
+  }
+
+  // Fallback fetch method similar to ProgressService
+  private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
+    const bases = getBaseUrls();
+
+    let lastError: unknown = null;
+    for (const base of bases) {
+      const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+      try {
+        if (__DEV__) console.log('[NutritionService] Trying base:', base, '→', url);
+        const response = await fetch(url, init);
+        
+        // Special handling for Railway's "Route not found" errors
+        if (response.status === 404) {
+          const responseClone = response.clone();
+          try {
+            const errorData = await responseClone.json() as any;
+            if (__DEV__) console.log('[NutritionService] 404 Response from', base, ':', errorData);
+
+            // Check for Railway-specific error patterns
+            if (errorData?.message?.includes('does not exist on the Railway server') ||
+                errorData?.error === 'Route not found' ||
+                errorData?.message === 'Route not found') {
+              if (__DEV__) console.log('[NutritionService] Railway missing endpoint, trying next base...');
+              continue; // Try the next base
+            }
+          } catch (parseError) {
+            if (__DEV__) console.log('[NutritionService] Could not parse 404 response as JSON:', parseError);
+            // If we can't parse response and it's from Railway, assume it's missing endpoint
+            if (base.includes('railway.app')) {
+              if (__DEV__) console.log('[NutritionService] Assuming Railway 404 is missing endpoint, trying next base...');
+              continue;
+            }
+          }
+        }
+        
+        // Consider any network-level success a success path; status handling is done by callers
+        return { base, response };
+      } catch (err) {
+        lastError = err;
+        if (__DEV__) console.log('[NutritionService] Failed to fetch from', base, ':', err);
+      }
+    }
+
+    throw lastError || new Error('All API bases failed');
+  }
   
   // Add initialization method to load plans from storage when app starts
   static async initializeFromStorage() {
     try {
       console.log('[NUTRITION] Initializing from storage');
+      
+      // Check if we need to clear stale data (hardcoded calories of 1800 indicates old data)
       const storedPlans = await this.readPersisted<any[]>('nutrition_plans');
       if (storedPlans && Array.isArray(storedPlans)) {
-        console.log(`[NUTRITION] Loaded ${storedPlans.length} plans from storage`);
-        mockPlansStore.plans = storedPlans;
+        // Check for stale data with old hardcoded values
+        const hasStaleData = storedPlans.some(plan => 
+          plan.daily_targets?.calories === 1800 || 
+          plan.metabolic_calculations?.goal_calories === 1800
+        );
+        
+        if (hasStaleData) {
+          console.log('[NUTRITION] Detected stale data with old calculations, clearing cache');
+          await this.clearCachedPlans();
+        } else {
+          console.log(`[NUTRITION] Loaded ${storedPlans.length} plans from storage`);
+          mockPlansStore.plans = storedPlans;
+        }
       }
       
       const deletedDefaultFlag = await this.readPersisted<boolean>('deleted_default_plan');
@@ -63,6 +312,21 @@ export class NutritionService {
       console.log('[NUTRITION] Saved plans to storage:', mockPlansStore.plans.length);
     } catch (err) {
       console.error('[NUTRITION] Error saving plans to storage:', err);
+    }
+  }
+
+  /**
+   * Clears all cached nutrition plans and forces regeneration with fresh calculations
+   */
+  static async clearCachedPlans(): Promise<void> {
+    try {
+      console.log('[NUTRITION] Clearing cached plans');
+      mockPlansStore.plans = [];
+      mockPlansStore.deletedDefaultPlan = false;
+      await this.savePlansToStorage();
+      console.log('[NUTRITION] Cached plans cleared successfully');
+    } catch (err) {
+      console.error('[NUTRITION] Error clearing cached plans:', err);
     }
   }
 
@@ -233,6 +497,51 @@ export class NutritionService {
       } else if (userPlans.length === 0 && mockPlansStore.deletedDefaultPlan) {
         console.log('[NUTRITION] Default mock plan was deleted, returning empty list');
       }
+
+      // Add metabolic calculations to existing plans that don't have them
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (profile) {
+          const age = profile.birthday ? 
+            new Date().getFullYear() - new Date(profile.birthday).getFullYear() : 30;
+
+          userPlans.forEach(plan => {
+            if (!plan.metabolic_calculations) {
+              const metabolicData = this.getMetabolicData({
+                id: userId,
+                goal_type: plan.goal_type || 'maintenance',
+                height: profile.height || 170,
+                weight: profile.weight || 70,
+                age: age,
+                gender: profile.gender || 'male',
+                goal_fat_reduction: profile.goal_fat_reduction || 5,
+                goal_muscle_gain: profile.goal_muscle_gain || 5,
+                full_name: profile.full_name || 'User'
+              }, 'moderately_active');
+
+              plan.metabolic_calculations = {
+                bmr: metabolicData.bmr,
+                tdee: metabolicData.tdee,
+                activity_level: metabolicData.activity_level,
+                adjusted_calories: metabolicData.goal_calories,
+                calorie_adjustment_reason: `Calculated for ${plan.goal_type || 'maintenance'} goal`
+              };
+
+              console.log('[NUTRITION] Added metabolic calculations to existing plan:', plan.id);
+            }
+          });
+
+          // Save updated plans to storage
+          await this.savePlansToStorage();
+        }
+      } catch (profileError) {
+        console.warn('[NUTRITION] Could not fetch profile for metabolic calculations:', profileError);
+      }
       
       // Simulate a delay to mimic network request
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -307,35 +616,107 @@ export class NutritionService {
     }
   }
 
-  static async reevaluatePlan(userId: string): Promise<any> {
+  static async reevaluatePlan(userId: string, profile?: any): Promise<any> {
     try {
-      console.log('Using mock data for reevaluatePlan');
+      console.log('Re-evaluating nutrition plan using mathematical calculations');
       
-      // Create a slightly modified version of the existing plan
-      const reevaluatedPlan = {
-        ...mockNutritionPlan,
-        user_id: userId,
-        updated_at: new Date().toISOString(),
-        daily_targets: {
-          ...mockNutritionPlan.daily_targets,
-          calories: mockNutritionPlan.daily_targets.calories - 100, // Slightly lower calories
-          protein_grams: mockNutritionPlan.daily_targets.protein_grams + 10, // More protein
+      // If profile is not provided, try to call the server endpoint
+      if (!profile) {
+        console.log('No profile provided, calling server endpoint for re-evaluation');
+        try {
+          const { base, response } = await this.fetchWithBaseFallback('/api/re-evaluate-plan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Re-evaluation failed: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          return result;
+        } catch (serverError) {
+          console.error('Server re-evaluation failed, using fallback calculations:', serverError);
+          // Fall back to local calculations with default values
+          profile = {
+            weight: 70,
+            height: 170,
+            age: 30,
+            gender: 'male',
+            activity_level: 'moderately_active',
+            fitness_strategy: 'maintenance',
+            body_fat: 20
+          };
         }
-      };
+      }
+
+      // Perform mathematical calculations
+      const activityLevel = this.validateActivityLevel(profile.activity_level);
+      const bmr = this.calculateBMR(
+        profile.weight || 70,
+        profile.height || 170, 
+        profile.age || 30,
+        profile.gender || 'male'
+      );
       
-      // Add a small delay to simulate network request
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const tdee = this.calculateTDEE(bmr, activityLevel);
+      
+      // Map goal_type to fitness_strategy if needed
+      let fitnessStrategy = profile.fitness_strategy;
+      if (!fitnessStrategy && profile.goal_type) {
+        fitnessStrategy = this.mapGoalTypeToFitnessStrategy(profile.goal_type);
+      }
+      
+      const { goalCalories, adjustment, adjustmentReason } = this.calculateGoalCalories(
+        tdee,
+        fitnessStrategy || 'maintenance',
+        0, // Legacy parameter
+        profile.weight || 70,
+        profile.body_fat || 20
+      );
+
+      // Calculate macro targets
+      const macroRatios = this.getMacroRatiosForStrategy(fitnessStrategy || 'maintenance');
+      const proteinGrams = Math.round((goalCalories * macroRatios.protein / 100) / 4);
+      const carbsGrams = Math.round((goalCalories * macroRatios.carbs / 100) / 4);
+      const fatGrams = Math.round((goalCalories * macroRatios.fat / 100) / 9);
+
+      const newTargets = {
+        daily_calories: Math.round(goalCalories),
+        protein_grams: proteinGrams,
+        carbs_grams: carbsGrams,
+        fat_grams: fatGrams,
+        // Add legacy property names for full compatibility
+        calories: Math.round(goalCalories),
+        protein: proteinGrams,
+        carbs: carbsGrams,
+        fat: fatGrams,
+        micronutrients_targets: {
+          sodium_mg: 2300,
+          potassium_mg: 4700,
+          calcium_mg: 1000,
+          iron_mg: 18,
+          vitamin_d_mcg: 20,
+          vitamin_c_mg: 90,
+          fiber_g: 25
+        },
+        reasoning: `Recalculated using scientific formulas: BMR (${Math.round(bmr)} cal) × Activity Factor (${ACTIVITY_LEVELS[activityLevel].multiplier}) = ${Math.round(tdee)} TDEE. ${adjustmentReason}`
+      };
+
+      console.log('[REEVALUATE] Mathematical calculation results:', {
+        bmr: Math.round(bmr),
+        tdee: Math.round(tdee),
+        goalCalories: Math.round(goalCalories),
+        adjustment,
+        macros: { proteinGrams, carbsGrams, fatGrams }
+      });
       
       return { 
         success: true,
-        plan: reevaluatedPlan,
-        new_targets: {
-          daily_calories: mockNutritionPlan.daily_targets.calories - 100,
-          protein_grams: mockNutritionPlan.daily_targets.protein_grams + 10,
-          carbs_grams: mockNutritionPlan.daily_targets.carbs_grams,
-          fat_grams: mockNutritionPlan.daily_targets.fat_grams,
-          reasoning: "Based on your recent progress, we've adjusted your plan to include more protein and slightly fewer calories to help you reach your goals faster."
-        }
+        new_targets: newTargets
       };
     } catch (error) {
       console.error('Error re-evaluating nutrition plan:', error);
@@ -344,9 +725,9 @@ export class NutritionService {
   }
 
   /**
-   * Calls the backend to generate a new AI nutrition plan.
+   * Calls the backend to generate a new nutrition plan using mathematical calculations.
    */
-  static async generateAIPlan(
+  static async generateNutritionPlan(
     userId: string,
     options: {
       goal: string;
@@ -355,7 +736,7 @@ export class NutritionService {
     }
   ): Promise<NutritionPlan | null> {
     try {
-      console.log('[NUTRITION] Generating AI plan with options:', options);
+      console.log('[NUTRITION] Generating nutrition plan with options:', options);
       console.log('[NUTRITION] Using API URL:', NutritionService.API_URL);
 
       let userProfile;
@@ -382,11 +763,18 @@ export class NutritionService {
         userProfile = {
           id: userId,
           full_name: 'Guest User',
+          username: 'guest',
+          email: 'guest@example.com',
+          birthday: null,
           height: 170,
           weight: 70,
           gender: 'male',
-          goal_fat_reduction: options.goal === 'fat_loss' ? 4 : 2,
-          goal_muscle_gain: options.goal === 'muscle_gain' ? 4 : 2
+          goal_type: options.goal,
+          goal_fat_reduction: options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5), // Realistic percentage goals
+          goal_muscle_gain: options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2), // Realistic kg goals
+          fitness_strategy: 'maintenance', // Default fitness strategy for guests
+          activity_level: 'moderately_active', // Default activity level for guests  
+          body_fat_percentage: 20 // Default body fat percentage for guests
         };
         console.log('[NUTRITION] Using fallback profile for guest/error:', userProfile);
       }
@@ -406,28 +794,36 @@ export class NutritionService {
         weight: userProfile.weight || 70,
         age: age,
         gender: userProfile.gender || 'male',
-        goal_fat_reduction: userProfile.goal_fat_reduction || (options.goal === 'fat_loss' ? 4 : 2),
-        goal_muscle_gain: userProfile.goal_muscle_gain || (options.goal === 'muscle_gain' ? 4 : 2),
-        full_name: userName // Add user's name to the profile
+        goal_fat_reduction: userProfile.goal_fat_reduction || (options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5)),
+        goal_muscle_gain: userProfile.goal_muscle_gain || (options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2)),
+        full_name: userName, // Add user's name to the profile
+        fitness_strategy: userProfile.fitness_strategy || this.mapGoalTypeToFitnessStrategy(options.goal) || 'maintenance', // Map goal_type to fitness strategy
+        activity_level: userProfile.activity_level || 'moderately_active', // Include activity level
+        body_fat_percentage: userProfile.body_fat_percentage || 20 // Include body fat percentage
       };
+
+      // Calculate metabolic data (BMR, TDEE) for transparency
+      const metabolicData = this.getMetabolicData(profile, this.validateActivityLevel(profile.activity_level));
+      console.log('[NUTRITION] Calculated metabolic data:', metabolicData);
     
       // Combine dietary preferences and intolerances into a single array
       const allPreferences = [...options.dietaryPreferences, ...options.intolerances];
     
-      const apiUrl = `${NutritionService.API_URL}/api/generate-nutrition-plan`;
-      console.log('[NUTRITION] Sending API request to:', apiUrl);
-      console.log('[NUTRITION] Request payload:', JSON.stringify({
-        profile: profile,
-        preferences: allPreferences,
-        mealsPerDay: 3,
-        snacksPerDay: 1
-      }, null, 2));
+      // Try multiple URLs with Railway server first, then environment, then local
+      const baseUrls = [
+        'https://gofitai-production.up.railway.app', // Railway server first
+        environment.apiUrl,
+        NutritionService.API_URL
+      ].filter(Boolean) as string[];
 
-      // Test basic connectivity first with timeout
-      console.log('[NUTRITION] Testing basic connectivity...');
-      try {
-        const pingUrl = `${NutritionService.API_URL}/ping`;
-        console.log(`[NUTRITION] Pinging: ${pingUrl}`);
+      console.log('[NUTRITION] Available base URLs:', baseUrls);
+
+      // Test connectivity to each server
+      let workingUrl = null;
+      for (const baseUrl of baseUrls) {
+        try {
+          const pingUrl = `${baseUrl}/ping`;
+          console.log(`[NUTRITION] Testing connectivity to: ${pingUrl}`);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for ping
@@ -435,25 +831,41 @@ export class NutritionService {
         const pingResponse = await fetch(pingUrl, { 
           method: 'GET',
           headers: { 'Accept': 'text/plain' },
-          signal: controller.signal
+            signal: controller.signal as any
         });
         
         clearTimeout(timeoutId);
         
-        console.log(`[NUTRITION] Ping response: ${pingResponse.status} ${pingResponse.statusText}`);
-        if (!pingResponse.ok) {
-          console.warn(`[NUTRITION] Ping failed but continuing with main request...`);
+          console.log(`[NUTRITION] Ping response from ${baseUrl}: ${pingResponse.status} ${pingResponse.statusText}`);
+          if (pingResponse.ok) {
+            console.log(`[NUTRITION] ✅ Server ${baseUrl} is working!`);
+            workingUrl = baseUrl;
+            break; // Found a working server, use it
         } else {
-          console.log(`[NUTRITION] Ping successful - server is reachable`);
+            console.warn(`[NUTRITION] ❌ Server ${baseUrl} responded with ${pingResponse.status}, trying next...`);
         }
       } catch (pingError) {
-        console.error(`[NUTRITION] Ping failed:`, pingError);
-        console.warn(`[NUTRITION] Server may not be reachable, but continuing with main request...`);
+          console.error(`[NUTRITION] ❌ Ping failed to ${baseUrl}:`, pingError);
+          console.warn(`[NUTRITION] Trying next server...`);
+        }
       }
 
+      if (!workingUrl) {
+        throw new Error('All nutrition service servers are unreachable. Please check your internet connection and try again later.');
+      }
+
+      const apiUrl = `${workingUrl}/api/generate-nutrition-plan`;
+      console.log('[NUTRITION] ✅ Using working server:', apiUrl);
+      console.log('[NUTRITION] Request payload:', JSON.stringify({
+        profile: profile,
+        preferences: allPreferences,
+        mealsPerDay: 3,
+        snacksPerDay: 1
+      }, null, 2));
+
       // Use a React Native-compatible timeout approach with retry logic
-      const timeoutMs = 240000; // 240 seconds (4 minutes) for AI generation
-      console.log(`[NUTRITION] Using timeout of ${timeoutMs}ms for AI generation`);
+      const timeoutMs = 30000; // 30 seconds for mathematical calculation
+      console.log(`[NUTRITION] Using timeout of ${timeoutMs}ms for nutrition plan generation`);
       
       // Helper function to create a fetch with proper timeout handling for React Native
       const fetchWithRNTimeout = async (url: string, options: RequestInit, timeout: number) => {
@@ -477,7 +889,7 @@ export class NutritionService {
           // Make the request
           fetch(url, {
             ...options,
-            signal: controller.signal
+            signal: controller.signal as any
           })
           .then(response => {
             const elapsed = Date.now() - startTime;
@@ -534,6 +946,9 @@ export class NutritionService {
         const result = await response.json();
         console.log('[NUTRITION] Successfully generated plan with ID:', result.id);
         
+        // Log the full response to see metabolic calculations
+        console.log('[NUTRITION] Full API response:', JSON.stringify(result, null, 2));
+        
         // Add the generated plan to the mock store so it appears in the nutrition page
         if (result && result.id) {
           // Ensure the plan has all necessary fields for display
@@ -542,8 +957,15 @@ export class NutritionService {
             user_id: userId,
             created_at: result.created_at || new Date().toISOString(),
             // Make sure daily_targets is available even if stored as daily_targets_json
-            daily_targets: result.daily_targets || result.daily_targets_json || {}
+            daily_targets: result.daily_targets || result.daily_targets_json || {},
+            // Use server metabolic calculations if available, otherwise use our local calculations
+            metabolic_calculations: result.metabolic_calculations || metabolicData
           };
+          
+          // Log metabolic calculations for debugging
+          console.log('[NUTRITION] Metabolic calculations from API:', result.metabolic_calculations);
+          console.log('[NUTRITION] Local metabolic calculations:', metabolicData);
+          console.log('[NUTRITION] Final metabolic calculations being stored:', planToStore.metabolic_calculations);
           
           // Ensure daily_targets has all required fields
           if (!planToStore.daily_targets) {
@@ -563,6 +985,12 @@ export class NutritionService {
           await this.savePlansToStorage();
         }
         
+        // Ensure the returned result also includes metabolic calculations
+        if (!result.metabolic_calculations) {
+          result.metabolic_calculations = metabolicData;
+          console.log('[NUTRITION] Added local metabolic calculations to result');
+        }
+        
         // Return the plan directly since the server already formatted it correctly
         return result;
       } catch (fetchError: any) {
@@ -570,12 +998,12 @@ export class NutritionService {
         // Handle timeout errors more clearly
         if (fetchError.message && fetchError.message.includes('timed out')) {
           console.error('[NUTRITION] Request timed out after', timeoutMs / 1000, 'seconds');
-          throw new Error('Request timed out after 3 minutes. The AI service may be overloaded. Please try again later.');
+          throw new Error('Request timed out. The nutrition service may be overloaded. Please try again later.');
         }
         
         if (fetchError.name === 'AbortError') {
           console.error('[NUTRITION] Request was aborted due to timeout');
-          throw new Error('Request timed out. The AI service may be overloaded. Please try again later.');
+          throw new Error('Request timed out. The nutrition service may be overloaded. Please try again later.');
         }
         
         // Network timeout or connection error
@@ -672,7 +1100,7 @@ export class NutritionService {
     ingredientToReplace: string,
     newIngredient: string
   ): Promise<string> {
-    const response = await fetch(`${API_URL}/api/customize-meal`, {
+    const response = await fetch(`${NutritionService.API_URL}/api/customize-meal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -705,7 +1133,7 @@ export class NutritionService {
     mealTimeSlot: string,
     newMealDescription: string
   ): Promise<void> {
-    const response = await fetch(`${API_URL}/api/update-meal`, {
+    const response = await fetch(`${NutritionService.API_URL}/api/update-meal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ planId, mealTimeSlot, newMealDescription }),
@@ -730,7 +1158,7 @@ export class NutritionService {
     metricDate: string,
     metrics: object
   ): Promise<any> {
-    const response = await fetch(`${API_URL}/api/log-daily-metric`, {
+    const response = await fetch(`${NutritionService.API_URL}/api/log-daily-metric`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, metricDate, metrics }),
@@ -1163,7 +1591,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
   }
 
   static async analyzeBehavior(userId: string): Promise<any> {
-    const response = await fetch(`${API_URL}/api/analyze-behavior`, {
+    const response = await fetch(`${NutritionService.API_URL}/api/analyze-behavior`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -1210,7 +1638,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     insight: any,
     chatHistory: any[]
   ): Promise<string> {
-    const response = await fetch(`${API_URL}/api/behavioral-coaching-chat`, {
+    const response = await fetch(`${NutritionService.API_URL}/api/behavioral-coaching-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ insight, chatHistory }),
@@ -1269,326 +1697,4 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     }
   }
 
-  static async generateRecipe(
-    mealType: string,
-    targets: { calories?: number; protein?: number; carbs?: number; fat?: number; [key: string]: any },
-    ingredients: string[],
-    strict: boolean = false
-  ): Promise<any> {
-    try {
-      console.log('[NUTRITION SERVICE] Calling AI recipe API');
-      console.log('[NUTRITION SERVICE] API URL:', `${NutritionService.API_URL}/api/generate-recipe`);
-      console.log('[NUTRITION SERVICE] Request payload:', JSON.stringify({ mealType, targets, ingredients }, null, 2));
-      console.log('[NUTRITION SERVICE] Strict mode:', strict);
-      
-      // Helper: fetch with timeout
-      const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 20000) => {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-          const res = await fetch(input, { ...init, signal: controller.signal });
-          return res;
-        } finally {
-          clearTimeout(id);
-        }
-      };
-
-      const DEFAULT_TIMEOUT = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 90000; // 90s for AI recipe
-      const MIN_TIMEOUT = 90000; // Minimum 90 seconds
-      const baseTimeout = Math.max(MIN_TIMEOUT, DEFAULT_TIMEOUT); // At least 90 seconds
-      const MAX_RETRIES = 1; // Try up to 2 times total (initial + 1 retry)
-      
-      // Try the full AI recipe generator first
-      try {
-        let lastErr: any = null;
-        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-          try {
-            // Exponential backoff: 1x, 1.5x timeouts
-            const timeoutMs = Math.round(baseTimeout * (1 + (attempt - 1) * 0.5));
-            console.log(`[NUTRITION SERVICE] Recipe attempt ${attempt}/${MAX_RETRIES + 1} with timeout ${timeoutMs}ms`);
-            
-            // Add strict parameter to the request
-            const response = await fetchWithTimeout(`${NutritionService.API_URL}/api/generate-recipe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ mealType, targets, ingredients, strict }),
-            }, timeoutMs);
-        
-            console.log('[NUTRITION SERVICE] Response status:', response.status, `(attempt ${attempt})`);
-        if (!response.ok) {
-          console.error('[NUTRITION SERVICE] Recipe API error:', response.status);
-          throw new Error(`Failed to generate recipe. Status: ${response.status}`);
-        }
-        const result = await response.json();
-        console.log('[NUTRITION SERVICE] Successfully received AI recipe');
-        return result;
-          } catch (e: any) {
-            lastErr = e;
-            const msg = (e?.message || '').toLowerCase();
-            const aborted = e?.name === 'AbortError' || msg.includes('aborted') || msg.includes('timeout');
-            if (attempt <= MAX_RETRIES && aborted) {
-              console.warn(`[NUTRITION SERVICE] Attempt ${attempt} aborted/timeout. Retrying with extended timeout...`);
-              continue;
-            }
-            if (attempt > MAX_RETRIES) {
-              console.error(`[NUTRITION SERVICE] All ${MAX_RETRIES + 1} attempts failed.`);
-            }
-            throw e;
-          }
-        }
-        throw lastErr || new Error('Failed to generate recipe');
-      } catch (error) {
-        // If strict mode is enabled, don't use fallbacks
-        if (strict) {
-          console.error('[NUTRITION SERVICE] Strict mode enabled, not using fallbacks');
-          throw error instanceof Error ? error : new Error('AI recipe generation failed after multiple attempts');
-        }
-        
-        // Only try the server-side simple recipe endpoint as fallback
-        console.error('[NUTRITION SERVICE] AI recipe generation failed, trying simple recipe fallback:', error);
-        
-        try {
-          console.log('[NUTRITION SERVICE] Attempting simple recipe fallback...');
-          const qp = new URLSearchParams();
-          if (targets.calories) qp.append('calories', String(targets.calories));
-          if (targets.protein) qp.append('protein', String(targets.protein));
-          if (targets.carbs) qp.append('carbs', String(targets.carbs));
-          if (targets.fat) qp.append('fat', String(targets.fat));
-          if (ingredients && ingredients.length) qp.append('ingredients', ingredients.join(','));
-          if (mealType) qp.append('mealType', mealType);
-          const simpleUrl = `${NutritionService.API_URL}/api/simple-recipe?${qp.toString()}`;
-        
-          const fallbackResponse = await fetchWithTimeout(simpleUrl, {}, baseTimeout * 1.2);
-        if (!fallbackResponse.ok) {
-            throw new Error(`Simple recipe API returned ${fallbackResponse.status}`);
-        }
-        const fallbackResult = await fallbackResponse.json();
-        console.log('[NUTRITION SERVICE] Successfully received simple recipe fallback');
-        return fallbackResult;
-        } catch (simpleApiErr) {
-          console.error('[NUTRITION SERVICE] Simple recipe API failed:', simpleApiErr);
-          throw new Error('Failed to generate recipe. Please try again later.');
-        }
-      }
-    } catch (error) {
-      console.error('[NUTRITION SERVICE] Error generating recipe:', error);
-      throw error;
-    }
-  }
-
-  // Helper function to create contextual instructions based on ingredients
-  private static buildContextualInstructions(ingredients: string[], mealType: string): string[] {
-    const lower = ingredients.map(i => i.toLowerCase().trim());
-    
-    // Detect ingredient types
-    const hasProtein = lower.some(i => /(chicken|beef|pork|tofu|tempeh|fish|salmon|tuna|shrimp|egg)/.test(i));
-    const hasCarbs = lower.some(i => /(rice|pasta|noodle|bread|potato|quinoa|couscous)/.test(i));
-    const hasVeggies = lower.some(i => /(broccoli|carrot|spinach|kale|lettuce|pepper|onion|tomato|vegetable)/.test(i));
-    // const hasDairy = lower.some(i => /(milk|cheese|yogurt|cream)/.test(i)); // Disabled during rebuild
-    const isBreakfast = mealType.toLowerCase() === 'breakfast';
-    const isSnack = mealType.toLowerCase() === 'snack';
-    
-    const instructions: string[] = [];
-    
-    // Start with prep
-    if (ingredients.length > 0) {
-      instructions.push(`Prepare your ingredients: ${ingredients.join(', ')}.`);
-    } else {
-      instructions.push('Gather all ingredients.');
-    }
-    
-    // Cooking steps based on ingredient types
-    if (isBreakfast) {
-      if (lower.some(i => /(egg)/.test(i))) {
-        instructions.push('Cook eggs to your preference (scrambled, fried, or poached).');
-      } else if (lower.some(i => /(oat|cereal)/.test(i))) {
-        instructions.push('Combine oats/cereal with your choice of milk or water.');
-      }
-    } else if (isSnack) {
-      instructions.push('Combine ingredients in a bowl or plate.');
-    } else {
-      // Regular meal
-      if (hasCarbs) {
-        instructions.push('Cook the base (rice/pasta/potato) according to package instructions.');
-      }
-      
-      if (hasProtein) {
-        instructions.push('Season and cook protein until done to your preference.');
-      }
-      
-      if (hasVeggies) {
-        instructions.push('Prepare vegetables by washing, chopping, and cooking until tender.');
-      }
-    }
-    
-    // Finishing steps
-    instructions.push('Combine all ingredients in a serving dish.');
-    instructions.push('Season to taste with salt, pepper, and any additional seasonings.');
-    
-    return instructions;
-  }
-
-  static async testConnection(): Promise<boolean> {
-    try {
-      console.log('[NUTRITION] Testing connection to API at:', this.API_URL);
-      
-      // Try multiple URLs with the simple ping endpoint (env first, then Railway)
-      const baseUrls = [
-        environment.apiUrl,
-        this.API_URL,
-        'https://gofitai-production.up.railway.app'
-      ].filter(Boolean) as string[];
-      
-      for (const baseUrl of baseUrls) {
-        try {
-          const url = `${baseUrl}/api/health`;
-          console.log(`[NUTRITION] Trying connection to: ${url}`);
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
-          
-          const response = await fetch(url, { 
-            method: 'GET',
-            headers: { 
-              'Accept': '*/*',
-              'Cache-Control': 'no-cache'
-            },
-            signal: controller.signal,
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            const text = await response.text();
-            console.log(`[NUTRITION] API connection successful to ${url}: ${text}`);
-            
-            // Update the API_URL to the working URL and set global
-            if (baseUrl !== this.API_URL) {
-              console.log(`[NUTRITION] Updating API_URL from ${this.API_URL} to ${baseUrl}`);
-              NutritionService.API_URL = baseUrl;
-            }
-            
-            return true;
-          } else {
-            console.log(`[NUTRITION] Connection to ${url} returned status ${response.status}`);
-          }
-        } catch (err: any) {
-          console.log(`[NUTRITION] Connection failed to ${baseUrl}/api/health: ${err.message}`);
-          // Continue to next URL
-        }
-      }
-      
-      console.log('[NUTRITION] All connection attempts failed');
-      return false;
-    } catch (error) {
-      console.error('[NUTRITION] Error testing connection:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Chat with AI to adjust a nutrition plan. Returns { aiMessage, newPlan? }.
-   */
-  static async chatAdjustNutritionPlan(
-    chatHistory: Array<{ sender: 'user' | 'ai'; text: string }>,
-    plan: any,
-    user: any
-  ): Promise<{ aiMessage: string; newPlan?: any }> {
-    const API = NutritionService.API_URL;
-    const url = `${API}/api/nutrition-ai-chat`;
-
-    // Convert to the shape backend expects (same as workout chat style)
-    const payload = {
-      chatHistory,
-      plan,
-      user,
-    };
-
-    // Basic timeout wrapper
-    const timeoutMs = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 20000;
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        throw new Error(`Chat API error ${res.status}`);
-      }
-      const data = await res.json();
-      return { aiMessage: data.aiMessage || 'OK.', newPlan: data.newPlan };
-    } catch (err) {
-      console.error('[NUTRITION] Chat adjust plan failed:', err);
-      // Graceful fallback
-      return { aiMessage: 'I could not reach the AI right now. Please try again later.' };
-    } finally {
-      clearTimeout(t);
-    }
-  }
-
-  // In-memory storage for saved recipes
-  private static savedRecipes: any[] = [];
-
-  // Save a recipe
-  static saveRecipe(recipe: any): boolean {
-    try {
-      // Add unique ID and timestamp
-      const savedRecipe = {
-        ...recipe,
-        id: `recipe-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
-        savedAt: new Date().toISOString()
-      };
-      
-      // Add to in-memory storage
-      this.savedRecipes.push(savedRecipe);
-      
-      // Persist
-      (async () => {
-        const existingSaved = (await this.readPersisted<any[]>('savedRecipes')) || [];
-        existingSaved.push(savedRecipe);
-        await this.writePersisted('savedRecipes', existingSaved);
-      })();
-      
-      console.log('[NUTRITION] Recipe saved successfully:', savedRecipe.recipe_name);
-      return true;
-    } catch (error) {
-      console.error('[NUTRITION] Failed to save recipe:', error);
-      return false;
-    }
-  }
-
-  // Get all saved recipes
-  static getSavedRecipes(): any[] {
-    // Synchronously return cache; also refresh from storage asynchronously
-    (async () => {
-      const persisted = await this.readPersisted<any[]>('savedRecipes');
-      if (persisted) this.savedRecipes = persisted;
-    })();
-    
-    // Return in-memory storage as fallback
-    return this.savedRecipes;
-  }
-
-  // Delete a saved recipe
-  static deleteSavedRecipe(recipeId: string): boolean {
-    try {
-      // Remove from in-memory storage
-      this.savedRecipes = this.savedRecipes.filter(recipe => recipe.id !== recipeId);
-      
-      // Persist updated list
-      (async () => {
-        await this.writePersisted('savedRecipes', this.savedRecipes);
-      })();
-      
-      return true;
-    } catch (error) {
-      console.error('[NUTRITION] Failed to delete recipe:', error);
-      return false;
-    }
-  }
-} 
+}

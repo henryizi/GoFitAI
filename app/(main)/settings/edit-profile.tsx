@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
+import { Database } from '../../../src/types/database';
 
 const colors = {
   primary: '#FF6B35',
@@ -38,8 +39,6 @@ export default function EditProfileScreen() {
   // Form state
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [username, setUsername] = useState(profile?.username || '');
-  const [height, setHeight] = useState(profile?.height?.toString() || '');
-  const [weight, setWeight] = useState(profile?.weight?.toString() || '');
   const [birthday, setBirthday] = useState(profile?.birthday || '');
 
   const handleSave = async () => {
@@ -52,11 +51,9 @@ export default function EditProfileScreen() {
         .update({
           full_name: fullName,
           username: username,
-          height: height ? parseFloat(height) : null,
-          weight: weight ? parseFloat(weight) : null,
           birthday: birthday || null,
           avatar_url: profileImage,
-        })
+        } as Database['public']['Tables']['profiles']['Update'])
         .eq('id', user.id);
 
       if (error) throw error;
@@ -133,7 +130,7 @@ export default function EditProfileScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop' }}
         style={styles.backgroundImage}
       >
         <LinearGradient
@@ -253,60 +250,6 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Body Metrics */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>BODY METRICS</Text></Text>
-          
-          <View style={styles.row}>
-            <View style={[styles.inputCard, styles.halfWidth]}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.inputCardGradient}
-              >
-                <View style={styles.inputContainer}>
-                  <Icon name="human-male-height" size={20} color={colors.primary} style={styles.inputIcon} />
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputLabel}>HEIGHT (CM)</Text>
-                    <TextInput
-                      value={height}
-                      onChangeText={setHeight}
-                      placeholder="180"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      style={styles.textInput}
-                      underlineColor="transparent"
-                      activeUnderlineColor="transparent"
-                    />
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-
-            <View style={[styles.inputCard, styles.halfWidth]}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.inputCardGradient}
-              >
-                <View style={styles.inputContainer}>
-                  <Icon name="weight-kilogram" size={20} color={colors.primary} style={styles.inputIcon} />
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputLabel}>WEIGHT (KG)</Text>
-                    <TextInput
-                      value={weight}
-                      onChangeText={setWeight}
-                      placeholder="75"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      style={styles.textInput}
-                      underlineColor="transparent"
-                      activeUnderlineColor="transparent"
-                    />
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );

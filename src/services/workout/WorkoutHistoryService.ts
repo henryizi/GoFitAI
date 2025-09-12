@@ -285,11 +285,35 @@ export class WorkoutHistoryService {
     
     if (!actualSessionId) {
       console.log(`❌ [WorkoutHistoryService] No session_id available, cannot fetch exercise sets`);
-      // Return session details without exercise data
+      
+      // Create a placeholder entry with session info if we have plan/session names
+      const placeholderExercises = [];
+      if (sessionData.plan_name || sessionData.session_name) {
+        console.log(`📝 [WorkoutHistoryService] Creating placeholder entry for deleted plan`);
+        placeholderExercises.push({
+          id: 'placeholder',
+          exercise_id: 'placeholder',
+          exercise_name: 'Workout Data Lost',
+          muscle_groups: [],
+          equipment_needed: [],
+          logs: [{
+            id: 'placeholder-log',
+            actual_reps: 0,
+            actual_weight: null,
+            rpe: null,
+            completed_at: sessionData.completed_at,
+            notes: `Original workout details were lost when the plan "${sessionData.plan_name || 'Unknown Plan'}" was deleted. This workout was completed on ${new Date(sessionData.completed_at).toLocaleDateString()}.`,
+            volume_delta: 0,
+            top_set_delta: null
+          }]
+        });
+      }
+      
+      // Return session details with placeholder or empty data
       return {
         id: sessionData.id,
         completed_at: sessionData.completed_at,
-        exercises: [],
+        exercises: placeholderExercises,
       };
     }
     

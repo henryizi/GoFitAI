@@ -7,6 +7,7 @@ export default function ProgressLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="log-metrics" />
       <Stack.Screen name="photo-upload" />
+      <Stack.Screen name="log-progress" />
     </Stack>
   );
 } 

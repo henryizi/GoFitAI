@@ -19,7 +19,7 @@ config.resolver.alias = {
   '@/utils': path.resolve(__dirname, 'src/utils'),
   '@/store': path.resolve(__dirname, 'src/store'),
   '@/styles': path.resolve(__dirname, 'src/styles'),
-  tslib: require.resolve('tslib/tslib.js'),
+  tslib: require.resolve('tslib'),
 };
 
 // Fix for react-native-svg web bundling issue

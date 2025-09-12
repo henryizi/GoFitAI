@@ -19,7 +19,7 @@ export default function DailyMenuCard({ items, onRegenerate, onSwap, onSave }: {
       {items?.length ? items.map((m, i) => (
         <View key={i} style={styles.item}>
           <Text style={styles.mealType}>{m.meal_type}</Text>
-          <Text style={styles.mealText}>{m.meal_description}</Text>
+          <Text style={styles.mealText} numberOfLines={3} ellipsizeMode="tail">{m.meal_description}</Text>
           <Text style={styles.macros}>{[m.calories && `${m.calories} kcal`, m.protein_grams && `${m.protein_grams}P`, m.carbs_grams && `${m.carbs_grams}C`, m.fat_grams && `${m.fat_grams}F`].filter(Boolean).join(' · ')}</Text>
           <TouchableOpacity onPress={() => onSwap(m)}><Text style={styles.link}>Swap ingredient</Text></TouchableOpacity>
         </View>

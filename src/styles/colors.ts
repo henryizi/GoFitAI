@@ -42,6 +42,11 @@ export const colors = {
   black: '#000000',         // Pure black for special text
   gray: '#666666',          // Medium gray for placeholders
   
+  // Glass morphism colors
+  glass: 'rgba(255, 255, 255, 0.1)',      // Glass effect background
+  glassStrong: 'rgba(255, 255, 255, 0.15)', // Stronger glass effect
+  glassBorder: 'rgba(255, 255, 255, 0.1)', // Glass borders
+  
   // Gradient definitions
   gradients: {
     primary: ['#FF6B35', '#E55A2B'],

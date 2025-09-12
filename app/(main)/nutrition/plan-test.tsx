@@ -49,7 +49,7 @@ const PlanTestScreen = () => {
     addResult('Creating test nutrition plan...');
     
     try {
-      const plan = await NutritionService.generateAIPlan(user.id, {
+      const plan = await NutritionService.generateNutritionPlan(user.id, {
         goal: 'fat_loss',
         dietaryPreferences: ['vegetarian'],
         intolerances: []
@@ -197,7 +197,7 @@ const PlanTestScreen = () => {
                 addResult('Testing simple server on port 5000...');
                 try {
                   const response = await fetch('http://192.168.0.114:5000/');
-                  const data = await response.json();
+                  const data = await response.json() as { status?: string };
                   addResult(`Test server response: ${JSON.stringify(data)}`);
                   if (data.status === 'ok') {
                     addResult('✅ Test server connection successful!');

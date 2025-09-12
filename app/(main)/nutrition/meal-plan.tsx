@@ -12,6 +12,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
+import { MealPreferenceService } from '../../../src/services/nutrition/MealPreferenceService';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { StatusBar } from 'expo-status-bar';
@@ -46,11 +47,73 @@ const MealPlanScreen = () => {
   const [mealPlan, setMealPlan] = useState<any[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [mealRatings, setMealRatings] = useState<{[key: string]: 'liked' | 'disliked' | null}>({});
+
+  // Load existing meal ratings
+  const loadMealRatings = async (meals: any[]) => {
+    if (!meals || meals.length === 0) return;
+    
+    const ratings: {[key: string]: 'liked' | 'disliked' | null} = {};
+    
+    for (const meal of meals) {
+      const mealId = `${meal.meal_type}_${meal.meal_description}`;
+      const rating = await MealPreferenceService.getMealRating(mealId, user?.id);
+      ratings[mealId] = rating;
+    }
+    
+    setMealRatings(ratings);
+  };
+
+  // Handle meal rating (like/dislike)
+  const handleMealRating = async (meal: any, rating: 'liked' | 'disliked') => {
+    const mealId = `${meal.meal_type}_${meal.meal_description}`;
+    
+    // Toggle rating if same rating clicked
+    const currentRating = mealRatings[mealId];
+    const newRating = currentRating === rating ? null : rating;
+    
+    if (newRating === null) {
+      // Remove rating
+      await MealPreferenceService.removeRating(mealId, user?.id);
+      setMealRatings(prev => ({ ...prev, [mealId]: null }));
+    } else {
+      // Set new rating
+      const success = await MealPreferenceService.rateMeal(
+        mealId,
+        meal.meal_description,
+        meal.meal_type,
+        newRating,
+        user?.id
+      );
+      
+      if (success) {
+        setMealRatings(prev => ({ ...prev, [mealId]: newRating }));
+        
+        // Show feedback to user
+        Alert.alert(
+          newRating === 'liked' ? '❤️ Liked!' : '👎 Disliked',
+          `We'll remember your preference for this ${meal.meal_type.toLowerCase()} to improve future recommendations.`,
+          [{ text: 'Got it', style: 'default' }]
+        );
+      }
+    }
+  };
 
   const fetchMealPlan = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     try {
+      // First check if we have a stored meal plan for today
+      const todayString = date.toDateString();
+      const storedMealPlan = await MealPreferenceService.getDailyMealPlan(user.id, todayString);
+      
+      if (storedMealPlan) {
+        setMealPlan(storedMealPlan);
+        await loadMealRatings(storedMealPlan);
+        setIsLoading(false);
+        return;
+      }
+
       const activePlan = await NutritionService.getLatestNutritionPlan(user.id);
       if (!activePlan) {
         setMealPlan([]);
@@ -59,12 +122,55 @@ const MealPlanScreen = () => {
       const formattedDate = date.toISOString().split('T')[0];
       const plan = await NutritionService.getMealPlanForDate(activePlan.id, formattedDate);
       setMealPlan(plan);
+      
+      // Load meal ratings for existing plan
+      if (plan && plan.length > 0) {
+        await loadMealRatings(plan);
+      }
     } catch (error) {
       Alert.alert('Error', 'Could not fetch the meal plan.');
     } finally {
       setIsLoading(false);
     }
   }, [user, date]);
+
+  // Generate a new meal plan
+  const generateNewMealPlan = useCallback(async () => {
+    if (!user) return;
+    setIsGenerating(true);
+    try {
+      const activePlan = await NutritionService.getLatestNutritionPlan(user.id);
+      if (!activePlan) {
+        Alert.alert('Error', 'No active nutrition plan found. Please create one first.');
+        return;
+      }
+
+      const formattedDate = date.toISOString().split('T')[0];
+      const newPlan = await NutritionService.generateMealPlanForDate(activePlan.id, formattedDate);
+      
+      if (newPlan && newPlan.length > 0) {
+        // Store the new meal plan for today
+        const todayString = date.toDateString();
+        await MealPreferenceService.storeDailyMealPlan(user.id, todayString, newPlan);
+        
+        setMealPlan(newPlan);
+        await loadMealRatings(newPlan);
+        
+        Alert.alert(
+          '🍽️ New Meal Plan Generated!',
+          'Your personalized meal plan for today is ready.',
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Error', 'Could not generate meal plan. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating meal plan:', error);
+      Alert.alert('Error', 'Could not generate meal plan. Please check your internet connection and try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [user, date, loadMealRatings]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,16 +195,7 @@ const MealPlanScreen = () => {
       Alert.alert('Cannot Generate', "You can only generate a meal plan for today.");
       return;
     }
-    setIsGenerating(true);
-    try {
-      await NutritionService.generateDailyMealPlan(user.id);
-      await fetchMealPlan();
-      Alert.alert('Success', 'New meal plan generated successfully!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to generate meal plan. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
+    await generateNewMealPlan();
   };
 
   const changeDate = (amount: number) => {
@@ -117,22 +214,57 @@ const MealPlanScreen = () => {
     </View>
   );
 
-  const renderMealCard = (meal: any) => (
-    <LinearGradient
-      key={meal.id}
-      colors={[colors.lightGray, colors.darkGray]}
-      style={styles.card}
-    >
-      <Text style={styles.mealType}>{meal.meal_type.replace('_', ' ').toUpperCase()}</Text>
-      <Text style={styles.mealDescription}>{meal.meal_description}</Text>
-      <View style={styles.macroContainer}>
-        <MacroPill icon="fire" value={meal.calories} unit="kcal" color="#FF9500" />
-        <MacroPill icon="food-drumstick" value={meal.protein_grams} unit="g" color="#34C759" />
-        <MacroPill icon="bread-slice" value={meal.carbs_grams} unit="g" color="#FF2D55" />
-        <MacroPill icon="oil" value={meal.fat_grams} unit="g" color="#FFD60A" />
-      </View>
-    </LinearGradient>
-  );
+  const renderMealCard = (meal: any) => {
+    const mealId = `${meal.meal_type}_${meal.meal_description}`;
+    const currentRating = mealRatings[mealId];
+
+    return (
+      <LinearGradient
+        key={meal.id}
+        colors={[colors.lightGray, colors.darkGray]}
+        style={styles.card}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.mealType}>{meal.meal_type.replace('_', ' ').toUpperCase()}</Text>
+          <View style={styles.ratingButtonsContainer}>
+            <TouchableOpacity
+              style={[
+                styles.ratingButton,
+                currentRating === 'liked' && styles.likedButton
+              ]}
+              onPress={() => handleMealRating(meal, 'liked')}
+            >
+              <Icon 
+                name="heart" 
+                size={16} 
+                color={currentRating === 'liked' ? colors.text : colors.textSecondary} 
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.ratingButton,
+                currentRating === 'disliked' && styles.dislikedButton
+              ]}
+              onPress={() => handleMealRating(meal, 'disliked')}
+            >
+              <Icon 
+                name="thumb-down" 
+                size={16} 
+                color={currentRating === 'disliked' ? colors.text : colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.mealDescription}>{meal.meal_description}</Text>
+        <View style={styles.macroContainer}>
+          <MacroPill icon="fire" value={meal.calories} unit="kcal" color="#FF9500" />
+          <MacroPill icon="food-drumstick" value={meal.protein_grams} unit="g" color="#34C759" />
+          <MacroPill icon="bread-slice" value={meal.carbs_grams} unit="g" color="#FF2D55" />
+          <MacroPill icon="oil" value={meal.fat_grams} unit="g" color="#FFD60A" />
+        </View>
+      </LinearGradient>
+    );
+  };
   
   const GradientButton = ({ onPress, title, loading, disabled }) => (
     <TouchableOpacity onPress={onPress} disabled={disabled || loading}>
@@ -183,7 +315,20 @@ const MealPlanScreen = () => {
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{marginTop: 50}} />
         ) : mealPlan && mealPlan.length > 0 ? (
-          mealPlan.map(renderMealCard)
+          <>
+            {mealPlan.map(renderMealCard)}
+            {isToday(date) && (
+              <View style={styles.generateNewContainer}>
+                <Text style={styles.generateNewText}>Want a different meal plan?</Text>
+                <GradientButton
+                  onPress={handleGeneratePlan}
+                  loading={isGenerating}
+                  disabled={isGenerating}
+                  title="Generate New Plan"
+                />
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.emptyContainer}>
             <Icon name="silverware-fork-knife" size={60} color={colors.textSecondary} />
@@ -198,7 +343,7 @@ const MealPlanScreen = () => {
                 onPress={handleGeneratePlan}
                 loading={isGenerating}
                 disabled={isGenerating}
-                title="Generate Today's Plan"
+                title="Get Daily Meal Plan"
               />
             )}
           </View>
@@ -310,6 +455,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ratingButtonsContainer: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  ratingButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  likedButton: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  dislikedButton: {
+    backgroundColor: colors.error,
+    borderColor: colors.error,
+  },
+  generateNewContainer: {
+    alignItems: 'center',
+    marginTop: 30,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  generateNewText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
 });
 
 export default MealPlanScreen; 

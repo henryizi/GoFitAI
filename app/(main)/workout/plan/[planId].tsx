@@ -1,19 +1,17 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Modal, RefreshControl, ImageBackground, Dimensions, Animated } from 'react-native';
-import { Text, IconButton, Card, ActivityIndicator, Appbar, Portal, TextInput, Button, Divider } from 'react-native-paper';
-import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, ImageBackground, Dimensions, Animated } from 'react-native';
+import { Text, IconButton, ActivityIndicator, TextInput } from 'react-native-paper';
+import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 // Remove mock data import - using real WorkoutService only
 import { WorkoutService as RealWorkoutService } from '../../../../src/services/workout/WorkoutService';
 import { WorkoutLocalStore } from '../../../../src/services/workout/WorkoutLocalStore';
 import { useAuth } from '../../../../src/hooks/useAuth';
-import { environment } from '../../../../src/config/environment';
-import Constants from 'expo-constants';
+// environment import removed; no longer used here
 
 // Modern Dark Design System
 const { width } = Dimensions.get('window');
@@ -68,21 +66,8 @@ export default function PlanDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
-  const [chatLoading, setChatLoading] = useState(false);
-  const [pendingNewPlan, setPendingNewPlan] = useState<any>(null);
-
-  const [chatVisible, setChatVisible] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState([
-    { sender: 'ai', text: 'Hi! I can help you refine your workout plan. What would you like to change or ask?' }
-  ]);
-  const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
   
-  // Optimized input handler to prevent lag
-  const handleChatInputChange = useCallback((text: string) => {
-    setChatInput(text);
-  }, []);
   const [editingSession, setEditingSession] = useState<string | null>(null);
   const [editingExercise, setEditingExercise] = useState<string | null>(null);
   const [editedSets, setEditedSets] = useState<number | null>(null);
@@ -91,7 +76,6 @@ export default function PlanDetailScreen() {
   const [scrollY] = useState(new Animated.Value(0));
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  const [inputFocused, setInputFocused] = useState(false);
 
   const confirmDeletePlan = () => {
     Alert.alert(
@@ -149,303 +133,7 @@ export default function PlanDetailScreen() {
     ]).start();
   }, []);
 
-  // Key for AsyncStorage
-  const chatKey = `chatHistory_${plan?.id || 'unknown'}_${user?.id || 'unknown'}`;
-
-  // Load chat history and modified plan when chat modal opens
-  useEffect(() => {
-    if (chatVisible) {
-      (async () => {
-        try {
-          // Load chat history
-          const saved = await AsyncStorage.getItem(chatKey);
-          if (saved) {
-            setChatHistory(JSON.parse(saved));
-          }
-          
-          // Load previously modified plan if available
-          const modifiedPlanKey = `modified_plan_${planId}`;
-          const modifiedPlanData = await AsyncStorage.getItem(modifiedPlanKey);
-          if (modifiedPlanData) {
-            const modifiedPlan = JSON.parse(modifiedPlanData);
-            console.log('[CHAT] Loaded previously modified plan:', modifiedPlan.name);
-            setPendingNewPlan(modifiedPlan);
-          }
-        } catch (e) {
-          console.error('[CHAT] Error loading saved data:', e);
-        }
-      })();
-    }
-  }, [chatVisible, chatKey, planId]);
-
-  // Save chat history whenever it changes
-  useEffect(() => {
-    if (chatVisible) {
-      AsyncStorage.setItem(chatKey, JSON.stringify(chatHistory)).catch(() => {});
-    }
-    // Auto-scroll to bottom
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, [chatHistory, chatVisible, chatKey]);
-
-  // Helper function to check if this is a bodybuilder plan
-  const isBodybuilderPlan = () => {
-    const isBB = plan?.id?.startsWith('bb-') || false;
-    if (isBB) {
-      console.log('[PlanDetail] Bodybuilder plan detected - hiding AI refinement:', plan?.id);
-    }
-    return isBB;
-  };
-
-  const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
-
-    const currentChatInput = chatInput;
-    const fullChatHistory = [...chatHistory, { sender: 'user', text: currentChatInput }];
-
-    setChatHistory(fullChatHistory);
-    setChatInput('');
-    setChatLoading(true);
-
-    // Local helper to support fetch timeout via AbortController
-    const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { ...options, signal: controller.signal });
-        return res;
-      } finally {
-        clearTimeout(id);
-      }
-    };
-
-    const CHAT_TIMEOUT_MS = Number(Constants?.expoConfig?.extra?.CHAT_TIMEOUT_MS || process.env.EXPO_PUBLIC_CHAT_TIMEOUT_MS) || 240000; // Increased to 240 seconds (4 minutes) for complex AI reasoning
-
-    try {
-      if (environment.enableVerboseLogging) {
-        console.log('--- SENDING CHAT TO AI ---');
-        console.log('[STEP 1] Sending chat history to backend:', JSON.stringify(fullChatHistory, null, 2));
-      }
-
-      // Resolve API base: env first, then production Railway
-      const resolveApiBase = () => {
-        const candidates = [
-          environment.apiUrl,
-          'https://gofitai-production.up.railway.app',
-        ].filter(Boolean) as string[];
-        const chosen = candidates[0];
-        if (environment.enableVerboseLogging) {
-          console.log('[WORKOUT CHAT] Resolved API base:', chosen);
-        }
-        return chosen;
-      };
-      const resolveLanBase = () => undefined; // Force Railway-only base resolution
-      const apiBase = resolveApiBase();
-      // const url = `${apiBase}/api/ai-chat`; // Unused variable
-
-      let res: Response | null = null;
-      let lastError: unknown = null;
-      // Build candidate list and try each sequentially until one succeeds
-      const baseCandidates = Array.from(new Set([
-        apiBase,
-        environment.apiUrl,
-        'https://gofitai-production.up.railway.app',
-      ].filter(Boolean) as string[]));
-
-      for (const base of baseCandidates) {
-        const attemptUrl = `${base}/api/ai-chat`;
-        try {
-          if (environment.enableVerboseLogging) {
-            console.log(`[WORKOUT CHAT] Trying base: ${base}`);
-          }
-          res = await fetchWithTimeout(
-            attemptUrl,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                planId: planId,
-                message: fullChatHistory[fullChatHistory.length - 1]?.text || '',
-                currentPlan: pendingNewPlan || plan, // Use modified plan if available
-              }),
-            },
-            CHAT_TIMEOUT_MS
-          );
-          if (environment.enableVerboseLogging) {
-            console.log(`[STEP 2] Received response from backend with status:`, res.status, `(base ${base})`);
-          }
-          break;
-        } catch (err) {
-          lastError = err;
-          const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message?.toLowerCase?.().includes('timeout'));
-          if (environment.enableVerboseLogging) {
-            console.warn(`[SEND CHAT] Failed on base ${base}${isAbort ? ' due to timeout' : ''}.`, err);
-          }
-          // Add a small delay before trying the next base to avoid overwhelming the server
-          if (baseCandidates.indexOf(base) < baseCandidates.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-          continue;
-        }
-      }
-
-      if (!res) throw lastError ?? new Error('Network request failed');
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`[SEND CHAT] Server error (${res.status}):`, errorText);
-        throw new Error(`Server error: ${res.status} - ${errorText}`);
-      }
-
-      const data = await res.json();
-      if (environment.enableVerboseLogging) {
-        console.log('[STEP 3] Parsed response data:', JSON.stringify(data, null, 2));
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'AI chat failed');
-      }
-
-      setChatHistory((prev) => [
-        ...prev,
-        { sender: 'ai', text: data.message, hasNewPlan: !!data.newPlan },
-      ]);
-      if (data.newPlan) {
-        if (environment.enableVerboseLogging) {
-          console.log('[INFO] AI suggested a new plan.');
-          console.log('[DEBUG] New plan data:', JSON.stringify(data.newPlan, null, 2));
-        }
-        setPendingNewPlan(data.newPlan);
-        
-        // Save the modified plan to AsyncStorage for debugging
-        try {
-          const modifiedPlanKey = `modified_plan_${planId}`;
-          await AsyncStorage.setItem(modifiedPlanKey, JSON.stringify(data.newPlan));
-          if (environment.enableVerboseLogging) {
-            console.log('[DEBUG] Saved modified plan to AsyncStorage');
-          }
-        } catch (e) {
-          if (environment.enableVerboseLogging) {
-            console.error('[DEBUG] Failed to save modified plan:', e);
-          }
-        }
-      }
-    } catch (err) {
-      if (environment.enableVerboseLogging) {
-        console.error('--- SEND CHAT FAILED ---');
-        console.error('Full error object:', err);
-      }
-      const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.message?.includes('Network request timed out') || err.message?.toLowerCase?.().includes('timeout'));
-      const errorMessage = isTimeout 
-        ? 'The AI is taking longer than expected to respond. This might be due to high server load. Please try again in a moment.' 
-        : 'Sorry, there was a problem contacting the AI. Please check your connection and try again.';
-      setChatHistory((prev) => [
-        ...prev,
-        { sender: 'ai', text: errorMessage },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const [isApplyingPlan, setIsApplyingPlan] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  const handleApplyNewPlan = async () => {
-
-    
-    if (!pendingNewPlan || isApplyingPlan) {
-      console.log('[APPLY PLAN] Already applying or no plan to apply - pendingNewPlan:', !!pendingNewPlan, 'isApplyingPlan:', isApplyingPlan);
-      return;
-    }
-
-    setIsApplyingPlan(true);
-    
-    try {
-      console.log('--- APPLYING NEW PLAN ---');
-      console.log('[STEP 1] Sending new plan to backend:', JSON.stringify(pendingNewPlan, null, 2));
-      
-      const API_URL = `${environment.apiUrl}/api/save-plan`;
-      
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan: pendingNewPlan, user }),
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-      
-      console.log('[STEP 2] Received response from backend with status:', res.status);
-      
-        if (!res.ok) {
-          throw new Error(`Server error: ${res.status}`);
-        }
-        
-        const data = await res.json();
-        console.log('[STEP 3] Parsed response data:', JSON.stringify(data, null, 2));
-
-              if (data.success && data.newPlanId) {
-          // Save the plan to local storage so it can be accessed immediately
-          try {
-            const planToSave = {
-              ...pendingNewPlan,
-              id: data.newPlanId,
-              user_id: user?.id,
-              is_active: true,
-              status: 'active',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            
-            await WorkoutLocalStore.savePlan(user?.id || 'unknown', planToSave);
-            console.log('[APPLY PLAN] Successfully saved plan to local storage');
-          } catch (localError) {
-            console.error('[APPLY PLAN] Error saving to local storage:', localError);
-            // Continue anyway - the plan was saved to the server
-          }
-          
-          // Clear states first
-          setPendingNewPlan(null);
-          setChatVisible(false);
-          
-          // Show success message first
-          Alert.alert('Success!', 'Your new workout plan has been created.', [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate after user acknowledges the alert
-                console.log('[APPLY PLAN] Navigating to new plan:', data.newPlanId);
-                // Force a complete navigation to the new plan with refresh
-                router.replace({
-                  pathname: `/(main)/workout/plan/${data.newPlanId}`,
-                  params: { refresh: Date.now().toString() }
-                });
-              }
-            }
-          ]);
-        } else {
-          Alert.alert('Error', data.error || 'Failed to save the new plan.');
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Request timed out. Please check your connection and try again.');
-        }
-        throw fetchError;
-      }
-    } catch (e) {
-      console.error('--- APPLY PLAN FAILED ---');
-      console.error('Full error object:', e);
-      Alert.alert('Error', 'An unexpected error occurred while saving the plan. Please try again.');
-    } finally {
-      setIsApplyingPlan(false);
-    }
-  };
+  
 
   const handleEditExercise = (sessionId: string, exerciseId: string, sets: number, reps: string, rest: string) => {
     setEditingSession(sessionId);
@@ -505,7 +193,7 @@ export default function PlanDetailScreen() {
         
         // Map the weekly schedule to sessions with proper typing
         const mappedSessions = Array.isArray(parsedPlan.weekly_schedule || parsedPlan.weeklySchedule)
-          ? (parsedPlan.weekly_schedule || parsedPlan.weeklySchedule).map((daySchedule, index) => {
+          ? (parsedPlan.weekly_schedule || parsedPlan.weeklySchedule).map((daySchedule: any, index: number) => {
               // Ensure each session has a unique ID and exercises array
               const exercises = Array.isArray(daySchedule.exercises) 
                 ? daySchedule.exercises.map((ex: any, exIndex: number) => ({
@@ -1089,7 +777,7 @@ export default function PlanDetailScreen() {
     setExpandedSession(expandedSession === sessionId ? null : sessionId);
   };
 
-  function renderPlanSummary(plan) {
+  function renderPlanSummary(plan: any) {
     if (!plan) return null;
     
     try {
@@ -1105,12 +793,12 @@ export default function PlanDetailScreen() {
           {(plan.splits || plan.weeklySchedule) && (
             <>
               <Text style={styles.previewText}>Workout Schedule:</Text>
-              {Array.isArray(plan.splits) && plan.splits.map((split, i) => (
+              {Array.isArray(plan.splits) && plan.splits.map((split: any, i: number) => (
                 <View key={i} style={{ marginBottom: 8 }}>
                   <Text style={[styles.previewText, { fontWeight: 'bold' }]}>
                     - {split.split || 'Workout'}: {split.focus || 'General'}
                   </Text>
-                  {Array.isArray(split.exercises) && split.exercises.map((ex, j) => (
+                  {Array.isArray(split.exercises) && split.exercises.map((ex: any, j: number) => (
                     <Text key={j} style={[styles.previewText, { marginLeft: 12, fontSize: 14 }]}>
                       • {ex.name || 'Exercise'} ({ex.sets || 0}x{ex.reps || '0'}, Rest: {ex.restBetweenSets || 'Not specified'})
                     </Text>
@@ -1118,12 +806,12 @@ export default function PlanDetailScreen() {
                 </View>
               ))}
               
-              {Array.isArray(plan.weeklySchedule) && plan.weeklySchedule.map((day, i) => (
+              {Array.isArray(plan.weeklySchedule) && plan.weeklySchedule.map((day: any, i: number) => (
                 <View key={i} style={{ marginBottom: 8 }}>
                   <Text style={[styles.previewText, { fontWeight: 'bold' }]}>
                     - {day.day || 'Day'}: {day.focus || 'General'}
                   </Text>
-                  {Array.isArray(day.exercises) && day.exercises.map((ex, j) => (
+                  {Array.isArray(day.exercises) && day.exercises.map((ex: any, j: number) => (
                     <Text key={j} style={[styles.previewText, { marginLeft: 12, fontSize: 14 }]}>
                       • {ex.name || 'Exercise'} ({ex.sets || 0}x{ex.reps || '0'})
                     </Text>
@@ -1147,7 +835,7 @@ export default function PlanDetailScreen() {
     }
   }
 
-  const getSplitIcon = (name) => {
+  const getSplitIcon = (name: string) => {
     const nameLower = (name || "").toLowerCase();
     if (nameLower.includes("upper")) return "arm-flex";
     if (nameLower.includes("lower")) return "human-handsdown";
@@ -1160,7 +848,7 @@ export default function PlanDetailScreen() {
     return "dumbbell";
   };
 
-  const getSplitImage = (name) => {
+  const getSplitImage = (name: string) => {
     const nameLower = (name || "").toLowerCase();
     
     // Upper body focused workouts
@@ -1233,6 +921,27 @@ export default function PlanDetailScreen() {
     extrapolate: 'clamp',
   });
 
+  // Compute rest days as 7 minus number of training days in the plan
+  const restDaysCount = useMemo(() => {
+    const weeklySource: any[] =
+      (Array.isArray(sessions) && sessions.length > 0)
+        ? sessions as any[]
+        : (Array.isArray((plan as any)?.weekly_schedule) && (plan as any).weekly_schedule.length > 0)
+          ? (plan as any).weekly_schedule
+          : (Array.isArray((plan as any)?.weeklySchedule) ? (plan as any).weeklySchedule : []);
+
+    const trainingDaysCount = weeklySource.reduce((count, day) => {
+      const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+      const dayText = String(day?.day || '').toLowerCase();
+      const focusText = String(day?.focus || '').toLowerCase();
+      const isTraining = exercises.length > 0 || (!dayText.includes('rest') && !focusText.includes('rest'));
+      return count + (isTraining ? 1 : 0);
+    }, 0);
+
+    const rest = 7 - trainingDaysCount;
+    return Math.max(0, Math.min(7, rest));
+  }, [sessions, plan]);
+
   if (isLoading) {
   return (
       <View style={styles.loadingContainer}>
@@ -1271,6 +980,121 @@ export default function PlanDetailScreen() {
           </View>
       )
   }
+
+  // Classic layout (previous frame) — keep simple header and cards list
+  const USE_CLASSIC_LAYOUT = false;
+  if (USE_CLASSIC_LAYOUT) {
+    return (
+      <View style={styles.classicContainer}>
+        <StatusBar style="light" />
+        <View style={[styles.classicHeader, { paddingTop: insets.top + 8 }]}>
+          <IconButton
+            icon="arrow-left"
+            iconColor={colors.white}
+            size={24}
+            onPress={() => {
+              try {
+                router.push({ pathname: '/(main)/workout/plans', params: { refresh: 'true' } });
+              } catch {
+                router.back();
+              }
+            }}
+          />
+          <Text style={styles.classicTitle}>{plan?.name || 'Workout Plan'}</Text>
+          <IconButton
+            icon="delete-outline"
+            iconColor={colors.error}
+            size={22}
+            onPress={confirmDeletePlan}
+          />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={[styles.classicContent, { paddingBottom: insets.bottom + 80 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {sessions.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateTitle}>No sessions yet</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Your plan was created, but no sessions were loaded. Here is a quick preview:
+              </Text>
+              {renderPlanSummary(plan)}
+            </View>
+          ) : (
+            sessions.map((session, index) => {
+              const isRestDay = !session.exercises || session.exercises.length === 0 ||
+                (session.day && session.day.toLowerCase().includes('rest'));
+              return (
+                <View key={session.id} style={styles.classicSessionCard}>
+                  <View style={styles.classicSessionHeader}>
+                    <Text style={styles.classicSessionTitle}>
+                      {session.day || `Day ${index + 1}`} · {isRestDay ? 'Rest' : (session.focus || 'Workout')}
+                    </Text>
+                  </View>
+
+                  {isRestDay ? (
+                    <View style={styles.restDayContainer}>
+                      <Icon name="sleep" size={28} color={colors.secondary} />
+                      <Text style={styles.restDayTitleExpanded}>Rest Day</Text>
+                    </View>
+                  ) : (
+                    <View style={{ marginTop: 8 }}>
+                      {session.exercises.map((exercise, idx) => (
+                        <View key={exercise.id} style={styles.classicExerciseItem}>
+                          <View style={styles.exerciseIconContainer}>
+                            <Text style={styles.exerciseNumber}>{idx + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.exerciseName}>{exercise.name}</Text>
+                            <View style={styles.exerciseMetrics}>
+                              <View style={styles.metric}>
+                                <Icon name="repeat" size={14} color={colors.primary} />
+                                <Text style={styles.metricText}>{exercise.sets} sets</Text>
+                              </View>
+                              <View style={styles.metric}>
+                                <Icon name="sync" size={14} color={colors.primary} />
+                                <Text style={styles.metricText}>{exercise.reps} reps</Text>
+                              </View>
+                              <View style={styles.metric}>
+                                <Icon name="timer-outline" size={14} color={colors.primary} />
+                                <Text style={styles.metricText}>{exercise.rest} rest</Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {!isRestDay && (
+                    <TouchableOpacity
+                      style={[styles.startButtonContainer, { marginTop: 8 }]}
+                      onPress={() => router.push({
+                        pathname: `/(main)/workout/session/${session.id}`,
+                        params: { sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
+                      })}
+                      activeOpacity={0.8}
+                    >
+                      <LinearGradient
+                        colors={[colors.primary, colors.primaryDark]}
+                        style={styles.startButton}
+                      >
+                        <Icon name="play-circle-outline" size={20} color={colors.white} style={styles.startButtonIcon} />
+                        <Text style={styles.startButtonText}>Start Workout</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  
 
   return (
     <View style={styles.container}>
@@ -1323,12 +1147,6 @@ export default function PlanDetailScreen() {
                 size={24}
                 onPress={confirmDeletePlan}
               />
-              <IconButton
-                icon="pencil"
-                iconColor={colors.primary}
-                size={24}
-                onPress={() => console.log('Edit plan')}
-              />
             </View>
           </View>
         </BlurView>
@@ -1368,25 +1186,6 @@ export default function PlanDetailScreen() {
             ],
           }
         ]}>
-          {/* AI Chat Button - Only show for non-bodybuilder plans */}
-          {!isBodybuilderPlan() && (
-            <TouchableOpacity
-              style={styles.aiButton}
-              onPress={() => setChatVisible(true)}
-              activeOpacity={0.8}
-            >
-              <BlurView intensity={60} style={styles.aiButtonBlur}>
-                <LinearGradient
-                  colors={[colors.glassStrong, colors.glass]}
-                  style={styles.aiButtonGradient}
-                >
-                  <Icon name="robot-outline" size={22} color={colors.primary} style={styles.aiIcon} />
-                  <Text style={styles.aiButtonText}>Ask AI to Refine This Plan</Text>
-                  <Icon name="chevron-right" size={16} color={colors.primary} />
-                </LinearGradient>
-              </BlurView>
-            </TouchableOpacity>
-          )}
         
           {/* Title Section */}
           <View style={styles.titleSection}>
@@ -1402,8 +1201,42 @@ export default function PlanDetailScreen() {
               <View style={styles.titleAccent} />
             </View>
           </View>
+
+          {/* Rest Days Notice (orange) under plan name, above workout days */}
+          {(restDaysCount ?? 0) >= 0 && (
+            <View style={styles.restNoticeContainer}>
+              <LinearGradient
+                colors={[
+                  'rgba(255, 107, 53, 0.25)',
+                  'rgba(255, 107, 53, 0.15)'
+                ]}
+                style={styles.restNoticeGradient}
+              >
+                <View style={styles.restNoticeIconWrap}>
+                  <Icon name="sleep" size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.restNoticeTitle}>Rest days this week</Text>
+                  <Text style={styles.restNoticeCount}><Text style={styles.restNoticeNumber}>{restDaysCount}</Text> day{restDaysCount === 1 ? '' : 's'}</Text>
+                  <Text style={styles.restNoticeSub}>Recovery fuels progress. Keep them sacred.</Text>
+                </View>
+                <View style={styles.restNoticeBadge}>
+                  <Icon name="calendar-week" size={16} color={colors.white} />
+                </View>
+              </LinearGradient>
+            </View>
+          )}
         
           {/* Workout Sessions */}
+          {sessions.length === 0 && (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateTitle}>No sessions yet</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Your plan was created, but no sessions were loaded. Here is a quick preview:
+              </Text>
+              {renderPlanSummary(plan)}
+            </View>
+          )}
         {sessions.map((session, index) => {
             // Check if this is a rest day
             const isRestDay = !session.exercises || session.exercises.length === 0 ||
@@ -1648,139 +1481,7 @@ export default function PlanDetailScreen() {
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* AI Chat Modal - Only show for non-bodybuilder plans */}
-      {!isBodybuilderPlan() && (
-        <Portal>
-          <Modal
-            transparent={true}
-            visible={chatVisible}
-            onDismiss={() => setChatVisible(false)}
-            animationType="slide"
-          >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.modalContainer, { paddingBottom: insets.bottom }]}
-          >
-            <View style={styles.chatWrapper}>
-              <BlurView intensity={100} style={styles.chatWrapperBlur}>
-                <LinearGradient
-                  colors={[colors.surface, colors.surfaceLight]}
-                  style={styles.chatWrapperGradient}
-                >
-              <View style={styles.chatHeader}>
-                <Text style={styles.chatHeaderTitle}>Ask AI</Text>
-                <IconButton 
-                  icon="close" 
-                  size={24}
-                  onPress={() => setChatVisible(false)} 
-                  iconColor={colors.text}
-                />
-              </View>
-
-              <ScrollView
-                style={styles.chatHistory}
-                contentContainerStyle={styles.chatHistoryContent}
-                ref={scrollViewRef}
-                onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-              >
-                {chatHistory.map((msg, idx) => (
-                  <View key={idx} style={msg.sender === 'user' ? styles.userMsg : styles.aiMsg}>
-                    <Text style={msg.sender === 'user' ? styles.userMsgText : styles.aiMsgText}>{msg.text}</Text>
-                    {msg.sender === 'ai' && pendingNewPlan && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setPreviewLoading(true);
-                          console.log('[PREVIEW BUTTON] pendingNewPlan data:', JSON.stringify(pendingNewPlan, null, 2));
-                          // Close the chatbot modal first
-                          setChatVisible(false);
-                          // Navigate to preview screen
-                          router.push({
-                            pathname: '/workout/preview-plan',
-                            params: {
-                              planObject: JSON.stringify(pendingNewPlan),
-                              originalPlanId: planId
-                            }
-                          });
-                          setPreviewLoading(false);
-                        }}
-                        style={styles.previewButtonInline}
-                        disabled={previewLoading}
-                      >
-                        <LinearGradient
-                          colors={previewLoading ? [colors.textSecondary, colors.textSecondary] : [colors.primary, colors.primaryDark]}
-                          style={styles.previewButtonInlineGradient}
-                        >
-                          <Icon name="eye-outline" size={16} color={colors.white} />
-                          <Text style={styles.previewButtonInlineText}>
-                            {previewLoading ? 'Loading...' : 'Preview Plan'}
-                          </Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
-                {chatLoading && (
-                  <View style={styles.aiMsg}>
-                    <View style={styles.loadingMessageSpinnerContainer}>
-                      <ActivityIndicator size="small" color={colors.primary} style={styles.loadingMessageSpinner} />
-                      <Text style={styles.aiMsgText}>AI is thinking...</Text>
-                    </View>
-                  </View>
-                )}
-              </ScrollView>
-
-              <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <View style={styles.chatInputRow}>
-                  <View style={[
-                    styles.chatInputContainer,
-                    inputFocused && styles.chatInputContainerFocused
-                  ]}>
-                    <View style={styles.chatInputHeader}>
-                      <Icon name="robot" size={16} color={colors.primary} />
-                      <Text style={styles.chatInputLabel}>Ask AI Assistant</Text>
-                    </View>
-                    <TextInput
-                      value={chatInput}
-                      onChangeText={handleChatInputChange}
-                      placeholder="Type your request here..."
-                      style={styles.chatInput}
-                      placeholderTextColor={colors.textSecondary}
-                      multiline
-                      numberOfLines={4}
-                      textAlignVertical="top"
-                      onFocus={() => setInputFocused(true)}
-                      onBlur={() => setInputFocused(false)}
-                      autoCorrect={false}
-                      autoCapitalize="sentences"
-                      spellCheck={false}
-                      returnKeyType="default"
-                      blurOnSubmit={false}
-                      keyboardType="default"
-                      scrollEnabled={true}
-                    />
-                  </View>
-                  {chatLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    </View>
-                  ) : (
-                    <IconButton
-                      icon="send-circle"
-                      iconColor={colors.primary}
-                      size={32}
-                      onPress={handleSendChat}
-                      disabled={!chatInput.trim()}
-                    />
-                  )}
-                </View>
-              </View>
-                </LinearGradient>
-              </BlurView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      </Portal>
-      )}
+      
 
 
     </View>
@@ -1882,36 +1583,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
   },
-  aiButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 32,
-  },
-  aiButtonBlur: {
-    borderRadius: 16,
-  },
-  aiButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  aiIcon: {
-    marginRight: 8,
-  },
-  aiButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-    marginHorizontal: 12,
-    letterSpacing: 0.5,
-    flex: 1,
-    textAlign: 'center',
-  },
      titleSection: {
      marginBottom: 32,
      backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -1962,6 +1633,78 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 10,
     zIndex: -1,
+  },
+  restNoticeContainer: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+  restNoticeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 12
+  },
+  restNoticeIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 107, 53, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4
+  },
+  restNoticeTitle: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase'
+  },
+  restNoticeCount: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 2
+  },
+  restNoticeNumber: {
+    color: colors.primary,
+  },
+  restNoticeSub: {
+    color: colors.textTertiary,
+    fontSize: 12,
+    marginTop: 2
+  },
+  restNoticeBadge: {
+    marginLeft: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 53, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  emptyStateContainer: {
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  emptyStateSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 12,
   },
   sessionCard: {
     height: 80,
@@ -2159,168 +1902,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-  },
-  chatWrapper: {
-    height: '90%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
-  chatWrapperBlur: {
-    flex: 1,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  chatWrapperGradient: {
-    flex: 1,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  chatHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  chatHistory: {
-    flex: 1,
-  },
-  chatHistoryContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 32,
-  },
-  bottomContainer: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    paddingBottom: 20,
-  },
-  userMsg: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    borderBottomRightRadius: 4,
-    marginVertical: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    maxWidth: '85%',
-  },
-  aiMsg: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
-    marginVertical: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    maxWidth: '85%',
-  },
-  userMsgText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  aiMsgText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  chatInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-    gap: 12,
-  },
-  chatInputContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(28, 28, 30, 0.9)',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 107, 53, 0.2)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    paddingBottom: 12,
-    paddingTop: 8,
-    overflow: 'hidden',
-  },
-  chatInput: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    fontSize: 15,
-    maxHeight: 160,
-    minHeight: 80,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 18,
-    color: colors.text,
-    fontWeight: '500',
-    textAlignVertical: 'top',
-    includeFontPadding: false,
-    textAlign: 'left',
-    lineHeight: 20,
-    borderBottomWidth: 0,
-    borderWidth: 0,
-    fontFamily: 'System',
-  },
-  chatInputContainerFocused: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    borderBottomWidth: 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-    backgroundColor: 'rgba(28, 28, 30, 1)',
-    transform: [{ scale: 1.02 }],
-  },
-  loadingMessageContainer: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingMessageSpinnerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingMessageSpinner: {
-    marginRight: 4,
-  },
-  chatInputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
-    marginBottom: 4,
-  },
-  chatInputLabel: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
   previewBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2421,6 +2002,53 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontStyle: 'italic',
   },
+  classicContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  classicHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)'
+  },
+  classicTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.white,
+    flex: 1,
+    textAlign: 'center'
+  },
+  classicContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16
+  },
+  classicSessionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 16
+  },
+  classicSessionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  classicSessionTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  classicExerciseItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12
+  },
   applyBtnContainer: {
     marginTop: 20,
     borderRadius: 12,
@@ -2447,5 +2075,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  stickyNoticeWrapper: {
+    backgroundColor: 'rgba(18,18,18,0.95)',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
 }); 

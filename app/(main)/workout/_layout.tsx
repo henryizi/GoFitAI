@@ -11,6 +11,8 @@ export default function WorkoutLayout() {
       <Stack.Screen name="session/[id]" />
       <Stack.Screen name="preview-plan" />
       <Stack.Screen name="clear-plans" />
+      <Stack.Screen name="history" />
+      <Stack.Screen name="history-session/[sessionId]" />
     </Stack>
   );
 } 

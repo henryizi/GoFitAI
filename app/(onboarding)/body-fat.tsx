@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
-import { Appbar } from 'react-native-paper';
 import { identify } from '../../src/services/analytics/analytics';
+import { track as analyticsTrack } from '../../src/services/analytics/analytics';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 
 const BodyFatScreen = () => {
   const { user } = useAuth();
@@ -17,24 +19,39 @@ const BodyFatScreen = () => {
     if (user && bodyFat) {
       const bodyFatNumber = parseFloat(bodyFat);
       if (!isNaN(bodyFatNumber) && bodyFatNumber >= 0 && bodyFatNumber <= 50) {
-                 await supabase.from('profiles').update({ body_fat: bodyFatNumber }).eq('id', user.id);
-         try { identify(user.id, { body_fat: bodyFatNumber }); } catch {}
-         router.push('/(onboarding)/fat-reduction');
+        await supabase.from('profiles').update({ body_fat: bodyFatNumber }).eq('id', user.id);
+        try { identify(user.id, { body_fat: bodyFatNumber }); } catch {}
+        try { analyticsTrack('onboarding_step_next', { step: 'body-fat' }); } catch {}
+        router.push('/(onboarding)/primary-goal');
       }
     }
+  };
+
+  const handleBack = () => {
+    try { analyticsTrack('onboarding_step_prev', { step: 'body-fat' }); } catch {}
+    router.replace('/(onboarding)/activity-level');
+  };
+
+  const handleClose = () => {
+    try { analyticsTrack('onboarding_step_close', { step: 'body-fat' }); } catch {}
+    router.replace('/(main)/dashboard');
   };
 
   const isValid = bodyFat && parseFloat(bodyFat) >= 0 && parseFloat(bodyFat) <= 50;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={() => router.replace('/(onboarding)/activity-level')} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '67%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={() => router.replace('/(main)/dashboard')} />
-      </Appbar.Header>
+    <OnboardingLayout
+      title="What's your body fat percentage?"
+      subtitle="This helps us track your body composition progress"
+      progress={0.75}
+      currentStep={9}
+      totalSteps={12}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/activity-level"
+      onClose={handleClose}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={undefined}
@@ -46,8 +63,6 @@ const BodyFatScreen = () => {
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.content}>
-              <Text style={styles.title}>What's your body fat percentage?</Text>
-              <Text style={styles.subtitle}>This helps us track your body composition progress</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   value={bodyFat}
@@ -66,42 +81,18 @@ const BodyFatScreen = () => {
           </ScrollView>
         </TouchableWithoutFeedback>
         <View style={styles.footer}>
-          <Button 
-            mode="contained" 
-            onPress={handleNext} 
-            style={styles.nextButton}
-            contentStyle={styles.nextButtonContent}
-            buttonColor={isValid ? colors.accent : colors.border}
-            labelStyle={{color: 'white'}}
+          <OnboardingButton
+            title="Continue"
+            onPress={handleNext}
             disabled={!isValid}
-          >
-            Continue
-          </Button>
+          />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   scrollContent: {
     flexGrow: 1,
   },
@@ -109,20 +100,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 40,
-    marginTop: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+    marginTop: 40,
   },
   inputContainer: {
     width: '100%',
@@ -151,18 +129,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 24,
-    backgroundColor: colors.background,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  nextButton: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  nextButtonContent: {
-    height: 56,
   },
 });
 

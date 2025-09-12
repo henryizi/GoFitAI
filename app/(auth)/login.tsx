@@ -30,7 +30,7 @@ const LoginScreen = () => {
     if (error) {
       setError(error.message);
     } else {
-      router.replace('/dashboard');
+      router.replace('/(main)/dashboard');
     }
   };
 

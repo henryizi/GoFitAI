@@ -69,7 +69,13 @@ interface Plan {
     image_url?: string;
     created_at?: string;
     updated_at?: string;
+    user_id?: string;
+    current_week?: number;
+    deload_week?: boolean;
+    goal_muscle_gain?: number;
+    goal_fat_loss?: number;
     weekly_schedule?: any; // Added for navigation
+    weeklySchedule?: any; // Alternative naming
 }
 
 // MARK: - Screen Component
@@ -117,7 +123,7 @@ const WorkoutPlansScreen = () => {
         // Load from local storage first for immediate display
         let localPlans: any[] = [];
         try {
-          const rawPlans = await WorkoutLocalStore.getPlans(user.id);
+          const rawPlans: any[] = await WorkoutLocalStore.getPlans(user.id);
           console.log('[WorkoutPlans] Raw plans from storage:', {
             type: typeof rawPlans,
             isArray: Array.isArray(rawPlans),
@@ -149,7 +155,8 @@ const WorkoutPlansScreen = () => {
             localPlans = rawPlans;
           } else if (rawPlans && typeof rawPlans === 'object') {
             // If it's an object, try to extract array from it
-            localPlans = rawPlans.plans || rawPlans.data || [rawPlans];
+            const rawPlansObj = rawPlans as any;
+            localPlans = rawPlansObj.plans || rawPlansObj.data || [rawPlans];
           } else {
             console.warn('[WorkoutPlans] Invalid plans data from storage:', rawPlans);
             localPlans = [];
@@ -234,13 +241,15 @@ const WorkoutPlansScreen = () => {
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
-            
-          if (allPlans && allPlans.length > 0) {
-            console.log('[WorkoutPlans] Fetched', allPlans.length, 'plans from database');
-            
+
+          const allPlansTyped = allPlans as any[];
+
+          if (allPlansTyped && allPlansTyped.length > 0) {
+            console.log('[WorkoutPlans] Fetched', allPlansTyped.length, 'plans from database');
+
             // Fetch weekly schedules for each plan to ensure complete data
             const enrichedPlans = await Promise.all(
-              allPlans.map(async (plan) => {
+              allPlansTyped.map(async (plan) => {
                 // If this is a UUID plan, try to fetch its sessions and weekly schedule
                 if (WorkoutService.isValidUUID(plan.id)) {
                   try {
@@ -302,6 +311,14 @@ const WorkoutPlansScreen = () => {
                 mergedPlans.push(dbPlan);
               }
             }
+
+            // Sort: active plans first, then newest created
+            mergedPlans.sort((a: any, b: any) => {
+              if (!!a.is_active !== !!b.is_active) return a.is_active ? -1 : 1;
+              const aDate = new Date(a.created_at || a.updated_at || 0).getTime();
+              const bDate = new Date(b.created_at || b.updated_at || 0).getTime();
+              return bDate - aDate;
+            });
 
             console.log(`[WorkoutPlans] Merged ${validPlans.length} local plans with ${uniqueDbPlans.length} database plans = ${mergedPlans.length} total plans`);
             setPlans(mergedPlans as any);
@@ -517,8 +534,8 @@ const WorkoutPlansScreen = () => {
     console.log('[WorkoutPlans] Object.keys(plan):', Object.keys(plan || {}));
     
     // Check if plan has any identifiable properties
-    const planName = plan?.name || plan?.title || 'Unknown Plan';
-    const planId = plan?.id || plan?.planId || plan?.plan_id;
+    const planName = plan?.name || 'Unknown Plan';
+    const planId = plan?.id;
     
     console.log('[WorkoutPlans] Extracted planName:', planName);
     console.log('[WorkoutPlans] Extracted planId:', planId);
@@ -561,9 +578,7 @@ const WorkoutPlansScreen = () => {
                 const matchingPlan = allStoredPlans.find(storedPlan => {
                   return (
                     (planId && storedPlan.id === planId) ||
-                    (planName !== 'Unknown Plan' && storedPlan.name === planName) ||
-                    (plan?.description && storedPlan.description === plan.description) ||
-                    (plan?.training_level && storedPlan.training_level === plan.training_level)
+                    (planName !== 'Unknown Plan' && storedPlan.name === planName)
                   );
                 });
                 
@@ -662,16 +677,14 @@ const WorkoutPlansScreen = () => {
     const animatedStyle = {
       opacity: fadeAnim,
       transform: [
-        {
-          translateY: slideAnim,
-        },
+        { translateY: slideAnim },
         {
           scale: fadeAnim.interpolate({
             inputRange: [0, 1],
             outputRange: [0.9, 1],
           }),
         },
-      ],
+      ] as any,
     };
 
     return (

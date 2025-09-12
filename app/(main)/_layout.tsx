@@ -45,8 +45,19 @@ export default function MainLayout() {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           height: 60 + insets.bottom,
-          paddingHorizontal: 12,
+          paddingLeft: 20,
+          paddingRight: 0,
           paddingBottom: insets.bottom,
+          justifyContent: 'flex-start',
+          flexDirection: 'row',
+          alignItems: 'center',
+          flex: 0,
+        },
+        tabBarItemStyle: {
+          flex: 0,
+          width: 'auto',
+          alignSelf: 'flex-start',
+          marginRight: 30,
         },
         tabBarBackground: () => (
           <View style={styles.tabBarContainer}>
@@ -72,7 +83,8 @@ export default function MainLayout() {
                 <Icon 
                   name="dumbbell" 
                   color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22} 
+                  size={focused ? 24 : 22}
+                  style={{ textAlign: 'center', alignSelf: 'center' }}
                 />
               </View>
             </View>
@@ -89,7 +101,8 @@ export default function MainLayout() {
                 <Icon 
                   name="food-apple-outline" 
                   color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22} 
+                  size={focused ? 24 : 22}
+                  style={{ textAlign: 'center', alignSelf: 'center' }}
                 />
               </View>
             </View>
@@ -109,7 +122,7 @@ export default function MainLayout() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Icon name="home" color={colors.white} size={28} />
+                <Icon name="home" color={colors.white} size={28} style={{ textAlign: 'center', alignSelf: 'center' }} />
                 <View style={styles.centerTabRing} />
               </LinearGradient>
               {focused && <View style={styles.centerTabGlow} />}
@@ -118,7 +131,7 @@ export default function MainLayout() {
         }}
         listeners={{
           tabPress: (e) => {
-            e.preventDefault();
+            // Custom navigation handled via tab behavior
             router.push('/(main)/dashboard');
           },
         }}
@@ -133,7 +146,8 @@ export default function MainLayout() {
                 <Icon 
                   name="chart-line" 
                   color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22} 
+                  size={focused ? 24 : 22}
+                  style={{ textAlign: 'center', alignSelf: 'center' }}
                 />
               </View>
             </View>
@@ -151,7 +165,8 @@ export default function MainLayout() {
                 <Icon 
                   name="cog-outline" 
                   color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22} 
+                  size={focused ? 24 : 22}
+                  style={{ textAlign: 'center', alignSelf: 'center' }}
                 />
               </View>
             </View>
@@ -197,10 +212,11 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     marginTop: 5,
+    marginHorizontal: 4,
   },
   tabItemActive: {
     transform: [{ scale: 1.05 }],
@@ -208,11 +224,12 @@ const styles = StyleSheet.create({
   iconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: 'transparent',
     position: 'relative',
+    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
   },
   iconWrapperActive: {
     backgroundColor: 'rgba(255, 107, 53, 0.15)',
@@ -242,30 +259,33 @@ const styles = StyleSheet.create({
   centerTabContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 50,
-    height: 50,
+    width: 54,
+    height: 54,
     position: 'relative',
     marginTop: 5,
+    marginHorizontal: 4,
+    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
   },
   centerTabShadow: {
     position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: colors.shadow,
     opacity: 0.3,
-    top: 9,
+    top: 7,
     left: 7,
   },
   centerTab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     position: 'relative',
+    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -298,6 +318,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     opacity: 0.1,
   },
-
-
-}); 
+});

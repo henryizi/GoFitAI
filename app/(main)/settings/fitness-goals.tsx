@@ -5,7 +5,7 @@ import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
@@ -38,10 +38,53 @@ const trainingLevels = [
 ];
 
 const primaryGoals = [
-  { id: 'general_fitness', title: 'General Fitness', subtitle: 'Stay healthy and active', icon: 'heart-pulse' },
-  { id: 'fat_loss', title: 'Fat Loss', subtitle: 'Burn fat and lose weight', icon: 'scale-bathroom' },
-  { id: 'muscle_gain', title: 'Muscle Gain', subtitle: 'Build muscle and strength', icon: 'arm-flex' },
-  { id: 'athletic_performance', title: 'Athletic Performance', subtitle: 'Improve sports performance', icon: 'run' },
+  { id: 'general_fitness', title: 'General Fitness', subtitle: 'Improve overall health and physical conditioning', icon: 'heart-pulse' },
+  { id: 'muscle_gain', title: 'Muscle Gain', subtitle: 'Build muscle mass and strength', icon: 'arm-flex' },
+  { id: 'fat_loss', title: 'Fat Loss', subtitle: 'Lose body fat while preserving muscle', icon: 'scale' },
+  { id: 'athletic_performance', title: 'Athletic Performance', subtitle: 'Enhance speed, power, and sports performance', icon: 'run' },
+];
+
+const fitnessStrategies = [
+  { 
+    id: 'bulk', 
+    title: 'Bulk', 
+    subtitle: 'Build muscle mass', 
+    description: 'Calorie surplus focused on maximizing muscle growth',
+    icon: 'arm-flex',
+    color: colors.primary
+  },
+  { 
+    id: 'cut', 
+    title: 'Cut', 
+    subtitle: 'Lose body fat', 
+    description: 'Calorie deficit while preserving muscle mass',
+    icon: 'fire',
+    color: colors.accent
+  },
+  { 
+    id: 'maintenance', 
+    title: 'Maintenance', 
+    subtitle: 'Maintain physique', 
+    description: 'Balanced approach to maintain current weight',
+    icon: 'scale-balance',
+    color: colors.secondary
+  },
+  { 
+    id: 'recomp', 
+    title: 'Body Recomp', 
+    subtitle: 'Build muscle & lose fat', 
+    description: 'Simultaneous muscle gain and fat loss',
+    icon: 'autorenew',
+    color: '#8B5CF6'
+  },
+  { 
+    id: 'maingaining', 
+    title: 'Maingaining', 
+    subtitle: 'Slow, lean gains', 
+    description: 'Gradual muscle growth with minimal fat gain',
+    icon: 'trending-up',
+    color: '#10B981'
+  }
 ];
 
 const workoutFrequencies = [
@@ -55,16 +98,45 @@ export default function FitnessGoalsScreen() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   
-  const [selectedTrainingLevel, setSelectedTrainingLevel] = useState<string>(profile?.training_level || 'beginner');
-  const [selectedGoal, setSelectedGoal] = useState<string>(profile?.primary_goal || 'general_fitness');
-  const [selectedFrequency, setSelectedFrequency] = useState<string>(profile?.workout_frequency || '4_5');
+  const [selectedTrainingLevel, setSelectedTrainingLevel] = useState<string>('beginner');
+  const [selectedGoal, setSelectedGoal] = useState<string>('general_fitness');
 
-  // New state for fat loss and muscle gain goals
-  const [fatLossGoal, setFatLossGoal] = useState<number>(profile?.goal_fat_reduction || 0);
-  const [muscleGainGoal, setMuscleGainGoal] = useState<number>(profile?.goal_muscle_gain || 0);
+  // Handle migration from old 'hypertrophy' value to new 'muscle_gain' value
+  const effectiveSelectedGoal = selectedGoal === 'hypertrophy' ? 'muscle_gain' : selectedGoal;
+  const [selectedFrequency, setSelectedFrequency] = useState<string>('4_5');
+
+  // Debug log initial values and profile changes
+  useEffect(() => {
+    console.log('🚀 Fitness Goals: Component mounted with profile:', {
+      workout_frequency: profile?.workout_frequency,
+      preferred_workout_frequency: profile?.preferred_workout_frequency,
+      exercise_frequency: profile?.exercise_frequency,
+      selectedFrequency: selectedFrequency,
+      profileExists: !!profile,
+      userHasModified: userHasModified
+    });
+  }, []);
+
+  // Additional debug for profile changes
+  useEffect(() => {
+    if (profile) {
+      console.log('📊 Profile loaded/changed:', {
+        workout_frequency: profile.workout_frequency,
+        preferred_workout_frequency: profile.preferred_workout_frequency,
+        exercise_frequency: profile.exercise_frequency,
+        onboarding_completed: profile.onboarding_completed
+      });
+    } else {
+      console.log('📊 Profile is null');
+    }
+  }, [profile]);
+
+  // New state for fitness strategy
+  const [selectedFitnessStrategy, setSelectedFitnessStrategy] = useState<string>('maintenance');
 
   // Track if user has made changes to avoid overwriting with profile updates
   const [userHasModified, setUserHasModified] = useState(false);
+
 
   // Sync local state with profile data when profile changes (but only if user hasn't modified)
   useEffect(() => {
@@ -73,15 +145,17 @@ export default function FitnessGoalsScreen() {
         training_level: profile.training_level,
         primary_goal: profile.primary_goal,
         workout_frequency: profile.workout_frequency,
-        goal_fat_reduction: profile.goal_fat_reduction,
-        goal_muscle_gain: profile.goal_muscle_gain
+        preferred_workout_frequency: profile.preferred_workout_frequency,
+        exercise_frequency: profile.exercise_frequency,
+        fitness_strategy: profile.fitness_strategy
       });
 
       setSelectedTrainingLevel(profile.training_level || 'beginner');
-      setSelectedGoal(profile.primary_goal || 'general_fitness');
+      // Handle migration from 'hypertrophy' to 'muscle_gain'
+      const goal = profile.primary_goal === 'hypertrophy' ? 'muscle_gain' : (profile.primary_goal || 'general_fitness');
+      setSelectedGoal(goal);
       setSelectedFrequency(profile.workout_frequency || '4_5');
-      setFatLossGoal(profile.goal_fat_reduction || 0);
-      setMuscleGainGoal(profile.goal_muscle_gain || 0);
+      setSelectedFitnessStrategy(profile.fitness_strategy || 'maintenance');
 
       console.log('✅ Fitness Goals: Local state updated from profile');
     } else if (profile && userHasModified) {
@@ -91,8 +165,7 @@ export default function FitnessGoalsScreen() {
       setSelectedTrainingLevel('beginner');
       setSelectedGoal('general_fitness');
       setSelectedFrequency('4_5');
-      setFatLossGoal(0);
-      setMuscleGainGoal(0);
+      setSelectedFitnessStrategy('maintenance');
     }
   }, [profile, userHasModified]);
 
@@ -103,10 +176,9 @@ export default function FitnessGoalsScreen() {
     try {
       const updateData = {
         training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
-        primary_goal: selectedGoal as 'general_fitness' | 'fat_loss' | 'muscle_gain' | 'athletic_performance',
+        primary_goal: selectedGoal as 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_performance',
         workout_frequency: selectedFrequency as '2_3' | '4_5' | '6',
-        goal_fat_reduction: fatLossGoal,
-        goal_muscle_gain: muscleGainGoal,
+        fitness_strategy: selectedFitnessStrategy as 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining',
       };
 
       console.log('💾 Saving fitness goals:', updateData);
@@ -124,7 +196,7 @@ export default function FitnessGoalsScreen() {
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json() as { success: boolean; error?: string };
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to update profile');
@@ -142,8 +214,7 @@ export default function FitnessGoalsScreen() {
           training_level: updateData.training_level,
           primary_goal: updateData.primary_goal,
           workout_frequency: updateData.workout_frequency,
-          goal_fat_reduction: updateData.goal_fat_reduction,
-          goal_muscle_gain: updateData.goal_muscle_gain
+          fitness_strategy: updateData.fitness_strategy
         });
       } catch {}
 
@@ -166,7 +237,7 @@ export default function FitnessGoalsScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop' }}
         style={styles.backgroundImage}
       >
         <LinearGradient
@@ -210,7 +281,7 @@ export default function FitnessGoalsScreen() {
               >
                 <View style={[styles.optionIconContainer, 
                   selectedTrainingLevel === level.id && styles.selectedIconContainer]}>
-                  <Icon name={level.icon} size={24} color={colors.primary} />
+                  <Icon name={level.icon as any} size={24} color={colors.primary} />
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionTitle}>{level.title}</Text>
@@ -226,85 +297,11 @@ export default function FitnessGoalsScreen() {
           ))}
         </View>
 
-        {/* Fat Loss Goal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>FAT LOSS GOAL</Text></Text>
-          <View style={styles.sliderCard}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-              style={styles.sliderCardGradient}
-            >
-              <View style={styles.sliderHeader}>
-                <View style={styles.sliderIconContainer}>
-                  <Icon name="trending-down" size={24} color={colors.accent} />
-                </View>
-                <View style={styles.sliderContent}>
-                  <Text style={styles.sliderTitle}>Target Fat Loss</Text>
-                  <Text style={styles.sliderValue}>{fatLossGoal}%</Text>
-                </View>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={20}
-                value={fatLossGoal}
-                onValueChange={(value) => {
-                  setUserHasModified(true);
-                  setFatLossGoal(Math.round(value));
-                }}
-                minimumTrackTintColor={colors.accent}
-                maximumTrackTintColor="rgba(255,255,255,0.2)"
-                thumbTintColor={colors.accent}
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>0%</Text>
-                <Text style={styles.sliderLabel}>20%</Text>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
 
-        {/* Muscle Gain Goal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>03 <Text style={styles.sectionTitleText}>MUSCLE GAIN GOAL</Text></Text>
-          <View style={styles.sliderCard}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-              style={styles.sliderCardGradient}
-            >
-              <View style={styles.sliderHeader}>
-                <View style={styles.sliderIconContainer}>
-                  <Icon name="arm-flex" size={24} color={colors.success} />
-                </View>
-                <View style={styles.sliderContent}>
-                  <Text style={styles.sliderTitle}>Target Muscle Gain</Text>
-                  <Text style={styles.sliderValue}>{muscleGainGoal} kg</Text>
-                </View>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={20}
-                value={muscleGainGoal}
-                onValueChange={(value) => {
-                  setUserHasModified(true);
-                  setMuscleGainGoal(Math.round(value));
-                }}
-                minimumTrackTintColor={colors.success}
-                maximumTrackTintColor="rgba(255,255,255,0.2)"
-                thumbTintColor={colors.success}
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>0 kg</Text>
-                <Text style={styles.sliderLabel}>20 kg</Text>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
 
         {/* Primary Goal */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>04 <Text style={styles.sectionTitleText}>PRIMARY GOAL</Text></Text>
+          <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>PRIMARY GOAL</Text></Text>
           {primaryGoals.map((goal) => (
             <TouchableOpacity
               key={goal.id}
@@ -315,21 +312,21 @@ export default function FitnessGoalsScreen() {
               style={styles.optionCard}
             >
               <LinearGradient
-                colors={selectedGoal === goal.id ? 
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] : 
+                colors={effectiveSelectedGoal === goal.id ?
+                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
                   ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
                 style={styles.optionCardGradient}
               >
-                <View style={[styles.optionIconContainer, 
-                  selectedGoal === goal.id && styles.selectedIconContainer]}>
-                  <Icon name={goal.icon} size={24} color={colors.primary} />
+                <View style={[styles.optionIconContainer,
+                  effectiveSelectedGoal === goal.id && styles.selectedIconContainer]}>
+                  <Icon name={goal.icon as any} size={24} color={colors.primary} />
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionTitle}>{goal.title}</Text>
                   <Text style={styles.optionSubtitle}>{goal.subtitle}</Text>
                 </View>
                 <View style={styles.radioButton}>
-                  {selectedGoal === goal.id && (
+                  {effectiveSelectedGoal === goal.id && (
                     <View style={styles.radioButtonSelected} />
                   )}
                 </View>
@@ -340,7 +337,7 @@ export default function FitnessGoalsScreen() {
 
         {/* Workout Frequency */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>05 <Text style={styles.sectionTitleText}>WORKOUT FREQUENCY</Text></Text>
+          <Text style={styles.sectionTitle}>03 <Text style={styles.sectionTitleText}>WORKOUT FREQUENCY</Text></Text>
           {workoutFrequencies.map((frequency) => (
             <TouchableOpacity
               key={frequency.id}
@@ -351,12 +348,12 @@ export default function FitnessGoalsScreen() {
               style={styles.optionCard}
             >
               <LinearGradient
-                colors={selectedFrequency === frequency.id ? 
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] : 
+                colors={selectedFrequency === frequency.id ?
+                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
                   ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
                 style={styles.optionCardGradient}
               >
-                <View style={[styles.optionIconContainer, 
+                <View style={[styles.optionIconContainer,
                   selectedFrequency === frequency.id && styles.selectedIconContainer]}>
                   <Icon name="calendar-clock" size={24} color={colors.primary} />
                 </View>
@@ -366,6 +363,47 @@ export default function FitnessGoalsScreen() {
                 </View>
                 <View style={styles.radioButton}>
                   {selectedFrequency === frequency.id && (
+                    <View style={styles.radioButtonSelected} />
+                  )}
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Fitness Strategy */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>04 <Text style={styles.sectionTitleText}>FITNESS STRATEGY</Text></Text>
+          {fitnessStrategies.map((strategy) => (
+            <TouchableOpacity
+              key={strategy.id}
+              onPress={() => {
+                setUserHasModified(true);
+                setSelectedFitnessStrategy(strategy.id);
+              }}
+              style={styles.optionCard}
+            >
+              <LinearGradient
+                colors={selectedFitnessStrategy === strategy.id ?
+                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
+                  ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
+                style={styles.optionCardGradient}
+              >
+                <View style={[styles.optionIconContainer,
+                  selectedFitnessStrategy === strategy.id && styles.selectedIconContainer]}>
+                  <Icon name={strategy.icon as any} size={24} color={strategy.color || colors.primary} />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>{strategy.title}</Text>
+                  <Text style={styles.optionSubtitle}>{strategy.subtitle}</Text>
+                  {strategy.description && (
+                    <Text style={[styles.optionSubtitle, { fontSize: 12, marginTop: 4 }]}>
+                      {strategy.description}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.radioButton}>
+                  {selectedFitnessStrategy === strategy.id && (
                     <View style={styles.radioButtonSelected} />
                   )}
                 </View>

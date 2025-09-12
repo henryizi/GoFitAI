@@ -111,7 +111,7 @@ const SavedRecipesScreen = () => {
       <Card style={styles.recipeCard}>
         <Card.Content>
           <View style={styles.cardHeader}>
-            <Text style={styles.recipeName}>{item.recipe_name}</Text>
+            <Text style={styles.recipeName} numberOfLines={3} ellipsizeMode="tail">{item.recipe_name}</Text>
             <View style={styles.cardActions}>
               <IconButton 
                 icon="share-variant" 
@@ -185,7 +185,7 @@ const SavedRecipesScreen = () => {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{selectedRecipe.recipe_name}</Text>
+                <Text style={styles.modalTitle} numberOfLines={3} ellipsizeMode="tail">{selectedRecipe.recipe_name}</Text>
                 <View style={styles.modalHeaderActions}>
                   <IconButton 
                     icon="share-variant" 
@@ -411,6 +411,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     flex: 1,
+    lineHeight: 24,
+    minHeight: 48, // 确保至少有两行空间用于长食谱名称
   },
   savedDate: {
     color: colors.textSecondary,

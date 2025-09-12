@@ -343,11 +343,10 @@ const RecipeGeneratorScreen = () => {
             disabled={isLoading || !ingredients.trim()}
           >
             <LinearGradient
-              colors={colors.gradients.primary}
-              style={StyleSheet.absoluteFill}
+              colors={colors.gradients.primary as any}
+              style={[StyleSheet.absoluteFill, { borderRadius: theme.borderRadius.md }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              borderRadius={theme.borderRadius.md}
             />
             {isLoading ? (
               <ActivityIndicator color={colors.textInverse} size="small" />
@@ -396,7 +395,7 @@ const RecipeGeneratorScreen = () => {
             {/* Recipe Header */}
             <View style={styles.recipeHeader}>
               <LinearGradient
-                colors={colors.gradients.primary}
+                colors={colors.gradients.primary as any}
                 style={styles.recipeHeaderGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -531,9 +530,8 @@ const RecipeGeneratorScreen = () => {
                   <View key={index} style={styles.stepContainer}>
                     <View style={styles.stepNumberContainer}>
                       <LinearGradient
-                        colors={colors.gradients.primary}
-                        style={StyleSheet.absoluteFill}
-                        borderRadius={theme.borderRadius.round}
+                        colors={colors.gradients.primary as any}
+                        style={[StyleSheet.absoluteFill, { borderRadius: theme.borderRadius.round }]}
                       />
                       <Text style={styles.stepNumber}>{index + 1}</Text>
                     </View>
@@ -572,9 +570,8 @@ const RecipeGeneratorScreen = () => {
             <View style={styles.actionButtonsContainer}>
               <TouchableOpacity style={styles.actionButton}>
                 <LinearGradient
-                  colors={colors.gradients.primary}
-                  style={StyleSheet.absoluteFill}
-                  borderRadius={theme.borderRadius.md}
+                  colors={colors.gradients.primary as any}
+                  style={[StyleSheet.absoluteFill, { borderRadius: theme.borderRadius.md }]}
                 />
                 <Text style={styles.actionButtonText}>Start Cooking</Text>
               </TouchableOpacity>

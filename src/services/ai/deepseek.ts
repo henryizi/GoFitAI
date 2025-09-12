@@ -26,9 +26,9 @@ interface WorkoutPlanInput {
   // Enhanced onboarding data
   bodyFat?: number; // Body fat percentage
   weightTrend?: 'losing' | 'gaining' | 'stable' | 'unsure'; // Current weight trend
-  exerciseFrequency?: '0' | '1-3' | '4-6' | '7+'; // Current exercise frequency
+  exerciseFrequency?: '1' | '2-3' | '4-5' | '6-7'; // Current exercise frequency
   workoutFrequency?: '2_3' | '4_5' | '6'; // Preferred workout frequency per week
-  activityLevel?: 'sedentary' | 'moderate' | 'very-active'; // Daily activity level
+  activityLevel?: 'sedentary' | 'moderately_active' | 'very_active'; // Daily activity level
   bodyAnalysis?: {
     chest_rating?: number;
     arms_rating?: number;

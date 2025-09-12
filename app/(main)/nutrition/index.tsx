@@ -698,9 +698,9 @@ const PlansScreen = () => {
                 <TouchableOpacity 
                   style={[styles.quickActionButton, { marginLeft: 8 }]}
                   onPress={() => {
-                    console.log('Get Recipes quick action pressed');
+                    console.log('Get Daily Meal Plan quick action pressed');
                     router.push({
-                      pathname: '/(main)/nutrition/recipe-generator'
+                      pathname: '/(main)/nutrition/recipe-generator-simple'
                     });
                   }}
                 >
@@ -710,7 +710,7 @@ const PlansScreen = () => {
                   >
                     <View style={styles.quickActionContent}>
                       <Icon name="food-variant" size={28} color={colors.accent} />
-                      <Text style={styles.quickActionText}>Get Recipes</Text>
+                      <Text style={styles.quickActionText}>Get Daily Meal Plan</Text>
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>

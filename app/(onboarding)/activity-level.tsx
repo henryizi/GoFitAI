@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
-import { Appbar } from 'react-native-paper';
 import { identify } from '../../src/services/analytics/analytics';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 
-type ActivityLevel = 'sedentary' | 'moderate' | 'very-active';
+type ActivityLevel = 'sedentary' | 'moderately_active' | 'very_active';
 
 const ActivityLevelScreen = () => {
   const { user } = useAuth();
@@ -24,41 +26,49 @@ const ActivityLevelScreen = () => {
     }
   };
 
+  const handleBack = () => {
+    router.replace('/(onboarding)/exercise-frequency');
+  };
+
+  const handleClose = () => {
+    router.replace('/(main)/dashboard');
+  };
+
   const options = [
     {
       value: 'sedentary' as ActivityLevel,
       title: 'Sedentary',
-      subtitle: 'Little to no exercise, desk job',
+      subtitle: 'Mostly sitting, desk job, little daily movement',
       icon: 'desktop-outline' as const,
     },
     {
-      value: 'moderate' as ActivityLevel,
+      value: 'moderately_active' as ActivityLevel,
       title: 'Moderately Active',
-      subtitle: 'Light exercise 1-3 days/week',
+      subtitle: 'Some walking, standing, light daily activities',
       icon: 'walk-outline' as const,
     },
     {
-      value: 'very-active' as ActivityLevel,
+      value: 'very_active' as ActivityLevel,
       title: 'Very Active',
-      subtitle: 'Hard exercise 6-7 days/week',
+      subtitle: 'Lots of walking, physical job, very active lifestyle',
       icon: 'fitness-outline' as const,
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={() => router.replace('/(onboarding)/exercise-frequency')} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '56%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={() => router.replace('/(main)/dashboard')} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="What's your daily activity level?"
+      subtitle="How active are you outside of workouts and sports?"
+      progress={0.72}
+      currentStep={8}
+      totalSteps={12}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/exercise-frequency"
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>What's your activity level?</Text>
-        <Text style={styles.subtitle}>This helps us calculate your daily calorie needs</Text>
-        
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -66,131 +76,148 @@ const ActivityLevelScreen = () => {
               style={[styles.optionCard, activityLevel === option.value && styles.selectedCard]}
               onPress={() => setActivityLevel(option.value)}
             >
-              <View style={styles.cardContent}>
-                <View style={styles.iconContainer}>
-                  <Ionicons 
-                    name={option.icon} 
-                    size={24} 
-                    color={activityLevel === option.value ? colors.primary : colors.textSecondary} 
-                  />
+              <LinearGradient
+                colors={activityLevel === option.value 
+                  ? ['rgba(255, 107, 53, 0.3)', 'rgba(255, 142, 83, 0.2)']
+                  : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons 
+                      name={option.icon} 
+                      size={28} 
+                      color={activityLevel === option.value ? '#FFFFFF' : colors.textSecondary} 
+                    />
+                  </View>
+                  <View style={styles.textContainer}>
+                    <Text style={[styles.cardTitle, activityLevel === option.value && styles.selectedText]}>
+                      {option.title}
+                    </Text>
+                    <Text style={[styles.cardSubtitle, activityLevel === option.value && styles.selectedSubText]}>
+                      {option.subtitle}
+                    </Text>
+                  </View>
+                  <View style={[styles.radioButton, activityLevel === option.value && styles.radioButtonSelected]}>
+                    {activityLevel === option.value && (
+                      <View style={styles.radioButtonInner} />
+                    )}
+                  </View>
                 </View>
-                <View style={styles.cardTextContainer}>
-                  <Text style={[styles.cardTitle, activityLevel === option.value && styles.selectedText]}>
-                    {option.title}
-                  </Text>
-                  <Text style={[styles.cardSubtitle, activityLevel === option.value && styles.selectedText]}>
-                    {option.subtitle}
-                  </Text>
-                </View>
-              </View>
+              </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
       </View>
       
       <View style={styles.footer}>
-        <Button 
-          mode="contained" 
-          onPress={handleNext} 
-          style={styles.nextButton}
-          contentStyle={styles.nextButtonContent}
-          buttonColor={activityLevel ? colors.accent : colors.border}
-          labelStyle={{color: 'white'}}
+        <OnboardingButton
+          title="Continue"
+          onPress={handleNext}
           disabled={!activityLevel}
-        >
-          Continue
-        </Button>
+        />
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 40,
-    marginTop: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    justifyContent: 'flex-start',
   },
   optionsContainer: {
     width: '100%',
-    gap: theme.spacing.lg,
+    gap: 16,
   },
   optionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xl,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+  },
+  selectedCard: {
+    borderColor: '#FF6B35',
+    elevation: 12,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  cardGradient: {
+    borderRadius: 18,
+    minHeight: 100,
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 24,
   },
   iconContainer: {
-    marginRight: theme.spacing.lg,
+    marginRight: 16,
+    width: 32,
+    alignItems: 'center',
   },
-  cardTextContainer: {
+  textContainer: {
     flex: 1,
   },
-  selectedCard: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   cardSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   selectedText: {
-    color: colors.text,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(255, 107, 53, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  selectedSubText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    borderColor: '#FFFFFF',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
   },
   footer: {
     padding: 24,
-  },
-  nextButton: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  nextButtonContent: {
-    height: 56,
+    paddingBottom: 40,
   },
 });
 
-export default ActivityLevelScreen; 
+export default ActivityLevelScreen;

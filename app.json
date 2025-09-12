@@ -11,10 +11,15 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "statusBar": {
+      "style": "auto",
+      "backgroundColor": "transparent",
+      "translucent": true
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FF8A00"
     },
     "web": {
       "favicon": "./assets/favicon.png",

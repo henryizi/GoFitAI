@@ -13,9 +13,18 @@ class GeminiVisionService {
     
     this.apiKey = apiKey;
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // ✅ Add temperature control for more consistent results
+    this.model = this.genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.1, // Lower temperature = more consistent, less random
+        topP: 0.8,
+        topK: 40
+      }
+    });
     
     console.log('[GEMINI VISION] Service initialized with model: gemini-2.5-flash');
+    console.log('[GEMINI VISION] Temperature: 0.1 (low for consistency)');
     console.log('[GEMINI VISION] API Key configured: ✅ Yes');
   }
 
@@ -45,12 +54,12 @@ class GeminiVisionService {
       };
 
       // Focused prompt for direct food analysis and nutrition estimation
-      const prompt = `Analyze this food photo and identify the food items. Estimate their nutritional information based on typical serving sizes.
+      const prompt = `Analyze this food photo and identify the dish or food items. Estimate their nutritional information based on typical serving sizes.
 
 CRITICAL: Respond ONLY with valid JSON in this exact format:
 
 {
-  "foodName": "Clear, specific food/dish name",
+  "foodName": "Specific dish name if recognizable (e.g., 'Spaghetti Bolognese', 'Caesar Salad', 'Grilled Salmon'), or simple description if multiple separate items",
   "confidence": 85,
   "estimatedServingSize": "Estimated portion description",
   "totalNutrition": {
@@ -78,15 +87,48 @@ CRITICAL: Respond ONLY with valid JSON in this exact format:
   "notes": "Brief analysis summary"
 }
 
-Guidelines:
-- Use realistic typical serving sizes for each food
-- Base nutrition on standard food database values
-- Be specific with food names (e.g., "Grilled Chicken Breast" not just "Chicken")
-- Confidence 0-100 based on image clarity
-- Include all macronutrients in grams as numbers
-- If multiple foods, list each in foodItems array
-- Make reasonable assumptions about cooking methods and ingredients
-- Focus on accuracy for common foods and typical portions`;
+DISH RECOGNITION PRIORITY - BE SMART AND RECOGNIZE CUISINE:
+1. ALWAYS FIRST: Identify complete, recognized dishes with proper cuisine names
+   - Chinese: "宫保鸡丁" (not "chicken, peanuts, vegetables"), "麻婆豆腐" (not "tofu, meat sauce")
+   - Italian: "Spaghetti Bolognese" (not "spaghetti, meat sauce"), "Margherita Pizza" 
+   - Japanese: "Chicken Teriyaki" (not "chicken, rice"), "Sushi Platter", "Ramen"
+   - Thai: "Pad Thai", "Green Curry", "Tom Yum Soup"
+   - Indian: "Butter Chicken", "Biryani", "Curry"
+   - Western: "Fish and Chips", "Caesar Salad", "Hamburger"
+
+2. If it's a recognizable cuisine dish, use the PROPER DISH NAME - don't break it down
+   - Example: If you see dumplings → "Dumplings" or "Xiaolongbao" (not "flour wrapper, meat filling")
+   - Example: If you see fried rice → "Fried Rice" or "Yangzhou Fried Rice" (not "rice, eggs, vegetables")
+   - Example: If you see noodle soup → "Ramen" or "Pho" (not "noodles, broth, vegetables")
+
+3. ONLY list separate items if they are clearly UNRELATED foods on same plate
+   - Examples: "Apple and banana" (clearly separate fruits)
+   - Examples: "Sandwich with side salad" (when obviously two separate items)
+
+SMART RECOGNITION GUIDELINES:
+- BE SMARTER: If you can recognize the cuisine and dish type, just name it directly
+- DON'T OVER-ANALYZE: Don't list individual ingredients for known dishes
+- CUISINE FIRST: Think "What cuisine is this?" then "What's the dish name?"
+- COMMON NAMES: Use names people actually use in restaurants/menus
+- Examples of SMART recognition:
+  * See dumplings? → "Pork Dumplings" (not "wheat wrapper, ground pork, cabbage")
+  * See fried noodles? → "Chow Mein" or "Lo Mein" (not "noodles, vegetables, sauce")
+  * See rice bowl with meat? → "Teriyaki Bowl" or "Rice Bowl" (not "rice, chicken, sauce")
+  * See pasta with red sauce? → "Spaghetti Marinara" (not "pasta, tomato sauce, herbs")
+- Confidence 0-100 based on how clearly you can identify the dish
+- Focus on what the dish IS, not what it's made of
+
+BEVERAGE ANALYSIS GUIDELINES:
+- For tea, coffee, and clear beverages: Default to UNSWEETENED unless you can clearly see:
+  * Sugar crystals or granules
+  * Honey being poured or visible
+  * Obvious syrup or sweetening packets
+  * Foam/froth indicating added sweeteners
+- Plain tea (green tea, jasmine tea, black tea) should be analyzed as UNSWEETENED by default
+- Only indicate "sweetened" if there's visual evidence of sweeteners being added
+- For beverages in clear containers, look for sediment or color changes that indicate sweeteners
+- When in doubt about sweetness, always default to the UNSWEETENED version
+- Be CONSISTENT - same beverage should give same sweetness assessment unless clear visual differences`;
 
       // Generate content using Gemini Vision with retry logic for 503 errors
       const result = await this.generateContentWithRetry([prompt, imagePart]);
@@ -270,7 +312,64 @@ Guidelines:
       fat: this.roundToDecimal(item.fat || 0, 1)
     }));
 
+    // ✅ SMART DISH NAME HANDLING: Only generate combined names when needed
+    // The AI should now prioritize recognizing complete dishes (e.g., "Spaghetti Bolognese")
+    // Only combine individual components if:
+    // 1. foodName is generic/missing ("Food Item", "Unknown")
+    // 2. OR foodName exactly matches just the first item (indicating AI didn't recognize the complete dish)
+    
+    const isGenericName = normalized.foodName === "Food Item" || 
+                         normalized.foodName === "Unknown Food" || 
+                         normalized.foodName === "Detected Food";
+    
+    const isJustFirstItem = normalized.foodItems.length > 1 && 
+                           normalized.foodName === normalized.foodItems[0]?.name;
+    
+    const shouldGenerateCombinedName = isGenericName || isJustFirstItem;
+      
+    if (shouldGenerateCombinedName && normalized.foodItems.length > 0) {
+      const generatedName = this.generateMealNameFromItems(normalized.foodItems);
+      console.log(`[GEMINI VISION] 🍽️ Generated meal name: "${generatedName}" from ${normalized.foodItems.length} items`);
+      console.log(`[GEMINI VISION] 🔄 Changed from: "${normalized.foodName}" to: "${generatedName}"`);
+      normalized.foodName = generatedName;
+    } else {
+      console.log(`[GEMINI VISION] 🍽️ Keeping AI-recognized dish name: "${normalized.foodName}"`);
+    }
+
+    console.log(`[GEMINI VISION] 📝 Final meal name: "${normalized.foodName}"`);
     return normalized;
+  }
+
+  /**
+   * Generates a meaningful meal name from food items array
+   * @param {Array} foodItems - Array of food items with names
+   * @returns {string} Generated meal name
+   */
+  generateMealNameFromItems(foodItems) {
+    if (!foodItems || foodItems.length === 0) {
+      return "Food Item";
+    }
+
+    if (foodItems.length === 1) {
+      return foodItems[0].name;
+    }
+
+    if (foodItems.length === 2) {
+      return `${foodItems[0].name} with ${foodItems[1].name}`;
+    }
+
+    if (foodItems.length === 3) {
+      return `${foodItems[0].name}, ${foodItems[1].name} & ${foodItems[2].name}`;
+    }
+
+    // For 4+ items, list all items with commas and "&" before the last one
+    if (foodItems.length >= 4) {
+      const allButLast = foodItems.slice(0, -1).map(item => item.name).join(', ');
+      const lastItem = foodItems[foodItems.length - 1].name;
+      return `${allButLast} & ${lastItem}`;
+    }
+
+    return foodItems[0].name || "Food Item";
   }
 
   /**

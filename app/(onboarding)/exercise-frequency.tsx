@@ -1,66 +1,110 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
-import { Appbar } from 'react-native-paper';
 import { identify } from '../../src/services/analytics/analytics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
+import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { LinearGradient } from 'expo-linear-gradient';
 
-type ExerciseFrequency = '0' | '1-3' | '4-6' | '7+';
+type WorkoutFrequency = '1' | '2-3' | '4-5' | '6-7';
 
+// This screen collects the user's preferred workout frequency 
+// which will be used to generate personalized workout plans
 const ExerciseFrequencyScreen = () => {
   const { user } = useAuth();
-  const [frequency, setFrequency] = useState<ExerciseFrequency | null>(null);
+  const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
+
+  // Map exercise frequency to workout plan frequency
+  const mapToWorkoutFrequency = (exerciseFreq: WorkoutFrequency): '2_3' | '4_5' | '6' => {
+    switch (exerciseFreq) {
+      case '1':
+      case '2-3':
+        return '2_3';
+      case '4-5':
+        return '4_5';
+      case '6-7':
+        return '6';
+      default:
+        return '2_3'; // Default for beginners
+    }
+  };
 
   const handleNext = async () => {
     if (user && frequency) {
-      await supabase.from('profiles').update({ exercise_frequency: frequency }).eq('id', user.id);
-      try { identify(user.id, { exercise_frequency: frequency }); } catch {}
+      const workoutFrequency = mapToWorkoutFrequency(frequency);
+      console.log('💾 Onboarding: Saving exercise frequency:', {
+        user_id: user.id,
+        selected_frequency: frequency,
+        mapped_workout_frequency: workoutFrequency,
+        exercise_frequency: frequency,
+        preferred_workout_frequency: frequency,
+        workout_frequency: workoutFrequency
+      });
+      await supabase.from('profiles').update({
+        exercise_frequency: frequency,
+        preferred_workout_frequency: frequency,
+        workout_frequency: workoutFrequency
+      }).eq('id', user.id);
+      try { identify(user.id, { 
+        exercise_frequency: frequency,
+        preferred_workout_frequency: frequency,
+        workout_frequency: workoutFrequency
+      }); } catch {}
       router.push('/(onboarding)/activity-level');
     }
   };
 
+  const handleBack = () => {
+    router.replace('/(onboarding)/weight-trend');
+  };
+
+  const handleClose = () => {
+    router.replace('/(main)/dashboard');
+  };
+
   const options = [
     {
-      value: '0' as ExerciseFrequency,
-      title: '0 sessions',
+      value: '1' as WorkoutFrequency,
+      title: '1 workout per week',
       icon: 'sleep' as const,
     },
     {
-      value: '1-3' as ExerciseFrequency,
-      title: '1-3 sessions',
+      value: '2-3' as WorkoutFrequency,
+      title: '2-3 workouts per week',
       icon: 'walk' as const,
     },
     {
-      value: '4-6' as ExerciseFrequency,
-      title: '4-6 sessions',
+      value: '4-5' as WorkoutFrequency,
+      title: '4-5 workouts per week',
       icon: 'run' as const,
     },
     {
-      value: '7+' as ExerciseFrequency,
-      title: '7+ sessions',
+      value: '6-7' as WorkoutFrequency,
+      title: '6-7 workouts per week',
       icon: 'dumbbell' as const,
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Appbar.Header style={styles.appbar}>
-        <Appbar.BackAction onPress={() => router.replace('/(onboarding)/weight-trend')} />
-        <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '44%' }]} />
-        </View>
-        <Appbar.Action icon="close" onPress={() => router.replace('/(main)/dashboard')} />
-      </Appbar.Header>
-      
+    <OnboardingLayout
+      title="What's your preferred workout frequency?"
+      subtitle="This will help us create personalized workout plans for you"
+      progress={0.63}
+      currentStep={7}
+      totalSteps={12}
+      showBackButton={true}
+      showCloseButton={false}
+      onBack={handleBack}
+      previousScreen="/(onboarding)/weight-trend"
+      onClose={handleClose}
+    >
       <View style={styles.content}>
-        <Text style={styles.title}>How often do you exercise?</Text>
-        <Text style={styles.subtitle}>This helps us understand your current fitness routine</Text>
-        
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -68,128 +112,126 @@ const ExerciseFrequencyScreen = () => {
               style={[styles.optionCard, frequency === option.value && styles.selectedCard]}
               onPress={() => setFrequency(option.value)}
             >
-              <View style={styles.cardContent}>
-                <MaterialCommunityIcons
-                  name={option.icon}
-                  size={24}
-                  color={frequency === option.value ? colors.text : colors.textSecondary}
-                  style={styles.cardIcon}
+              <LinearGradient
+                colors={frequency === option.value 
+                  ? ['rgba(255, 107, 53, 0.3)', 'rgba(255, 142, 83, 0.2)']
+                  : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <MaterialCommunityIcons 
+                  name={option.icon} 
+                  size={24} 
+                  color={frequency === option.value ? '#FFFFFF' : colors.textSecondary} 
+                  style={styles.optionIcon}
                 />
-                <View style={styles.cardTextContainer}>
+                <View style={styles.optionContent}>
                   <Text style={[styles.cardTitle, frequency === option.value && styles.selectedText]}>
                     {option.title}
                   </Text>
                 </View>
-              </View>
+                <View style={[styles.radioButton, frequency === option.value && styles.radioButtonSelected]}>
+                  {frequency === option.value && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
       </View>
       
       <View style={styles.footer}>
-        <Button 
-          mode="contained" 
-          onPress={handleNext} 
-          style={styles.nextButton}
-          contentStyle={styles.nextButtonContent}
-          buttonColor={frequency ? colors.accent : colors.border}
-          labelStyle={{color: 'white'}}
+        <OnboardingButton
+          title="Continue"
+          onPress={handleNext}
           disabled={!frequency}
-        >
-          Continue
-        </Button>
+        />
       </View>
-    </SafeAreaView>
+    </OnboardingLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  appbar: {
-    backgroundColor: colors.background,
-    elevation: 0,
-    borderBottomWidth: 0,
-  },
-  progressBar: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  progress: {
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
   content: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 40,
-    marginTop: -20, // Moved question closer to progress bar
-    paddingBottom: 400, // Significantly increased bottom padding to prevent overlap with footer
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4, // Reduced margin to move subtitle higher
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 12, // Further reduced margin to move options higher
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    justifyContent: 'flex-start',
   },
   optionsContainer: {
     width: '100%',
-    gap: theme.spacing.lg,
-    marginBottom: 50, // Reduced margin to move content higher
+    gap: 16,
   },
   optionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xl,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
   },
   selectedCard: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
+    borderColor: '#FF6B35',
+    elevation: 12,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
   },
-  cardContent: {
+  cardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 20,
+    borderRadius: 18,
+    minHeight: 80,
   },
-  cardIcon: {
-    marginRight: theme.spacing.md,
+  optionIcon: {
+    marginRight: 16,
   },
-  cardTextContainer: {
+  optionContent: {
     flex: 1,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   selectedText: {
-    color: colors.text,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textShadowColor: 'rgba(255, 107, 53, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    borderColor: '#FFFFFF',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
   },
   footer: {
     padding: 24,
-  },
-  nextButton: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  nextButtonContent: {
-    height: 56,
+    paddingBottom: 40,
   },
 });
 

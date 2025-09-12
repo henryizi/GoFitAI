@@ -1,16 +1,13 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../styles/colors';
-import { theme } from '../../styles/theme';
 
 interface OnboardingButtonProps {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: any;
 }
 
 export const OnboardingButton: React.FC<OnboardingButtonProps> = ({
@@ -19,90 +16,79 @@ export const OnboardingButton: React.FC<OnboardingButtonProps> = ({
   disabled = false,
   variant = 'primary',
   style,
-  textStyle,
 }) => {
-  const buttonStyle = [
-    styles.button,
-    variant === 'secondary' && styles.buttonSecondary,
-    disabled && styles.buttonDisabled,
-    style,
-  ];
-
-  const textStyleCombined = [
-    styles.text,
-    variant === 'secondary' && styles.textSecondary,
-    disabled && styles.textDisabled,
-    textStyle,
-  ];
-
-  if (variant === 'primary' && !disabled) {
-    return (
-      <TouchableOpacity
-        style={buttonStyle}
-        onPress={onPress}
-        disabled={disabled}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={['#FF6B35', '#E55A2B']}
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <Text style={textStyleCombined}>{title}</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    );
-  }
-
   return (
-    <TouchableOpacity
-      style={buttonStyle}
-      onPress={onPress}
+    <TouchableOpacity 
+      onPress={onPress} 
+      style={[
+        styles.button, 
+        disabled && styles.buttonDisabled,
+        style
+      ]}
       disabled={disabled}
       activeOpacity={0.8}
     >
-      <Text style={textStyleCombined}>{title}</Text>
+      <LinearGradient
+        colors={
+          disabled 
+            ? ['#2A2A2A', '#3A3A3A'] 
+            : variant === 'primary'
+              ? ['#FF6B35', '#FF8E53', '#FFA726'] 
+              : ['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.1)']
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.buttonGradient}
+      >
+        <Text style={[
+          styles.buttonText, 
+          disabled && styles.buttonTextDisabled,
+          variant === 'secondary' && styles.buttonTextSecondary
+        ]}>
+          {title}
+        </Text>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    height: 56,
-    borderRadius: 16,
+    borderRadius: 28,
+    elevation: 15,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.primary,
   },
   buttonDisabled: {
-    backgroundColor: colors.secondaryLight,
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
   },
-  gradient: {
-    flex: 1,
-    alignItems: 'center',
+  buttonGradient: {
+    paddingVertical: 18,
+    minHeight: 56,
     justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 28,
   },
-  text: {
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  textSecondary: {
-    color: colors.primary,
+  buttonTextDisabled: {
+    color: '#999',
+    textShadowColor: 'transparent',
   },
-  textDisabled: {
-    color: colors.textSecondary,
+  buttonTextSecondary: {
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
   },
-}); 
+});

@@ -93,13 +93,13 @@ const PlanCreateScreen = () => {
   // Automatically determine goal from onboarding data
   useEffect(() => {
     if (profile) {
-      const fatReductionGoal = profile.goal_fat_reduction || 0;
-      const muscleGainGoal = profile.goal_muscle_gain || 0;
-      
-      // Determine primary goal based on which is higher
-      if (fatReductionGoal > muscleGainGoal) {
+      const primaryGoal = profile.primary_goal;
+      const fitnessStrategy = profile.fitness_strategy;
+
+      // Determine goal based on primary_goal or fitness_strategy
+      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut') {
         setSelectedGoal('fat_loss');
-      } else if (muscleGainGoal > fatReductionGoal) {
+      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk') {
         setSelectedGoal('muscle_gain');
       } else {
         setSelectedGoal('maintenance');
@@ -228,11 +228,11 @@ const PlanCreateScreen = () => {
         intolerances: selectedIntolerances,
       };
       
-      // Generate the plan with the AI service
-      console.log('Calling NutritionService.generateAIPlan with options:', planOptions);
+      // Generate the plan with mathematical calculations
+      console.log('Calling NutritionService.generateNutritionPlan with options:', planOptions);
       
       // The service now handles its own timeout, so we call it directly
-      const plan = await NutritionService.generateAIPlan(effectiveUserId, planOptions);
+      const plan = await NutritionService.generateNutritionPlan(effectiveUserId, planOptions);
       
       // Complete the progress animation
       Animated.timing(progressAnimation, {
@@ -449,7 +449,7 @@ const PlanCreateScreen = () => {
           >
             <Text style={styles.modalTitle}>Generating Your Plan</Text>
             <Text style={styles.modalSubtitle}>
-              AI is analyzing your preferences and creating a personalized nutrition plan...
+              Calculating your personalized nutrition plan based on your preferences...
             </Text>
             
             <View style={styles.progressBarContainer}>

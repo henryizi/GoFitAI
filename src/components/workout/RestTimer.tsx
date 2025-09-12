@@ -19,6 +19,12 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Reset timer when duration prop changes
+  useEffect(() => {
+    setSecondsLeft(duration);
+    setIsPaused(false);
+  }, [duration]);
+
   useEffect(() => {
     if (isPaused) {
       if (intervalRef.current) clearInterval(intervalRef.current);

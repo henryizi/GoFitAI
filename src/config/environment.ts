@@ -6,10 +6,17 @@ const isProduction = !isDevelopment;
 
 // Get the API URL from Expo config (avoid process.env at runtime in RN)
 const getApiUrl = (): string => {
-  // Use Railway server for both development and production
-  const railwayUrl = 'https://gofitai-production.up.railway.app';
-  console.log('[ENVIRONMENT] Using Railway server:', railwayUrl);
-  return railwayUrl;
+  // Get from Expo config which reads from environment variables
+  const configUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
+  if (configUrl) {
+    console.log('[ENVIRONMENT] Using configured API URL:', configUrl);
+    return configUrl;
+  }
+  
+  // Fallback to machine IP for development, Railway for production
+  const fallbackUrl = isDevelopment ? 'http://192.168.0.100:4000' : 'https://gofitai-production.up.railway.app';
+  console.log('[ENVIRONMENT] Using fallback API URL:', fallbackUrl);
+  return fallbackUrl;
 };
 
 // Environment configuration
