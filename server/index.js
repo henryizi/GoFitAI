@@ -1,5 +1,5 @@
 console.log('--- SERVER RESTARTED ---');
-console.log('--- Code version: 2.9 - Enhanced meal plans with full recipes ---');
+console.log('--- Code version: 2.9.1 - Mathematical calculations only, no AI ---');
 
 // Load environment variables
 require('dotenv').config();
