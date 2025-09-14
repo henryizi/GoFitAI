@@ -3092,16 +3092,16 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
       fiber_g: 25
     };
 
-    // Save to database if supabase is available
-    if (supabase) {
+    // Save to database if supabase is available and user_id is provided
+    if (supabase && profile.user_id) {
       try {
-        console.log('[NUTRITION] Saving nutrition plan to database...');
+        console.log('[NUTRITION] Saving nutrition plan to database for user:', profile.user_id);
         
         // First deactivate any existing active plans for this user
         const { error: deactivateError } = await supabase
           .from('nutrition_plans')
           .update({ status: 'archived' })
-          .eq('user_id', profile.id)
+          .eq('user_id', profile.user_id)
           .eq('status', 'active');
         
         if (deactivateError) {
@@ -3112,7 +3112,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
         const { data: savedPlan, error: planError } = await supabase
           .from('nutrition_plans')
           .insert({
-            user_id: profile.id,
+            user_id: profile.user_id,
             plan_name: mockPlanName,
             goal_type: profile.goal_type,
             status: 'active',
@@ -3164,7 +3164,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
           saved_to_database: true,
           id: savedPlan.id,
           plan_name: mockPlanName,
-          user_id: profile.id,
+          user_id: profile.user_id,
           goal_type: profile.goal_type,
           status: 'active',
           preferences: {
@@ -3184,6 +3184,10 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
         console.error('[NUTRITION] Database error, returning plan without saving:', dbError);
         // Continue to fallback response below
       }
+    } else if (!profile.user_id) {
+      console.log('[NUTRITION] No user_id provided in profile, skipping database save');
+    } else {
+      console.log('[NUTRITION] Supabase not available, skipping database save');
     }
 
     // Fallback: Generate a unique ID for the plan if database save failed
@@ -3196,7 +3200,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
       saved_to_database: false,
       id: planId,
       plan_name: mockPlanName,
-      user_id: profile.id,
+      user_id: profile.user_id || profile.id,
       goal_type: profile.goal_type,
       status: 'active',
       preferences: {
@@ -4186,10 +4190,31 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
       console.log('[MEAL PLAN] Plan query error:', planError);
       console.log('[MEAL PLAN] Current plan data:', currentPlan);
       
-      // Create a specific error for missing nutrition plan (404)
-      const error = new Error('No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.');
-      error.statusCode = 404;
-      throw error;
+      // Instead of failing, generate a default meal plan with standard values
+      console.log('[MEAL PLAN] No active nutrition plan found, generating default meal plan');
+      
+      // Use standard nutritional targets for an average adult
+      const defaultTargets = {
+        daily_calories: 2000,
+        protein_grams: 150,
+        carbs_grams: 200,
+        fat_grams: 67
+      };
+      
+      console.log('[MEAL PLAN] Using default nutritional targets:', defaultTargets);
+      
+      // Generate meal plan using mathematical approach
+      const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+      
+      console.log('[MEAL PLAN] Generated default meal plan with', mealPlan.length, 'meals');
+      
+      return res.json({
+        success: true,
+        meal_plan: mealPlan,
+        used_ai: false,
+        message: 'Generated default meal plan. For personalized plans, please create a nutrition plan first.',
+        is_default: true
+      });
     }
 
     // Try to get targets from historical_nutrition_targets first
