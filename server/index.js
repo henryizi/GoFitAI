@@ -4184,7 +4184,12 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
 
     if (planError || !currentPlan) {
       console.log('[MEAL PLAN] Plan query error:', planError);
-      throw new Error('No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.');
+      console.log('[MEAL PLAN] Current plan data:', currentPlan);
+      
+      // Create a specific error for missing nutrition plan (404)
+      const error = new Error('No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.');
+      error.statusCode = 404;
+      throw error;
     }
 
     // Try to get targets from historical_nutrition_targets first
@@ -4413,27 +4418,30 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
     if (error && error.message) {
       console.error('[GENERATE MEAL PLAN] Error message:', error.message);
       console.error('[GENERATE MEAL PLAN] Error stack:', error.stack);
+      console.error('[GENERATE MEAL PLAN] Error statusCode:', error.statusCode);
       
-      // Determine appropriate status code based on error type
-      let statusCode = 400; // Default to client error
+      // Use explicit statusCode if set, otherwise determine based on error type
+      let statusCode = error.statusCode || 400; // Default to client error
       let errorMessage = error.message;
       
-      // Check for specific error patterns
-      if (error.message.includes('No active nutrition plan found')) {
-        statusCode = 404;
-        errorMessage = 'No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.';
-      } else if (error.message.includes('No nutrition targets found')) {
-        statusCode = 404;
-        errorMessage = 'No nutrition targets found. Please generate a nutrition plan first.';
-      } else if (error.message.includes('Invalid') && error.message.includes('target')) {
-        statusCode = 422;
-        errorMessage = `Invalid nutrition targets: ${error.message}. Please re-generate your nutrition plan to fix this issue.`;
-      } else if (error.message.includes('Database not configured')) {
-        statusCode = 503;
-        errorMessage = 'Database service is not available. Please contact support.';
-      } else if (error.message.includes('Failed to generate valid meal plan')) {
-        statusCode = 500;
-        errorMessage = 'Unable to generate meal plan. Please try again or contact support if the issue persists.';
+      // Check for specific error patterns (only if statusCode wasn't explicitly set)
+      if (!error.statusCode) {
+        if (error.message.includes('No active nutrition plan found')) {
+          statusCode = 404;
+          errorMessage = 'No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.';
+        } else if (error.message.includes('No nutrition targets found')) {
+          statusCode = 404;
+          errorMessage = 'No nutrition targets found. Please generate a nutrition plan first.';
+        } else if (error.message.includes('Invalid') && error.message.includes('target')) {
+          statusCode = 422;
+          errorMessage = `Invalid nutrition targets: ${error.message}. Please re-generate your nutrition plan to fix this issue.`;
+        } else if (error.message.includes('Database not configured')) {
+          statusCode = 503;
+          errorMessage = 'Database service is not available. Please contact support.';
+        } else if (error.message.includes('Failed to generate valid meal plan')) {
+          statusCode = 500;
+          errorMessage = 'Unable to generate meal plan. Please try again or contact support if the issue persists.';
+        }
       }
       
       res.status(statusCode).json({ success: false, error: errorMessage });
