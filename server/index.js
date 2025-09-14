@@ -6726,7 +6726,7 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();
-  console.log(`Server running on port ${port}`);
+  console.log(`SnapBodyAI Server v2.0 running on port ${port}`);
   console.log(`Local IP: ${localIp}`);
   console.log(`Server URL: http://${localIp}:${port}`);
   console.log(`Test API with: curl http://${localIp}:${port}/api/test`);
