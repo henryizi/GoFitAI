@@ -5576,7 +5576,9 @@ app.get('/api/health', (req, res) => {
     status: 'healthy', 
     timestamp: new Date().toISOString(),
     provider: AI_PROVIDER,
-    model: CHAT_MODEL
+    model: CHAT_MODEL,
+    version: '2.9.2-fix-404',
+    deployment_time: new Date().toISOString()
   });
 });
 
