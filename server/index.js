@@ -65,6 +65,186 @@ function getLocalIpAddress() {
   return 'localhost';
 }
 
+// Generate rule-based workout plan as fallback when AI fails
+function generateRuleBasedWorkoutPlan(userProfile) {
+  console.log('[WORKOUT] Generating rule-based workout plan for:', userProfile.primary_goal);
+  
+  const planName = `${userProfile.primary_goal?.replace(/_/g, ' ')?.toUpperCase() || 'General Fitness'} Workout Plan`;
+  const frequency = userProfile.workout_frequency || '3-4';
+  
+  // Base template that works for most fitness goals
+  const baseWorkouts = {
+    muscle_gain: {
+      plan_name: "Muscle Building Workout Plan",
+      weekly_schedule: [
+        {
+          day: "Monday",
+          focus: "Upper Body - Push",
+          exercises: [
+            { name: "Push-ups", sets: 4, reps: "8-12", restBetweenSets: "90s" },
+            { name: "Dumbbell Bench Press", sets: 4, reps: "8-12", restBetweenSets: "90s" },
+            { name: "Overhead Press", sets: 3, reps: "8-10", restBetweenSets: "90s" },
+            { name: "Tricep Dips", sets: 3, reps: "10-15", restBetweenSets: "60s" }
+          ]
+        },
+        {
+          day: "Tuesday", 
+          focus: "Lower Body - Legs",
+          exercises: [
+            { name: "Squats", sets: 4, reps: "8-12", restBetweenSets: "2min" },
+            { name: "Deadlifts", sets: 4, reps: "6-8", restBetweenSets: "2min" },
+            { name: "Lunges", sets: 3, reps: "12-15", restBetweenSets: "90s" },
+            { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "60s" }
+          ]
+        },
+        {
+          day: "Wednesday", focus: "Rest Day", exercises: []
+        },
+        {
+          day: "Thursday",
+          focus: "Upper Body - Pull",
+          exercises: [
+            { name: "Pull-ups", sets: 4, reps: "6-10", restBetweenSets: "90s" },
+            { name: "Dumbbell Rows", sets: 4, reps: "8-12", restBetweenSets: "90s" },
+            { name: "Bicep Curls", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+            { name: "Face Pulls", sets: 3, reps: "12-15", restBetweenSets: "60s" }
+          ]
+        },
+        {
+          day: "Friday",
+          focus: "Core & Conditioning",
+          exercises: [
+            { name: "Plank", sets: 3, reps: "45-90s", restBetweenSets: "60s" },
+            { name: "Russian Twists", sets: 3, reps: "20-30", restBetweenSets: "45s" },
+            { name: "Mountain Climbers", sets: 3, reps: "30s", restBetweenSets: "60s" },
+            { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" }
+          ]
+        },
+        { day: "Saturday", focus: "Rest Day", exercises: [] },
+        { day: "Sunday", focus: "Rest Day", exercises: [] }
+      ]
+    },
+    weight_loss: {
+      plan_name: "Weight Loss Workout Plan",
+      weekly_schedule: [
+        {
+          day: "Monday",
+          focus: "Full Body Circuit",
+          exercises: [
+            { name: "Burpees", sets: 4, reps: "10-15", restBetweenSets: "60s" },
+            { name: "Jump Squats", sets: 4, reps: "15-20", restBetweenSets: "45s" },
+            { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "45s" },
+            { name: "Mountain Climbers", sets: 3, reps: "30s", restBetweenSets: "30s" }
+          ]
+        },
+        {
+          day: "Tuesday",
+          focus: "Cardio & Core",
+          exercises: [
+            { name: "Running", sets: 1, reps: "25-35 min", restBetweenSets: "0s" },
+            { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "45s" },
+            { name: "Bicycle Crunches", sets: 3, reps: "20-30", restBetweenSets: "30s" },
+            { name: "Jump Rope", sets: 3, reps: "2-3 min", restBetweenSets: "60s" }
+          ]
+        },
+        {
+          day: "Wednesday", focus: "Active Recovery", exercises: [
+            { name: "Walking", sets: 1, reps: "30-45 min", restBetweenSets: "0s" },
+            { name: "Stretching", sets: 1, reps: "15 min", restBetweenSets: "0s" }
+          ]
+        },
+        {
+          day: "Thursday",
+          focus: "Strength Training",
+          exercises: [
+            { name: "Squats", sets: 3, reps: "12-20", restBetweenSets: "60s" },
+            { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+            { name: "Lunges", sets: 3, reps: "12-16", restBetweenSets: "60s" },
+            { name: "Plank to Downward Dog", sets: 3, reps: "10-15", restBetweenSets: "45s" }
+          ]
+        },
+        {
+          day: "Friday",
+          focus: "HIIT Cardio",
+          exercises: [
+            { name: "High Knees", sets: 4, reps: "30s", restBetweenSets: "30s" },
+            { name: "Jumping Jacks", sets: 4, reps: "30s", restBetweenSets: "30s" },
+            { name: "Burpees", sets: 3, reps: "30s", restBetweenSets: "60s" },
+            { name: "Sprint Intervals", sets: 6, reps: "30s", restBetweenSets: "90s" }
+          ]
+        },
+        { day: "Saturday", focus: "Rest Day", exercises: [] },
+        { day: "Sunday", focus: "Rest Day", exercises: [] }
+      ]
+    }
+  };
+  
+  // Default general fitness plan
+  const defaultPlan = {
+    plan_name: "General Fitness Workout Plan",
+    weekly_schedule: [
+      {
+        day: "Monday",
+        focus: "Upper Body",
+        exercises: [
+          { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+          { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
+          { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
+          { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
+        ]
+      },
+      {
+        day: "Tuesday", 
+        focus: "Lower Body",
+        exercises: [
+          { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
+          { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
+          { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+          { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
+        ]
+      },
+      { day: "Wednesday", focus: "Rest Day", exercises: [] },
+      {
+        day: "Thursday",
+        focus: "Full Body",
+        exercises: [
+          { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
+          { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
+          { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
+          { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
+        ]
+      },
+      {
+        day: "Friday",
+        focus: "Core",
+        exercises: [
+          { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+          { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+          { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
+          { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
+        ]
+      },
+      { day: "Saturday", focus: "Rest Day", exercises: [] },
+      { day: "Sunday", focus: "Rest Day", exercises: [] }
+    ]
+  };
+
+  // Select appropriate plan based on user's goal
+  let selectedPlan = defaultPlan;
+  if (userProfile.primary_goal && baseWorkouts[userProfile.primary_goal]) {
+    selectedPlan = baseWorkouts[userProfile.primary_goal];
+  }
+
+  return {
+    ...selectedPlan,
+    plan_name: planName,
+    primary_goal: userProfile.primary_goal || "general_fitness",
+    workout_frequency: frequency,
+    created_at: new Date().toISOString(),
+    source: 'rule_based_fallback'
+  };
+}
+
 // Enhanced fallback nutrition analysis
 function getFallbackNutrition(description) {
   const food = description.toLowerCase().trim();
@@ -2385,15 +2565,257 @@ function filterFoodSuggestions(preferences) {
 }
 
 /**
+ * Generate a personalized meal plan using Gemini AI
+ */
+async function generateGeminiMealPlan(targets, dietaryPreferences = []) {
+  console.log('[GEMINI MEAL PLAN] Starting AI generation with targets:', targets);
+  console.log('[GEMINI MEAL PLAN] Dietary preferences:', dietaryPreferences);
+
+  try {
+    // Create a comprehensive prompt for creative meal plan generation
+    const prompt = `You are a world-class chef and nutritionist. Create a complete, creative daily meal plan that meets these nutritional targets. Be innovative and create delicious, varied meals from global cuisines without being restricted to specific ingredients.
+
+DAILY NUTRITIONAL TARGETS:
+- Total Calories: ${targets.daily_calories} kcal
+- Protein: ${targets.protein_grams}g
+- Carbohydrates: ${targets.carbs_grams}g
+- Fat: ${targets.fat_grams}g
+
+DIETARY PREFERENCES: ${dietaryPreferences.length > 0 ? dietaryPreferences.join(', ') : 'No specific restrictions'}
+
+CREATIVITY GUIDELINES:
+- Draw inspiration from global cuisines (Italian, Asian, Mediterranean, Mexican, Indian, etc.)
+- Create restaurant-quality meals that people actually want to eat
+- Use fresh, whole foods and interesting flavor combinations
+- Don't limit yourself to basic ingredients - be creative and diverse
+- Each meal should be unique and exciting
+- Focus on nutrition density and taste appeal
+
+MEAL DISTRIBUTION:
+- Breakfast: ~25% of daily calories (${Math.round(targets.daily_calories * 0.25)} kcal)
+- Lunch: ~35% of daily calories (${Math.round(targets.daily_calories * 0.35)} kcal)
+- Dinner: ~30% of daily calories (${Math.round(targets.daily_calories * 0.30)} kcal)
+- Snack: ~10% of daily calories (${Math.round(targets.daily_calories * 0.10)} kcal)
+
+Create 4 diverse, delicious meals that together meet the exact nutritional targets above.
+
+Respond with a JSON array in this exact format:
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Creative meal name",
+    "prep_time": 15,
+    "cook_time": 10,
+    "servings": 1,
+    "ingredients": [
+      "1 cup oats",
+      "1/2 cup blueberries",
+      "1 tbsp almond butter"
+    ],
+    "instructions": [
+      "Cook oats with water",
+      "Add blueberries and almond butter",
+      "Mix well and serve"
+    ],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.25)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.25)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.30)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.25)}
+    }
+  },
+  {
+    "meal_type": "lunch",
+    "recipe_name": "Creative meal name",
+    "prep_time": 20,
+    "cook_time": 15,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.35)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.35)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.35)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.30)}
+    }
+  },
+  {
+    "meal_type": "dinner",
+    "recipe_name": "Creative meal name",
+    "prep_time": 25,
+    "cook_time": 20,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.30)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.30)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.25)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.35)}
+    }
+  },
+  {
+    "meal_type": "snack",
+    "recipe_name": "Creative snack name",
+    "prep_time": 5,
+    "cook_time": 0,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.10)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.10)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.10)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.10)}
+    }
+  }
+]
+
+REQUIREMENTS:
+1. Create EXCITING, restaurant-quality meals from diverse global cuisines
+2. Use creative ingredients and flavor combinations - don't be boring!
+3. Each meal should be completely different in style and cuisine
+4. Ensure nutritional targets are met as closely as possible
+5. Provide realistic but interesting ingredients and detailed cooking instructions
+6. Consider dietary preferences: ${dietaryPreferences.join(', ') || 'none'}
+7. Make meals practical for home cooking but impressive in taste
+8. Focus on meals that are Instagram-worthy and crave-able
+9. Respond ONLY with valid JSON, no additional text
+
+INSPIRATION EXAMPLES:
+- Breakfast: Korean-style avocado toast, Mediterranean shakshuka, Japanese tamago bowl
+- Lunch: Thai curry bowl, Mexican quinoa salad, Italian grain bowl
+- Dinner: Moroccan tagine, Indian curry, Mediterranean fish, Asian stir-fry
+- Snack: Greek yogurt parfait, energy balls, hummus plate, fruit and nut mix
+
+Generate a complete, nutritionally balanced daily meal plan now!`;
+
+    // Call Gemini AI
+    const result = await geminiTextService.generateContentWithRetry([prompt]);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('[GEMINI MEAL PLAN] Raw response length:', text.length);
+    console.log('[GEMINI MEAL PLAN] Response preview:', text.substring(0, 200) + '...');
+
+    // Parse the JSON response
+    let mealPlan;
+    try {
+      // Clean up the response
+      let cleanResponse = text.trim();
+      
+      // Remove markdown code blocks if present
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Find JSON array
+      const jsonStart = cleanResponse.indexOf('[');
+      const jsonEnd = cleanResponse.lastIndexOf(']');
+      
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleanResponse = cleanResponse.substring(jsonStart, jsonEnd + 1);
+      }
+      
+      mealPlan = JSON.parse(cleanResponse);
+      
+      // Validate the structure
+      if (!Array.isArray(mealPlan) || mealPlan.length === 0) {
+        throw new Error('Invalid meal plan structure - not an array or empty');
+      }
+      
+      // Validate each meal
+      for (const meal of mealPlan) {
+        if (!meal.meal_type || !meal.recipe_name || !meal.macros) {
+          throw new Error(`Invalid meal structure: ${JSON.stringify(meal)}`);
+        }
+        
+        // Ensure required macro fields exist
+        if (typeof meal.macros.calories !== 'number' || 
+            typeof meal.macros.protein_grams !== 'number' ||
+            typeof meal.macros.carbs_grams !== 'number' ||
+            typeof meal.macros.fat_grams !== 'number') {
+          throw new Error(`Invalid macros in meal: ${meal.meal_type}`);
+        }
+      }
+      
+      console.log('[GEMINI MEAL PLAN] ✅ Successfully parsed and validated AI meal plan');
+      console.log('[GEMINI MEAL PLAN] Generated meals:', mealPlan.map(m => `${m.meal_type}: ${m.recipe_name}`));
+      
+      return mealPlan;
+      
+    } catch (parseError) {
+      console.error('[GEMINI MEAL PLAN] ❌ Failed to parse response:', parseError.message);
+      console.error('[GEMINI MEAL PLAN] Raw response for debugging:', text);
+      throw new Error(`Failed to parse Gemini meal plan response: ${parseError.message}`);
+    }
+    
+  } catch (error) {
+    console.error('[GEMINI MEAL PLAN] ❌ Error generating meal plan:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Generate a personalized meal plan using DeepSeek AI
+ */
+async function generateDeepSeekMealPlan(targets, dietaryPreferences = []) {
+  console.log('[DEEPSEEK MEAL PLAN] Starting AI generation with targets:', targets);
+  console.log('[DEEPSEEK MEAL PLAN] Dietary preferences:', dietaryPreferences);
+
+  try {
+    if (!deepSeekService) {
+      throw new Error('DeepSeek service is not available');
+    }
+
+    const mealPlan = await deepSeekService.generateMealPlan(targets, dietaryPreferences);
+    
+    if (!mealPlan || !Array.isArray(mealPlan) || mealPlan.length === 0) {
+      throw new Error('DeepSeek returned invalid meal plan');
+    }
+
+    console.log('[DEEPSEEK MEAL PLAN] ✅ Successfully generated meal plan with', mealPlan.length, 'meals');
+    return mealPlan;
+
+  } catch (error) {
+    console.error('[DEEPSEEK MEAL PLAN] ❌ Error generating meal plan:', error.message);
+    throw error;
+  }
+}
+
+/**
  * Generate a mathematical meal plan based on target macros (no AI)
  * Distributes calories and macros across meals using predefined templates
  */
 function generateMathematicalMealPlan(targets, dietaryPreferences = []) {
+  console.log('[MEAL PLAN] generateMathematicalMealPlan called with targets:', targets);
+  console.log('[MEAL PLAN] Accessing properties: daily_calories:', targets.daily_calories, 'protein_grams:', targets.protein_grams, 'carbs_grams:', targets.carbs_grams, 'fat_grams:', targets.fat_grams);
+
   const totalCalories = targets.daily_calories;
   const totalProtein = targets.protein_grams;
   const totalCarbs = targets.carbs_grams;
   const totalFat = targets.fat_grams;
-  
+
+  console.log('[MEAL PLAN] Extracted values: calories:', totalCalories, 'protein:', totalProtein, 'carbs:', totalCarbs, 'fat:', totalFat);
+
+  // Validate that all required values are present and are numbers
+  if (!totalCalories || typeof totalCalories !== 'number' || totalCalories <= 0) {
+    throw new Error(`Invalid calories target: ${totalCalories}`);
+  }
+  if (!totalProtein || typeof totalProtein !== 'number' || totalProtein <= 0) {
+    throw new Error(`Invalid protein target: ${totalProtein}`);
+  }
+  if (!totalCarbs || typeof totalCarbs !== 'number' || totalCarbs <= 0) {
+    throw new Error(`Invalid carbs target: ${totalCarbs}`);
+  }
+  if (!totalFat || typeof totalFat !== 'number' || totalFat <= 0) {
+    throw new Error(`Invalid fat target: ${totalFat}`);
+  }
+
+  console.log('[MEAL PLAN] All targets validated successfully');
+
   // Meal distribution percentages (breakfast, lunch, dinner, snack)
   const mealDistribution = {
     breakfast: { calories: 0.25, protein: 0.25, carbs: 0.30, fat: 0.25 },
@@ -2603,10 +3025,12 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
     let fitnessStrategy = profile.fitness_strategy;
     if (!fitnessStrategy && profile.goal_type) {
       const goalTypeMapping = {
-        'weight_loss': 'fat_loss',
+        'weight_loss': 'weight_loss',
+        'fat_loss': 'fat_loss',
         'muscle_gain': 'muscle_gain',
-        'weight_gain': 'muscle_gain',
-        'maintenance': 'maintenance'
+        'weight_gain': 'weight_gain',
+        'maintenance': 'maintenance',
+        'body_recomposition': 'recomp'
       };
       fitnessStrategy = goalTypeMapping[profile.goal_type] || 'maintenance';
     }
@@ -2737,6 +3161,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
         return res.json({
           success: true,
           message: 'Nutrition plan generated and saved successfully',
+          saved_to_database: true,
           id: savedPlan.id,
           plan_name: mockPlanName,
           user_id: profile.id,
@@ -2767,7 +3192,8 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
     // Return nutrition plan with traditional calculations (fallback)
         return res.json({
           success: true,
-      message: 'Nutrition plan generated with traditional calculations (not saved to database)',
+      message: 'Nutrition plan generated with mathematical calculations. Database not configured - set EXPO_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY for persistence.',
+      saved_to_database: false,
       id: planId,
       plan_name: mockPlanName,
       user_id: profile.id,
@@ -3650,10 +4076,12 @@ app.post('/api/re-evaluate-plan', async (req, res) => {
     let fitnessStrategy = userProfile.fitness_strategy;
     if (!fitnessStrategy && currentPlan.goal_type) {
       const goalTypeMapping = {
-        'weight_loss': 'cut',
-        'muscle_gain': 'bulk',
-        'weight_gain': 'bulk',
-        'maintenance': 'maintenance'
+        'weight_loss': 'weight_loss',
+        'fat_loss': 'fat_loss',
+        'muscle_gain': 'muscle_gain',
+        'weight_gain': 'weight_gain',
+        'maintenance': 'maintenance',
+        'body_recomposition': 'recomp'
       };
       fitnessStrategy = goalTypeMapping[currentPlan.goal_type] || 'maintenance';
     }
@@ -3726,35 +4154,70 @@ app.post('/api/re-evaluate-plan', async (req, res) => {
 });
 
 app.post('/api/generate-daily-meal-plan', async (req, res) => {
+  console.log('[MEAL PLAN] Received request for user:', req.body.userId);
   const { userId } = req.body;
   if (!userId) {
+    console.log('[MEAL PLAN] Missing userId in request');
     return res.status(400).json({ error: 'User ID is required.' });
   }
 
   try {
-    // 1. Fetch user's active plan and latest targets
+    // Check if Supabase is configured
+    console.log('[MEAL PLAN] Checking Supabase configuration:', !!supabase);
+    if (!supabase) {
+      console.log('[MEAL PLAN] Supabase not configured, returning configuration error');
+      return res.status(400).json({
+        success: false,
+        error: 'Database not configured. Please set up EXPO_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables to enable database features, or generate a nutrition plan first to work in offline mode.'
+      });
+    }
+
+    // 1. Fetch user's most recent active plan
     const { data: currentPlan, error: planError } = await supabase
       .from('nutrition_plans')
       .select('id, preferences')
       .eq('user_id', userId)
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (planError || !currentPlan) {
-      throw new Error('Could not find an active nutrition plan for the user.');
+      console.log('[MEAL PLAN] Plan query error:', planError);
+      throw new Error('No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.');
     }
 
-    const { data: currentTargets, error: targetsError } = await supabase
+    // Try to get targets from historical_nutrition_targets first
+    let { data: currentTargets, error: targetsError } = await supabase
       .from('historical_nutrition_targets')
       .select('*')
       .eq('nutrition_plan_id', currentPlan.id)
       .is('end_date', null)
       .single();
 
+    // If no historical targets found, get targets from nutrition_plans.daily_targets
     if (targetsError || !currentTargets) {
-      throw new Error('Could not find active nutrition targets for the plan.');
+      console.log('[MEAL PLAN] No historical targets found, fetching from nutrition_plans.daily_targets');
+      const { data: planWithTargets, error: planTargetsError } = await supabase
+        .from('nutrition_plans')
+        .select('daily_targets')
+        .eq('id', currentPlan.id)
+        .single();
+
+      if (planTargetsError || !planWithTargets?.daily_targets) {
+        throw new Error('No nutrition targets found for your plan. Please regenerate your nutrition plan to ensure proper calorie and macro targets are set.');
+      }
+
+      // Convert daily_targets to the expected format
+      currentTargets = {
+        daily_calories: planWithTargets.daily_targets.daily_calories || planWithTargets.daily_targets.calories,
+        protein_grams: planWithTargets.daily_targets.protein_grams || planWithTargets.daily_targets.protein,
+        carbs_grams: planWithTargets.daily_targets.carbs_grams || planWithTargets.daily_targets.carbs,
+        fat_grams: planWithTargets.daily_targets.fat_grams || planWithTargets.daily_targets.fat
+      };
     }
 
+    console.log('[MEAL PLAN] Current targets object:', currentTargets);
     console.log('[MEAL PLAN] Generating mathematical meal plan with targets:', {
       calories: currentTargets.daily_calories,
       protein: currentTargets.protein_grams,
@@ -3763,25 +4226,164 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
     });
 
     // 2. Generate meal plan using mathematical distribution (no AI)
-    const mealPlan = generateMathematicalMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
+    console.log('[MEAL PLAN] Calling generateMathematicalMealPlan with:', {
+      targets: currentTargets,
+      preferences: currentPlan.preferences?.dietary || []
+    });
+    console.log('[MEAL PLAN] Targets properties check:');
+    console.log('  daily_calories:', currentTargets.daily_calories, typeof currentTargets.daily_calories);
+    console.log('  protein_grams:', currentTargets.protein_grams, typeof currentTargets.protein_grams);
+    console.log('  carbs_grams:', currentTargets.carbs_grams, typeof currentTargets.carbs_grams);
+    console.log('  fat_grams:', currentTargets.fat_grams, typeof currentTargets.fat_grams);
+    
+    // Try to generate meal plan using AI first
+    let mealPlan = null;
+    let usedAI = false;
+    
+    // Get available AI providers in priority order
+    const availableProviders = [];
+    if (deepSeekService) availableProviders.push('deepseek');
+    if (geminiTextService) availableProviders.push('gemini');
+    
+    // Prioritize the configured AI_PROVIDER
+    let providersToTry = [];
+    if (availableProviders.includes(AI_PROVIDER)) {
+      providersToTry = [AI_PROVIDER, ...availableProviders.filter(p => p !== AI_PROVIDER)];
+    } else {
+      providersToTry = availableProviders;
+    }
+    
+    console.log(`[MEAL PLAN] Available AI providers: [${availableProviders.join(', ')}]`);
+    console.log(`[MEAL PLAN] Primary provider: ${AI_PROVIDER}`);
+    console.log(`[MEAL PLAN] Will try providers in order: [${providersToTry.join(', ')}]`);
+    
+    // Try each AI provider in order
+    for (const provider of providersToTry) {
+      if (mealPlan && mealPlan.length > 0) break; // Stop if we got a successful meal plan
+      
+      try {
+        console.log(`[MEAL PLAN] 🤖 Attempting to generate meal plan using ${provider.toUpperCase()} AI`);
+        
+        if (provider === 'deepseek') {
+          mealPlan = await generateDeepSeekMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
+        } else if (provider === 'gemini') {
+          mealPlan = await generateGeminiMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
+        }
+        
+        if (mealPlan && mealPlan.length > 0) {
+          console.log(`[MEAL PLAN] ✅ Successfully generated ${provider.toUpperCase()} AI meal plan with`, mealPlan.length, 'meals');
+          usedAI = true;
+          break; // Success! Exit the loop
+        }
+      } catch (aiError) {
+        console.log(`[MEAL PLAN] ❌ ${provider.toUpperCase()} AI generation failed:`, aiError.message);
+        if (provider === providersToTry[providersToTry.length - 1]) {
+          console.log('[MEAL PLAN] All AI providers failed, falling back to mathematical generation');
+        } else {
+          console.log(`[MEAL PLAN] Will try next AI provider...`);
+        }
+      }
+    }
+    
+    // Fallback to mathematical generation if AI failed or not configured
+    if (!mealPlan || mealPlan.length === 0) {
+      console.log('[MEAL PLAN] 🧮 Using mathematical meal plan generation');
+      
+      // Validate and transform targets to prevent 500 errors
+      const validateAndTransformTargets = (currentTargets) => {
+        console.log('[MEAL PLAN] Original targets received:', currentTargets);
+        
+        // Handle case where currentTargets is null or undefined
+        if (!currentTargets) {
+          throw new Error('No nutrition targets found. Please generate a nutrition plan first.');
+        }
+        
+        // Extract values with multiple fallback strategies
+        const extractValue = (obj, primaryKey, fallbackKeys = [], defaultValue = null) => {
+          // Try primary key first
+          if (obj[primaryKey] !== undefined && obj[primaryKey] !== null) {
+            return Number(obj[primaryKey]);
+          }
+          
+          // Try fallback keys
+          for (const key of fallbackKeys) {
+            if (obj[key] !== undefined && obj[key] !== null) {
+              return Number(obj[key]);
+            }
+          }
+          
+          return defaultValue;
+        };
+        
+        // Extract nutrition values with comprehensive fallbacks
+        const daily_calories = extractValue(currentTargets, 'daily_calories', ['calories'], 2000);
+        const protein_grams = extractValue(currentTargets, 'protein_grams', ['protein'], 150);
+        const carbs_grams = extractValue(currentTargets, 'carbs_grams', ['carbs'], 200);
+        const fat_grams = extractValue(currentTargets, 'fat_grams', ['fat'], 70);
+        
+        // Create the properly formatted targets object
+        const validatedTargets = {
+          daily_calories,
+          protein_grams,
+          carbs_grams,
+          fat_grams
+        };
+        
+        console.log('[MEAL PLAN] Validated targets:', validatedTargets);
+        
+        // Final validation to ensure all values are valid numbers
+        if (!daily_calories || daily_calories <= 0 || isNaN(daily_calories)) {
+          throw new Error(`Invalid daily calories: ${daily_calories}`);
+        }
+        if (!protein_grams || protein_grams <= 0 || isNaN(protein_grams)) {
+          throw new Error(`Invalid protein target: ${protein_grams}`);
+        }
+        if (!carbs_grams || carbs_grams <= 0 || isNaN(carbs_grams)) {
+          throw new Error(`Invalid carbs target: ${carbs_grams}`);
+        }
+        if (!fat_grams || fat_grams <= 0 || isNaN(fat_grams)) {
+          throw new Error(`Invalid fat target: ${fat_grams}`);
+        }
+        
+        return validatedTargets;
+      };
+      
+      const validatedTargets = validateAndTransformTargets(currentTargets);
+      mealPlan = generateMathematicalMealPlan(validatedTargets, currentPlan.preferences?.dietary || []);
+      usedAI = false;
+    }
+    
+    console.log('[MEAL PLAN] Generated meal plan:', mealPlan);
+    console.log('[MEAL PLAN] Generation method:', usedAI ? 'Gemini AI' : 'Mathematical');
+
+    if (!mealPlan || !Array.isArray(mealPlan) || mealPlan.length === 0) {
+      throw new Error('Failed to generate valid meal plan');
+    }
 
     // 3. Save the new meal plan suggestions to the database
     const today = new Date().toISOString().split('T')[0];
-    const suggestionsToInsert = mealPlan.map((meal) => ({
+    const suggestionsToInsert = mealPlan.map((meal) => {
+      if (!meal || !meal.macros) {
+        throw new Error(`Invalid meal object: ${JSON.stringify(meal)}`);
+      }
+
+      // Combine recipe details into meal_description since that's the only text field in the schema
+      const mealDescription = `${meal.recipe_name}\n\nPrep Time: ${meal.prep_time} minutes\nCook Time: ${meal.cook_time} minutes\nServings: ${meal.servings}\n\nIngredients:\n${meal.ingredients.map(ing => `- ${ing}`).join('\n')}\n\nInstructions:\n${meal.instructions.map(inst => `• ${inst}`).join('\n')}`;
+
+      return {
       nutrition_plan_id: currentPlan.id,
       suggestion_date: today,
       meal_type: meal.meal_type,
-      recipe_name: meal.recipe_name,
-      prep_time: meal.prep_time,
-      cook_time: meal.cook_time,
-      servings: meal.servings,
-      ingredients: JSON.stringify(meal.ingredients),
-      instructions: JSON.stringify(meal.instructions),
+        meal_description: mealDescription,
       calories: meal.macros.calories,
       protein_grams: meal.macros.protein_grams,
       carbs_grams: meal.macros.carbs_grams,
       fat_grams: meal.macros.fat_grams,
-    }));
+      };
+    });
+
+    console.log('[MEAL PLAN] Attempting to insert suggestions:', suggestionsToInsert);
+    console.log('[MEAL PLAN] First suggestion structure:', suggestionsToInsert[0]);
 
     const { data: newSuggestions, error: insertError } = await supabase
       .from('meal_plan_suggestions')
@@ -3790,12 +4392,55 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
       })
       .select();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('[MEAL PLAN] Database insertion error:', insertError);
+      console.error('[MEAL PLAN] Error details:', JSON.stringify(insertError, null, 2));
+      throw insertError;
+    }
 
-    res.json({ success: true, meal_plan: newSuggestions });
+    res.json({ 
+      success: true, 
+      meal_plan: newSuggestions,
+      plan_id: currentPlan.id,
+      generated_at: new Date().toISOString(),
+      generation_method: usedAI ? 'gemini_ai' : 'mathematical',
+      ai_generated: usedAI
+    });
   } catch (error) {
-    console.error('[GENERATE MEAL PLAN] Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('[GENERATE MEAL PLAN] Error:', error);
+    console.error('[GENERATE MEAL PLAN] Error type:', typeof error);
+    
+    if (error && error.message) {
+      console.error('[GENERATE MEAL PLAN] Error message:', error.message);
+      console.error('[GENERATE MEAL PLAN] Error stack:', error.stack);
+      
+      // Determine appropriate status code based on error type
+      let statusCode = 400; // Default to client error
+      let errorMessage = error.message;
+      
+      // Check for specific error patterns
+      if (error.message.includes('No active nutrition plan found')) {
+        statusCode = 404;
+        errorMessage = 'No active nutrition plan found. Please generate a nutrition plan first before creating a daily meal plan.';
+      } else if (error.message.includes('No nutrition targets found')) {
+        statusCode = 404;
+        errorMessage = 'No nutrition targets found. Please generate a nutrition plan first.';
+      } else if (error.message.includes('Invalid') && error.message.includes('target')) {
+        statusCode = 422;
+        errorMessage = `Invalid nutrition targets: ${error.message}. Please re-generate your nutrition plan to fix this issue.`;
+      } else if (error.message.includes('Database not configured')) {
+        statusCode = 503;
+        errorMessage = 'Database service is not available. Please contact support.';
+      } else if (error.message.includes('Failed to generate valid meal plan')) {
+        statusCode = 500;
+        errorMessage = 'Unable to generate meal plan. Please try again or contact support if the issue persists.';
+      }
+      
+      res.status(statusCode).json({ success: false, error: errorMessage });
+    } else {
+      console.error('[GENERATE MEAL PLAN] Undefined error caught');
+      res.status(500).json({ success: false, error: 'An unexpected error occurred during meal plan generation. Please try again.' });
+    }
   }
 });
 
@@ -5012,8 +5657,8 @@ app.get('/api/test-users-with-plans', async (req, res) => {
     
     const { data: users, error } = await supabase
       .from('nutrition_plans')
-      .select('user_id, daily_calories, protein_grams, carbs_grams, fat_grams, preferences, created_at')
-      .eq('is_active', true)
+      .select('user_id, daily_targets, preferences, created_at, status')
+      .eq('status', 'active')
       .limit(5);
 
     if (error) {
@@ -5023,10 +5668,22 @@ app.get('/api/test-users-with-plans', async (req, res) => {
 
     console.log(`[TEST] Found ${users?.length || 0} users with active nutrition plans`);
     
+    // Format users data with extracted targets
+    const formattedUsers = users?.map(user => ({
+      user_id: user.user_id,
+      daily_calories: user.daily_targets?.daily_calories || user.daily_targets?.calories,
+      protein_grams: user.daily_targets?.protein_grams || user.daily_targets?.protein,
+      carbs_grams: user.daily_targets?.carbs_grams || user.daily_targets?.carbs,
+      fat_grams: user.daily_targets?.fat_grams || user.daily_targets?.fat,
+      preferences: user.preferences,
+      status: user.status,
+      created_at: user.created_at
+    }));
+
     res.json({
       success: true,
       count: users?.length || 0,
-      users: users || [],
+      users: formattedUsers || [],
       message: 'Use any of these user_id values to test meal plan generation'
     });
 
@@ -5069,102 +5726,73 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
     console.log('[WORKOUT] Prompt length:', prompt.length);
     
-    // Use Gemini for workout plan generation
-    console.log('[WORKOUT] Using Gemini for workout plan generation');
-    console.log('[WORKOUT] Current GEMINI_MODEL:', GEMINI_MODEL);
-    console.log('[WORKOUT] Current provider config:', JSON.stringify(getProviderConfig('gemini'), null, 2));
-    let aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, 'gemini');
-
-    console.log('[WORKOUT] AI response type:', typeof aiResponse);
-    console.log('[WORKOUT] AI response keys:', Object.keys(aiResponse || {}));
-    console.log('[WORKOUT] Raw AI response content:', aiResponse?.choices?.[0]?.message?.content || 'No content in response');
+    // Try AI providers with systematic fallback
+    console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
     
-    // Check if Gemini failed and try fallback
-    if (aiResponse && aiResponse.error) {
-      console.error('[WORKOUT] Gemini AI call failed:', aiResponse.message);
-      console.error('[WORKOUT] Full Gemini error:', JSON.stringify(aiResponse.error, null, 2)); // Add full error logging
-      // Fallback to default provider
-      console.log('[WORKOUT] Falling back to default provider...');
-      aiResponse = await callAI(messages, { type: 'json_object' }, 0.7);
+    // Get available AI providers in priority order
+    const availableProviders = [];
+    if (deepSeekService) availableProviders.push('deepseek');
+    if (geminiTextService) availableProviders.push('gemini');
+    
+    // Prioritize the configured AI_PROVIDER
+    let providersToTry = [];
+    if (availableProviders.includes(AI_PROVIDER)) {
+      providersToTry = [AI_PROVIDER, ...availableProviders.filter(p => p !== AI_PROVIDER)];
+    } else {
+      providersToTry = availableProviders;
+    }
+    
+    console.log(`[WORKOUT] Available AI providers: [${availableProviders.join(', ')}]`);
+    console.log(`[WORKOUT] Primary provider: ${AI_PROVIDER}`);
+    console.log(`[WORKOUT] Will try providers in order: [${providersToTry.join(', ')}]`);
+    
+    let aiResponse = null;
+    let usedProvider = null;
+    
+    // Try each AI provider in order
+    for (const provider of providersToTry) {
+      if (aiResponse && !aiResponse.error) break; // Stop if we got a successful response
       
-      // Check if fallback also failed
-      if (aiResponse && aiResponse.error) {
-        console.error('[WORKOUT] Fallback provider also failed:', aiResponse.message);
-        // Use fallback rule-based plan
-        console.log('[WORKOUT] Using rule-based fallback plan');
-        const fallbackPlan = {
-          plan_name: "General Fitness Workout Plan",
-          primary_goal: "general_fitness",
-          weekly_schedule: [
-              {
-                day: "Monday",
-                focus: "Upper Body",
-                exercises: [
-                  { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
-                  { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
-                  { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
-                  { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
-                ]
-              },
-              {
-                day: "Tuesday", 
-                focus: "Lower Body",
-                exercises: [
-                  { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
-                  { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
-                  { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-                  { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
-                ]
-              },
-              {
-                day: "Wednesday",
-                focus: "Rest Day",
-                exercises: []
-              },
-              {
-                day: "Thursday",
-                focus: "Full Body",
-                exercises: [
-                  { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
-                  { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
-                  { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
-                  { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
-                ]
-              },
-              {
-                day: "Friday",
-                focus: "Core",
-                exercises: [
-                  { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-                  { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-                  { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
-                  { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
-                ]
-              },
-              {
-                day: "Saturday",
-                focus: "Cardio",
-                exercises: [
-                  { name: "Running", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
-                  { name: "Jump Rope", sets: 3, reps: "2 min", restBetweenSets: "60s" }
-                ]
-              },
-              {
-                day: "Sunday",
-                focus: "Rest Day", 
-                exercises: []
-              }
-          ],
-          created_at: new Date().toISOString()
-        };
+      try {
+        console.log(`[WORKOUT] 🤖 Attempting workout generation using ${provider.toUpperCase()}`);
+        console.log(`[WORKOUT] Current ${provider.toUpperCase()}_MODEL:`, provider === 'gemini' ? GEMINI_MODEL : 'deepseek-chat');
+        console.log(`[WORKOUT] Current provider config:`, JSON.stringify(getProviderConfig(provider), null, 2));
+        
+        aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, provider);
+        
+        if (aiResponse && !aiResponse.error) {
+          console.log(`[WORKOUT] ✅ Successfully generated workout plan using ${provider.toUpperCase()}`);
+          usedProvider = provider;
+          break; // Success! Exit the loop
+        }
+      } catch (aiError) {
+        console.log(`[WORKOUT] ❌ ${provider.toUpperCase()} workout generation failed:`, aiError.message);
+        if (provider === providersToTry[providersToTry.length - 1]) {
+          console.log('[WORKOUT] All AI providers failed, will use rule-based fallback');
+        } else {
+          console.log(`[WORKOUT] Will try next AI provider...`);
+        }
+      }
+    }
+
+    // If all AI providers failed, use rule-based fallback
+    if (!aiResponse || aiResponse.error) {
+      console.log('[WORKOUT] 🧮 All AI providers failed, using rule-based workout plan generation');
+      
+      const fallbackPlan = generateRuleBasedWorkoutPlan(normalizedProfile);
 
         return res.json({
           success: true,
           workoutPlan: fallbackPlan,
-          provider: 'fallback'
+        provider: 'rule_based_fallback',
+        used_ai: false
         });
-      }
     }
+    
+    console.log(`[WORKOUT] ✅ Successfully generated workout plan using ${usedProvider?.toUpperCase()} AI`);
+    console.log('[WORKOUT] AI response type:', typeof aiResponse);
+    console.log('[WORKOUT] AI response keys:', Object.keys(aiResponse || {}));
+    console.log('[WORKOUT] Raw AI response content:', aiResponse?.choices?.[0]?.message?.content || 'No content in response');
     
     if (!aiResponse || !aiResponse.choices || !aiResponse.choices[0]) {
       console.error('[WORKOUT] No valid AI response received');
@@ -5965,6 +6593,101 @@ app.get('/api/test-gemini', async (req, res) => {
   }
 });
 
+// Test endpoint for direct AI meal plan generation (bypasses database)
+app.post('/api/test-ai-meal-generation', async (req, res) => {
+  console.log('[TEST AI] Direct AI meal plan generation test');
+  const { targets, dietaryPreferences = [] } = req.body;
+  
+  if (!targets) {
+    return res.status(400).json({ error: 'Targets are required for testing' });
+  }
+  
+  try {
+    console.log('[TEST AI] Testing with targets:', targets);
+    console.log('[TEST AI] Dietary preferences:', dietaryPreferences);
+    console.log('[TEST AI] AI_PROVIDER:', AI_PROVIDER);
+    console.log('[TEST AI] geminiTextService available:', !!geminiTextService);
+    console.log('[TEST AI] deepSeekService available:', !!deepSeekService);
+    console.log('[TEST AI] Available providers:', AI_PROVIDERS?.map(p => `${p.name}:${p.enabled}`).join(', '));
+    
+    // Try to generate meal plan using Gemini AI directly
+    let mealPlan = null;
+    let usedAI = false;
+    
+    // Get available AI providers in priority order
+    const availableProviders = [];
+    if (deepSeekService) availableProviders.push('deepseek');
+    if (geminiTextService) availableProviders.push('gemini');
+    
+    // Prioritize the configured AI_PROVIDER
+    let providersToTry = [];
+    if (availableProviders.includes(AI_PROVIDER)) {
+      providersToTry = [AI_PROVIDER, ...availableProviders.filter(p => p !== AI_PROVIDER)];
+    } else {
+      providersToTry = availableProviders;
+    }
+    
+    console.log(`[TEST AI] Available AI providers: [${availableProviders.join(', ')}]`);
+    console.log(`[TEST AI] Primary provider: ${AI_PROVIDER}`);
+    console.log(`[TEST AI] Will try providers in order: [${providersToTry.join(', ')}]`);
+    
+    // Try each AI provider in order
+    for (const provider of providersToTry) {
+      if (mealPlan && mealPlan.length > 0) break; // Stop if we got a successful meal plan
+      
+      try {
+        console.log(`[TEST AI] 🤖 Attempting direct ${provider.toUpperCase()} AI generation`);
+        
+        if (provider === 'deepseek') {
+          mealPlan = await generateDeepSeekMealPlan(targets, dietaryPreferences);
+        } else if (provider === 'gemini') {
+          mealPlan = await generateGeminiMealPlan(targets, dietaryPreferences);
+        }
+        
+        if (mealPlan && mealPlan.length > 0) {
+          console.log(`[TEST AI] ✅ Successfully generated ${provider.toUpperCase()} AI meal plan with`, mealPlan.length, 'meals');
+          usedAI = true;
+          break; // Success! Exit the loop
+        }
+      } catch (aiError) {
+        console.error(`[TEST AI] ${provider.toUpperCase()} generation failed:`, aiError.message);
+        if (provider === providersToTry[providersToTry.length - 1]) {
+          console.log('[TEST AI] All AI providers failed, will use mathematical fallback');
+        } else {
+          console.log(`[TEST AI] Will try next AI provider...`);
+        }
+      }
+    }
+    
+    // Fallback to mathematical generation if AI failed
+    if (!mealPlan || mealPlan.length === 0) {
+      console.log('[TEST AI] 🧮 Using mathematical meal plan generation as fallback');
+      mealPlan = generateMathematicalMealPlan(targets, dietaryPreferences);
+      usedAI = false;
+    }
+    
+    if (!mealPlan || !Array.isArray(mealPlan) || mealPlan.length === 0) {
+      throw new Error('Failed to generate valid meal plan');
+    }
+    
+    console.log('[TEST AI] ✅ Generated meal plan successfully');
+    console.log('[TEST AI] Meal plan details:', {
+      meals: mealPlan.length,
+      usedAI: usedAI,
+      mealNames: mealPlan.map(m => m.recipe_name || m.meal_type).join(', ')
+    });
+    
+    res.json(mealPlan);
+    
+  } catch (error) {
+    console.error('[TEST AI] Error in test generation:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to generate test meal plan',
+      usedAI: false
+    });
+  }
+});
+
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();
@@ -6170,7 +6893,14 @@ app.post('/api/generate-recipe', async (req, res) => {
       // Use appropriate AI service based on provider
       if (AI_PROVIDER === 'deepseek' && deepSeekService) {
         try {
-          recipe = await deepSeekService.generateRecipe(mealType, ingredients, targets);
+          // Add timeout for recipe generation
+          const RECIPE_TIMEOUT = 35000; // 35 seconds for recipe generation
+          const recipePromise = deepSeekService.generateRecipe(mealType, targets, ingredients);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Recipe generation timeout')), RECIPE_TIMEOUT);
+          });
+          
+          recipe = await Promise.race([recipePromise, timeoutPromise]);
           if (recipe) {
             console.log(`[DEEPSEEK] ✅ Recipe generated successfully: ${recipe.recipe_name || recipe.name}`);
             console.log(`[RECIPE GENERATION] ✅ Recipe generated successfully using deepseek`);
@@ -6185,7 +6915,14 @@ app.post('/api/generate-recipe', async (req, res) => {
       
       if (AI_PROVIDER === 'gemini' && geminiTextService) {
         try {
-          recipe = await geminiTextService.generateRecipe(mealType, ingredients, targets);
+          // Add timeout for recipe generation
+          const RECIPE_TIMEOUT = 35000; // 35 seconds for recipe generation
+          const recipePromise = geminiTextService.generateRecipe(mealType, targets, ingredients);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Recipe generation timeout')), RECIPE_TIMEOUT);
+          });
+          
+          recipe = await Promise.race([recipePromise, timeoutPromise]);
           if (recipe) {
             console.log(`[GEMINI] ✅ Recipe generated successfully: ${recipe.recipe_name || recipe.name}`);
             console.log(`[RECIPE GENERATION] ✅ Recipe generated successfully using gemini`);
@@ -6206,9 +6943,9 @@ app.post('/api/generate-recipe', async (req, res) => {
             console.log(`[RECIPE GENERATION] Trying fallback provider: ${provider}`);
             
             if (provider === 'deepseek' && deepSeekService) {
-              recipe = await deepSeekService.generateRecipe(mealType, ingredients, targets);
+              recipe = await deepSeekService.generateRecipe(mealType, targets, ingredients);
             } else if (provider === 'gemini' && geminiTextService) {
-              recipe = await geminiTextService.generateRecipe(mealType, ingredients, targets);
+              recipe = await geminiTextService.generateRecipe(mealType, targets, ingredients);
             }
             
             if (recipe) {
