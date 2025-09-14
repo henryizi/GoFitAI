@@ -267,6 +267,275 @@ app.post('/api/generate-workout-plan', async (req, res) => {
   }
 });
 
+// ====================
+// NUTRITION PLAN GENERATION - MATHEMATICAL CALCULATION
+// ====================
+
+// Helper function to generate meal templates
+function generateMealTemplates(dailyTargets, strategy = 'balanced', preferences = []) {
+  const isVegetarian = preferences.includes('vegetarian');
+  const isVegan = preferences.includes('vegan');
+  const isKeto = preferences.includes('keto');
+  const isPaleo = preferences.includes('paleo');
+  
+  const templates = {
+    breakfast: isKeto ? 'Scrambled eggs with avocado and spinach' :
+               isVegan ? 'Oatmeal with berries and nuts' :
+               isVegetarian ? 'Greek yogurt with granola and fruit' :
+               'Protein smoothie with banana and oats',
+    lunch: isKeto ? 'Grilled chicken salad with olive oil' :
+           isVegan ? 'Quinoa Buddha bowl with vegetables' :
+           isVegetarian ? 'Vegetable stir-fry with tofu' :
+           'Grilled chicken with sweet potato',
+    dinner: isKeto ? 'Salmon with broccoli and butter' :
+            isVegan ? 'Lentil curry with brown rice' :
+            isVegetarian ? 'Pasta with marinara and vegetables' :
+            'Lean beef with quinoa and vegetables',
+    snack: isKeto ? 'Mixed nuts and cheese' :
+           isVegan ? 'Apple with almond butter' :
+           'Greek yogurt with berries'
+  };
+  
+  return [
+    { time_slot: 'Breakfast', calories: Math.round(dailyTargets.calories * 0.25), meal: templates.breakfast },
+    { time_slot: 'Lunch', calories: Math.round(dailyTargets.calories * 0.35), meal: templates.lunch },
+    { time_slot: 'Dinner', calories: Math.round(dailyTargets.calories * 0.30), meal: templates.dinner },
+    { time_slot: 'Snack', calories: Math.round(dailyTargets.calories * 0.10), meal: templates.snack }
+  ];
+}
+
+// Helper function to filter food suggestions
+function filterFoodSuggestions(preferences = []) {
+  const isVegetarian = preferences.includes('vegetarian');
+  const isVegan = preferences.includes('vegan');
+  
+  const base = {
+    protein_sources: isVegan ? ['tofu', 'tempeh', 'legumes', 'quinoa', 'nuts'] :
+                     isVegetarian ? ['eggs', 'dairy', 'legumes', 'quinoa', 'nuts'] :
+                     ['chicken', 'fish', 'lean beef', 'eggs', 'legumes'],
+    carb_sources: ['oats', 'quinoa', 'sweet potato', 'brown rice', 'fruits'],
+    fat_sources: ['avocado', 'nuts', 'olive oil', 'seeds'],
+    vegetables: ['spinach', 'broccoli', 'bell peppers', 'carrots', 'tomatoes']
+  };
+  
+  return { food_suggestions: base };
+}
+
+app.post('/api/generate-nutrition-plan', async (req, res) => {
+  console.log(`[${new Date().toISOString()}] Received request for /api/generate-nutrition-plan`);
+  try {
+    const { profile, preferences, mealsPerDay = 3, snacksPerDay = 1 } = req.body;
+
+    if (!profile) {
+      return res.status(400).json({ error: 'Missing required profile data' });
+    }
+
+    console.log('[NUTRITION] Generating plan with mathematical calculations (no AI)');
+
+    // Create a personalized plan name
+    const mockPlanName = profile.full_name ? `${profile.full_name}'s Nutrition Plan` : 'Nutrition Plan';
+
+    // Calculate BMR using Henry/Oxford equation (metric)
+    let age;
+    if (profile.age) {
+      age = profile.age;
+    } else if (profile.birthday) {
+      const birthDate = new Date(profile.birthday);
+      age = new Date().getFullYear() - birthDate.getFullYear();
+    } else {
+      age = 30; // Default fallback
+    }
+    const weight = profile.weight;
+    const height = profile.height;
+    const gender = (profile.gender || 'female').toLowerCase();
+
+    let bmr;
+    if (gender === 'male') {
+      if (age >= 18 && age <= 30) {
+        bmr = 14.4 * weight + 3.13 * height + 113;
+      } else if (age >= 30 && age <= 60) {
+        bmr = 11.4 * weight + 5.41 * height - 137;
+      } else { // 60+
+        bmr = 11.4 * weight + 5.41 * height - 256;
+      }
+    } else {
+      if (age >= 18 && age <= 30) {
+        bmr = 10.4 * weight + 6.15 * height - 282;
+      } else if (age >= 30 && age <= 60) {
+        bmr = 8.18 * weight + 5.02 * height - 11.6;
+      } else { // 60+
+        bmr = 8.52 * weight + 4.21 * height + 10.7;
+      }
+    }
+
+    // Activity level multipliers for TDEE calculation
+    const activityMultipliers = {
+      'sedentary': 1.2,
+      'lightly_active': 1.375,
+      'moderately_active': 1.55,
+      'very_active': 1.725,
+      'extremely_active': 1.9
+    };
+
+    const activityLevel = profile.activity_level || 'moderately_active';
+    const tdee = bmr * (activityMultipliers[activityLevel] || 1.55);
+
+    // Caloric adjustment based on fitness strategy
+    let dailyCalories;
+    const strategy = profile.fitness_strategy || profile.goal_type || 'maintenance';
+    
+    switch (strategy) {
+      case 'weight_loss':
+      case 'fat_loss':
+        dailyCalories = Math.round(tdee * 0.85); // 15% deficit
+        break;
+      case 'weight_gain':
+      case 'muscle_gain':
+        dailyCalories = Math.round(tdee * 1.15); // 15% surplus
+        break;
+      case 'maintenance':
+      default:
+        dailyCalories = Math.round(tdee);
+        break;
+    }
+
+    // Macro distribution based on strategy
+    let proteinRatio, carbRatio, fatRatio;
+    
+    if (preferences && preferences.includes('keto')) {
+      proteinRatio = 0.25;
+      carbRatio = 0.05;
+      fatRatio = 0.70;
+    } else if (strategy === 'muscle_gain') {
+      proteinRatio = 0.30;
+      carbRatio = 0.45;
+      fatRatio = 0.25;
+    } else if (strategy === 'weight_loss') {
+      proteinRatio = 0.35;
+      carbRatio = 0.35;
+      fatRatio = 0.30;
+    } else {
+      proteinRatio = 0.25;
+      carbRatio = 0.45;
+      fatRatio = 0.30;
+    }
+
+    const proteinGrams = Math.round((dailyCalories * proteinRatio) / 4);
+    const carbGrams = Math.round((dailyCalories * carbRatio) / 4);
+    const fatGrams = Math.round((dailyCalories * fatRatio) / 9);
+
+    const metabolicCalculations = {
+      bmr_kcal_day: Math.round(bmr),
+      tdee_kcal_day: Math.round(tdee),
+      activity_level: activityLevel,
+      strategy: strategy,
+      caloric_adjustment: strategy === 'weight_loss' ? '-15%' : 
+                          strategy === 'weight_gain' ? '+15%' : '0%'
+    };
+
+    const dailyTargets = {
+      calories: dailyCalories,
+      protein_grams: proteinGrams,
+      carbs_grams: carbGrams,
+      fat_grams: fatGrams,
+      fiber_grams: Math.round(dailyCalories / 100), // 1g per 100 calories
+      water_liters: Math.round((weight * 35) / 1000 * 10) / 10 // 35ml per kg body weight
+    };
+
+    const micronutrientsTargets = {
+      vitamin_c_mg: gender === 'male' ? 90 : 75,
+      vitamin_d_iu: 600,
+      calcium_mg: age < 50 ? 1000 : 1200,
+      iron_mg: gender === 'male' ? 8 : (age < 50 ? 18 : 8),
+      magnesium_mg: gender === 'male' ? 400 : 310,
+      zinc_mg: gender === 'male' ? 11 : 8
+    };
+
+    // Try to save to database if configured
+    let savedToDatabase = false;
+    let planId = null;
+    
+    if (supabase) {
+      try {
+        const nutritionPlanData = {
+          user_id: profile.user_id || profile.id,
+          plan_name: mockPlanName,
+          goal_type: profile.goal_type || strategy,
+          status: 'active',
+          preferences: {
+            dietary: preferences || [],
+            intolerances: []
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          daily_calories: dailyCalories,
+          protein_grams: proteinGrams,
+          carbs_grams: carbGrams,
+          fat_grams: fatGrams,
+          fiber_grams: dailyTargets.fiber_grams,
+          water_liters: dailyTargets.water_liters,
+          metabolic_calculations: metabolicCalculations,
+          micronutrients_targets: micronutrientsTargets,
+          daily_schedule: generateMealTemplates(dailyTargets, strategy, preferences || []),
+          ...filterFoodSuggestions(preferences || [])
+        };
+
+        const { data: insertedPlan, error } = await supabase
+          .from('nutrition_plans')
+          .insert(nutritionPlanData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[NUTRITION] Database insert error:', error);
+        } else {
+          console.log('[NUTRITION] Successfully saved to database with ID:', insertedPlan.id);
+          savedToDatabase = true;
+          planId = insertedPlan.id;
+        }
+      } catch (dbError) {
+        console.error('[NUTRITION] Database error:', dbError);
+      }
+    }
+
+    // Fallback: Generate a unique ID for the plan if database save failed
+    if (!planId) {
+      planId = `traditional-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+    }
+
+    // Return nutrition plan with traditional calculations
+    return res.json({
+      success: true,
+      message: savedToDatabase ? 'Nutrition plan generated and saved successfully' : 
+               'Nutrition plan generated with mathematical calculations. Database not configured - set EXPO_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY for persistence.',
+      saved_to_database: savedToDatabase,
+      id: planId,
+      plan_name: mockPlanName,
+      user_id: profile.user_id || profile.id,
+      goal_type: profile.goal_type,
+      status: 'active',
+      preferences: {
+        dietary: preferences || [],
+        intolerances: []
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      metabolic_calculations: metabolicCalculations,
+      daily_targets: dailyTargets,
+      micronutrients_targets: micronutrientsTargets,
+      daily_schedule: generateMealTemplates(dailyTargets, profile.fitness_strategy || 'maintenance', preferences || []),
+      ...filterFoodSuggestions(preferences || [])
+    });
+  } catch (error) {
+    console.error('[NUTRITION] Error generating nutrition plan:', error);
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to generate nutrition plan.',
+      errorType: error.name || 'UnknownError',
+      errorDetails: error.response?.data || null
+    });
+  }
+});
+
 // Basic endpoints for app functionality
 app.get('/api/workouts/:userId', async (req, res) => {
   try {
