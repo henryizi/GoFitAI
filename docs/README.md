@@ -1,6 +1,6 @@
-# 📚 SnapBodyAI Documentation
+# 📚 GoFitAI Documentation
 
-This directory contains all documentation for the SnapBodyAI project, organized by category.
+This directory contains all documentation for the GoFitAI project, organized by category.
 
 ## 📁 Directory Structure
 
@@ -86,6 +86,13 @@ When adding new documentation:
 - `../scripts/` - Database scripts, deployment tools, tests
 - `../server/` - Backend server code and services
 - `../temp/` - Temporary files, test data (can be cleaned up)
+
+
+
+
+
+
+
 
 
 

@@ -75,7 +75,8 @@
     "react-native-vector-icons": "^10.3.0",
     "react-native-view-shot": "4.0.3",
     "react-native-web": "^0.20.0",
-    "sentry-expo": "~7.0.0"
+    "sentry-expo": "~7.0.0",
+    "react-native-screens": "~4.11.1"
   },
   "devDependencies": {
     "@babel/plugin-transform-class-static-block": "^7.28.3",

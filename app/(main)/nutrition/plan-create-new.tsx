@@ -96,10 +96,12 @@ const PlanCreateScreen = () => {
       const fitnessStrategy = profile.fitness_strategy;
 
       // Determine goal based on primary_goal or fitness_strategy
-      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut') {
+      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut' || fitnessStrategy === 'fat_loss') {
         setSelectedGoal('fat_loss');
-      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk') {
+      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk' || fitnessStrategy === 'muscle_gain') {
         setSelectedGoal('muscle_gain');
+      } else if (fitnessStrategy === 'recomp') {
+        setSelectedGoal('body_recomposition'); // Map recomp strategy to body_recomposition goal
       } else {
         setSelectedGoal('maintenance');
       }
@@ -107,7 +109,7 @@ const PlanCreateScreen = () => {
   }, [profile]);
 
   const handleGeneratePlan = async () => {
-    console.log('--- Button Press: Generate AI Plan ---');
+    console.log('--- Button Press: Generate Plan ---');
     if (!user) {
       Alert.alert('Error', 'You must be logged in to generate a plan.');
       return;
@@ -127,26 +129,15 @@ const PlanCreateScreen = () => {
       if (newPlan && newPlan.id) {
         router.replace(`/(main)/nutrition/plan?planId=${newPlan.id}`);
       } else {
-        throw new Error('The AI failed to return a plan with an ID.');
+        throw new Error('Failed to generate a plan with an ID.');
       }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'An unknown error occurred.';
       setError(message);
       
-      // Provide more helpful error messages for common issues
-      if (message.includes('timed out') || message.includes('Network request timed out')) {
-        Alert.alert(
-          'Connection Issue', 
-          'The server is taking too long to respond. This could be due to:\n\n' +
-          '• Server is not running\n' +
-          '• Incorrect server IP address\n' +
-          '• Network connectivity issues\n\n' +
-          'Please check your server connection and try again.'
-        );
-      } else {
-        Alert.alert('Generation Failed', message);
-      }
+      // Show error message
+      Alert.alert('Generation Failed', message);
     }
     setIsGenerating(false);
   };

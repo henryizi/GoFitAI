@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
 import { formatHeightWithUnit, formatWeightWithUnit } from '../../../src/utils/unitConversions';
+import { DataDeletionService } from '../../../src/services/privacy/DataDeletionService';
 
 const colors = {
   primary: '#FF6B35',
@@ -266,42 +267,39 @@ export default function ProfileSettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: confirmDeleteAccount
-        },
-      ]
-    );
+    DataDeletionService.showDeletionConfirmation(() => {
+      confirmDeleteAccount();
+    });
   };
 
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Final Confirmation',
-      'Are you absolutely sure you want to delete your account? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete Forever', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // For now, just sign out - actual deletion would require admin privileges
-              await supabase.auth.signOut();
-              router.replace('/(auth)/welcome');
-              Alert.alert('Account Deleted', 'Your account has been deleted successfully.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete account. Please contact support.');
-            }
-          }
-        },
-      ]
-    );
+  const confirmDeleteAccount = async () => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) {
+        Alert.alert('Error', 'Unable to verify user authentication');
+        return;
+      }
+
+      Alert.alert('Processing', 'Deleting your account and all data...');
+      
+      const result = await DataDeletionService.requestAccountDeletion(
+        user.user.id, 
+        'User-initiated account deletion from app settings'
+      );
+      
+      if (result.success) {
+        router.replace('/(auth)/welcome');
+        setTimeout(() => {
+          Alert.alert('Account Deleted', result.message);
+        }, 500);
+      } else {
+        Alert.alert('Deletion Failed', result.message);
+      }
+      
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Alert.alert('Error', 'Failed to delete account. Please contact privacy@gofitai.com for assistance.');
+    }
   };
 
   // TEMPORARY RESET FUNCTION FOR BETA TESTING

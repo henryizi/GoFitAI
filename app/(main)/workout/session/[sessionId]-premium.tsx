@@ -19,6 +19,7 @@ import { track as analyticsTrack } from '../../../../src/services/analytics/anal
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { isBodyweightExercise, canUseOptionalWeight } from '../../../../src/constants/exerciseNames';
+import { useAuth } from '../../../../src/contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ export default function SessionExecutionScreen() {
 
   const { sessionId, sessionTitle, fallbackExercises } = useLocalSearchParams<{ sessionId: string; sessionTitle: string; fallbackExercises?: string }>();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   const [sets, setSets] = useState<ExerciseSet[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -334,12 +336,20 @@ export default function SessionExecutionScreen() {
       // Skip rest timer and go directly to workout completion
       console.log('[Session] Last set completed - finishing workout');
       
-      // Mark session as completed if it's not a fallback exercise
-      if (!String(currentSet.id).startsWith('fallback-') && !String(currentSet.id).startsWith('ex-')) {
-        try {
-          console.log(`[Session] Marking session ${sessionId} as completed`);
+      // Always save workout history for completed workouts
+      try {
+        const completedAt = new Date().toISOString();
+        const totalSets = sets.length;
+        const totalExercises = new Set(sets.map(set => set.exercise_id)).size;
+        const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
+        
+        // Check if this is a custom/fallback workout or a regular database workout
+        const isCustomWorkout = String(currentSet.id).startsWith('fallback-') || String(currentSet.id).startsWith('ex-');
+        
+        if (!isCustomWorkout) {
+          // Regular database workout - update session status and save history normally
+          console.log(`[Session] Marking database session ${sessionId} as completed`);
           
-          const completedAt = new Date().toISOString();
           const updateData = { 
             status: 'completed', 
             completed_at: completedAt
@@ -353,59 +363,87 @@ export default function SessionExecutionScreen() {
           if (updateError) {
             console.error('[Session] Error updating session status:', updateError);
           } else {
-            console.log('[Session] Session marked as completed successfully');
+            console.log('[Session] Database session marked as completed successfully');
+          }
+          
+          // Save workout history for database workouts
+          try {
+            const { data: sessionData } = await supabase
+              .from('workout_sessions')
+              .select('plan_id')
+              .eq('id', sessionId)
+              .single();
             
-            // Save workout history to Supabase
-            try {
-              // Get user ID from session data
-              const { data: sessionData } = await supabase
-                .from('workout_sessions')
-                .select('plan_id')
-                .eq('id', sessionId)
+            if (sessionData?.plan_id) {
+              const { data: planData } = await supabase
+                .from('workout_plans')
+                .select('user_id')
+                .eq('id', sessionData.plan_id)
                 .single();
               
-              if (sessionData?.plan_id) {
-                const { data: planData } = await supabase
-                  .from('workout_plans')
-                  .select('user_id')
-                  .eq('id', sessionData.plan_id)
-                  .single();
+              if (planData?.user_id) {
+                const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+                  user_id: planData.user_id,
+                  plan_id: sessionData.plan_id,
+                  session_id: sessionId,
+                  completed_at: completedAt,
+                  duration_minutes: durationMinutes,
+                  total_sets: totalSets,
+                  total_exercises: totalExercises,
+                  estimated_calories: estimatedCalories,
+                  notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
+                });
                 
-                if (planData?.user_id) {
-                  // Calculate workout statistics
-                  const totalSets = sets.length;
-                  const totalExercises = new Set(sets.map(set => set.exercise_id)).size;
-                  const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
-                  
-                  // Save workout history entry
-                  const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
-                    user_id: planData.user_id,
-                    plan_id: sessionData.plan_id,
-                    session_id: sessionId,
-                    completed_at: completedAt,
-                    duration_minutes: durationMinutes,
-                    total_sets: totalSets,
-                    total_exercises: totalExercises,
-                    estimated_calories: estimatedCalories,
-                    notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
-                  });
-                  
-                  if (historySaved) {
-                    console.log('[Session] Workout history saved successfully');
-                  } else {
-                    console.warn('[Session] Failed to save workout history');
-                  }
+                if (historySaved) {
+                  console.log('[Session] Database workout history saved successfully');
+                } else {
+                  console.warn('[Session] Failed to save database workout history');
                 }
               }
-            } catch (historyError) {
-              console.error('[Session] Error saving workout history:', historyError);
             }
+          } catch (historyError) {
+            console.error('[Session] Error saving database workout history:', historyError);
           }
-        } catch (err) {
-          console.error('[Session] Exception while updating session status:', err);
+        } else {
+          // Custom/fallback workout - save history with synthetic data
+          console.log('[Session] Saving custom workout to history');
+          
+          try {
+            if (user?.id) {
+              // Create workout history entry for custom workouts
+              const customHistorySaved = await WorkoutHistoryService.saveCustomWorkoutHistory({
+                user_id: user.id,
+                plan_name: 'Custom Workout',
+                session_name: sessionTitle || splitName || 'Custom Session',
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: estimatedCalories,
+                notes: `Custom workout: ${totalExercises} exercises with ${totalSets} total sets`,
+                exercises_data: sets.map(set => ({
+                  exercise_name: exerciseMap[set.exercise_id]?.name || 'Unknown Exercise',
+                  target_sets: set.target_sets,
+                  target_reps: set.target_reps,
+                  rest_period: set.rest_period,
+                  order_in_session: sets.indexOf(set) + 1
+                }))
+              });
+              
+              if (customHistorySaved) {
+                console.log('[Session] Custom workout history saved successfully');
+              } else {
+                console.warn('[Session] Failed to save custom workout history');
+              }
+            } else {
+              console.warn('[Session] No user ID available for saving custom workout history');
+            }
+          } catch (customHistoryError) {
+            console.error('[Session] Error saving custom workout history:', customHistoryError);
+          }
         }
-      } else {
-        console.log('[Session] Skipping session completion database operations for fallback/synthetic session');
+      } catch (err) {
+        console.error('[Session] Exception during workout completion:', err);
       }
       
       // Show completion dialog instead of navigating to non-existent route

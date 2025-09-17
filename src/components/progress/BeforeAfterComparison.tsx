@@ -11,6 +11,7 @@ import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
 import { SafeImage } from '../ui/SafeImage';
 import { Image } from 'react-native';
+import HealthDisclaimer from '../legal/HealthDisclaimer';
 
 type BodyPhoto = Database['public']['Tables']['body_photos']['Row'];
 
@@ -159,9 +160,9 @@ export default function BeforeAfterComparison({
   };
 
   const getPhotoUrl = (photo: BodyPhoto | null) => {
-    if (!photo?.storage_path || !supabase) return null;
-    const publicUrlResult = supabase.storage.from('body-photos').getPublicUrl(photo.storage_path);
-    return publicUrlResult.data.publicUrl;
+    if (!photo?.storage_path) return null;
+    // Photos are now stored locally, so storage_path contains the local URI
+    return photo.storage_path;
   };
 
   const renderPhotoComparison = () => {
@@ -504,6 +505,13 @@ export default function BeforeAfterComparison({
     <>
       {/* Optional header component */}
       {headerComponent}
+      
+      {/* Health Disclaimer */}
+      <HealthDisclaimer 
+        variant="compact" 
+        title="Progress Photo Disclaimer"
+        showAcceptButton={false}
+      />
       
       {/* Compact controls card */}
       <Card style={styles.controlsCard}>

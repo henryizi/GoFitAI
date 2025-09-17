@@ -1,4 +1,4 @@
-# 🛠️ SnapBodyAI Scripts
+# 🛠️ GoFitAI Scripts
 
 This directory contains utility scripts for database management, deployment, and testing.
 
@@ -96,6 +96,13 @@ When adding new scripts:
 - Regularly clean up old test files from `tests/` directory
 - Move completed migration files to archive if needed
 - Update deployment scripts as infrastructure changes
+
+
+
+
+
+
+
 
 
 

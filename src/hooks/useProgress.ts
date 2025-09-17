@@ -26,12 +26,9 @@ export const useProgress = () => {
       const data = await ProgressService.getProgressEntries(user.id);
       
       const entriesWithUrls = (data as ProgressEntryWithPhotos[]).map(entry => {
-        const front_photo_url = (entry.front_photo && supabase)
-          ? supabase.storage.from('body-photos').getPublicUrl(entry.front_photo.storage_path).data.publicUrl
-          : undefined;
-        const back_photo_url = (entry.back_photo && supabase)
-          ? supabase.storage.from('body-photos').getPublicUrl(entry.back_photo.storage_path).data.publicUrl
-          : undefined;
+        // Photos are now stored locally, so storage_path contains the local URI
+        const front_photo_url = entry.front_photo?.storage_path;
+        const back_photo_url = entry.back_photo?.storage_path;
         return { ...entry, front_photo_url, back_photo_url };
       });
 

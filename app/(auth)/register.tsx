@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { signUp } from '../../src/hooks/useAuth';
 import { Button } from '../../src/components/ui/Button';
 import { colors } from '../../src/styles/colors';
+import HealthDisclaimer from '../../src/components/legal/HealthDisclaimer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -220,10 +221,15 @@ const RegisterScreen = () => {
             </Card>
           </View>
 
+          {/* Health Disclaimer Section */}
+          <View style={styles.disclaimerSection}>
+            <HealthDisclaimer variant="compact" />
+          </View>
+
           {/* Footer Section */}
           <View style={styles.footerSection}>
             <Text style={styles.footerText}>
-              By creating an account, you agree to our Terms of Service and Privacy Policy
+              By creating an account, you agree to our Terms of Service, Privacy Policy, and Health Disclaimer
             </Text>
           </View>
         </ScrollView>
@@ -397,6 +403,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  
+  // Disclaimer Section
+  disclaimerSection: {
+    marginTop: 20,
+    marginHorizontal: 16,
   },
   
   // Footer Section

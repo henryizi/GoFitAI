@@ -13,6 +13,8 @@ import WeightProgressChart from '../../../src/components/progress/WeightProgress
 import TodayCard from '../../../src/components/progress/TodayCard';
 import BeforeAfterComparison from '../../../src/components/progress/BeforeAfterComparison';
 import { BlurView } from 'expo-blur';
+import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
+import { SafeImage } from '../../../src/components/ui/SafeImage';
 
 // Modern, premium colors with enhanced palette
 const colors = {
@@ -949,6 +951,9 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
     >
       {renderViewModeToggle()}
       
+      {/* Privacy Notice */}
+      <ProgressPhotoPrivacyNotice variant="compact" />
+      
       <View style={styles.photosHeader}>
         <Text style={styles.photosTitle}>Your Progress Photos</Text>
         <TouchableOpacity 
@@ -985,8 +990,8 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
               <View style={styles.photosGrid}>
                 {entry.front_photo && (
                   <View style={styles.photoContainer}>
-                    <Image 
-                      source={{ uri: supabase.storage.from('body-photos').getPublicUrl(entry.front_photo.storage_path).data.publicUrl }} 
+                    <SafeImage 
+                      sourceUrl={entry.front_photo.storage_path} 
                       style={styles.photoImage}
                       resizeMode="cover"
                     />
@@ -998,8 +1003,8 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
                 
                 {entry.back_photo && (
                   <View style={styles.photoContainer}>
-                    <Image 
-                      source={{ uri: supabase.storage.from('body-photos').getPublicUrl(entry.back_photo.storage_path).data.publicUrl }} 
+                    <SafeImage 
+                      sourceUrl={entry.back_photo.storage_path} 
                       style={styles.photoImage}
                       resizeMode="cover"
                     />

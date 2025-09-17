@@ -106,7 +106,7 @@ curl -X POST "https://gofitai-production.up.railway.app/api/analyze-food" \
 ## 🎯 Architecture Summary
 
 ```
-📱 SnapBodyAI App
+📱 GoFitAI App
 ├── 🥗 Food Photo Analysis → 🌐 Cloudflare Workers AI (@cf/llava-1.5-7b-hf)
 ├── 💪 Body Analysis → 🤖 DeepSeek (text-based)
 ├── 🍽️ Recipe Generation → 🤖 DeepSeek
@@ -116,7 +116,7 @@ curl -X POST "https://gofitai-production.up.railway.app/api/analyze-food" \
 
 ## 🎉 Configuration Complete!
 
-Your SnapBodyAI server is now configured to:
+Your GoFitAI server is now configured to:
 - Use **Cloudflare Workers AI** for photo analysis (food images)
 - Use **DeepSeek** for all text-based AI features
 - Handle **both image and text analysis** seamlessly

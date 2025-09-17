@@ -2,7 +2,7 @@
 
 ## Overview
 
-The simplified SnapBodyAI backend uses Hugging Face's BLIP model for image analysis. While the system works without an API token using rule-based fallbacks, adding a token enables AI-powered food recognition.
+The simplified GoFitAI backend uses Hugging Face's BLIP model for image analysis. While the system works without an API token using rule-based fallbacks, adding a token enables AI-powered food recognition.
 
 ## Getting Your Hugging Face API Token
 
@@ -19,14 +19,14 @@ The simplified SnapBodyAI backend uses Hugging Face's BLIP model for image analy
 4. Navigate to **"Access Tokens"** in the left sidebar
 5. Click **"New token"**
 6. Configure your token:
-   - **Name**: `SnapBodyAI` (or any descriptive name)
+   - **Name**: `GoFitAI` (or any descriptive name)
    - **Type**: Select **"Read"** 
    - **Repositories**: Leave as default (all public repositories)
 7. Click **"Generate a token"**
 8. **Important**: Copy the token immediately - you won't see it again!
 
 ### Step 3: Token Permissions
-For SnapBodyAI, you only need **"Read"** permissions:
+For GoFitAI, you only need **"Read"** permissions:
 - ✅ **Read**: Required for accessing BLIP model
 - ❌ **Write**: Not needed
 - ❌ **Manage**: Not needed
@@ -146,7 +146,7 @@ The system works perfectly without a token:
 
 Simply deploy without setting `HUGGINGFACE_API_TOKEN` and the system will use fallback mechanisms.
 
-## Integration with SnapBodyAI
+## Integration with GoFitAI
 
 The simplified backend uses the token for:
 - **Image Captioning**: BLIP model describes food images

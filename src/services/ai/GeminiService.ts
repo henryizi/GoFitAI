@@ -39,11 +39,49 @@ interface GeneratedRecipe {
   error?: string;
 }
 
+interface MealWithRecipe {
+  meal_type: string;
+  name: string;
+  cuisine: string;
+  prep_time: number;
+  cook_time: number;
+  servings: number;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
+  nutrition: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sugar: number;
+  };
+}
+
+interface DailyMealPlan {
+  total_nutrition: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sugar: number;
+  };
+  meals: MealWithRecipe[];
+  cuisine_variety: string[];
+  cooking_tips: string[];
+}
+
 export class GeminiService {
   
-  private static getApiUrl(): string {
-    // Use the same API URL as other services
-    return Constants.expoConfig?.extra?.API_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
+  private static getBaseUrls(): string[] {
+    return [
+      'https://gofitai-production.up.railway.app', // Railway server first (always available)
+      Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL, // Configured URL from environment
+      'http://192.168.0.152:4000', // Current local server IP
+      'http://localhost:4000', // Localhost fallback
+      'http://127.0.0.1:4000', // IP localhost fallback
+    ].filter(Boolean) as string[];
   }
 
   /**
@@ -54,53 +92,93 @@ export class GeminiService {
     targets: RecipeTarget,
     ingredients: string[]
   ): Promise<GeneratedRecipe> {
-    try {
-      console.log('[GEMINI SERVICE] Generating recipe via server API');
-      console.log('[GEMINI SERVICE] Meal type:', mealType);
-      console.log('[GEMINI SERVICE] Targets:', targets);
-      console.log('[GEMINI SERVICE] Ingredients:', ingredients);
+    console.log('[GEMINI SERVICE] Generating recipe via server API');
+    console.log('[GEMINI SERVICE] Meal type:', mealType);
+    console.log('[GEMINI SERVICE] Targets:', targets);
+    console.log('[GEMINI SERVICE] Ingredients:', ingredients);
 
-      const apiUrl = this.getApiUrl();
-      
-      const response = await fetch(`${apiUrl}/api/generate-recipe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mealType,
-          targets,
-          ingredients
-        })
-      });
+    const bases = this.getBaseUrls();
+    let lastError: unknown = null;
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+    for (const base of bases) {
+      try {
+        console.log(`[GEMINI SERVICE] Trying base: ${base}`);
+        
+        // Create timeout promise - optimized for meal generation
+        const timeoutMs = 45000; // 45 seconds timeout for Gemini API (faster than server timeout)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          controller.abort();
+        }, timeoutMs);
+        
+        const response = await fetch(`${base}/api/generate-recipe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            mealType,
+            targets,
+            ingredients
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // Handle 404 specifically - might be missing endpoint
+          if (response.status === 404) {
+            console.warn(`[GEMINI SERVICE] 404 from ${base}, trying next...`);
+            continue;
+          }
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        console.log('[GEMINI SERVICE] Received response from server');
+        
+        if (data.success && data.recipe) {
+          return {
+            success: true,
+            recipe: data.recipe,
+            fallback: false
+          };
+        } else {
+          throw new Error(data.error || 'Failed to generate recipe');
+        }
+        
+      } catch (error: any) {
+        lastError = error;
+        console.error(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
+        
+        // If it's an abort error (timeout), try next base
+        if (error.name === 'AbortError') {
+          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          continue;
+        }
+        
+        // If it's a network error, try next base
+        if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+          console.log(`[GEMINI SERVICE] Network error for ${base}, trying next...`);
+          continue;
+        }
+        
+        // For other errors, still try next base
+        continue;
       }
-
-      const data = await response.json();
-      
-      console.log('[GEMINI SERVICE] Received response from server');
-      
-      if (data.success && data.recipe) {
-        return {
-          success: true,
-          recipe: data.recipe,
-          fallback: false
-        };
-      } else {
-        throw new Error(data.error || 'Failed to generate recipe');
-      }
-      
-    } catch (error: any) {
-      console.error('[GEMINI SERVICE] Error generating recipe:', error);
-      
-      return {
-        success: false,
-        error: error.message || 'Failed to generate recipe with Gemini AI',
-        fallback: true
-      };
     }
+
+    // All bases failed, return fallback
+    console.error('[GEMINI SERVICE] All bases failed, returning fallback');
+    console.log('[GEMINI SERVICE] 🔄 Using mathematical fallback for recipe generation');
+    return {
+      success: false,
+      error: lastError?.message || 'Failed to generate recipe with Gemini AI',
+      fallback: true
+    };
   }
 
   private static buildRecipePrompt(
@@ -197,6 +275,142 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
       // Return a fallback structure if parsing fails
       throw new Error(`Failed to parse Gemini response: ${error}`);
     }
+  }
+
+  /**
+   * Generate a complete daily meal plan with recipes using Gemini AI
+   */
+  static async generateDailyMealPlan(
+    dailyCalories: number,
+    proteinGrams: number,
+    carbsGrams: number,
+    fatGrams: number,
+    dietaryPreferences: string[] = [],
+    cuisinePreference?: string
+  ): Promise<{
+    success: boolean;
+    mealPlan?: DailyMealPlan;
+    fallback?: boolean;
+    error?: string;
+  }> {
+    console.log('[GEMINI SERVICE] Generating daily meal plan via server API');
+    console.log('[GEMINI SERVICE] Daily targets:', { dailyCalories, proteinGrams, carbsGrams, fatGrams });
+    console.log('[GEMINI SERVICE] Dietary preferences:', dietaryPreferences);
+    console.log('[GEMINI SERVICE] Cuisine preference:', cuisinePreference);
+
+    const bases = this.getBaseUrls();
+    let lastError: unknown = null;
+
+    for (const base of bases) {
+      try {
+        console.log(`[GEMINI SERVICE] Trying base: ${base}`);
+        
+        // Create timeout promise - longer timeout for complete meal plan generation
+        const timeoutMs = 60000; // 60 seconds timeout for full meal plan generation
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          controller.abort();
+        }, timeoutMs);
+        
+        const response = await fetch(`${base}/api/generate-daily-meal-plan`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: 'guest-user', // Use guest user for meal plan generation
+            dailyCalories,
+            proteinGrams,
+            carbsGrams,
+            fatGrams,
+            dietaryPreferences,
+            cuisinePreference
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // Handle 404 specifically - might be missing endpoint
+          if (response.status === 404) {
+            console.warn(`[GEMINI SERVICE] 404 from ${base}, trying next...`);
+            continue;
+          }
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        console.log('[GEMINI SERVICE] Received daily meal plan response from server');
+        
+        if (data.success && data.meal_plan) {
+          // Transform the response to match expected format
+          const transformedMealPlan = {
+            meals: data.meal_plan,
+            total_nutrition: data.meal_plan.reduce((total: any, meal: any) => {
+              // Handle both AI format (protein_grams) and mathematical format (protein)
+              const macros = meal.macros || {};
+              const calories = macros.calories || 0;
+              const protein = macros.protein_grams || macros.protein || 0;
+              const carbs = macros.carbs_grams || macros.carbs || 0;
+              const fat = macros.fat_grams || macros.fat || 0;
+              
+              return {
+                calories: (total.calories || 0) + calories,
+                protein_grams: (total.protein_grams || 0) + protein,
+                carbs_grams: (total.carbs_grams || 0) + carbs,
+                fat_grams: (total.fat_grams || 0) + fat
+              };
+            }, { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }),
+            cuisine_variety: ['Mixed'],
+            cooking_tips: ['Follow the recipe instructions', 'Adjust portions as needed']
+          };
+          
+          return {
+            success: true,
+            mealPlan: transformedMealPlan,
+            fallback: data.used_ai === false
+          };
+        } else {
+          throw new Error(data.error || 'Failed to generate daily meal plan');
+        }
+        
+      } catch (error: any) {
+        lastError = error;
+        console.error(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
+        
+        // If it's an abort error (timeout), try next base
+        if (error.name === 'AbortError') {
+          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          continue;
+        }
+        
+        // If it's a network error, try next base
+        if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+          console.log(`[GEMINI SERVICE] Network error for ${base}, trying next...`);
+          continue;
+        }
+        
+        // For other errors, still try next base
+        continue;
+      }
+    }
+
+    // All bases failed, return fallback
+    console.error('[GEMINI SERVICE] All bases failed, returning fallback');
+    console.log('[GEMINI SERVICE] 🔄 Using mathematical fallback for daily meal plan generation');
+    return {
+      success: false,
+      error: lastError?.message || 'Failed to generate daily meal plan with Gemini AI',
+      fallback: true
+    };
+  }
+
+  private static getApiUrl(): string {
+    const bases = this.getBaseUrls();
+    return bases[0] || 'https://gofitai-production.up.railway.app';
   }
 
   /**

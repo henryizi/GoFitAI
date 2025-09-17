@@ -1,5 +1,5 @@
 /**
- * SnapBodyAI Server - Clean Version for Railway
+ * GoFitAI Server - Clean Version for Railway
  * Optimized for Gemini-only food analysis
  */
 
@@ -476,7 +476,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
           water_liters: dailyTargets.water_liters,
           metabolic_calculations: metabolicCalculations,
           micronutrients_targets: micronutrientsTargets,
-          daily_schedule: generateMealTemplates(dailyTargets, strategy, preferences || []),
+          // ❌ REMOVED: daily_schedule - nutrition plans should only contain targets, not specific meals
           ...filterFoodSuggestions(preferences || [])
         };
 
@@ -503,7 +503,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
       planId = `traditional-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
     }
 
-    // Return nutrition plan with traditional calculations
+    // Return nutrition plan with traditional calculations - TARGETS ONLY, NO SPECIFIC MEALS
     return res.json({
       success: true,
       message: savedToDatabase ? 'Nutrition plan generated and saved successfully' : 
@@ -523,7 +523,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
       metabolic_calculations: metabolicCalculations,
       daily_targets: dailyTargets,
       micronutrients_targets: micronutrientsTargets,
-      daily_schedule: generateMealTemplates(dailyTargets, profile.fitness_strategy || 'maintenance', preferences || []),
+      // ❌ REMOVED: daily_schedule - nutrition plans should only contain targets, not specific meals
       ...filterFoodSuggestions(preferences || [])
     });
   } catch (error) {
@@ -729,6 +729,450 @@ async function calculateHabitScore(userId, date) {
     return 0;
   }
 }
+
+/**
+ * Generate a mathematical meal plan based on target macros (no AI)
+ * Distributes calories and macros across meals using predefined templates
+ */
+function generateMathematicalMealPlan(targets, dietaryPreferences = []) {
+  console.log('[MEAL PLAN] generateMathematicalMealPlan called with targets:', targets);
+  
+  const totalCalories = targets.daily_calories;
+  const totalProtein = targets.protein_grams;
+  const totalCarbs = targets.carbs_grams;
+  const totalFat = targets.fat_grams;
+
+  // Validate that all required values are present and are numbers
+  if (!totalCalories || typeof totalCalories !== 'number' || totalCalories <= 0) {
+    throw new Error(`Invalid calories target: ${totalCalories}`);
+  }
+  if (!totalProtein || typeof totalProtein !== 'number' || totalProtein <= 0) {
+    throw new Error(`Invalid protein target: ${totalProtein}`);
+  }
+  if (!totalCarbs || typeof totalCarbs !== 'number' || totalCarbs <= 0) {
+    throw new Error(`Invalid carbs target: ${totalCarbs}`);
+  }
+  if (!totalFat || typeof totalFat !== 'number' || totalFat <= 0) {
+    throw new Error(`Invalid fat target: ${totalFat}`);
+  }
+
+  // Meal distribution percentages (breakfast, lunch, dinner, snack)
+  const mealDistribution = {
+    breakfast: { calories: 0.25, protein: 0.25, carbs: 0.30, fat: 0.25 },
+    lunch: { calories: 0.35, protein: 0.35, carbs: 0.35, fat: 0.30 },
+    dinner: { calories: 0.30, protein: 0.30, carbs: 0.25, fat: 0.35 },
+    snack: { calories: 0.10, protein: 0.10, carbs: 0.10, fat: 0.10 }
+  };
+  
+  // Predefined meal templates
+  const mealTemplates = {
+    breakfast: {
+      standard: {
+        name: "Protein Oatmeal Bowl",
+        prep_time: 5,
+        cook_time: 10,
+        ingredients: ["Rolled oats", "Protein powder", "Banana", "Almond butter", "Milk"],
+        instructions: ["Cook oats with milk", "Mix in protein powder", "Top with banana and almond butter"]
+      },
+      vegetarian: {
+        name: "Greek Yogurt Parfait",
+        prep_time: 5,
+        cook_time: 0,
+        ingredients: ["Greek yogurt", "Granola", "Mixed berries", "Honey", "Chia seeds"],
+        instructions: ["Layer yogurt with granola", "Add berries and honey", "Sprinkle chia seeds"]
+      },
+      vegan: {
+        name: "Plant Protein Smoothie Bowl",
+        prep_time: 10,
+        cook_time: 0,
+        ingredients: ["Plant protein powder", "Oat milk", "Frozen berries", "Banana", "Granola"],
+        instructions: ["Blend protein, milk, and fruits", "Pour into bowl", "Top with granola"]
+      }
+    },
+    lunch: {
+      standard: {
+        name: "Grilled Chicken Salad",
+        prep_time: 15,
+        cook_time: 20,
+        ingredients: ["Chicken breast", "Mixed greens", "Quinoa", "Avocado", "Olive oil dressing"],
+        instructions: ["Grill chicken breast", "Cook quinoa", "Assemble salad with all ingredients"]
+      },
+      vegetarian: {
+        name: "Quinoa Buddha Bowl",
+        prep_time: 10,
+        cook_time: 25,
+        ingredients: ["Quinoa", "Chickpeas", "Roasted vegetables", "Tahini", "Mixed greens"],
+        instructions: ["Cook quinoa", "Roast vegetables", "Assemble bowl with tahini dressing"]
+      },
+      vegan: {
+        name: "Lentil Power Bowl",
+        prep_time: 15,
+        cook_time: 30,
+        ingredients: ["Red lentils", "Brown rice", "Steamed broccoli", "Nutritional yeast", "Hemp seeds"],
+        instructions: ["Cook lentils and rice", "Steam broccoli", "Combine with nutritional yeast"]
+      }
+    },
+    dinner: {
+      standard: {
+        name: "Baked Salmon with Vegetables",
+        prep_time: 10,
+        cook_time: 25,
+        ingredients: ["Salmon fillet", "Sweet potato", "Asparagus", "Olive oil", "Herbs"],
+        instructions: ["Bake salmon at 400°F", "Roast sweet potato and asparagus", "Season with herbs"]
+      },
+      vegetarian: {
+        name: "Stuffed Bell Peppers",
+        prep_time: 20,
+        cook_time: 35,
+        ingredients: ["Bell peppers", "Brown rice", "Black beans", "Cheese", "Tomato sauce"],
+        instructions: ["Stuff peppers with rice and beans", "Top with cheese", "Bake until tender"]
+      },
+      vegan: {
+        name: "Chickpea Curry",
+        prep_time: 15,
+        cook_time: 25,
+        ingredients: ["Chickpeas", "Coconut milk", "Tomatoes", "Spinach", "Curry spices"],
+        instructions: ["Sauté spices", "Add chickpeas and tomatoes", "Simmer with coconut milk"]
+      }
+    },
+    snack: {
+      standard: {
+        name: "Protein Smoothie",
+        prep_time: 5,
+        cook_time: 0,
+        ingredients: ["Protein powder", "Banana", "Berries", "Milk", "Ice"],
+        instructions: ["Blend all ingredients", "Serve immediately"]
+      },
+      vegetarian: {
+        name: "Trail Mix",
+        prep_time: 2,
+        cook_time: 0,
+        ingredients: ["Mixed nuts", "Dried fruit", "Dark chocolate chips"],
+        instructions: ["Mix all ingredients in bowl"]
+      },
+      vegan: {
+        name: "Apple with Almond Butter",
+        prep_time: 2,
+        cook_time: 0,
+        ingredients: ["Apple", "Almond butter", "Cinnamon"],
+        instructions: ["Slice apple", "Serve with almond butter", "Sprinkle cinnamon"]
+      }
+    }
+  };
+
+  // Determine dietary preference category
+  let preferenceCategory = 'standard';
+  if (dietaryPreferences.includes('vegetarian') || dietaryPreferences.includes('plant_based')) {
+    preferenceCategory = 'vegetarian';
+  }
+  if (dietaryPreferences.includes('vegan')) {
+    preferenceCategory = 'vegan';
+  }
+
+  const meals = [];
+
+  // Generate each meal
+  Object.keys(mealDistribution).forEach(mealType => {
+    const distribution = mealDistribution[mealType];
+    const template = mealTemplates[mealType][preferenceCategory];
+    
+    const mealCalories = Math.round(totalCalories * distribution.calories);
+    const mealProtein = Math.round(totalProtein * distribution.protein);
+    const mealCarbs = Math.round(totalCarbs * distribution.carbs);
+    const mealFat = Math.round(totalFat * distribution.fat);
+
+    meals.push({
+      meal_type: mealType,
+      recipe_name: template.name,
+      prep_time: template.prep_time,
+      cook_time: template.cook_time,
+      servings: 1,
+      ingredients: template.ingredients,
+      instructions: template.instructions,
+      macros: {
+        calories: mealCalories,
+        protein_grams: mealProtein,
+        carbs_grams: mealCarbs,
+        fat_grams: mealFat
+      },
+      nutrition: {
+        calories: mealCalories,
+        protein: mealProtein,
+        carbohydrates: mealCarbs,
+        fat: mealFat
+      }
+    });
+  });
+
+  console.log('[MEAL PLAN] Generated mathematical meal plan with', meals.length, 'meals');
+  return meals;
+}
+
+app.post('/api/generate-daily-meal-plan', async (req, res) => {
+  console.log('[MEAL PLAN] Received request for user:', req.body.userId);
+  const { userId } = req.body;
+  
+  if (!userId) {
+    console.log('[MEAL PLAN] Missing userId in request');
+    return res.status(400).json({ error: 'User ID is required.' });
+  }
+
+  // Handle guest users and invalid UUIDs without hitting the database
+  const guestUsers = ['guest-user', 'test-user-with-no-plan'];
+  const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+  
+  if (guestUsers.includes(userId) || !isValidUUID) {
+    console.log(`[MEAL PLAN] Guest/invalid user detected ('${userId}'), serving default plan.`);
+    const defaultTargets = {
+      daily_calories: 2000,
+      protein_grams: 150,
+      carbs_grams: 200,
+      fat_grams: 67
+    };
+    const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+    return res.json({
+      success: true,
+      meal_plan: mealPlan,
+      method: 'mathematical',
+      aiProvider: 'none',
+      message: 'Generated default meal plan for guest user.'
+    });
+  }
+
+  try {
+    // Check if Supabase is configured
+    console.log('[MEAL PLAN] Checking Supabase configuration:', !!supabase);
+    if (!supabase) {
+      console.log('[MEAL PLAN] Supabase not configured, generating default meal plan');
+      
+      // Use standard nutritional targets for an average adult
+      const defaultTargets = {
+        daily_calories: 2000,
+        protein_grams: 150,
+        carbs_grams: 200,
+        fat_grams: 67
+      };
+      
+      const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+      
+      return res.json({
+        success: true,
+        meal_plan: mealPlan,
+        method: 'mathematical',
+        aiProvider: 'none',
+        message: 'Generated default meal plan. Database not configured.'
+      });
+    }
+
+    // 1. Fetch user's most recent active nutrition plan
+    const { data: currentPlan, error: planError } = await supabase
+      .from('nutrition_plans')
+      .select('id, preferences, daily_targets')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (planError || !currentPlan) {
+      console.log('[MEAL PLAN] No nutrition plan found for user, generating default meal plan.');
+      
+      // Use standard nutritional targets for an average adult
+      const defaultTargets = {
+        daily_calories: 2000,
+        protein_grams: 150,
+        carbs_grams: 200,
+        fat_grams: 67
+      };
+      
+      const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+      
+      return res.json({
+        success: true,
+        meal_plan: mealPlan,
+        method: 'mathematical',
+        aiProvider: 'none',
+        message: 'Generated default meal plan. Please create a nutrition plan for personalized meals.'
+      });
+    }
+
+    // 2. Get nutrition targets
+    let currentTargets = null;
+    
+    // Try to get targets from historical_nutrition_targets first
+    const { data: historicalTargets, error: targetsError } = await supabase
+      .from('historical_nutrition_targets')
+      .select('*')
+      .eq('nutrition_plan_id', currentPlan.id)
+      .is('end_date', null)
+      .single();
+
+    if (!targetsError && historicalTargets) {
+      currentTargets = historicalTargets;
+    } else if (currentPlan) {
+      // Use targets from nutrition_plans, with safe access
+      // CHECK 1: Look for a 'daily_targets' object
+      // CHECK 2: Look for top-level calorie properties
+      const targetsSource = currentPlan.daily_targets || currentPlan;
+      currentTargets = {
+        daily_calories: targetsSource.daily_calories || targetsSource.calories,
+        protein_grams: targetsSource.protein_grams || targetsSource.protein,
+        carbs_grams: targetsSource.carbs_grams || targetsSource.carbs,
+        fat_grams: targetsSource.fat_grams || targetsSource.fat
+      };
+    }
+
+    // Validate targets and fallback to a default plan if they are incomplete or invalid
+    if (
+        !currentTargets ||
+        !currentTargets.daily_calories ||
+        !currentTargets.protein_grams ||
+        !currentTargets.carbs_grams ||
+        !currentTargets.fat_grams
+    ) {
+        console.log('[MEAL PLAN] Invalid or incomplete targets found, using default mathematical plan.');
+        const defaultTargets = { daily_calories: 2000, protein_grams: 150, carbs_grams: 200, fat_grams: 67 };
+        mealPlan = generateMathematicalMealPlan(defaultTargets, currentPlan?.preferences?.dietary || []);
+        method = 'mathematical';
+    } else {
+      // All targets are valid, proceed with generation
+      console.log('[MEAL PLAN] Valid targets found. Attempting AI generation.');
+      
+      if (GEMINI_API_KEY && geminiTextService) {
+        try {
+          console.log('[MEAL PLAN] 🤖 Attempting Gemini AI meal plan generation');
+          
+          const prompt = `You are a world-class chef and nutritionist. Create a complete, creative daily meal plan that meets these nutritional targets exactly.
+
+DAILY NUTRITIONAL TARGETS:
+- Total Calories: ${currentTargets.daily_calories} kcal
+- Protein: ${currentTargets.protein_grams}g
+- Carbohydrates: ${currentTargets.carbs_grams}g
+- Fat: ${currentTargets.fat_grams}g
+
+DIETARY PREFERENCES: ${currentPlan.preferences?.dietary?.length > 0 ? currentPlan.preferences.dietary.join(', ') : 'No specific restrictions'}
+
+MEAL DISTRIBUTION:
+- Breakfast: ~25% of daily calories (${Math.round(currentTargets.daily_calories * 0.25)} kcal)
+- Lunch: ~35% of daily calories (${Math.round(currentTargets.daily_calories * 0.35)} kcal)
+- Dinner: ~30% of daily calories (${Math.round(currentTargets.daily_calories * 0.30)} kcal)
+- Snack: ~10% of daily calories (${Math.round(currentTargets.daily_calories * 0.10)} kcal)
+
+Create 4 diverse, delicious meals that together meet the exact nutritional targets above.
+
+Respond with a JSON array in this exact format:
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Creative meal name",
+    "prep_time": 15,
+    "cook_time": 10,
+    "servings": 1,
+    "ingredients": ["1 cup oats", "1/2 cup blueberries", "1 tbsp almond butter"],
+    "instructions": ["Cook oats with water", "Add blueberries and almond butter", "Mix well and serve"],
+    "macros": {
+      "calories": ${Math.round(currentTargets.daily_calories * 0.25)},
+      "protein": ${Math.round(currentTargets.protein_grams * 0.25)},
+      "carbs": ${Math.round(currentTargets.carbs_grams * 0.25)},
+      "fat": ${Math.round(currentTargets.fat_grams * 0.25)}
+    }
+  }
+]`;
+
+          const response = await geminiTextService.generateText(prompt);
+          
+          if (response && response.trim()) {
+            // Extract JSON from response
+            const jsonMatch = response.match(/\[\s*{[\s\S]*}\s*\]/);
+            if (jsonMatch) {
+              try {
+                const parsedPlan = JSON.parse(jsonMatch[0]);
+                
+                if (Array.isArray(parsedPlan) && parsedPlan.length > 0) {
+                  // Validate the AI response before using it
+                  const validMeals = parsedPlan.filter(
+                    (meal) =>
+                      meal &&
+                      meal.recipe_name &&
+                      meal.macros &&
+                      typeof meal.macros.calories === 'number'
+                  );
+
+                  if (validMeals.length === parsedPlan.length) {
+                    // All meals are valid, proceed
+                    mealPlan = validMeals.map((meal) => ({
+                      ...meal,
+                      // Create a consistent, safe nutrition object
+                      nutrition: {
+                        calories: meal.macros.calories || 0,
+                        protein: meal.macros.protein || 0,
+                        carbohydrates: meal.macros.carbs || 0,
+                        fat: meal.macros.fat || 0,
+                      },
+                    }));
+                    method = 'ai';
+                    aiProvider = 'gemini';
+                    console.log('[MEAL PLAN] ✅ Successfully generated and validated Gemini AI meal plan');
+                  } else {
+                    console.log('[MEAL PLAN] ⚠️ Gemini response contained invalid/incomplete meal objects, falling back.');
+                  }
+                }
+              } catch (parseError) {
+                console.log('[MEAL PLAN] ❌ Failed to parse JSON from Gemini response:', parseError.message);
+              }
+            }
+          }
+        } catch (aiError) {
+          console.log('[MEAL PLAN] ❌ Gemini AI generation failed:', aiError.message);
+        }
+      }
+
+      // Fallback to mathematical generation if AI failed or wasn't used
+      if (!mealPlan || mealPlan.length === 0) {
+        console.log('[MEAL PLAN] 🧮 Using mathematical meal plan generation as fallback');
+        try {
+          const mealPlanMath = generateMathematicalMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
+          if (!mealPlanMath || mealPlanMath.length === 0) {
+            return res.status(500).json({ error: 'Failed to generate mathematical meal plan.' });
+          }
+          // Standardize the output to include the 'nutrition' object
+          mealPlan = mealPlanMath.map(meal => ({
+            ...meal,
+            nutrition: {
+              calories: meal.macros.calories || 0,
+              protein: meal.macros.protein_grams || 0,
+              carbohydrates: meal.macros.carbs_grams || 0,
+              fat: meal.macros.fat_grams || 0,
+            },
+          }));
+          method = 'mathematical';
+        } catch (mathError) {
+          console.error('[DAILY MEAL PLAN] Error during mathematical meal generation fallback:', mathError);
+          return res.status(500).json({ success: false, error: mathError.message });
+        }
+      }
+    }
+
+    if (!mealPlan || !Array.isArray(mealPlan) || mealPlan.length === 0) {
+      throw new Error('Failed to generate valid meal plan');
+    }
+
+    console.log('[MEAL PLAN] ✅ Generated meal plan successfully');
+    
+    res.json({
+      success: true,
+      mealPlan: mealPlan, // Use the correct variable name
+      method: method,
+      aiProvider: aiProvider,
+    });
+
+  } catch (error) {
+    console.error('[DAILY MEAL PLAN] Error generating daily meal plan:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate meal plan'
+    });
+  }
+});
 
 app.post('/api/log-daily-metric', async (req, res) => {
   const { userId, metricDate, metrics } = req.body;

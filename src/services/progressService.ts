@@ -24,7 +24,8 @@ export class ProgressService {
   private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
     const bases = [
       environment.apiUrl,
-      'http://192.168.0.100:4000', // Add machine IP as backup
+      'http://192.168.0.116:4000', // Current machine IP
+      'http://192.168.0.100:4000', // Backup machine IP
     ].filter(Boolean) as string[];
 
     let lastError: unknown = null;
@@ -70,6 +71,7 @@ export class ProgressService {
   }
   /**
    * Create or update a progress entry for a specific date.
+   * Photos are now stored locally on the device.
    */
   static async createOrUpdateProgressEntry(
     userId: string,
@@ -79,19 +81,18 @@ export class ProgressService {
     backPhotoUri?: string
   ): Promise<ProgressEntry | null> {
     try {
-      const existingEntry = await this.getProgressEntryForDate(userId, date);
-
-      let frontPhotoId = existingEntry?.front_photo_id;
+      // Save photos locally if provided
       if (frontPhotoUri) {
-        const result = await PhotoStorageService.uploadPhoto(userId, 'front', frontPhotoUri);
-        if (result.success) frontPhotoId = result.photo?.id;
+        await PhotoStorageService.uploadPhoto(userId, 'front', frontPhotoUri, date);
       }
 
-      let backPhotoId = existingEntry?.back_photo_id;
       if (backPhotoUri) {
-        const result = await PhotoStorageService.uploadPhoto(userId, 'back', backPhotoUri);
-        if (result.success) backPhotoId = result.photo?.id;
+        await PhotoStorageService.uploadPhoto(userId, 'back', backPhotoUri, date);
       }
+
+      // For progress entries table, we'll just save weight data
+      // Photos are tracked separately in local storage
+      const existingEntry = await this.getProgressEntryForDate(userId, date);
 
       const { data, error } = await supabase
         .from('progress_entries')
@@ -101,8 +102,9 @@ export class ProgressService {
             user_id: userId,
             date,
             weight_kg: weight,
-            front_photo_id: frontPhotoId,
-            back_photo_id: backPhotoId,
+            // Remove photo_id references since photos are local now
+            front_photo_id: null,
+            back_photo_id: null,
           },
           { onConflict: 'user_id, date' }
         )
@@ -256,50 +258,42 @@ export class ProgressService {
   }
 
   /**
-   * Get progress photos for a user
+   * Get progress photos for a user (from local storage)
    */
   static async getProgressPhotos(userId: string): Promise<any[]> {
     try {
       console.log('Fetching progress photos for user:', userId);
       
-      // Get all progress entries with their associated photos
-      const { data, error } = await supabase
-        .from('progress_entries')
-        .select(`
-          id,
-          date,
-          weight_kg,
-          front_photo:body_photos!progress_entries_front_photo_id_fkey(
-            id,
-            photo_type,
-            photo_url,
-            storage_path,
-            uploaded_at,
-            is_analyzed,
-            analysis_status
-          ),
-          back_photo:body_photos!progress_entries_back_photo_id_fkey(
-            id,
-            photo_type,
-            photo_url,
-            storage_path,
-            uploaded_at,
-            is_analyzed,
-            analysis_status
-          )
-        `)
-        .eq('user_id', userId)
-        .not('front_photo_id', 'is', null)
-        .or('back_photo_id.not.is.null')
-        .order('date', { ascending: false });
+      // Get photo sessions from local storage
+      const sessions = await PhotoStorageService.getProgressPhotoSessions(userId);
+      
+      // Convert to format compatible with existing UI
+      const photoEntries = sessions.map(session => ({
+        id: `${userId}_${session.date}`,
+        date: session.date,
+        weight_kg: null, // Weight would come from separate weight entries
+        front_photo: session.front_photo ? {
+          id: session.front_photo.id,
+          photo_type: session.front_photo.photo_type,
+          photo_url: session.front_photo.local_uri, // Use local URI instead of public URL
+          storage_path: session.front_photo.local_uri,
+          uploaded_at: session.front_photo.uploaded_at,
+          is_analyzed: session.front_photo.is_analyzed,
+          analysis_status: session.front_photo.analysis_status
+        } : null,
+        back_photo: session.back_photo ? {
+          id: session.back_photo.id,
+          photo_type: session.back_photo.photo_type,
+          photo_url: session.back_photo.local_uri, // Use local URI instead of public URL
+          storage_path: session.back_photo.local_uri,
+          uploaded_at: session.back_photo.uploaded_at,
+          is_analyzed: session.back_photo.is_analyzed,
+          analysis_status: session.back_photo.analysis_status
+        } : null
+      }));
 
-      if (error) {
-        console.error('Error fetching progress photos:', error);
-        throw error;
-      }
-
-      console.log('Fetched progress photos:', data);
-      return data || [];
+      console.log('Fetched progress photos from local storage:', photoEntries);
+      return photoEntries;
     } catch (error) {
       console.error('Error fetching progress photos:', error);
       return [];

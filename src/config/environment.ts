@@ -14,7 +14,7 @@ const getApiUrl = (): string => {
   }
   
   // Fallback to machine IP for development, Railway for production
-  const fallbackUrl = isDevelopment ? 'http://192.168.0.100:4000' : 'https://gofitai-production.up.railway.app';
+  const fallbackUrl = isDevelopment ? 'http://192.168.0.152:4000' : 'https://gofitai-production.up.railway.app';
   console.log('[ENVIRONMENT] Using fallback API URL:', fallbackUrl);
   return fallbackUrl;
 };

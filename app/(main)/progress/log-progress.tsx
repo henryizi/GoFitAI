@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
 import { usePhotoUpload } from '../../../src/hooks/usePhotoUpload';
 import { BlurView } from 'expo-blur';
 import { supabase } from '../../../src/services/supabase/client';
@@ -243,7 +244,17 @@ export default function LogProgressScreen() {
     }
   };
 
-
+  const showPhotoOptions = (type: 'front' | 'back') => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add your photo',
+      [
+        { text: 'Camera', onPress: () => handleTakePhoto(type) },
+        { text: 'Photo Library', onPress: () => handlePickImage(type) },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
 
   const renderPhotoSelector = (type: 'front' | 'back') => {
     const newUri = type === 'front' ? frontPhotoUri : backPhotoUri;
@@ -261,16 +272,13 @@ export default function LogProgressScreen() {
       );
     }
     
-    // If we have a saved photo with storage_path, get the public URL
-    if (photo && photo.storage_path && supabase) {
-      const publicUrlResult = supabase.storage.from('body-photos').getPublicUrl(photo.storage_path);
-      const photoUrl = publicUrlResult.data.publicUrl;
-      
+    // If we have a saved photo, use the local URI directly (no longer stored in Supabase)
+    if (photo && photo.storage_path) {
       return (
         <View style={styles.calendarPhotoContainer}>
           <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
           <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage sourceUrl={photoUrl} style={styles.calendarPreviewImage} />
+            <SafeImage sourceUrl={photo.storage_path} style={styles.calendarPreviewImage} />
           </TouchableOpacity>
         </View>
       );
@@ -280,24 +288,10 @@ export default function LogProgressScreen() {
     return (
       <View style={styles.calendarPhotoContainer}>
         <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
-        <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-          <View style={styles.photoActions}>
-            <TouchableOpacity 
-              style={styles.photoButton}
-              onPress={() => handleTakePhoto(type)}
-              activeOpacity={0.7}
-            >
-              <Icon name="camera" size={16} color={colors.text} />
-              <Text style={styles.photoButtonText}>Take Photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.photoButton}
-              onPress={() => handlePickImage(type)}
-              activeOpacity={0.7}
-            >
-              <Icon name="image" size={16} color={colors.text} />
-              <Text style={styles.photoButtonText}>Choose</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => showPhotoOptions(type)}>
+          <View style={styles.photoPlaceholderContent}>
+            <Icon name={type === 'front' ? 'human-handsup' : 'human-handsdown'} size={40} color={colors.primary} />
+            <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -368,7 +362,102 @@ export default function LogProgressScreen() {
     }
   };
 
-  const canSave = (weight && !isWeightInvalid) || frontPhotoUri || backPhotoUri;
+  // Separate validation for each section
+  const canSaveWeight = weight && !isWeightInvalid;
+  const canSavePhotos = frontPhotoUri || backPhotoUri;
+  const canSave = canSaveWeight || canSavePhotos;
+
+  // Separate save handlers for each section
+  const handleSaveWeight = async () => {
+    if (!user) {
+      Alert.alert('Not logged in', 'Please log in first.');
+      return;
+    }
+
+    if (!canSaveWeight) {
+      Alert.alert('Invalid data', 'Please enter a valid weight.');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      const weightToSave = unit === 'lbs' ? convertWeight(weightNum, 'lbs', 'kg') : weightNum;
+      await ProgressService.addWeightEntry({
+        user_id: user.id,
+        weight_kg: weightToSave,
+        metric_date: selectedDate,
+        notes: notes || null,
+        body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
+      });
+
+      // Optionally update profile body fat percentage
+      if (bodyFat && !isBodyFatInvalid) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ body_fat: bodyFatNum } as Database['public']['Tables']['profiles']['Update'])
+            .eq('id', user.id);
+        } catch (e) {
+          console.warn('Failed to update body fat percentage:', e);
+          // Non-blocking: do not prevent success if this fails
+        }
+      }
+
+      // Clear weight form
+      setWeight('');
+      setBodyFat('');
+      setNotes('');
+
+      showSuccessAlert();
+    } catch (error) {
+      console.error('Error saving weight:', error);
+      Alert.alert('Error', 'Failed to save weight. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePhotos = async () => {
+    if (!user) {
+      Alert.alert('Not logged in', 'Please log in first.');
+      return;
+    }
+
+    if (!canSavePhotos) {
+      Alert.alert('No photos', 'Please select at least one photo to save.');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      await ProgressService.createOrUpdateProgressEntry(
+        user.id,
+        selectedDate,
+        null, // No weight in photos-only save
+        frontPhotoUri || undefined,
+        backPhotoUri || undefined
+      );
+
+      // Refresh progress entries to show updated data
+      if (user) {
+        const updatedEntries = await ProgressService.getProgressEntries(user.id);
+        setProgressEntries(updatedEntries);
+      }
+
+      // Clear temporary photo URIs since they're now saved
+      setFrontPhotoUri(null);
+      setBackPhotoUri(null);
+
+      showSuccessAlert();
+    } catch (error) {
+      console.error('Error saving photos:', error);
+      Alert.alert('Error', 'Failed to save photos. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -536,6 +625,31 @@ export default function LogProgressScreen() {
                   numberOfLines={3}
                 />
               </View>
+
+              {/* Weight Save Button */}
+              <TouchableOpacity 
+                style={[
+                  styles.sectionSaveButton,
+                  !canSaveWeight && styles.saveButtonDisabled
+                ]}
+                onPress={handleSaveWeight}
+                disabled={!canSaveWeight || isSaving}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={canSaveWeight ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
+                  style={styles.saveButtonGradient}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator color={colors.text} size="small" />
+                  ) : (
+                    <>
+                      <Icon name="check" size={20} color={colors.text} />
+                      <Text style={styles.saveButtonText}>Save Weight</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </Animated.View>
           )}
 
@@ -547,67 +661,73 @@ export default function LogProgressScreen() {
                 <Text style={styles.sectionTitle}>Body Photos</Text>
               </View>
 
-              {/* Calendar */}
-              <Calendar
-                onDayPress={handleDayPress}
-                markedDates={markedDates}
-                markingType={'custom'}
-                theme={{
-                  calendarBackground: 'transparent',
-                  dayTextColor: colors.text,
-                  monthTextColor: colors.text,
-                  selectedDayBackgroundColor: colors.primary,
-                  todayTextColor: colors.primary,
-                  arrowColor: colors.primary,
-                  textDayFontSize: 16,
-                  textMonthFontSize: 18,
-                  textDayHeaderFontSize: 14,
-                  textSectionTitleColor: colors.text,
-                  selectedDayTextColor: colors.text,
-                  todayBackgroundColor: 'transparent',
-                  dotColor: colors.primary,
-                  selectedDotColor: colors.text,
-                  disabledArrowColor: colors.textSecondary,
-                  indicatorColor: colors.primary,
-                  textDayFontWeight: '400',
-                  textMonthFontWeight: '600',
-                  textDayHeaderFontWeight: '500',
-                }}
-                style={styles.calendar}
-              />
+              <View style={styles.photosContainer}>
+                {/* Privacy Notice */}
+                <ProgressPhotoPrivacyNotice variant="compact" />
 
-              {/* Photo Grid for Selected Date */}
-              <View style={styles.calendarPhotoGrid}>
-                {renderPhotoSelector('front')}
-                {renderPhotoSelector('back')}
+                {/* Calendar */}
+                <Calendar
+                  onDayPress={handleDayPress}
+                  markedDates={markedDates}
+                  markingType={'custom'}
+                  theme={{
+                    calendarBackground: 'transparent',
+                    dayTextColor: colors.text,
+                    monthTextColor: colors.text,
+                    selectedDayBackgroundColor: colors.primary,
+                    todayTextColor: colors.primary,
+                    arrowColor: colors.primary,
+                    textDayFontSize: 16,
+                    textMonthFontSize: 18,
+                    textDayHeaderFontSize: 14,
+                    textSectionTitleColor: colors.text,
+                    selectedDayTextColor: colors.text,
+                    todayBackgroundColor: 'transparent',
+                    dotColor: colors.primary,
+                    selectedDotColor: colors.text,
+                    disabledArrowColor: colors.textSecondary,
+                    indicatorColor: colors.primary,
+                    textDayFontWeight: '400',
+                    textMonthFontWeight: '600',
+                    textDayHeaderFontWeight: '500',
+                  }}
+                  style={styles.calendar}
+                />
+
+                {/* Photo Grid for Selected Date */}
+                <View style={styles.calendarPhotoGrid}>
+                  {renderPhotoSelector('front')}
+                  {renderPhotoSelector('back')}
+                </View>
               </View>
+
+              {/* Photos Save Button */}
+              <TouchableOpacity 
+                style={[
+                  styles.sectionSaveButton,
+                  !canSavePhotos && styles.saveButtonDisabled
+                ]}
+                onPress={handleSavePhotos}
+                disabled={!canSavePhotos || isSaving}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={canSavePhotos ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
+                  style={styles.saveButtonGradient}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator color={colors.text} size="small" />
+                  ) : (
+                    <>
+                      <Icon name="check" size={20} color={colors.text} />
+                      <Text style={styles.saveButtonText}>Save Photos</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </Animated.View>
           )}
 
-          {/* Save Button */}
-          <TouchableOpacity 
-            style={[
-              styles.saveButton,
-              !canSave && styles.saveButtonDisabled
-            ]}
-            onPress={handleSave}
-            disabled={!canSave || isSaving}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={canSave ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
-              style={styles.saveButtonGradient}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={colors.text} size="small" />
-              ) : (
-                <>
-                  <Icon name="check" size={20} color={colors.text} />
-                  <Text style={styles.saveButtonText}>Save Progress</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -809,28 +929,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
-  photoActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  photoButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  photoButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
   photoPreview: {
     marginTop: 12,
     paddingVertical: 8,
@@ -846,6 +944,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveButton: {
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  sectionSaveButton: {
     marginTop: 20,
     borderRadius: 16,
     overflow: 'hidden',
@@ -937,9 +1040,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+    borderStyle: 'dashed',
     overflow: 'hidden',
+  },
+  photoPlaceholderContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoPlaceholderText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   calendarPreviewImage: {
     width: 140,

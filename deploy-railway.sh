@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Deploying SnapBodyAI to Railway..."
+echo "🚀 Deploying GoFitAI to Railway..."
 
 # Check if Railway CLI is installed
 if ! command -v railway &> /dev/null; then
@@ -18,7 +18,7 @@ fi
 
 # Create new project if it doesn't exist
 echo "📦 Creating Railway project..."
-railway init --name snapbodyai
+railway init --name gofitai
 
 # Set environment variables
 echo "🔧 Setting environment variables..."
@@ -30,7 +30,7 @@ echo "🚀 Deploying to Railway..."
 railway up
 
 echo "✅ Deployment completed!"
-echo "🌐 Your app should be available at: https://snapbodyai-production.up.railway.app"
+echo "🌐 Your app should be available at: https://gofitai-production.up.railway.app"
 echo ""
 echo "📋 Next steps:"
 echo "1. Set your API keys in Railway dashboard:"
@@ -40,10 +40,17 @@ echo "   - SUPABASE_URL"
 echo "   - SUPABASE_ANON_KEY"
 echo ""
 echo "2. Test your deployment:"
-echo "   curl https://snapbodyai-production.up.railway.app/api/health"
+echo "   curl https://gofitai-production.up.railway.app/api/health"
 echo ""
 echo "3. Monitor logs:"
 echo "   railway logs"
+
+
+
+
+
+
+
 
 
 

@@ -28,26 +28,31 @@ import { useSubscription } from '../../../src/hooks/useSubscription';
 
 const { width } = Dimensions.get('window');
 
-// Modern, premium colors
+// Modern, premium colors with enhanced gradients
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
+  primaryLight: '#FF8F65',
   accent: '#FF8F65',
   secondary: '#FF8F65',
-  background: '#121212',
-  surface: '#1C1C1E',
+  background: '#0A0A0A',
+  surface: '#1A1A1A',
+  surfaceLight: '#252525',
   text: '#FFFFFF',
-  textSecondary: 'rgba(235, 235, 245, 0.6)',
-  textTertiary: 'rgba(235, 235, 245, 0.3)',
-  success: '#34C759',
-  warning: '#FF9500',
+  textSecondary: 'rgba(255, 255, 255, 0.7)',
+  textTertiary: 'rgba(255, 255, 255, 0.4)',
+  success: '#32D74B',
+  warning: '#FF9F0A',
   error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.8)',
-  border: 'rgba(84, 84, 88, 0.6)',
+  card: 'rgba(28, 28, 30, 0.95)',
+  border: 'rgba(255, 255, 255, 0.1)',
+  borderLight: 'rgba(255, 255, 255, 0.05)',
   white: '#FFFFFF',
-  dark: '#121212',
-  darkGray: '#1C1C1E',
+  dark: '#0A0A0A',
+  darkGray: '#1A1A1A',
   mediumGray: '#8E8E93',
+  glassMorphism: 'rgba(255, 255, 255, 0.05)',
+  shadowColor: 'rgba(0, 0, 0, 0.3)',
 };
 
 
@@ -122,51 +127,207 @@ const DailyMealPlanScreen = () => {
     }
   }, [mealPlan]);
 
-  // Mathematical meal generation function - creates personalized, nutritionally balanced meals
-  const generateAIMeal = async (mealType: string, targets: any, excluded: string[]) => {
+  // Generate suitable ingredients for each meal type
+  const generateIngredientsForMealType = (mealType: string, excluded: string[]) => {
+    const mealIngredients = {
+      'Breakfast': ['eggs', 'oats', 'banana', 'milk', 'berries', 'yogurt', 'toast', 'avocado', 'nuts', 'honey'],
+      'Lunch': ['chicken breast', 'rice', 'vegetables', 'quinoa', 'beans', 'salad', 'olive oil', 'tomatoes', 'cheese', 'pasta'],
+      'Dinner': ['salmon', 'sweet potato', 'broccoli', 'lean beef', 'brown rice', 'asparagus', 'garlic', 'herbs', 'spinach', 'zucchini'],
+      'Snack': ['almonds', 'apple', 'protein powder', 'cottage cheese', 'crackers', 'hummus', 'carrots', 'peanut butter', 'dark chocolate', 'berries']
+    };
+
+    const baseIngredients = mealIngredients[mealType] || mealIngredients['Lunch'];
+    
+    // Filter out excluded ingredients (case insensitive)
+    const filteredIngredients = baseIngredients.filter(ingredient => 
+      !excluded.some(excludedItem => 
+        ingredient.toLowerCase().includes(excludedItem.toLowerCase()) ||
+        excludedItem.toLowerCase().includes(ingredient.toLowerCase())
+      )
+    );
+
+    // Return 4-6 ingredients for variety
+    return filteredIngredients.slice(0, 6);
+  };
+
+  // Generate complete daily meal plan using AI - creates creative meals without ingredient restrictions
+  const generateDailyMealPlanWithAI = async (userId: string, targets: any, excludedIngredients: string[]) => {
     try {
-      console.log(`[MEAL GENERATION] Generating ${mealType} with AI`);
-      console.log(`[MEAL GENERATION] Targets:`, targets);
-      console.log(`[MEAL GENERATION] Excluded ingredients:`, excluded);
+      console.log('[DAILY MEAL PLAN] 🤖 Generating complete daily meal plan with NEW AI system');
+      console.log('[DAILY MEAL PLAN] Targets:', targets);
+      console.log('[DAILY MEAL PLAN] Excluded ingredients:', excludedIngredients);
 
-      // Use GeminiService to generate a personalized recipe
-      const result = await GeminiService.generateRecipe(
-        mealType,
-        targets,
-        excluded.length > 0 ? excluded : ['common allergens'] // Provide some context if no exclusions
+      // Get user's dietary preferences from their active plan
+      const activePlan = await NutritionService.getLatestNutritionPlan(userId);
+      const dietaryPreferences = activePlan?.preferences?.dietary || [];
+      
+      console.log('[DAILY MEAL PLAN] Dietary preferences:', dietaryPreferences);
+
+      // Use the new AI-powered meal plan generation with recipes
+      const result = await NutritionService.generateAIDailyMealPlan(
+        targets.daily_calories,
+        targets.protein_grams,
+        targets.carbs_grams,
+        targets.fat_grams,
+        dietaryPreferences,
+        undefined // No specific cuisine preference for now - let AI choose variety
       );
-
-      if (result.success && result.recipe) {
-        console.log(`[MEAL GENERATION] AI generated recipe successfully: ${result.recipe.name}`);
+      
+      if (result.success && result.mealPlan && result.mealPlan.length > 0) {
+        console.log('[DAILY MEAL PLAN] ✅ NEW AI generated complete meal plan successfully');
+        console.log('[DAILY MEAL PLAN] Generated meals:', result.mealPlan.map(m => m.name).join(', '));
+        console.log('[DAILY MEAL PLAN] Cuisine variety:', result.cuisineVariety);
+        console.log('[DAILY MEAL PLAN] Total nutrition:', result.totalNutrition);
         
-        // Map the AI recipe structure to our expected format
-        const mappedRecipe = {
-          recipe_name: result.recipe.name,
-          ingredients: result.recipe.ingredients.map(ing => ({
+        // Convert the new AI format to the expected format
+        const convertedMealPlan = result.mealPlan.map(meal => ({
+          meal_type: meal.meal_type,
+          recipe_name: meal.name,
+          cuisine: meal.cuisine,
+          prep_time: meal.prep_time,
+          cook_time: meal.cook_time,
+          servings: meal.servings,
+          ingredients: meal.ingredients.map(ing => ({
             name: ing.ingredient,
-            quantity: ing.amount
+            quantity: ing.amount,
+            calories: ing.calories,
+            protein: ing.protein,
+            carbs: ing.carbs,
+            fat: ing.fat
           })),
-          instructions: result.recipe.instructions,
-          calories: result.recipe.nutrition.calories,
-          protein: result.recipe.nutrition.protein,
-          carbs: result.recipe.nutrition.carbs,
-          fat: result.recipe.nutrition.fat,
-          prep_time: result.recipe.prep_time,
-          cook_time: result.recipe.cook_time,
-          servings: result.recipe.servings
-        };
+          instructions: meal.instructions,
+          macros: {
+            calories: meal.nutrition.calories,
+            protein_grams: meal.nutrition.protein,
+            carbs_grams: meal.nutrition.carbs,
+            fat_grams: meal.nutrition.fat,
+            fiber_grams: meal.nutrition.fiber,
+            sugar_grams: meal.nutrition.sugar
+          }
+        }));
         
-        return { recipe: mappedRecipe, usedAI: true, usedFallback: false };
+        return {
+          mealPlan: convertedMealPlan,
+          totalNutrition: result.totalNutrition,
+          cuisineVariety: result.cuisineVariety,
+          cookingTips: result.cookingTips,
+          usedAI: true,
+          usedFallback: false
+        };
       } else {
-        console.log(`[MEAL GENERATION] AI generation failed, using fallback`);
-        throw new Error(result.error || 'AI generation failed');
+        console.log('[DAILY MEAL PLAN] ❌ NEW AI generation failed, using fallback');
+        throw new Error(result.error || 'AI meal plan generation failed');
       }
     } catch (error) {
-      console.error(`[MEAL GENERATION] Error generating ${mealType}:`, error);
+      console.error('[DAILY MEAL PLAN] Error generating daily meal plan:', error);
+      console.log('[DAILY MEAL PLAN] Falling back to mathematical meal generation');
       
-      // Fallback to enhanced mock generation if AI fails
-      const fallbackRecipe = generateFallbackMeal(mealType, targets, excluded);
-      return { recipe: fallbackRecipe, usedAI: false, usedFallback: true };
+      // Fallback to mathematical meal plan generation
+      const fallbackMealPlan = generateMathematicalFallbackPlan(targets);
+      return {
+        mealPlan: fallbackMealPlan,
+        usedAI: false,
+        usedFallback: true
+      };
+    }
+  };
+
+  // Mathematical fallback meal plan generation
+  const generateMathematicalFallbackPlan = (targets: any) => {
+    console.log('[FALLBACK] Generating mathematical meal plan');
+    
+    const mealDistribution = {
+      breakfast: { calories: 0.25, protein: 0.25, carbs: 0.30, fat: 0.25 },
+      lunch: { calories: 0.35, protein: 0.35, carbs: 0.35, fat: 0.30 },
+      dinner: { calories: 0.30, protein: 0.30, carbs: 0.25, fat: 0.35 },
+      snack: { calories: 0.10, protein: 0.10, carbs: 0.10, fat: 0.10 }
+    };
+
+    return Object.entries(mealDistribution).map(([mealType, distribution]) => ({
+      meal_type: mealType,
+      recipe_name: `Balanced ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}`,
+      prep_time: 15,
+      cook_time: 20,
+      servings: 1,
+      ingredients: [],
+      instructions: [],
+      macros: {
+        calories: Math.round(targets.daily_calories * distribution.calories),
+        protein_grams: Math.round(targets.protein_grams * distribution.protein),
+        carbs_grams: Math.round(targets.carbs_grams * distribution.carbs),
+        fat_grams: Math.round(targets.fat_grams * distribution.fat)
+      }
+    }));
+  };
+
+  // AI meal generation function with retry logic - creates personalized, nutritionally balanced meals
+  const generateAIMeal = async (mealType: string, targets: any, excluded: string[], maxRetries: number = 2) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[MEAL GENERATION] Generating ${mealType} with AI (attempt ${attempt}/${maxRetries})`);
+        console.log(`[MEAL GENERATION] Targets:`, targets);
+        console.log(`[MEAL GENERATION] Excluded ingredients:`, excluded);
+
+        // Generate appropriate ingredients for this meal type
+        const mealIngredients = generateIngredientsForMealType(mealType, excluded);
+        console.log(`[MEAL GENERATION] Generated ingredients for ${mealType}:`, mealIngredients);
+
+        // Use GeminiService to generate a personalized recipe with timeout
+        const result = await Promise.race([
+          GeminiService.generateRecipe(
+            mealType,
+            targets,
+            mealIngredients // Pass actual ingredients instead of excluded ones
+          ),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('AI generation timeout')), 40000) // 40s timeout per attempt
+          )
+        ]) as any;
+
+        if (result.success && result.recipe) {
+          console.log(`[MEAL GENERATION] AI generated recipe successfully: ${result.recipe.name}`);
+          
+          // Map the AI recipe structure to our expected format
+          const mappedRecipe = {
+            recipe_name: result.recipe.name,
+            ingredients: result.recipe.ingredients.map(ing => ({
+              name: ing.ingredient,
+              quantity: ing.amount
+            })),
+            instructions: result.recipe.instructions,
+            calories: result.recipe.nutrition.calories,
+            protein: result.recipe.nutrition.protein,
+            carbs: result.recipe.nutrition.carbs,
+            fat: result.recipe.nutrition.fat,
+            prep_time: result.recipe.prep_time,
+            cook_time: result.recipe.cook_time,
+            servings: result.recipe.servings
+          };
+          
+          return { recipe: mappedRecipe, usedAI: true, usedFallback: false };
+        } else {
+          console.log(`[MEAL GENERATION] AI generation failed on attempt ${attempt}: ${result.error || 'Unknown error'}`);
+          if (attempt < maxRetries) {
+            console.log(`[MEAL GENERATION] Retrying ${mealType} generation...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Progressive delay
+            continue;
+          }
+          throw new Error(result.error || 'AI generation failed after all retries');
+        }
+      } catch (error) {
+        console.error(`[MEAL GENERATION] Error generating ${mealType} on attempt ${attempt}:`, error);
+        
+        if (attempt < maxRetries) {
+          console.log(`[MEAL GENERATION] Retrying ${mealType} generation after error...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Progressive delay
+          continue;
+        }
+        
+        // Fallback to enhanced mock generation if all AI attempts fail
+        console.log(`[MEAL GENERATION] All AI attempts failed for ${mealType}, using fallback`);
+        const fallbackRecipe = generateFallbackMeal(mealType, targets, excluded);
+        return { recipe: fallbackRecipe, usedAI: false, usedFallback: true };
+      }
     }
   };
 
@@ -294,28 +455,84 @@ const DailyMealPlanScreen = () => {
         .split(',')
         .map(i => i.trim())
         .filter(i => i.length > 0);
-
-      // Generate meal plan for each meal
-      const mealPlanPromises = Object.entries(mealTargetPercentages).map(async ([mealType, percentage]) => {
-      const mealTargets = {
-        calories: Math.round(latestTargets.daily_calories * percentage),
-        protein: Math.round(latestTargets.protein_grams * percentage),
-        carbs: Math.round(latestTargets.carbs_grams * percentage),
-        fat: Math.round(latestTargets.fat_grams * percentage),
-      };
-
-        // Generate AI-powered personalized meal for this meal type
-        const mealResult = await generateAIMeal(mealType, mealTargets, excludedArray);
-        return {
-          mealType,
-          targets: mealTargets,
-          recipe: mealResult.recipe,
-          usedAI: mealResult.usedAI,
-          usedFallback: mealResult.usedFallback
+      
+      // Use goal-adjusted calories from metabolic calculations
+      const goalAdjustedCalories = activePlan.metabolic_calculations?.goal_calories || 
+                                   activePlan.metabolic_calculations?.adjusted_calories || 
+                                   latestTargets.daily_calories;
+      
+      console.log('[MEAL PLAN] Using goal-adjusted calories:', goalAdjustedCalories, 'vs base calories:', latestTargets.daily_calories);
+      
+      // If using goal-adjusted calories, scale the macro targets proportionally
+      let adjustedTargets = latestTargets;
+      if (goalAdjustedCalories !== latestTargets.daily_calories) {
+        const scalingFactor = goalAdjustedCalories / latestTargets.daily_calories;
+        adjustedTargets = {
+          ...latestTargets,
+          daily_calories: goalAdjustedCalories,
+          protein_grams: Math.round(latestTargets.protein_grams * scalingFactor),
+          carbs_grams: Math.round(latestTargets.carbs_grams * scalingFactor),
+          fat_grams: Math.round(latestTargets.fat_grams * scalingFactor)
         };
-      });
+        console.log('[MEAL PLAN] Scaled macro targets:', adjustedTargets);
+      }
 
-      const meals = await Promise.all(mealPlanPromises);
+          // Use daily meal plan generation instead of individual meals
+      console.log('[MEAL PLAN] Generating complete daily meal plan with AI');
+      const dailyMealPlanResult = await generateDailyMealPlanWithAI(user.id, adjustedTargets, excludedArray);
+      
+      // Convert daily meal plan to our expected format
+      console.log('[MEAL PLAN] Processing meal plan result:', JSON.stringify(dailyMealPlanResult, null, 2));
+      
+      const meals = dailyMealPlanResult.mealPlan.map((meal, index) => {
+        try {
+          console.log(`[MEAL PLAN] Processing meal ${index}:`, JSON.stringify(meal, null, 2));
+          
+          const mealTypeKey = meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1);
+          
+          // Safely process ingredients
+          const processedIngredients = (meal.ingredients || []).map(ing => {
+            if (typeof ing === 'string') {
+              return { name: ing, quantity: '1 serving' };
+            } else if (typeof ing === 'object' && ing !== null) {
+              return {
+                name: ing.name || String(ing),
+                quantity: ing.quantity || '1 serving'
+              };
+            } else {
+              console.warn(`[MEAL PLAN] Invalid ingredient format:`, ing);
+              return { name: String(ing), quantity: '1 serving' };
+            }
+          });
+          
+          return {
+            mealType: mealTypeKey,
+            targets: {
+              calories: meal.macros?.calories || 0,
+              protein: meal.macros?.protein_grams || 0,
+              carbs: meal.macros?.carbs_grams || 0,
+              fat: meal.macros?.fat_grams || 0,
+            },
+            recipe: {
+              recipe_name: meal.recipe_name || `${mealTypeKey} Meal`,
+              ingredients: processedIngredients,
+              instructions: meal.instructions || [],
+              calories: meal.macros?.calories || 0,
+              protein: meal.macros?.protein_grams || 0,
+              carbs: meal.macros?.carbs_grams || 0,
+              fat: meal.macros?.fat_grams || 0,
+              prep_time: meal.prep_time || 15,
+              cook_time: meal.cook_time || 20,
+              servings: meal.servings || 1
+            },
+            usedAI: dailyMealPlanResult.usedAI,
+            usedFallback: dailyMealPlanResult.usedFallback
+          };
+        } catch (mealError) {
+          console.error(`[MEAL PLAN] Error processing meal ${index}:`, mealError);
+          throw new Error(`Failed to process meal ${index}: ${mealError.message}`);
+        }
+      });
 
       // Track AI usage across all meals
       const hasAIMeals = meals.some(meal => meal.usedAI);
@@ -326,10 +543,10 @@ const DailyMealPlanScreen = () => {
 
       // Calculate total nutrition for the day
       const totalNutrition = meals.reduce((total, meal) => ({
-        calories: total.calories + meal.targets.calories,
-        protein: total.protein + meal.targets.protein,
-        carbs: total.carbs + meal.targets.carbs,
-        fat: total.fat + meal.targets.fat,
+        calories: total.calories + (meal.targets?.calories || 0),
+        protein: total.protein + (meal.targets?.protein || 0),
+        carbs: total.carbs + (meal.targets?.carbs || 0),
+        fat: total.fat + (meal.targets?.fat || 0),
       }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
       // Create the complete meal plan structure
@@ -398,10 +615,10 @@ const DailyMealPlanScreen = () => {
     try {
       const entry = {
         food_name: meal.recipe.recipe_name,
-        calories: meal.targets.calories,
-        protein_grams: meal.targets.protein,
-        carbs_grams: meal.targets.carbs,
-        fat_grams: meal.targets.fat,
+        calories: meal.targets?.calories || 0,
+        protein_grams: meal.targets?.protein || 0,
+        carbs_grams: meal.targets?.carbs || 0,
+        fat_grams: meal.targets?.fat || 0,
       };
 
       await NutritionService.logFoodEntry(user.id, entry);
@@ -409,10 +626,10 @@ const DailyMealPlanScreen = () => {
       Alert.alert(
         'Meal Logged! 🍽️', 
         `${meal.recipe.recipe_name} has been added to today's nutrition progress.\n\n` +
-        `Calories: ${meal.targets.calories}\n` +
-        `Protein: ${meal.targets.protein}g\n` +
-        `Carbs: ${meal.targets.carbs}g\n` +
-        `Fat: ${meal.targets.fat}g`,
+        `Calories: ${meal.targets?.calories || 0}\n` +
+        `Protein: ${meal.targets?.protein || 0}g\n` +
+        `Carbs: ${meal.targets?.carbs || 0}g\n` +
+        `Fat: ${meal.targets?.fat || 0}g`,
         [{ 
           text: 'View Progress', 
           onPress: () => router.replace('/(main)/nutrition')
@@ -440,10 +657,10 @@ const DailyMealPlanScreen = () => {
       for (const meal of mealPlan.meals) {
         const entry = {
           food_name: meal.recipe.recipe_name,
-          calories: meal.targets.calories,
-          protein_grams: meal.targets.protein,
-          carbs_grams: meal.targets.carbs,
-          fat_grams: meal.targets.fat,
+          calories: meal.targets?.calories || 0,
+          protein_grams: meal.targets?.protein || 0,
+          carbs_grams: meal.targets?.carbs || 0,
+          fat_grams: meal.targets?.fat || 0,
         };
         await NutritionService.logFoodEntry(user.id, entry);
       }
@@ -474,24 +691,55 @@ const DailyMealPlanScreen = () => {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=3474&auto=format&fit=crop' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?q=80&w=3474&auto=format&fit=crop' }}
         style={styles.backgroundImage}
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.7)', colors.dark]}
+          colors={[
+            'rgba(10, 10, 10, 0.95)', 
+            'rgba(26, 26, 26, 0.85)', 
+            'rgba(10, 10, 10, 0.95)'
+          ]}
           style={styles.overlay}
+          locations={[0, 0.5, 1]}
+        />
+        {/* Additional subtle gradient overlay */}
+        <LinearGradient
+          colors={[
+            'rgba(255, 107, 53, 0.1)', 
+            'transparent', 
+            'rgba(255, 107, 53, 0.05)'
+          ]}
+          style={styles.accentOverlay}
+          locations={[0, 0.3, 1]}
         />
       </ImageBackground>
 
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <IconButton icon="arrow-left" iconColor={colors.text} onPress={() => router.replace('/(main)/nutrition')} />
-        <Text style={styles.headerTitle}>Daily Meal Planner</Text>
-        <IconButton
-          icon="calendar-today"
-          iconColor={colors.text}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={() => router.replace('/(main)/nutrition')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.headerButtonBackground}>
+            <Icon name="arrow-left" size={20} color={colors.text} />
+          </View>
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Daily Meal Planner</Text>
+          <View style={styles.headerTitleUnderline} />
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.headerButton}
           onPress={() => router.push('/(main)/nutrition/meal-plan')}
-          accessibilityLabel="View Meal Plans"
-        />
+          activeOpacity={0.7}
+        >
+          <View style={styles.headerButtonBackground}>
+            <Icon name="calendar-today" size={20} color={colors.text} />
+          </View>
+        </TouchableOpacity>
       </View>
       
       <ScrollView
@@ -499,38 +747,143 @@ const DailyMealPlanScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {!mealPlan && !isLoading && (
-          <View>
+          <View style={styles.mainFormWrapper}>
+            {/* Hero Section */}
+            <View style={styles.heroSection}>
+              <View style={styles.heroIconContainer}>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryLight]}
+                  style={styles.heroIconGradient}
+                >
+                  <Icon name="chef-hat" size={32} color={colors.white} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.heroTitle}>Create Your Perfect Meal Plan</Text>
+              <Text style={styles.heroSubtitle}>AI-powered nutrition tailored to your goals and preferences</Text>
+            </View>
+
+            {/* Enhanced Form Container */}
             <View style={styles.formContainer}>
-              <Text style={styles.inputLabel}>Ingredients to Exclude</Text>
-              <Text style={styles.inputSubLabel}>Any specific ingredients you don't want in your meals (e.g., mushrooms, cilantro)</Text>
-              <TextInput
-                placeholder="e.g., mushrooms, cilantro (optional)"
-                value={excludedIngredients}
-                onChangeText={setExcludedIngredients}
-                mode="outlined"
-                style={styles.ingredientsInput}
-                outlineColor={colors.border}
-                activeOutlineColor={colors.primary}
-                theme={{ colors: { onSurface: colors.text, background: colors.darkGray } }}
-                textColor={colors.text}
-              />
+              <View style={styles.inputSection}>
+                <View style={styles.inputHeader}>
+                  <Icon name="close-circle-outline" size={20} color={colors.primary} />
+                  <Text style={styles.inputLabel}>Ingredients to Exclude</Text>
+                </View>
+                <Text style={styles.inputSubLabel}>Tell us what you'd prefer to avoid in your meals</Text>
+                
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    placeholder="e.g., mushrooms, cilantro, nuts (optional)"
+                    placeholderTextColor={colors.textTertiary}
+                    value={excludedIngredients}
+                    onChangeText={setExcludedIngredients}
+                    mode="outlined"
+                    style={styles.ingredientsInput}
+                    outlineColor={colors.borderLight}
+                    activeOutlineColor={colors.primary}
+                    theme={{ 
+                      colors: { 
+                        onSurface: colors.text, 
+                        background: colors.surfaceLight,
+                        outline: colors.borderLight,
+                        primary: colors.primary
+                      },
+                      roundness: 16
+                    }}
+                    textColor={colors.text}
+                    multiline
+                    numberOfLines={4}
+                    contentStyle={styles.textInputContent}
+                  />
+                  <View style={styles.inputIcon}>
+                    <Icon name="food-off" size={18} color={colors.textTertiary} />
+                  </View>
+                </View>
+
+                {/* Quick Exclude Options */}
+                <View style={styles.quickExcludeSection}>
+                  <Text style={styles.quickExcludeLabel}>Common exclusions:</Text>
+                  <View style={styles.quickExcludeChips}>
+                    {['Dairy', 'Nuts', 'Gluten', 'Seafood', 'Spicy'].map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.quickExcludeChip,
+                          excludedIngredients.toLowerCase().includes(item.toLowerCase()) && styles.quickExcludeChipActive
+                        ]}
+                        onPress={() => {
+                          const current = excludedIngredients.toLowerCase();
+                          const itemLower = item.toLowerCase();
+                          if (current.includes(itemLower)) {
+                            // Remove the item
+                            const newValue = excludedIngredients
+                              .split(',')
+                              .map(s => s.trim())
+                              .filter(s => s.toLowerCase() !== itemLower)
+                              .join(', ');
+                            setExcludedIngredients(newValue);
+                          } else {
+                            // Add the item
+                            const newValue = excludedIngredients 
+                              ? `${excludedIngredients}, ${item}` 
+                              : item;
+                            setExcludedIngredients(newValue);
+                          }
+                        }}
+                      >
+                        <Text style={[
+                          styles.quickExcludeChipText,
+                          excludedIngredients.toLowerCase().includes(item.toLowerCase()) && styles.quickExcludeChipTextActive
+                        ]}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
             </View>
             
-            <TouchableOpacity onPress={handleGenerateMealPlan} disabled={isLoading}>
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                style={styles.generateButton}
+            {/* Enhanced Generate Button */}
+            <View style={styles.generateButtonContainer}>
+              <TouchableOpacity 
+                onPress={handleGenerateMealPlan} 
+                disabled={isLoading}
+                style={styles.generateButtonWrapper}
+                activeOpacity={0.8}
               >
-                {isLoading ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <>
-                    <Icon name="brain" size={20} color={colors.text} style={{ marginRight: 8 }} />
-                    <Text style={styles.generateButtonText}>Generate AI Meal Plan</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  style={styles.generateButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.generateButtonContent}>
+                    {isLoading ? (
+                      <>
+                        <ActivityIndicator color={colors.white} size="small" />
+                        <Text style={styles.generateButtonText}>Generating...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.generateButtonIcon}>
+                          <Icon name="sparkles" size={22} color={colors.white} />
+                        </View>
+                        <Text style={styles.generateButtonText}>Generate AI Meal Plan</Text>
+                        <Icon name="arrow-right" size={18} color={colors.white} style={styles.generateButtonArrow} />
+                      </>
+                    )}
+                  </View>
+                </LinearGradient>
+                
+                {/* Button Shadow */}
+                <View style={styles.buttonShadow} />
+              </TouchableOpacity>
+              
+              {/* Additional Info */}
+              <View style={styles.generateButtonInfo}>
+                <Icon name="information-outline" size={16} color={colors.textTertiary} />
+                <Text style={styles.generateButtonInfoText}>Personalized based on your nutrition goals</Text>
+              </View>
+            </View>
           </View>
         )}
         
@@ -655,9 +1008,9 @@ const DailyMealPlanScreen = () => {
                         color={colors.primary} 
                         style={styles.mealIcon}
                       />
-                      <View>
-                        <Text style={styles.mealTypeName}>{meal.mealType}</Text>
-                        <Text style={styles.mealCalories}>{meal.targets.calories} calories</Text>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.mealTypeName} numberOfLines={1} ellipsizeMode="tail">{String(meal.mealType).replace(/\n/g, ' ')}</Text>
+                        <Text style={styles.mealCalories}>{meal.targets?.calories || 0} calories</Text>
                   </View>
                     </View>
                     <View style={styles.mealActionsContainer}>
@@ -766,40 +1119,127 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
   },
+  accentOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerButtonBackground: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.glassMorphism,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backdropFilter: 'blur(20px)',
+  },
+  headerCenter: {
+    alignItems: 'center',
+    flex: 1,
   },
   headerTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  headerTitleUnderline: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 1,
+    marginTop: 4,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
-    paddingBottom: 100,
+    paddingBottom: 120,
+  },
+  mainFormWrapper: {
+    flex: 1,
+  },
+  heroSection: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+  },
+  heroIconContainer: {
+    marginBottom: 20,
+  },
+  heroIconGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 280,
   },
   formContainer: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
+    marginHorizontal: 20,
     marginBottom: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  inputSection: {
+    marginBottom: 8,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 12,
+    marginLeft: 8,
+    letterSpacing: -0.3,
   },
   inputSubLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
-    marginBottom: 12,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   mealTypeContainer: {
     flexDirection: 'row',
@@ -826,23 +1266,114 @@ const styles = StyleSheet.create({
   selectedMealTypeText: {
     color: colors.text,
   },
+  inputWrapper: {
+    position: 'relative',
+    marginBottom: 20,
+  },
   ingredientsInput: {
-    backgroundColor: colors.darkGray,
-    borderRadius: 12,
-    minHeight: 100,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 16,
+    minHeight: 120,
+    fontSize: 16,
+    paddingRight: 50,
+  },
+  textInputContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
+  quickExcludeSection: {
+    marginTop: 4,
+  },
+  quickExcludeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  quickExcludeChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickExcludeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  quickExcludeChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  quickExcludeChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  quickExcludeChipTextActive: {
+    color: colors.white,
+  },
+  generateButtonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  generateButtonWrapper: {
+    position: 'relative',
+    marginBottom: 16,
   },
   generateButton: {
-    borderRadius: 30,
-    paddingVertical: 12,
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    elevation: 8,
+  },
+  generateButtonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  generateButtonIcon: {
+    marginRight: 12,
+  },
+  generateButtonArrow: {
+    marginLeft: 12,
+    opacity: 0.8,
+  },
+  buttonShadow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: -4,
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    opacity: 0.2,
+    zIndex: -1,
+  },
+  generateButtonInfo: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  generateButtonInfoText: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    fontWeight: '500',
   },
   // Strict toggle styles removed
   generateButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.3,
   },
   loadingContainer: {
     flex: 1,
@@ -1174,11 +1705,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    width: '100%',
   },
   mealTypeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   mealIcon: {
     marginRight: 12,
@@ -1187,6 +1720,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    textAlign: 'left',
+    includeFontPadding: false,
   },
   mealCalories: {
     fontSize: 14,

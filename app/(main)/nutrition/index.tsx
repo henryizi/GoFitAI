@@ -43,12 +43,39 @@ const PlansScreen = () => {
   const [latestInsight, setLatestInsight] = useState<any | null>(null);
   const [currentDate] = useState(new Date());
   const [activePlan, setActivePlan] = useState<any | null>(null); // Changed type to any
+  const [latestTargets, setLatestTargets] = useState<any | null>(null); // Latest historical targets
   const [todayIntake, setTodayIntake] = useState({
     calories: 0,
     protein: 0,
     carbs: 0,
     fat: 0
   });
+
+  // Get the correct calorie target (prioritize goal-adjusted calories)
+  const getCalorieTarget = () => {
+    // First priority: Latest historical targets (goal-adjusted calories)
+    if (latestTargets?.daily_calories) {
+      console.log('[NUTRITION] Using goal-adjusted calories from historical targets:', latestTargets.daily_calories);
+      return latestTargets.daily_calories;
+    }
+    
+    // Second priority: Metabolic calculations from active plan
+    if (activePlan?.metabolic_calculations?.goal_calories) {
+      console.log('[NUTRITION] Using goal-adjusted calories from metabolic calculations:', activePlan.metabolic_calculations.goal_calories);
+      return activePlan.metabolic_calculations.goal_calories;
+    }
+    
+    // Third priority: Adjusted calories (backward compatibility)
+    if (activePlan?.metabolic_calculations?.adjusted_calories) {
+      console.log('[NUTRITION] Using adjusted calories from metabolic calculations:', activePlan.metabolic_calculations.adjusted_calories);
+      return activePlan.metabolic_calculations.adjusted_calories;
+    }
+    
+    // Fallback: Daily targets calories (base calories)
+    const fallbackCalories = activePlan?.daily_targets?.calories ?? 0;
+    console.log('[NUTRITION] Falling back to base daily targets calories:', fallbackCalories);
+    return fallbackCalories;
+  };
  
   // If no user (auth disabled), still fetch using a guest id so created guest plans appear
   useEffect(() => {
@@ -260,6 +287,19 @@ const PlansScreen = () => {
         setActivePlan(defaultPlan);
       } else {
         setActivePlan(latestPlan);
+        
+        // Fetch latest historical targets for the active plan
+        if (latestPlan?.id) {
+          try {
+            const targets = await NutritionService.getHistoricalNutritionTargets(latestPlan.id);
+            if (targets && targets.length > 0) {
+              console.log('[NUTRITION] Latest targets:', targets[0]);
+              setLatestTargets(targets[0]);
+            }
+          } catch (err) {
+            console.error('[NUTRITION] Error fetching historical targets:', err);
+          }
+        }
       }
 
       // Also fetch food entries to update progress
@@ -380,7 +420,11 @@ const PlansScreen = () => {
         <View style={styles.macroContainer}>
           <View style={styles.macroItem}>
             <Text style={styles.macroValue}>
-              {item.daily_calories || (item.daily_targets?.calories) || 'N/A'}
+              {item.metabolic_calculations?.goal_calories || 
+               item.metabolic_calculations?.adjusted_calories || 
+               item.daily_calories || 
+               item.daily_targets?.calories || 
+               'N/A'}
             </Text>
             <Text style={styles.macroLabel}>CALORIES</Text>
           </View>
@@ -538,15 +582,15 @@ const PlansScreen = () => {
                       <View style={styles.calorieProgress}>
                         <View style={styles.calorieHeader}>
                           <Text style={styles.calorieCount}>{todayIntake.calories}</Text>
-                          <Text style={styles.calorieTotal}>/ {(activePlan?.daily_targets?.calories ?? 0)} kcal</Text>
+                          <Text style={styles.calorieTotal}>/ {getCalorieTarget()} kcal</Text>
                                                       <Text style={styles.caloriePercentage}>
-                              ({Math.round((todayIntake.calories / (activePlan?.daily_targets?.calories ?? 0)) * 100)}%)
+                              ({Math.round((todayIntake.calories / Math.max(getCalorieTarget(), 1)) * 100)}%)
                           </Text>
                         </View>
                         <View style={styles.circularProgressContainer}>
                           {Array.from({ length: 10 }, (_, index) => {
-                            const targetCalories = activePlan?.daily_targets?.calories ?? 0;
-                            const calorieProgress = (todayIntake.calories / targetCalories) * 100;
+                            const targetCalories = getCalorieTarget();
+                            const calorieProgress = targetCalories > 0 ? (todayIntake.calories / targetCalories) * 100 : 0;
                             const isActive = calorieProgress >= (index + 1) * 10;
                             
                             // Debug logging for the first few dots

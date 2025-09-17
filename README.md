@@ -14,7 +14,7 @@ A mobile fitness application built with React Native and Expo that uses AI to cr
 ## 🏗️ Project Structure
 
 ```
-SnapBodyAI/
+GoFitAI/
 ├── 📱 app/                    # React Native app (Expo)
 ├── 🖥️ server/                 # Node.js backend server
 ├── 📚 docs/                   # Documentation (organized by category)

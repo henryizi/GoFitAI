@@ -100,37 +100,93 @@ const NutritionPlanScreen = () => {
     };
   }, [targets]);
 
-  // Get macros from latestTarget (current mathematical calculations) or fallback to plan.daily_targets
+  // Get macros using mathematical calculations (no scaling needed)
   const macros = useMemo(() => {
-    // Prioritize latest target (current mathematical calculations from database)
+    console.log('\n🔍 [MACROS RECALC] ===== MACRO CALCULATION START =====');
+    console.log('[MACROS RECALC] useMemo triggered - dependencies changed');
+    console.log('[MACROS RECALC] latestTarget:', JSON.stringify(latestTarget, null, 2));
+    console.log('[MACROS RECALC] plan structure:', JSON.stringify({
+      id: plan?.id,
+      daily_targets: plan?.daily_targets,
+      metabolic_calculations: plan?.metabolic_calculations
+    }, null, 2));
+    
+    console.log('[MACROS RECALC] 🎯 EXPECTED VALUES FOR COMPARISON:');
+    console.log('[MACROS RECALC] Expected Calories: 2845');
+    console.log('[MACROS RECALC] Expected Protein: 178g');
+    console.log('[MACROS RECALC] Expected Carbs: 320g');
+    console.log('[MACROS RECALC] Expected Fat: 95g');
+    
+    // First priority: Use mathematical calculations from plan.metabolic_calculations
+    const goalCalories = plan?.metabolic_calculations?.goal_calories;
+    
+    if (goalCalories && plan?.metabolic_calculations) {
+      console.log('[NUTRITION PLAN] ✅ Using MATHEMATICAL calculations directly from plan:', {
+        goalCalories,
+        metabolicCalculations: plan.metabolic_calculations,
+        dailyTargets: plan.daily_targets
+      });
+      
+      // Use the stored mathematical macro calculations directly
+      const result = {
+        calories: goalCalories,
+        protein: plan.daily_targets?.protein || 0,
+        carbs: plan.daily_targets?.carbs || 0,
+        fat: plan.daily_targets?.fat || 0
+      };
+      
+      console.log('[MACROS RECALC] ✅ Returning MATHEMATICAL macros:', result);
+      console.log('[MACROS RECALC] 🔍 DETAILED BREAKDOWN:', {
+        'Source': 'plan.metabolic_calculations + plan.daily_targets',
+        'Calories from': 'plan.metabolic_calculations.goal_calories',
+        'Protein from': 'plan.daily_targets.protein',
+        'Carbs from': 'plan.daily_targets.carbs', 
+        'Fat from': 'plan.daily_targets.fat',
+        'Values': result
+      });
+      console.log('🔍 [MACROS RECALC] ===== MACRO CALCULATION END =====\n');
+      return result;
+    }
+    
+    // Second priority: Use latest target (should be mathematical now)
     if (latestTarget) {
       console.log('[NUTRITION PLAN] Using latest mathematical target:', {
+        id: latestTarget.id,
         calories: latestTarget.daily_calories,
         protein: latestTarget.protein_grams,
         carbs: latestTarget.carbs_grams,
         fat: latestTarget.fat_grams
       });
-      return {
+      
+      const result = {
         calories: latestTarget.daily_calories || 0,
         protein: latestTarget.protein_grams || 0,
         carbs: latestTarget.carbs_grams || 0,
         fat: latestTarget.fat_grams || 0
       };
+      console.log('[MACROS RECALC] Returning mathematical target macros:', result);
+      console.log('🔍 [MACROS RECALC] ===== MACRO CALCULATION END =====\n');
+      return result;
     } 
     
     // Fallback to plan.daily_targets if no historical targets available
     const dailyTargets = plan?.daily_targets || plan?.daily_targets_json;
     if (dailyTargets) {
       console.log('[NUTRITION PLAN] Falling back to plan daily targets:', dailyTargets);
-      return {
+      const fallbackResult = {
         calories: dailyTargets.calories || 0,
         protein: dailyTargets.protein || dailyTargets.protein_grams || 0,
         carbs: dailyTargets.carbs || dailyTargets.carbs_grams || 0,
         fat: dailyTargets.fat || dailyTargets.fat_grams || 0
       };
+      console.log('[MACROS RECALC] Using fallback daily targets:', fallbackResult);
+      console.log('🔍 [MACROS RECALC] ===== MACRO CALCULATION END =====\n');
+      return fallbackResult;
     } 
     
     // Final fallback
+    console.log('[MACROS RECALC] ❌ Using final fallback - all zeros');
+    console.log('🔍 [MACROS RECALC] ===== MACRO CALCULATION END =====\n');
     return { calories: 0, protein: 0, carbs: 0, fat: 0 };
   }, [latestTarget, plan]);
 
@@ -166,6 +222,31 @@ const NutritionPlanScreen = () => {
       setPlan(fetchedPlan);
       setTargets(fetchedTargets);
       
+      // Update latestTarget immediately with the most recent target
+      if (fetchedTargets && fetchedTargets.length > 0) {
+        console.log('[NUTRITION] 🔍 All fetched targets (sorted by created_at DESC):', 
+          fetchedTargets.map((t, i) => ({
+            index: i,
+            id: t.id,
+            created_at: t.created_at,
+            calories: t.daily_calories,
+            protein: t.protein_grams
+          }))
+        );
+        
+        setLatestTarget(fetchedTargets[0]);
+        console.log('[NUTRITION] ✅ Updated latestTarget with LATEST target:', {
+          id: fetchedTargets[0].id,
+          created_at: fetchedTargets[0].created_at,
+          calories: fetchedTargets[0].daily_calories,
+          protein: fetchedTargets[0].protein_grams,
+          carbs: fetchedTargets[0].carbs_grams,
+          fat: fetchedTargets[0].fat_grams
+        });
+      } else {
+        console.log('[NUTRITION] ❌ No targets found in fetchedTargets');
+      }
+      
       // Debug log to see the actual plan structure
       console.log('[NUTRITION] Fetched plan details:', JSON.stringify({
         id: fetchedPlan?.id,
@@ -183,17 +264,8 @@ const NutritionPlanScreen = () => {
     }
   }, [planId]);
 
-  useEffect(() => {
-    if (plan?.id) {
-      NutritionService.getHistoricalNutritionTargets(plan.id)
-        .then(targets => {
-          if (targets && targets.length > 0) {
-            setLatestTarget(targets[0]);
-          }
-        })
-        .catch(err => console.error('Error fetching nutrition targets:', err));
-    }
-  }, [plan]);
+  // Removed redundant useEffect - latestTarget is now set directly in fetchPlanData()
+  // to avoid race conditions where old cached data overwrites new recalculated values
 
   const handleReevaluate = async () => {
     console.log('--- Button Press: Re-evaluate Plan ---');
@@ -204,20 +276,31 @@ const NutritionPlanScreen = () => {
     }
     setIsReevaluating(true);
     try {
+      console.log('[REEVALUATE] Starting recalculation for user:', user.id);
+      console.log('[REEVALUATE] Current latestTarget before recalc:', latestTarget);
+      
       const result = await NutritionService.reevaluatePlan(user.id, profile);
+      console.log('[REEVALUATE] Recalculation result:', result);
+      
       if (result.success) {
+        console.log('[REEVALUATE] New targets received:', result.new_targets);
+        
         Alert.alert(
           'Plan Adjusted',
           result.new_targets.reasoning ||
             'Your nutrition plan has been updated based on your recent progress.'
         );
-        fetchPlanData(); // Re-fetch data to show the latest targets
+        
+        console.log('[REEVALUATE] Calling fetchPlanData to refresh UI...');
+        await fetchPlanData(); // Re-fetch data to show the latest targets
+        console.log('[REEVALUATE] fetchPlanData completed, latestTarget should be updated');
       } else {
         throw new Error(result.error || 'Failed to re-evaluate plan.');
       }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'An unknown error occurred.';
+      console.error('[REEVALUATE] Error during recalculation:', message);
       Alert.alert('Error', message);
     } finally {
       setIsReevaluating(false);
@@ -569,7 +652,7 @@ const NutritionPlanScreen = () => {
               {isReevaluating ? 'Recalculating...' : 'Recalculate Targets'}
             </Button>
 
-            <View style={styles.macroGrid}>
+            <View style={styles.macroGrid} key={`macros-${latestTarget?.id || 'default'}-${macros.calories}`}>
               <View style={[styles.macroCard, { backgroundColor: `${colors.primary}20` }]}>
                 <Text style={styles.macroEmoji}>🔥</Text>
                 <Text style={styles.macroLabel}>Calories</Text>

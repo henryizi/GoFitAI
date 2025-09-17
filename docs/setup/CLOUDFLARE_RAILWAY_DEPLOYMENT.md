@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This guide shows how to deploy your SnapBodyAI server to Railway with Cloudflare Workers AI for photo analysis. The server is already configured to use Cloudflare for vision analysis when users upload photos.
+This guide shows how to deploy your GoFitAI server to Railway with Cloudflare Workers AI for photo analysis. The server is already configured to use Cloudflare for vision analysis when users upload photos.
 
 ## 📋 Required Environment Variables for Railway
 

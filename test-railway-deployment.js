@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 async function testRailwayDeployment() {
-    const baseUrl = 'https://snapbodyai-production.up.railway.app';
+    const baseUrl = 'https://gofitai-production.up.railway.app';
     
     console.log('🚀 Testing Railway Deployment...\n');
     
@@ -148,6 +148,13 @@ async function testRailwayDeployment() {
 
 // Run the test
 testRailwayDeployment().catch(console.error);
+
+
+
+
+
+
+
 
 
 

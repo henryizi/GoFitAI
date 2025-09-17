@@ -118,6 +118,34 @@ export default function PlanDetailScreen() {
     }
   };
 
+  const handleActivatePlan = async () => {
+    try {
+      if (!plan || !user?.id) return;
+
+      console.log(`[PlanDetail] Setting plan ${plan.id} as active`);
+      
+      // Set the plan as active using WorkoutService
+      const success = await RealWorkoutService.setActivePlan(user.id, plan.id);
+      
+      if (success) {
+        // Update local state to reflect the change
+        setPlan(prev => prev ? { ...prev, is_active: true, status: 'active' } : null);
+        
+        // Show success message
+        Alert.alert(
+          'Plan Activated', 
+          `"${plan.name}" is now your active workout plan.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to activate the plan. Please try again.');
+      }
+    } catch (error) {
+      console.error('[PlanDetail] Error activating plan:', error);
+      Alert.alert('Error', 'An unexpected error occurred while activating the plan.');
+    }
+  };
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -1001,12 +1029,22 @@ export default function PlanDetailScreen() {
             }}
           />
           <Text style={styles.classicTitle}>{plan?.name || 'Workout Plan'}</Text>
-          <IconButton
-            icon="delete-outline"
-            iconColor={colors.error}
-            size={22}
-            onPress={confirmDeletePlan}
-          />
+          <View style={{ flexDirection: 'row' }}>
+            {!plan?.is_active && (
+              <IconButton
+                icon="star-outline"
+                iconColor={colors.primary}
+                size={22}
+                onPress={handleActivatePlan}
+              />
+            )}
+            <IconButton
+              icon="delete-outline"
+              iconColor={colors.error}
+              size={22}
+              onPress={confirmDeletePlan}
+            />
+          </View>
         </View>
 
         <ScrollView

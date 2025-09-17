@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SnapBodyAI backend has been significantly simplified to reduce complexity and improve reliability. The new architecture focuses on a single AI provider (Hugging Face) and provides robust fallback mechanisms.
+The GoFitAI backend has been significantly simplified to reduce complexity and improve reliability. The new architecture focuses on a single AI provider (Hugging Face) and provides robust fallback mechanisms.
 
 ## Key Changes
 

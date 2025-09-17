@@ -329,6 +329,13 @@ REQUIREMENTS:
 
 CRITICAL: You must respond with ONLY valid JSON. Do not include any explanation, markdown, or extra text before or after the JSON. 
 
+RESPONSE REQUIREMENTS:
+- NEVER return an empty response
+- NEVER return "I can't help with that" or similar refusals
+- ALWAYS generate a recipe using the ingredients provided
+- If ingredients seem insufficient, create a simple but complete recipe anyway
+- Your response must be complete and valid JSON
+
 IMPORTANT JSON FORMATTING RULES:
 1. Use ONLY double quotes (") for strings, never single quotes (')
 2. Ensure all property names are quoted
@@ -337,6 +344,7 @@ IMPORTANT JSON FORMATTING RULES:
 5. Use proper JSON syntax - no JavaScript comments or syntax
 6. Ensure all arrays and objects are properly closed
 7. Do not truncate the response - provide complete JSON
+8. Start your response immediately with { and end with }
 
 Return ONLY the JSON object in this exact format:
 {
@@ -647,14 +655,53 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
   }
 
   /**
+   * Generate text content using Gemini AI
+   * @param {string} prompt - The text prompt to send to Gemini
+   * @returns {Promise<string>} Generated text response
+   */
+  async generateText(prompt) {
+    console.log('[GEMINI TEXT] Generating text content');
+    console.log('[GEMINI TEXT] Prompt length:', prompt.length);
+    
+    try {
+      // For simple text prompts, Gemini expects either a string or array format
+      // Let's use the string format for simplicity
+      const result = await this.generateContentWithRetry(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      console.log('[GEMINI TEXT] ✅ Text generation successful');
+      console.log('[GEMINI TEXT] Response length:', text.length);
+      
+      return text;
+      
+    } catch (error) {
+      console.error('[GEMINI TEXT] ❌ Text generation failed:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Generates content with retry logic for 503 Service Unavailable errors
    */
-  async generateContentWithRetry(content, maxRetries = 3) {
+  async generateContentWithRetry(content, maxRetries = 2) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
         
-        const result = await this.model.generateContent(content);
+        // Add timeout to prevent hanging requests - very short timeout for faster fallback
+        // When network is unstable, fail fast to allow mathematical fallback
+        const isComplexRequest = content.includes('meal plan') || content.includes('recipe') || content.length > 2000;
+        const timeoutDuration = isComplexRequest ? 6000 : 3000; // 6s for complex, 3s for simple - faster fallback
+        console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`)), timeoutDuration);
+        });
+        
+        const result = await Promise.race([
+          this.model.generateContent(content),
+          timeoutPromise
+        ]);
         
         // Validate the response
         if (!result || !result.response) {
@@ -681,7 +728,14 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
             textLength: text ? text.length : 0,
             trimmedLength: text ? text.trim().length : 0
           });
-          throw new Error('Empty response from Gemini');
+          
+          // For empty responses, only retry on the first attempt
+          // This prevents infinite retry loops for prompts that consistently return empty responses
+          if (attempt === 1) {
+            throw new Error('Empty response from Gemini - retryable');
+          } else {
+            throw new Error('Empty response from Gemini - non-retryable');
+          }
         }
         
         // Check for truncated responses (common with Gemini)
@@ -710,13 +764,32 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
         const isRetryable = isServiceUnavailable || 
                            error.message.includes('network') ||
                            error.message.includes('timeout') ||
-                           error.message.includes('Empty response') ||
+                           error.message.includes('fetch failed') ||
+                           error.message.includes('ENOTFOUND') ||
+                           error.message.includes('ECONNREFUSED') ||
+                           error.message.includes('ETIMEDOUT') ||
+                           error.message.includes('Gemini request timeout') ||
+                           error.message.includes('Empty response from Gemini - retryable') ||
                            error.message.includes('Invalid response structure');
         
+        const isNetworkError = error.message.includes('fetch failed') || 
+                             error.message.includes('ENOTFOUND') ||
+                             error.message.includes('ECONNREFUSED') ||
+                             error.message.includes('network');
+        
+        // If network error on first attempt, skip retries to fail fast and allow fallback
+        if (isNetworkError && attempt === 1) {
+          console.log(`[GEMINI TEXT] ❌ Network error on first attempt, failing fast for fallback: ${error.message}`);
+          throw error;
+        }
+        
         if (isRetryable && attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+          // Reduced delays to prevent client timeouts
+          const delay = 500 * attempt; // Linear backoff: 500ms, 1000ms, 1500ms
           console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}), retrying in ${delay}ms...`);
-          console.log(`[GEMINI TEXT] Error: ${error.message}`);
+          console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
+          console.log(`[GEMINI TEXT] Error message:`, error.message);
+          console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -914,6 +987,95 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
     // Fix common unicode issues
     cleaned = cleaned.replace(/[\u2028\u2029]/g, '');
     
+    // Fix truncated decimal numbers - comprehensive approach
+    console.log(`[GEMINI TEXT] 🔧 Starting decimal repair on text length: ${cleaned.length}`);
+    const beforeDecimalFix = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 before fixes:`, beforeDecimalFix);
+    
+    // First, fix the most common case: "5." -> "5.0"
+    cleaned = cleaned.replace(/(\d+\.)(?!\d)/g, '$10');
+    
+    // Fix specific patterns that commonly appear in JSON
+    cleaned = cleaned.replace(/(\d+\.)\s*([",}\]\s])/g, '$10$2');
+    cleaned = cleaned.replace(/(\d+\.)\s*$/g, '$10');
+    
+    // More aggressive pattern - any number followed by . and then a non-digit
+    cleaned = cleaned.replace(/(\d+\.)([^0-9])/g, '$10$2');
+    
+    // Extra safety: fix any remaining standalone periods after numbers
+    cleaned = cleaned.replace(/(\d)\.(\s*[^0-9])/g, '$1.0$2');
+    
+    // Additional comprehensive fix for fractional numbers
+    // Fix patterns like "4.," -> "4.0,"
+    cleaned = cleaned.replace(/(\d+\.)([,}\]\s])/g, '$10$2');
+    
+    // Fix patterns where decimal is at end of string
+    cleaned = cleaned.replace(/(\d+\.)$/, '$10');
+    
+    // Fix patterns where decimal is followed by whitespace and special chars
+    cleaned = cleaned.replace(/(\d+\.)\s*([,}\]\n\r])/g, '$10$2');
+    
+    // Final safety net: look for any digit followed by period not followed by digit
+    cleaned = cleaned.replace(/(\d)\.(?!\d)/g, '$1.0');
+    
+    // Ultra-specific fix for the recurring issue at position ~334
+    // Look for patterns like "fat": 4.} or "fat": 4." and fix them
+    console.log(`[GEMINI TEXT] 🔧 Before ultra-specific fixes`);
+    const beforeUltraFixes = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text sample before ultra-fixes:`, beforeUltraFixes);
+    
+    // Using function replacements for more reliable decimal fixing
+    cleaned = cleaned.replace(/"fat":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"fat": ${digits}0${following}`);
+    cleaned = cleaned.replace(/"protein":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"protein": ${digits}0${following}`);
+    cleaned = cleaned.replace(/"carbs":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"carbs": ${digits}0${following}`);
+    cleaned = cleaned.replace(/"calories":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"calories": ${digits}0${following}`);
+    
+    // Even more specific: catch patterns like 4."} and other malformed decimals
+    cleaned = cleaned.replace(/(\d+\.)"/g, '$10');
+    cleaned = cleaned.replace(/(\d+\.)\}/g, '$10}');
+    cleaned = cleaned.replace(/(\d+\.),/g, '$10,');
+    cleaned = cleaned.replace(/(\d+\.)\]/g, '$10]');
+    cleaned = cleaned.replace(/(\d+\.)\s/g, '$10 ');
+    
+    // More comprehensive decimal fixes - handle any non-digit after decimal
+    cleaned = cleaned.replace(/(\d+\.)([^0-9])/g, (match, digits, following) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed decimal: "${match}" -> "${digits}0${following}"`);
+      return `${digits}0${following}`;
+    });
+    
+    // Specific fix for the position 334 error pattern - "fat": 4."
+    cleaned = cleaned.replace(/"fat":\s*(\d+\.)"/g, (match, digits) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed fat decimal at end: "${match}" -> "fat": ${digits}0"`);
+      return `"fat": ${digits}0`;
+    });
+    
+    // Handle any field ending with decimal and quote
+    cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)"/g, (match, field, digits) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed field decimal quote: "${match}" -> ${field}: ${digits}0"`);
+      return `${field}: ${digits}0`;
+    });
+    
+    // General pattern for any numeric field ending with period
+    cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)([^0-9])/g, (match, field, digits, following) => `${field}: ${digits}0${following}`);
+    
+    const afterUltraFixes = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text sample after ultra-fixes:`, afterUltraFixes);
+    
+    // Add detailed character analysis around common error positions
+    [330, 334, 335, 340].forEach(pos => {
+      if (pos < cleaned.length) {
+        const start = Math.max(0, pos - 10);
+        const end = Math.min(cleaned.length, pos + 10);
+        const segment = cleaned.substring(start, end);
+        const charAtPos = cleaned.charAt(pos);
+        console.log(`[GEMINI TEXT] 🔍 Position ${pos}: char='${charAtPos}' (${charAtPos.charCodeAt(0)}) context: "${segment}"`);
+      }
+    });
+    
+    // Log the result after all decimal fixes
+    const afterDecimalFix = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 after fixes:`, afterDecimalFix);
+    
     // Fix common Gemini-specific issues
     // Remove any text before the first {
     const firstBrace = cleaned.indexOf('{');
@@ -1067,6 +1229,12 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
     if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
       return { valid: false, error: 'JSON must start with { or [' };
     }
+    
+    // Check for truncated decimal numbers that would cause parsing errors
+    const truncatedDecimals = trimmed.match(/\d+\.\s*[",}\]]/g);
+    if (truncatedDecimals) {
+      return { valid: false, error: `Contains truncated decimal numbers: ${truncatedDecimals.slice(0, 3).join(', ')}` };
+    }
 
     if (!trimmed.endsWith('}') && !trimmed.endsWith(']')) {
       return { valid: false, error: 'JSON must end with } or ]' };
@@ -1151,6 +1319,15 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
   parseJsonWithFallbacks(text, context = 'unknown') {
     console.log(`[GEMINI TEXT] Attempting to parse JSON for ${context}`);
     console.log(`[GEMINI TEXT] Raw text length: ${text.length}`);
+
+    // Enhanced preview logging to debug JSON issues
+    const preview = text.replace(/\s+/g, ' ');
+    console.log(`[GEMINI TEXT] Enhanced cleaned JSON preview:`, preview.substring(0, 500) + '...');
+    
+    // Debug specific positions where errors occur
+    if (preview.length > 350) {
+      console.log(`[GEMINI TEXT] Characters around position 334:`, preview.substring(320, 350));
+    }
 
     // First, validate the JSON structure
     const validation = this.validateJsonStructure(text);

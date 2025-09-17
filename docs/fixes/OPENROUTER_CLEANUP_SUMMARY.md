@@ -1,7 +1,7 @@
 # OpenRouter Cleanup Summary
 
 ## Overview
-Successfully removed all OpenRouter dependencies and references from the SnapBodyAI application, transitioning to use DeepSeek and Cloudflare as the primary AI providers.
+Successfully removed all OpenRouter dependencies and references from the GoFitAI application, transitioning to use DeepSeek and Cloudflare as the primary AI providers.
 
 ## Changes Made
 

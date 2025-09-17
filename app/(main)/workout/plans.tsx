@@ -13,6 +13,7 @@ import { WorkoutService } from '../../../src/services/workout/WorkoutService';
 import { track as analyticsTrack } from '../../../src/services/analytics/analytics';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
+import HealthDisclaimer from '../../../src/components/legal/HealthDisclaimer';
 
 // MARK: - Enhanced Design System
 const { width } = Dimensions.get('window');
@@ -810,6 +811,11 @@ const WorkoutPlansScreen = () => {
         </View>
       </View>
 
+      {/* Health Disclaimer */}
+      <View style={styles.disclaimerSection}>
+        <HealthDisclaimer variant="compact" />
+      </View>
+
                 {/* Enhanced View History Action */}
       <View style={styles.historyButtonContainer}>
         <TouchableOpacity
@@ -1123,6 +1129,9 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+  },
+  disclaimerSection: {
+    marginBottom: 20,
   },
   appHeader: {
     flexDirection: 'row',

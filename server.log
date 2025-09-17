@@ -1,0 +1,2741 @@
+--- SERVER RESTARTED ---
+--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[VISION SERVICE] Initializing Gemini Vision Service
+[GEMINI VISION] Service initialized with model: gemini-2.5-flash
+[GEMINI VISION] Temperature: 0.1 (low for consistency)
+[GEMINI VISION] API Key configured: ✅ Yes
+[AI SERVICE] Initializing Gemini Text Service
+[GEMINI TEXT] Service initialized with model: gemini-2.5-flash
+[GEMINI TEXT] API Key configured: ✅ Yes
+=== AI CONFIGURATION ===
+Available AI Providers: [ 'gemini', 'fallback' ]
+Default AI_PROVIDER: gemini
+Total providers available: 2
+- gemini: ENABLED (gemini-2.5-flash)
+- fallback: ENABLED (rule-based)
+========================
+GoFitAI Server v2.0 running on port 4000
+Local IP: 192.168.0.116
+Server URL: http://192.168.0.116:4000
+Test API with: curl http://192.168.0.116:4000/api/test
+[WORKOUT] Normalized profile data: {
+  "user_id": "2b7ea2b7-b739-47f1-b389-aba682ac8c5f",
+  "primary_goal": "muscle_gain",
+  "weight_kg": 81,
+  "height_cm": 186,
+  "age": 24,
+  "gender": "male",
+  "activity_level": "moderate",
+  "fitness_strategy": "recomp"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: muscle_gain
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: Client
+- Gender: male
+- Age: 24
+- Training Level: intermediate
+- Primary Goal: muscle_gain
+- Preferred Workout Frequency: 4-5 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive o...
+[WORKOUT] Prompt length: 6677
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] Available AI providers: [gemini]
+[WORKOUT] Primary provider: gemini
+[WORKOUT] Will try providers in order: [gemini]
+[WORKOUT] 🤖 Attempting workout generation using GEMINI
+[WORKOUT] Current GEMINI_MODEL: gemini-2.5-flash
+[WORKOUT] Current provider config: {
+  "name": "gemini",
+  "apiKey": "AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg",
+  "apiUrl": null,
+  "model": "gemini-2.5-flash",
+  "enabled": true
+}
+[AI] Trying provider: gemini with model gemini-2.5-flash
+[AI] Calling gemini API with model gemini-2.5-flash
+[AI] Request contains 1 messages
+[AI] Using max_tokens: 4000
+[AI] JSON response format requested for Gemini - setting responseMimeType
+[GEMINI] Request body: {
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "\nYou are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.\n\nCLIENT PROFILE:\n- Full Name: Client\n- Gender: male\n- Age: 24\n- Training Level: intermediate\n- Primary Goal: muscle_gain\n- Preferred Workout Frequency: 4-5 times per week\n\nPROGRAMMING & PROGRESSION:\n1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.\n2. Suggest target set volumes relative to training level (lower for beginners, higher for advanced).\n3. Tailor the workout plan to the client's primary goal:\n   - Muscle Gain: Focus on compound movements with moderate reps (8-12) and adequate rest (90-120s)\n   - Fat Loss: Include higher reps (12-15) with shorter rest periods (60-90s) and cardio elements\n   - Athletic Performance: Emphasize functional movements, power exercises, and sport-specific training\n   - General Fitness: Balanced approach with mix of strength and cardio elements\n4. Ensure balanced weekly distribution across push, pull, legs, and include core.\n\nCRITICAL EXERCISE VARIETY REQUIREMENTS:\n1. NEVER repeat the same exercises in consecutive workouts\n2. Use different exercise variations for the same muscle group\n3. Rotate between compound and isolation exercises\n4. Vary equipment types (barbell, dumbbell, cable, bodyweight)\n5. Include different angles and grips for muscle groups\n6. Use progressive exercise selection (start with basics, progress to advanced)\n\nAVAILABLE EXERCISES (Choose from these for variety):\nPUSH EXERCISES: Bench Press, Incline Bench Press, Decline Bench Press, Close Grip Bench Press, Military Press, Push Press, Dumbbell Bench Press, Incline Dumbbell Press, Decline Dumbbell Press, Dumbbell Flyes, Incline Dumbbell Flyes, Decline Dumbbell Flyes, Dumbbell Shoulder Press, Arnold Press, Lateral Raise, Front Raise, Rear Delt Flyes, Dumbbell Tricep Extension, Overhead Dumbbell Extension, Dumbbell Kickback, Cable Flyes, Incline Cable Flyes, Decline Cable Flyes, Cable Lateral Raise, Cable Front Raise, Cable Rear Delt Flyes, Tricep Pushdown, Rope Pushdown, Overhead Cable Extension, Cable Crossovers, Push Up, Diamond Push Up, Pike Push Up, Wide Grip Push Up, Decline Push Up, Archer Push Up, One Arm Push Up, Dip, Ring Dip, Handstand Push Up\n\nPULL EXERCISES: Barbell Row, Pendlay Row, T-Bar Row, Barbell Curl, Preacher Curl, Incline Barbell Curl, Barbell Shrug, Upright Row, Dumbbell Row, One Arm Dumbbell Row, Incline Dumbbell Row, Dumbbell Curl, Hammer Curl, Incline Dumbbell Curl, Concentration Curl, Dumbbell Shrug, Dumbbell Rear Delt Flyes, Lat Pulldown, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Seated Cable Row, One Arm Cable Row, Face Pull, Cable Curl, Rope Cable Curl, Cable Shrug, Pull Up, Chin Up, Wide Grip Pull Up, Close Grip Pull Up, Neutral Grip Pull Up, Muscle Up, Inverted Row\n\nLEG EXERCISES: Barbell Back Squat, Front Squat, Overhead Squat, Romanian Deadlift, Conventional Deadlift, Sumo Deadlift, Good Morning, Barbell Calf Raise, Dumbbell Squat, Goblet Squat, Walking Lunge, Dumbbell Step Up, Dumbbell Romanian Deadlift, Dumbbell Calf Raise, Kettlebell Goblet Squat, Kettlebell Swing, Kettlebell Deadlift, Leg Press, Leg Extension, Leg Curl, Seated Leg Curl, Standing Leg Curl, Cable Calf Raise, Seated Calf Raise, Hack Squat, Hip Thrust, Bodyweight Squat, Jump Squat, Bodyweight Lunge, Walking Lunge, Jumping Lunge, Single Leg Squat, Pistol Squat, Calf Raise, Single Leg Calf Raise, Glute Bridge, Single Leg Glute Bridge, Wall Sit\n\nCORE EXERCISES: Plank, Side Plank, Mountain Climber, Bicycle Crunch, Leg Raise, Hanging Leg Raise, Crunch, Sit Up, Russian Twist, Dead Bug, Bird Dog, Superman, Cable Woodchop, Weighted Russian Twist, Weighted Plank, Cable Crunch, Pallof Press, Cable Rotation, Weighted Sit Up, Weighted Crunch\n\nCARDIO EXERCISES: Kettlebell Swing, Dumbbell Clean and Press, Weighted Step-Up, Burpee, Jump Rope, High Knees, Mountain Climber, Box Jump, Thruster, Wall Ball\n\nINSTRUCTIONS:\n1. Create a 7-day workout schedule with appropriate rest days based on their exercise frequency\n2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY 4-5 TRAINING DAYS PER WEEK\n   - Count the training days in your response to ensure accuracy\n   - Do NOT create more or fewer training days than specified\n   - For '2_3' frequency: Create exactly 2-3 training days (4-5 rest days)\n   - For '4_5' frequency: Create exactly 4-5 training days (2-3 rest days)\n   - For '6' frequency: Create exactly 6 training days (1 rest day)\n3. For each workout day, specify:\n   - The focus area (e.g., \"Upper Body\", \"Lower Body\", \"Push\", \"Pull\", \"Legs\", \"Full Body\")\n   - 4-6 exercises appropriate for their training level\n   - For each exercise, specify sets, reps, and rest between sets\n4. Include an estimated time per session (e.g., \"45 minutes\")\n5. Ensure maximum exercise variety - never repeat exercises in consecutive workouts\n6. Return ONLY a valid JSON object with the following structure:\n\n{\n  \"weeklySchedule\": [\n    {\n      \"day\": \"Monday\",\n      \"focus\": \"Chest and Triceps\",\n      \"exercises\": [\n        { \"name\": \"Bench Press\", \"sets\": 4, \"reps\": \"8-10\", \"restBetweenSets\": \"90s\" },\n        { \"name\": \"Incline Dumbbell Press\", \"sets\": 3, \"reps\": \"10-12\", \"restBetweenSets\": \"60s\" },\n        { \"name\": \"Cable Flyes\", \"sets\": 3, \"reps\": \"12-15\", \"restBetweenSets\": \"60s\" },\n        { \"name\": \"Tricep Pushdown\", \"sets\": 3, \"reps\": \"12-15\", \"restBetweenSets\": \"60s\" },\n        { \"name\": \"Overhead Dumbbell Extension\", \"sets\": 3, \"reps\": \"10-12\", \"restBetweenSets\": \"60s\" }\n      ]\n    }\n  ],\n  \"estimatedTimePerSession\": \"60 minutes\",\n  \"progression\": {\n    \"mesocycleWeeks\": 4,\n    \"guidance\": \"Increase load 2.5-5% weekly if all reps achieved; optional deload in week 4 if fatigue accumulates.\"\n  }\n}\n\nMake sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.\n\n🚨 CRITICAL ENFORCEMENT: You MUST create exactly 4-5 training days per week. This is ABSOLUTELY NON-NEGOTIABLE.\n\nFINAL CHECKS BEFORE RESPONDING:\n1. Count the number of training days in your weeklySchedule array\n2. Ensure it matches EXACTLY: 4-5 training days\n3. If it doesn't match, adjust the schedule immediately\n4. Double-check that rest days are properly distributed\n5. Verify that the total equals 7 days (training + rest)\n\nFAILURE TO COMPLY WITH THE FREQUENCY REQUIREMENT WILL RESULT IN AN INVALID RESPONSE. TAKE THIS SERIOUSLY."
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "temperature": 0.7,
+    "topP": 0.95,
+    "maxOutputTokens": 8000,
+    "responseMimeType": "application/json"
+  }
+}
+[GEMINI] Max output tokens set to: 8000
+[GEMINI] Calling URL: null?key=[API_KEY]
+[GEMINI] API call failed: Invalid URL
+[AI] Error with provider gemini: Invalid URL
+[WORKOUT] 🧮 All AI providers failed, using rule-based workout plan generation
+[WORKOUT] Generating rule-based workout plan for: muscle_gain
+{"level":30,"time":1757996797268,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"319"},"remoteAddress":"192.168.0.116","remotePort":53890},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1787","etag":"W/\"6fb-bn/FUc5bNeBbwz2mCid4VL+4mss\""}},"responseTime":17,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: POST /api/generate-meal-plan
+{"level":30,"time":1757996808710,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-meal-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"298"},"remoteAddress":"192.168.0.116","remotePort":54401},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"95","etag":"W/\"5f-IHhe5E/8s3+mZ64lr8RcRT1GDWw\""}},"responseTime":1,"msg":"request completed"}
+[MEAL PLAN] Received request for user: undefined
+[MEAL PLAN] Missing userId in request
+{"level":30,"time":1757996827419,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"298"},"remoteAddress":"192.168.0.116","remotePort":55168},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"32","etag":"W/\"20-YJZ9K9Qqg2Hi3l+K2qpUvWAn8IM\""}},"responseTime":1,"msg":"request completed"}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Response validation: {
+  textExists: true,
+  textType: 'string',
+  textLength: 8323,
+  textTrimmedLength: 8323,
+  textPreview: '```json\n' +
+    '[\n' +
+    '  {\n' +
+    '    "meal_type": "breakfast",\n' +
+    '    "recipe_name": "Harissa-Spiced Chickpea & Spinach Sc...'
+}
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response length: 8323 characters
+[GEMINI TEXT] ✅ Text generation successful
+[GEMINI TEXT] Response length: 8323
+[GEMINI MEAL PLAN] Raw response length: 8323
+[GEMINI MEAL PLAN] Response preview: ```json
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Harissa-Spiced Chickpea & Spinach Scramble with Whipped Feta and Toasted Za'atar Sourdough",
+    "prep_time": 15,
+    "cook_time": 10,
+ ...
+[GEMINI MEAL PLAN] ✅ Successfully parsed and validated AI meal plan
+[GEMINI MEAL PLAN] Generated meals: [
+  "breakfast: Harissa-Spiced Chickpea & Spinach Scramble with Whipped Feta and Toasted Za'atar Sourdough",
+  'lunch: Lemongrass-Marinated Grilled Prawn & Pomelo Salad with Forbidden Rice Noodles and Nuoc Cham Vinaigrette',
+  'dinner: Saffron & Cardamom Braised Lamb Shank with Jeweled Basmati Pilaf and Mint-Pistachio Gremolata',
+  'snack: Açaí-Cacao Bliss Bowl with Toasted Coconut Flakes, Dragon Fruit, and Bee Pollen'
+]
+[MEAL PLAN] ✅ Successfully generated GEMINI AI meal plan with 4 meals
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: "Harissa-Spiced Chickpea & Spinach Scramble with Whipped Feta and Toasted Za'atar Sourdough",
+    prep_time: 15,
+    cook_time: 10,
+    servings: 1,
+    ingredients: [
+      '1 tbsp olive oil',
+      '1/2 cup cooked chickpeas, rinsed and drained',
+      '1/4 red onion, finely diced',
+      '1 clove garlic, minced',
+      '1/2 cup fresh spinach',
+      '1 tsp harissa paste (adjust to spice preference)',
+      '2 large eggs',
+      '2 tbsp milk or plant-based alternative',
+      'Pinch of sea salt and black pepper',
+      '2 tbsp crumbled feta cheese',
+      '1 tbsp Greek yogurt (full-fat for creaminess)',
+      '1 slice sourdough bread',
+      "1 tsp za'atar seasoning",
+      'Fresh parsley, chopped, for garnish'
+    ],
+    instructions: [
+      'Heat 1/2 tbsp olive oil in a non-stick pan over medium heat. Add diced red onion and sauté until softened, about 3 minutes.',
+      'Add minced garlic and chickpeas, cooking for another 2 minutes until slightly warmed through. Stir in harissa paste.',
+      'Add spinach and cook until wilted, about 1-2 minutes.',
+      'In a small bowl, whisk eggs with milk, salt, and pepper.',
+      'Pour egg mixture into the pan with the chickpea and spinach mixture. Scramble gently until cooked to your desired consistency.',
+      'While eggs cook, combine feta cheese and Greek yogurt in a small bowl. Whip with a fork until creamy and smooth.',
+      "Toast sourdough bread. Drizzle with remaining 1/2 tbsp olive oil and sprinkle generously with za'atar seasoning.",
+      "Serve the harissa-spiced scramble alongside the whipped feta and toasted za'atar sourdough. Garnish with fresh parsley."
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Lemongrass-Marinated Grilled Prawn & Pomelo Salad with Forbidden Rice Noodles and Nuoc Cham Vinaigrette',
+    prep_time: 25,
+    cook_time: 10,
+    servings: 1,
+    ingredients: [
+      '6 large prawns, peeled and deveined',
+      '1 stalk lemongrass, minced (white part only)',
+      '1 tbsp fish sauce',
+      '1 tsp brown sugar',
+      '1 tsp lime juice',
+      '1/2 cup forbidden rice noodles (black rice vermicelli)',
+      '1 cup mixed greens (e.g., romaine, butter lettuce)',
+      '1/2 pomelo, segmented and peeled (or grapefruit)',
+      '1/4 red bell pepper, thinly sliced',
+      '1/4 cucumber, julienned',
+      '2 tbsp chopped roasted peanuts',
+      'Fresh mint and cilantro leaves for garnish',
+      'For Nuoc Cham Vinaigrette:',
+      '2 tbsp fish sauce',
+      '1 tbsp lime juice',
+      '1 tbsp rice vinegar',
+      '1 tsp brown sugar',
+      '1 small garlic clove, minced',
+      '1/2 small red chili, finely sliced (optional)'
+    ],
+    instructions: [
+      'Marinate prawns: In a bowl, combine minced lemongrass, 1 tbsp fish sauce, 1 tsp brown sugar, and 1 tsp lime juice. Add prawns, toss to coat, and let marinate for at least 15 minutes.',
+      'Cook forbidden rice noodles according to package instructions. Drain, rinse with cold water, and set aside.',
+      'Prepare Nuoc Cham Vinaigrette: Whisk together all vinaigrette ingredients in a small bowl until sugar is dissolved.',
+      'Heat a grill pan or outdoor grill to medium-high heat. Grill marinated prawns for 2-3 minutes per side, or until pink and cooked through.',
+      'Assemble the salad: On a large plate or bowl, arrange mixed greens, forbidden rice noodles, pomelo segments, red bell pepper, and julienned cucumber.',
+      'Top with grilled prawns. Drizzle generously with Nuoc Cham Vinaigrette.',
+      'Garnish with roasted peanuts, fresh mint, and cilantro leaves before serving.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Saffron & Cardamom Braised Lamb Shank with Jeweled Basmati Pilaf and Mint-Pistachio Gremolata',
+    prep_time: 30,
+    cook_time: 180,
+    servings: 1,
+    ingredients: [
+      '1 lamb shank (about 1 lb)',
+      '1 tbsp olive oil',
+      '1/2 yellow onion, diced',
+      '1 carrot, diced',
+      '1 celery stalk, diced',
+      '2 cloves garlic, minced',
+      '1/2 cup dry red wine (e.g., Cabernet Sauvignon)',
+      '1 cup beef broth',
+      '1/2 cup crushed tomatoes',
+      '4 green cardamom pods, lightly crushed',
+      'Pinch of saffron threads, steeped in 2 tbsp hot water',
+      '1 bay leaf',
+      '1/2 tsp ground cumin',
+      'Salt and freshly ground black pepper to taste',
+      'For Jeweled Basmati Pilaf:',
+      '1/2 cup basmati rice, rinsed',
+      '1 cup vegetable broth',
+      '1 tbsp unsalted butter or ghee',
+      '1/4 cup dried cranberries or barberries',
+      '1/4 cup toasted slivered almonds',
+      '1/4 cup finely diced fresh apricots (or dried, rehydrated)',
+      'For Mint-Pistachio Gremolata:',
+      '2 tbsp chopped fresh mint',
+      '2 tbsp chopped shelled pistachios',
+      '1 tsp lemon zest'
+    ],
+    instructions: [
+      'Preheat oven to 325°F (160°C). Season lamb shank generously with salt and pepper.',
+      'Heat olive oil in a Dutch oven or oven-safe pot over medium-high heat. Sear the lamb shank on all sides until deeply browned. Remove lamb and set aside.',
+      'Add onion, carrot, and celery to the pot. Sauté until softened, about 5-7 minutes. Add garlic and cook for another minute until fragrant.',
+      'Deglaze the pot with red wine, scraping up any browned bits from the bottom. Let it simmer for 2-3 minutes until slightly reduced.',
+      'Stir in beef broth, crushed tomatoes, cardamom pods, saffron (with its soaking liquid), bay leaf, and cumin. Bring to a simmer.',
+      "Return lamb shank to the pot, ensuring it's mostly submerged in the liquid. Cover and transfer to the preheated oven. Braise for 2.5-3 hours, or until the lamb is fork-tender and falling off the bone.",
+      'While lamb braises, prepare the pilaf: In a medium saucepan, melt butter/ghee over medium heat. Add rinsed basmati rice and sauté for 2 minutes. Add vegetable broth, bring to a boil, then reduce heat to low, cover, and simmer for 15-18 minutes, or until water is absorbed.',
+      'Once rice is cooked, gently fluff with a fork and stir in cranberries/barberries, toasted almonds, and fresh apricots.',
+      'Prepare gremolata: In a small bowl, combine chopped mint, chopped pistachios, and lemon zest.',
+      'Once lamb is tender, carefully remove it from the pot. Skim any excess fat from the braising liquid if desired. Serve lamb shank over a bed of jeweled basmati pilaf, spooning generous amounts of the braising liquid over the top. Finish with a sprinkle of mint-pistachio gremolata.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Açaí-Cacao Bliss Bowl with Toasted Coconut Flakes, Dragon Fruit, and Bee Pollen',
+    prep_time: 10,
+    cook_time: 0,
+    servings: 1,
+    ingredients: [
+      '1 (100g) frozen unsweetened açaí packet',
+      '1/2 frozen banana',
+      '1 tbsp unsweetened cacao powder',
+      '1/4 cup unsweetened almond milk (or other milk of choice)',
+      '1 tsp maple syrup or honey (optional, for sweetness)',
+      'For Toppings:',
+      '1 tbsp toasted coconut flakes',
+      '1/4 cup diced dragon fruit (or other vibrant fruit like kiwi or berries)',
+      '1 tbsp granola (low sugar preferred)',
+      '1 tsp bee pollen'
+    ],
+    instructions: [
+      'In a high-speed blender, combine the frozen açaí packet, frozen banana, cacao powder, almond milk, and optional maple syrup.',
+      'Blend until completely smooth and thick. If needed, add a tiny splash more almond milk, but aim for a consistency similar to soft-serve ice cream.',
+      'Pour the açaí mixture into a bowl.',
+      'Artfully arrange the toasted coconut flakes, diced dragon fruit, and granola on top.',
+      'Finish with a sprinkle of bee pollen for an extra nutritional boost and visual appeal. Serve immediately.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  }
+]
+[MEAL PLAN] Generation method: Gemini AI
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: "Harissa-Spiced Chickpea & Spinach Scramble with Whipped Feta and Toasted Za'atar Sourdough\n" +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 10 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1 tbsp olive oil\n' +
+      '- 1/2 cup cooked chickpeas, rinsed and drained\n' +
+      '- 1/4 red onion, finely diced\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 cup fresh spinach\n' +
+      '- 1 tsp harissa paste (adjust to spice preference)\n' +
+      '- 2 large eggs\n' +
+      '- 2 tbsp milk or plant-based alternative\n' +
+      '- Pinch of sea salt and black pepper\n' +
+      '- 2 tbsp crumbled feta cheese\n' +
+      '- 1 tbsp Greek yogurt (full-fat for creaminess)\n' +
+      '- 1 slice sourdough bread\n' +
+      "- 1 tsp za'atar seasoning\n" +
+      '- Fresh parsley, chopped, for garnish\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Heat 1/2 tbsp olive oil in a non-stick pan over medium heat. Add diced red onion and sauté until softened, about 3 minutes.\n' +
+      '• Add minced garlic and chickpeas, cooking for another 2 minutes until slightly warmed through. Stir in harissa paste.\n' +
+      '• Add spinach and cook until wilted, about 1-2 minutes.\n' +
+      '• In a small bowl, whisk eggs with milk, salt, and pepper.\n' +
+      '• Pour egg mixture into the pan with the chickpea and spinach mixture. Scramble gently until cooked to your desired consistency.\n' +
+      '• While eggs cook, combine feta cheese and Greek yogurt in a small bowl. Whip with a fork until creamy and smooth.\n' +
+      "• Toast sourdough bread. Drizzle with remaining 1/2 tbsp olive oil and sprinkle generously with za'atar seasoning.\n" +
+      "• Serve the harissa-spiced scramble alongside the whipped feta and toasted za'atar sourdough. Garnish with fresh parsley.",
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Lemongrass-Marinated Grilled Prawn & Pomelo Salad with Forbidden Rice Noodles and Nuoc Cham Vinaigrette\n' +
+      '\n' +
+      'Prep Time: 25 minutes\n' +
+      'Cook Time: 10 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 6 large prawns, peeled and deveined\n' +
+      '- 1 stalk lemongrass, minced (white part only)\n' +
+      '- 1 tbsp fish sauce\n' +
+      '- 1 tsp brown sugar\n' +
+      '- 1 tsp lime juice\n' +
+      '- 1/2 cup forbidden rice noodles (black rice vermicelli)\n' +
+      '- 1 cup mixed greens (e.g., romaine, butter lettuce)\n' +
+      '- 1/2 pomelo, segmented and peeled (or grapefruit)\n' +
+      '- 1/4 red bell pepper, thinly sliced\n' +
+      '- 1/4 cucumber, julienned\n' +
+      '- 2 tbsp chopped roasted peanuts\n' +
+      '- Fresh mint and cilantro leaves for garnish\n' +
+      '- For Nuoc Cham Vinaigrette:\n' +
+      '- 2 tbsp fish sauce\n' +
+      '- 1 tbsp lime juice\n' +
+      '- 1 tbsp rice vinegar\n' +
+      '- 1 tsp brown sugar\n' +
+      '- 1 small garlic clove, minced\n' +
+      '- 1/2 small red chili, finely sliced (optional)\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Marinate prawns: In a bowl, combine minced lemongrass, 1 tbsp fish sauce, 1 tsp brown sugar, and 1 tsp lime juice. Add prawns, toss to coat, and let marinate for at least 15 minutes.\n' +
+      '• Cook forbidden rice noodles according to package instructions. Drain, rinse with cold water, and set aside.\n' +
+      '• Prepare Nuoc Cham Vinaigrette: Whisk together all vinaigrette ingredients in a small bowl until sugar is dissolved.\n' +
+      '• Heat a grill pan or outdoor grill to medium-high heat. Grill marinated prawns for 2-3 minutes per side, or until pink and cooked through.\n' +
+      '• Assemble the salad: On a large plate or bowl, arrange mixed greens, forbidden rice noodles, pomelo segments, red bell pepper, and julienned cucumber.\n' +
+      '• Top with grilled prawns. Drizzle generously with Nuoc Cham Vinaigrette.\n' +
+      '• Garnish with roasted peanuts, fresh mint, and cilantro leaves before serving.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Saffron & Cardamom Braised Lamb Shank with Jeweled Basmati Pilaf and Mint-Pistachio Gremolata\n' +
+      '\n' +
+      'Prep Time: 30 minutes\n' +
+      'Cook Time: 180 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1 lamb shank (about 1 lb)\n' +
+      '- 1 tbsp olive oil\n' +
+      '- 1/2 yellow onion, diced\n' +
+      '- 1 carrot, diced\n' +
+      '- 1 celery stalk, diced\n' +
+      '- 2 cloves garlic, minced\n' +
+      '- 1/2 cup dry red wine (e.g., Cabernet Sauvignon)\n' +
+      '- 1 cup beef broth\n' +
+      '- 1/2 cup crushed tomatoes\n' +
+      '- 4 green cardamom pods, lightly crushed\n' +
+      '- Pinch of saffron threads, steeped in 2 tbsp hot water\n' +
+      '- 1 bay leaf\n' +
+      '- 1/2 tsp ground cumin\n' +
+      '- Salt and freshly ground black pepper to taste\n' +
+      '- For Jeweled Basmati Pilaf:\n' +
+      '- 1/2 cup basmati rice, rinsed\n' +
+      '- 1 cup vegetable broth\n' +
+      '- 1 tbsp unsalted butter or ghee\n' +
+      '- 1/4 cup dried cranberries or barberries\n' +
+      '- 1/4 cup toasted slivered almonds\n' +
+      '- 1/4 cup finely diced fresh apricots (or dried, rehydrated)\n' +
+      '- For Mint-Pistachio Gremolata:\n' +
+      '- 2 tbsp chopped fresh mint\n' +
+      '- 2 tbsp chopped shelled pistachios\n' +
+      '- 1 tsp lemon zest\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Preheat oven to 325°F (160°C). Season lamb shank generously with salt and pepper.\n' +
+      '• Heat olive oil in a Dutch oven or oven-safe pot over medium-high heat. Sear the lamb shank on all sides until deeply browned. Remove lamb and set aside.\n' +
+      '• Add onion, carrot, and celery to the pot. Sauté until softened, about 5-7 minutes. Add garlic and cook for another minute until fragrant.\n' +
+      '• Deglaze the pot with red wine, scraping up any browned bits from the bottom. Let it simmer for 2-3 minutes until slightly reduced.\n' +
+      '• Stir in beef broth, crushed tomatoes, cardamom pods, saffron (with its soaking liquid), bay leaf, and cumin. Bring to a simmer.\n' +
+      "• Return lamb shank to the pot, ensuring it's mostly submerged in the liquid. Cover and transfer to the preheated oven. Braise for 2.5-3 hours, or until the lamb is fork-tender and falling off the bone.\n" +
+      '• While lamb braises, prepare the pilaf: In a medium saucepan, melt butter/ghee over medium heat. Add rinsed basmati rice and sauté for 2 minutes. Add vegetable broth, bring to a boil, then reduce heat to low, cover, and simmer for 15-18 minutes, or until water is absorbed.\n' +
+      '• Once rice is cooked, gently fluff with a fork and stir in cranberries/barberries, toasted almonds, and fresh apricots.\n' +
+      '• Prepare gremolata: In a small bowl, combine chopped mint, chopped pistachios, and lemon zest.\n' +
+      '• Once lamb is tender, carefully remove it from the pot. Skim any excess fat from the braising liquid if desired. Serve lamb shank over a bed of jeweled basmati pilaf, spooning generous amounts of the braising liquid over the top. Finish with a sprinkle of mint-pistachio gremolata.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Açaí-Cacao Bliss Bowl with Toasted Coconut Flakes, Dragon Fruit, and Bee Pollen\n' +
+      '\n' +
+      'Prep Time: 10 minutes\n' +
+      'Cook Time: 0 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1 (100g) frozen unsweetened açaí packet\n' +
+      '- 1/2 frozen banana\n' +
+      '- 1 tbsp unsweetened cacao powder\n' +
+      '- 1/4 cup unsweetened almond milk (or other milk of choice)\n' +
+      '- 1 tsp maple syrup or honey (optional, for sweetness)\n' +
+      '- For Toppings:\n' +
+      '- 1 tbsp toasted coconut flakes\n' +
+      '- 1/4 cup diced dragon fruit (or other vibrant fruit like kiwi or berries)\n' +
+      '- 1 tbsp granola (low sugar preferred)\n' +
+      '- 1 tsp bee pollen\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• In a high-speed blender, combine the frozen açaí packet, frozen banana, cacao powder, almond milk, and optional maple syrup.\n' +
+      '• Blend until completely smooth and thick. If needed, add a tiny splash more almond milk, but aim for a consistency similar to soft-serve ice cream.\n' +
+      '• Pour the açaí mixture into a bowl.\n' +
+      '• Artfully arrange the toasted coconut flakes, diced dragon fruit, and granola on top.\n' +
+      '• Finish with a sprinkle of bee pollen for an extra nutritional boost and visual appeal. Serve immediately.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: "Harissa-Spiced Chickpea & Spinach Scramble with Whipped Feta and Toasted Za'atar Sourdough\n" +
+    '\n' +
+    'Prep Time: 15 minutes\n' +
+    'Cook Time: 10 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- 1 tbsp olive oil\n' +
+    '- 1/2 cup cooked chickpeas, rinsed and drained\n' +
+    '- 1/4 red onion, finely diced\n' +
+    '- 1 clove garlic, minced\n' +
+    '- 1/2 cup fresh spinach\n' +
+    '- 1 tsp harissa paste (adjust to spice preference)\n' +
+    '- 2 large eggs\n' +
+    '- 2 tbsp milk or plant-based alternative\n' +
+    '- Pinch of sea salt and black pepper\n' +
+    '- 2 tbsp crumbled feta cheese\n' +
+    '- 1 tbsp Greek yogurt (full-fat for creaminess)\n' +
+    '- 1 slice sourdough bread\n' +
+    "- 1 tsp za'atar seasoning\n" +
+    '- Fresh parsley, chopped, for garnish\n' +
+    '\n' +
+    'Instructions:\n' +
+    '• Heat 1/2 tbsp olive oil in a non-stick pan over medium heat. Add diced red onion and sauté until softened, about 3 minutes.\n' +
+    '• Add minced garlic and chickpeas, cooking for another 2 minutes until slightly warmed through. Stir in harissa paste.\n' +
+    '• Add spinach and cook until wilted, about 1-2 minutes.\n' +
+    '• In a small bowl, whisk eggs with milk, salt, and pepper.\n' +
+    '• Pour egg mixture into the pan with the chickpea and spinach mixture. Scramble gently until cooked to your desired consistency.\n' +
+    '• While eggs cook, combine feta cheese and Greek yogurt in a small bowl. Whip with a fork until creamy and smooth.\n' +
+    "• Toast sourdough bread. Drizzle with remaining 1/2 tbsp olive oil and sprinkle generously with za'atar seasoning.\n" +
+    "• Serve the harissa-spiced scramble alongside the whipped feta and toasted za'atar sourdough. Garnish with fresh parsley.",
+  calories: 0,
+  protein_grams: 0,
+  carbs_grams: 0,
+  fat_grams: 0
+}
+{"level":30,"time":1757996887980,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"50"},"remoteAddress":"192.168.0.116","remotePort":56110},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"8809","etag":"W/\"2269-UAVID2hiECmfUX5nEfAOtkGlMx4\""}},"responseTime":37019,"msg":"request completed"}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+{"level":30,"time":1757997047225,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"Expo/2.33.17 CFNetwork/3826.600.41 Darwin/24.6.0","content-length":"49","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.116","remotePort":62856},"res":{"statusCode":null,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type"}},"responseTime":29996,"msg":"request aborted"}
+[GEMINI TEXT] Response validation: {
+  textExists: true,
+  textType: 'string',
+  textLength: 9045,
+  textTrimmedLength: 9045,
+  textPreview: '```json\n' +
+    '[\n' +
+    '  {\n' +
+    '    "meal_type": "breakfast",\n' +
+    '    "recipe_name": "Japanese Savory Okonomiyaki Pancakes...'
+}
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response length: 9045 characters
+[GEMINI TEXT] ✅ Text generation successful
+[GEMINI TEXT] Response length: 9045
+[GEMINI MEAL PLAN] Raw response length: 9045
+[GEMINI MEAL PLAN] Response preview: ```json
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Japanese Savory Okonomiyaki Pancakes with Smoked Salmon & Wasabi-Avocado Crema",
+    "prep_time": 20,
+    "cook_time": 15,
+    "servings...
+[GEMINI MEAL PLAN] ✅ Successfully parsed and validated AI meal plan
+[GEMINI MEAL PLAN] Generated meals: [
+  'breakfast: Japanese Savory Okonomiyaki Pancakes with Smoked Salmon & Wasabi-Avocado Crema',
+  'lunch: Vietnamese Lemongrass Chicken Bún Chả Inspired Noodle Bowl with Crispy Shallots',
+  'dinner: Peruvian Lomo Saltado inspired Seared Steak with Purple Potato Hash and Aji Verde Drizzle',
+  'snack: Mediterranean Whipped Feta with Roasted Red Pepper & Walnut Relish and Seeded Crackers'
+]
+[MEAL PLAN] ✅ Successfully generated GEMINI AI meal plan with 4 meals
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: 'Japanese Savory Okonomiyaki Pancakes with Smoked Salmon & Wasabi-Avocado Crema',
+    prep_time: 20,
+    cook_time: 15,
+    servings: 1,
+    ingredients: [
+      '1/2 cup all-purpose flour',
+      '1/4 cup dashi stock (or vegetable broth)',
+      '1 large egg',
+      '1 cup shredded cabbage',
+      '2 tbsp chopped green onion',
+      '1 tbsp pickled ginger (beni shoga), chopped',
+      '1/4 tsp baking powder',
+      'Pinch of salt',
+      '1 tbsp neutral oil (e.g., grapeseed or avocado)',
+      '3 oz smoked salmon, thinly sliced',
+      '1/2 ripe avocado',
+      '1 tsp wasabi paste (adjust to taste)',
+      '1 tbsp fresh lime juice',
+      '1 tbsp Greek yogurt or sour cream',
+      'Salt and pepper to taste',
+      'For garnish: additional green onion, microgreens, a drizzle of sriracha mayo or okonomiyaki sauce (optional)'
+    ],
+    instructions: [
+      'In a medium bowl, whisk together flour, dashi stock, egg, baking powder, and salt until just combined (do not overmix, some lumps are okay).',
+      'Fold in shredded cabbage, chopped green onion, and pickled ginger.',
+      'Heat neutral oil in a non-stick skillet over medium heat. Pour half of the batter into the skillet to form a pancake (or two smaller ones). Cook for 4-5 minutes per side, until golden brown and cooked through. Repeat with remaining batter.',
+      'While pancakes cook, prepare the Wasabi-Avocado Crema: In a small bowl, mash the avocado. Stir in wasabi paste, lime juice, Greek yogurt, salt, and pepper until smooth and creamy.',
+      'To assemble: Place the warm okonomiyaki pancakes on a plate. Top generously with smoked salmon. Dollop or drizzle the Wasabi-Avocado Crema over the salmon.',
+      'Garnish with extra green onion, microgreens, and a swirl of sriracha mayo or okonomiyaki sauce if desired. Serve immediately.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Vietnamese Lemongrass Chicken Bún Chả Inspired Noodle Bowl with Crispy Shallots',
+    prep_time: 25,
+    cook_time: 15,
+    servings: 1,
+    ingredients: [
+      '4 oz boneless, skinless chicken thigh, thinly sliced',
+      'Marinade: 1 tbsp minced lemongrass, 1 tbsp fish sauce, 1 tsp brown sugar, 1 tsp minced garlic, 1/2 tsp black pepper',
+      '2 oz dried vermicelli rice noodles',
+      '1/2 cup mixed greens (e.g., spring mix or butter lettuce)',
+      '1/4 cup shredded carrot',
+      '1/4 cup sliced cucumber',
+      '1/4 cup fresh mint leaves',
+      '1/4 cup fresh cilantro leaves',
+      '2 tbsp crushed roasted peanuts',
+      '1 tbsp crispy fried shallots',
+      'Nuoc Cham Dressing:',
+      '2 tbsp fish sauce',
+      '1 tbsp lime juice',
+      '1 tbsp rice vinegar',
+      '1 tbsp water',
+      '1 tsp brown sugar',
+      '1/2 tsp minced garlic',
+      '1/2 tsp minced red chili (optional)'
+    ],
+    instructions: [
+      'Marinate chicken: In a bowl, combine sliced chicken thigh with lemongrass, fish sauce, brown sugar, minced garlic, and black pepper. Let marinate for at least 15 minutes (or up to 30 minutes in the refrigerator).',
+      'Cook noodles: Bring a pot of water to a boil. Add vermicelli noodles and cook according to package directions until al dente (usually 2-3 minutes). Drain and rinse with cold water to prevent sticking. Set aside.',
+      'Cook chicken: Heat a non-stick pan or grill pan over medium-high heat. Add marinated chicken and cook for 5-7 minutes, flipping occasionally, until cooked through and slightly caramelized. Remove from heat.',
+      'Prepare Nuoc Cham Dressing: In a small bowl, whisk together fish sauce, lime juice, rice vinegar, water, brown sugar, minced garlic, and minced red chili (if using) until sugar is dissolved.',
+      'Assemble the bowl: In a large serving bowl, arrange the cooked vermicelli noodles. Top with mixed greens, shredded carrot, sliced cucumber, fresh mint, and cilantro.',
+      'Add the cooked lemongrass chicken on top. Drizzle generously with the Nuoc Cham dressing.',
+      'Garnish with crushed roasted peanuts and crispy fried shallots. Serve immediately.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Peruvian Lomo Saltado inspired Seared Steak with Purple Potato Hash and Aji Verde Drizzle',
+    prep_time: 30,
+    cook_time: 25,
+    servings: 1,
+    ingredients: [
+      '6 oz beef sirloin or tenderloin, cut into 1-inch strips',
+      'Steak Marinade: 1 tbsp soy sauce, 1 tsp red wine vinegar, 1/2 tsp cumin, 1/4 tsp black pepper',
+      '1 tbsp neutral oil (for searing)',
+      '1/2 red onion, thinly sliced',
+      '1/2 red bell pepper, thinly sliced',
+      '1/2 yellow bell pepper, thinly sliced',
+      '1 clove garlic, minced',
+      '1/2 cup purple potatoes, diced into 1/2-inch cubes',
+      '1 tbsp olive oil (for hash)',
+      'Salt and black pepper to taste',
+      'Aji Verde Drizzle:',
+      '1/2 cup fresh cilantro leaves',
+      '1/4 cup fresh parsley leaves',
+      '1/4 cup mayonnaise or Greek yogurt',
+      '1 small jalapeño, seeded (or aji amarillo paste for authentic flavor)',
+      '1 clove garlic',
+      '1 tbsp lime juice',
+      '1 tbsp olive oil',
+      'Salt to taste',
+      'Garnish: fresh cilantro sprigs, lime wedges'
+    ],
+    instructions: [
+      'Marinate steak: In a bowl, toss beef strips with soy sauce, red wine vinegar, cumin, and black pepper. Let marinate for at least 20 minutes.',
+      'Prepare Aji Verde: Combine cilantro, parsley, mayonnaise (or yogurt), jalapeño (or aji amarillo), garlic, lime juice, olive oil, and salt in a blender or food processor. Blend until smooth and creamy. Adjust seasoning as needed.',
+      'Cook purple potato hash: Heat 1 tbsp olive oil in a skillet over medium heat. Add diced purple potatoes and cook for 10-12 minutes, stirring occasionally, until tender and slightly crispy. Season with salt and pepper. Set aside.',
+      'Sear steak and vegetables: Heat 1 tbsp neutral oil in a wok or large skillet over high heat until shimmering. Add marinated beef strips in a single layer and sear for 1-2 minutes per side until browned. Remove steak from the pan and set aside.',
+      'In the same hot pan, add sliced red onion and bell peppers. Stir-fry for 3-4 minutes until slightly softened but still crisp. Add minced garlic and cook for another minute until fragrant.',
+      'Return seared steak to the pan with the vegetables. Toss briefly to combine. Remove from heat.',
+      'Assemble: Plate the purple potato hash. Top with the Lomo Saltado inspired steak and vegetable mixture. Drizzle generously with the Aji Verde sauce.',
+      'Garnish with fresh cilantro sprigs and serve with lime wedges on the side.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Mediterranean Whipped Feta with Roasted Red Pepper & Walnut Relish and Seeded Crackers',
+    prep_time: 15,
+    cook_time: 10,
+    servings: 1,
+    ingredients: [
+      '4 oz block feta cheese, crumbled',
+      '2 tbsp Greek yogurt (full-fat for creaminess)',
+      '1 tbsp olive oil, plus more for drizzling',
+      '1/2 tsp fresh lemon zest',
+      'Pinch of black pepper',
+      'Roasted Red Pepper & Walnut Relish:',
+      '1/2 roasted red bell pepper (from a jar or fresh, roasted)',
+      '1 tbsp chopped walnuts, toasted',
+      '1 tbsp fresh parsley, chopped',
+      '1 tsp capers, drained and chopped',
+      '1/2 tsp red wine vinegar',
+      'Pinch of red pepper flakes (optional)',
+      'Salt and pepper to taste',
+      'For serving: 1/2 cup multigrain or seeded crackers, cucumber slices, carrot sticks'
+    ],
+    instructions: [
+      'Prepare whipped feta: In a food processor or with an immersion blender, combine crumbled feta cheese, Greek yogurt, 1 tbsp olive oil, lemon zest, and black pepper. Blend until completely smooth and creamy. If too thick, add a tiny splash of water or milk. Set aside.',
+      'Make the relish: If using fresh bell pepper, roast it, peel, and dice. In a small bowl, combine diced roasted red bell pepper, toasted chopped walnuts, fresh parsley, chopped capers, red wine vinegar, and red pepper flakes (if using). Season with salt and pepper to taste, mixing well.',
+      'Assemble: Spoon the whipped feta onto a shallow serving dish or small bowl. Create a slight well in the center.',
+      'Spoon the roasted red pepper and walnut relish over the whipped feta.',
+      'Drizzle lightly with extra virgin olive oil.',
+      'Serve immediately with a side of multigrain or seeded crackers, fresh cucumber slices, and carrot sticks for dipping.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  }
+]
+[MEAL PLAN] Generation method: Gemini AI
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: 'Japanese Savory Okonomiyaki Pancakes with Smoked Salmon & Wasabi-Avocado Crema\n' +
+      '\n' +
+      'Prep Time: 20 minutes\n' +
+      'Cook Time: 15 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1/2 cup all-purpose flour\n' +
+      '- 1/4 cup dashi stock (or vegetable broth)\n' +
+      '- 1 large egg\n' +
+      '- 1 cup shredded cabbage\n' +
+      '- 2 tbsp chopped green onion\n' +
+      '- 1 tbsp pickled ginger (beni shoga), chopped\n' +
+      '- 1/4 tsp baking powder\n' +
+      '- Pinch of salt\n' +
+      '- 1 tbsp neutral oil (e.g., grapeseed or avocado)\n' +
+      '- 3 oz smoked salmon, thinly sliced\n' +
+      '- 1/2 ripe avocado\n' +
+      '- 1 tsp wasabi paste (adjust to taste)\n' +
+      '- 1 tbsp fresh lime juice\n' +
+      '- 1 tbsp Greek yogurt or sour cream\n' +
+      '- Salt and pepper to taste\n' +
+      '- For garnish: additional green onion, microgreens, a drizzle of sriracha mayo or okonomiyaki sauce (optional)\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• In a medium bowl, whisk together flour, dashi stock, egg, baking powder, and salt until just combined (do not overmix, some lumps are okay).\n' +
+      '• Fold in shredded cabbage, chopped green onion, and pickled ginger.\n' +
+      '• Heat neutral oil in a non-stick skillet over medium heat. Pour half of the batter into the skillet to form a pancake (or two smaller ones). Cook for 4-5 minutes per side, until golden brown and cooked through. Repeat with remaining batter.\n' +
+      '• While pancakes cook, prepare the Wasabi-Avocado Crema: In a small bowl, mash the avocado. Stir in wasabi paste, lime juice, Greek yogurt, salt, and pepper until smooth and creamy.\n' +
+      '• To assemble: Place the warm okonomiyaki pancakes on a plate. Top generously with smoked salmon. Dollop or drizzle the Wasabi-Avocado Crema over the salmon.\n' +
+      '• Garnish with extra green onion, microgreens, and a swirl of sriracha mayo or okonomiyaki sauce if desired. Serve immediately.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Vietnamese Lemongrass Chicken Bún Chả Inspired Noodle Bowl with Crispy Shallots\n' +
+      '\n' +
+      'Prep Time: 25 minutes\n' +
+      'Cook Time: 15 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 4 oz boneless, skinless chicken thigh, thinly sliced\n' +
+      '- Marinade: 1 tbsp minced lemongrass, 1 tbsp fish sauce, 1 tsp brown sugar, 1 tsp minced garlic, 1/2 tsp black pepper\n' +
+      '- 2 oz dried vermicelli rice noodles\n' +
+      '- 1/2 cup mixed greens (e.g., spring mix or butter lettuce)\n' +
+      '- 1/4 cup shredded carrot\n' +
+      '- 1/4 cup sliced cucumber\n' +
+      '- 1/4 cup fresh mint leaves\n' +
+      '- 1/4 cup fresh cilantro leaves\n' +
+      '- 2 tbsp crushed roasted peanuts\n' +
+      '- 1 tbsp crispy fried shallots\n' +
+      '- Nuoc Cham Dressing:\n' +
+      '- 2 tbsp fish sauce\n' +
+      '- 1 tbsp lime juice\n' +
+      '- 1 tbsp rice vinegar\n' +
+      '- 1 tbsp water\n' +
+      '- 1 tsp brown sugar\n' +
+      '- 1/2 tsp minced garlic\n' +
+      '- 1/2 tsp minced red chili (optional)\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Marinate chicken: In a bowl, combine sliced chicken thigh with lemongrass, fish sauce, brown sugar, minced garlic, and black pepper. Let marinate for at least 15 minutes (or up to 30 minutes in the refrigerator).\n' +
+      '• Cook noodles: Bring a pot of water to a boil. Add vermicelli noodles and cook according to package directions until al dente (usually 2-3 minutes). Drain and rinse with cold water to prevent sticking. Set aside.\n' +
+      '• Cook chicken: Heat a non-stick pan or grill pan over medium-high heat. Add marinated chicken and cook for 5-7 minutes, flipping occasionally, until cooked through and slightly caramelized. Remove from heat.\n' +
+      '• Prepare Nuoc Cham Dressing: In a small bowl, whisk together fish sauce, lime juice, rice vinegar, water, brown sugar, minced garlic, and minced red chili (if using) until sugar is dissolved.\n' +
+      '• Assemble the bowl: In a large serving bowl, arrange the cooked vermicelli noodles. Top with mixed greens, shredded carrot, sliced cucumber, fresh mint, and cilantro.\n' +
+      '• Add the cooked lemongrass chicken on top. Drizzle generously with the Nuoc Cham dressing.\n' +
+      '• Garnish with crushed roasted peanuts and crispy fried shallots. Serve immediately.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Peruvian Lomo Saltado inspired Seared Steak with Purple Potato Hash and Aji Verde Drizzle\n' +
+      '\n' +
+      'Prep Time: 30 minutes\n' +
+      'Cook Time: 25 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 6 oz beef sirloin or tenderloin, cut into 1-inch strips\n' +
+      '- Steak Marinade: 1 tbsp soy sauce, 1 tsp red wine vinegar, 1/2 tsp cumin, 1/4 tsp black pepper\n' +
+      '- 1 tbsp neutral oil (for searing)\n' +
+      '- 1/2 red onion, thinly sliced\n' +
+      '- 1/2 red bell pepper, thinly sliced\n' +
+      '- 1/2 yellow bell pepper, thinly sliced\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 cup purple potatoes, diced into 1/2-inch cubes\n' +
+      '- 1 tbsp olive oil (for hash)\n' +
+      '- Salt and black pepper to taste\n' +
+      '- Aji Verde Drizzle:\n' +
+      '- 1/2 cup fresh cilantro leaves\n' +
+      '- 1/4 cup fresh parsley leaves\n' +
+      '- 1/4 cup mayonnaise or Greek yogurt\n' +
+      '- 1 small jalapeño, seeded (or aji amarillo paste for authentic flavor)\n' +
+      '- 1 clove garlic\n' +
+      '- 1 tbsp lime juice\n' +
+      '- 1 tbsp olive oil\n' +
+      '- Salt to taste\n' +
+      '- Garnish: fresh cilantro sprigs, lime wedges\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Marinate steak: In a bowl, toss beef strips with soy sauce, red wine vinegar, cumin, and black pepper. Let marinate for at least 20 minutes.\n' +
+      '• Prepare Aji Verde: Combine cilantro, parsley, mayonnaise (or yogurt), jalapeño (or aji amarillo), garlic, lime juice, olive oil, and salt in a blender or food processor. Blend until smooth and creamy. Adjust seasoning as needed.\n' +
+      '• Cook purple potato hash: Heat 1 tbsp olive oil in a skillet over medium heat. Add diced purple potatoes and cook for 10-12 minutes, stirring occasionally, until tender and slightly crispy. Season with salt and pepper. Set aside.\n' +
+      '• Sear steak and vegetables: Heat 1 tbsp neutral oil in a wok or large skillet over high heat until shimmering. Add marinated beef strips in a single layer and sear for 1-2 minutes per side until browned. Remove steak from the pan and set aside.\n' +
+      '• In the same hot pan, add sliced red onion and bell peppers. Stir-fry for 3-4 minutes until slightly softened but still crisp. Add minced garlic and cook for another minute until fragrant.\n' +
+      '• Return seared steak to the pan with the vegetables. Toss briefly to combine. Remove from heat.\n' +
+      '• Assemble: Plate the purple potato hash. Top with the Lomo Saltado inspired steak and vegetable mixture. Drizzle generously with the Aji Verde sauce.\n' +
+      '• Garnish with fresh cilantro sprigs and serve with lime wedges on the side.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Mediterranean Whipped Feta with Roasted Red Pepper & Walnut Relish and Seeded Crackers\n' +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 10 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 4 oz block feta cheese, crumbled\n' +
+      '- 2 tbsp Greek yogurt (full-fat for creaminess)\n' +
+      '- 1 tbsp olive oil, plus more for drizzling\n' +
+      '- 1/2 tsp fresh lemon zest\n' +
+      '- Pinch of black pepper\n' +
+      '- Roasted Red Pepper & Walnut Relish:\n' +
+      '- 1/2 roasted red bell pepper (from a jar or fresh, roasted)\n' +
+      '- 1 tbsp chopped walnuts, toasted\n' +
+      '- 1 tbsp fresh parsley, chopped\n' +
+      '- 1 tsp capers, drained and chopped\n' +
+      '- 1/2 tsp red wine vinegar\n' +
+      '- Pinch of red pepper flakes (optional)\n' +
+      '- Salt and pepper to taste\n' +
+      '- For serving: 1/2 cup multigrain or seeded crackers, cucumber slices, carrot sticks\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Prepare whipped feta: In a food processor or with an immersion blender, combine crumbled feta cheese, Greek yogurt, 1 tbsp olive oil, lemon zest, and black pepper. Blend until completely smooth and creamy. If too thick, add a tiny splash of water or milk. Set aside.\n' +
+      '• Make the relish: If using fresh bell pepper, roast it, peel, and dice. In a small bowl, combine diced roasted red bell pepper, toasted chopped walnuts, fresh parsley, chopped capers, red wine vinegar, and red pepper flakes (if using). Season with salt and pepper to taste, mixing well.\n' +
+      '• Assemble: Spoon the whipped feta onto a shallow serving dish or small bowl. Create a slight well in the center.\n' +
+      '• Spoon the roasted red pepper and walnut relish over the whipped feta.\n' +
+      '• Drizzle lightly with extra virgin olive oil.\n' +
+      '• Serve immediately with a side of multigrain or seeded crackers, fresh cucumber slices, and carrot sticks for dipping.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: 'Japanese Savory Okonomiyaki Pancakes with Smoked Salmon & Wasabi-Avocado Crema\n' +
+    '\n' +
+    'Prep Time: 20 minutes\n' +
+    'Cook Time: 15 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- 1/2 cup all-purpose flour\n' +
+    '- 1/4 cup dashi stock (or vegetable broth)\n' +
+    '- 1 large egg\n' +
+    '- 1 cup shredded cabbage\n' +
+    '- 2 tbsp chopped green onion\n' +
+    '- 1 tbsp pickled ginger (beni shoga), chopped\n' +
+    '- 1/4 tsp baking powder\n' +
+    '- Pinch of salt\n' +
+    '- 1 tbsp neutral oil (e.g., grapeseed or avocado)\n' +
+    '- 3 oz smoked salmon, thinly sliced\n' +
+    '- 1/2 ripe avocado\n' +
+    '- 1 tsp wasabi paste (adjust to taste)\n' +
+    '- 1 tbsp fresh lime juice\n' +
+    '- 1 tbsp Greek yogurt or sour cream\n' +
+    '- Salt and pepper to taste\n' +
+    '- For garnish: additional green onion, microgreens, a drizzle of sriracha mayo or okonomiyaki sauce (optional)\n' +
+    '\n' +
+    'Instructions:\n' +
+    '• In a medium bowl, whisk together flour, dashi stock, egg, baking powder, and salt until just combined (do not overmix, some lumps are okay).\n' +
+    '• Fold in shredded cabbage, chopped green onion, and pickled ginger.\n' +
+    '• Heat neutral oil in a non-stick skillet over medium heat. Pour half of the batter into the skillet to form a pancake (or two smaller ones). Cook for 4-5 minutes per side, until golden brown and cooked through. Repeat with remaining batter.\n' +
+    '• While pancakes cook, prepare the Wasabi-Avocado Crema: In a small bowl, mash the avocado. Stir in wasabi paste, lime juice, Greek yogurt, salt, and pepper until smooth and creamy.\n' +
+    '• To assemble: Place the warm okonomiyaki pancakes on a plate. Top generously with smoked salmon. Dollop or drizzle the Wasabi-Avocado Crema over the salmon.\n' +
+    '• Garnish with extra green onion, microgreens, and a swirl of sriracha mayo or okonomiyaki sauce if desired. Serve immediately.',
+  calories: 0,
+  protein_grams: 0,
+  carbs_grams: 0,
+  fat_grams: 0
+}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] ⚠️ Retryable error (attempt 1), retrying in 2000ms...
+[GEMINI TEXT] Error type: Error
+[GEMINI TEXT] Error message: Gemini request timeout after 60 seconds
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Attempt 2/3
+[GEMINI TEXT] ⚠️ Retryable error (attempt 2), retrying in 4000ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[GEMINI TEXT] Network error detected: true
+[GEMINI TEXT] Attempt 3/3
+[GEMINI TEXT] ❌ Text generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[GEMINI MEAL PLAN] ❌ Error generating meal plan: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[MEAL PLAN] GEMINI generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[MEAL PLAN] All AI providers failed, will use mathematical fallback
+[MEAL PLAN] 🧮 Using mathematical meal plan generation as fallback
+[MEAL PLAN] Original targets received: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Validated targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 70
+}
+[MEAL PLAN] generateMathematicalMealPlan called with targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 70
+}
+[MEAL PLAN] Accessing properties: daily_calories: 2000 protein_grams: 150 carbs_grams: 200 fat_grams: 70
+[MEAL PLAN] Extracted values: calories: 2000 protein: 150 carbs: 200 fat: 70
+[MEAL PLAN] All targets validated successfully
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: 'Protein Oatmeal Bowl',
+    prep_time: 5,
+    cook_time: 10,
+    servings: 1,
+    ingredients: [
+      'Rolled oats',
+      'Protein powder',
+      'Banana',
+      'Almond butter',
+      'Milk'
+    ],
+    instructions: [
+      'Cook oats with milk',
+      'Mix in protein powder',
+      'Top with banana and almond butter'
+    ],
+    macros: {
+      calories: 500,
+      protein_grams: 38,
+      carbs_grams: 60,
+      fat_grams: 18
+    }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Grilled Chicken Salad',
+    prep_time: 15,
+    cook_time: 20,
+    servings: 1,
+    ingredients: [
+      'Chicken breast',
+      'Mixed greens',
+      'Quinoa',
+      'Avocado',
+      'Olive oil dressing'
+    ],
+    instructions: [
+      'Grill chicken breast',
+      'Cook quinoa',
+      'Assemble salad with all ingredients'
+    ],
+    macros: {
+      calories: 700,
+      protein_grams: 53,
+      carbs_grams: 70,
+      fat_grams: 21
+    }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Baked Salmon with Vegetables',
+    prep_time: 10,
+    cook_time: 25,
+    servings: 1,
+    ingredients: [
+      'Salmon fillet',
+      'Sweet potato',
+      'Asparagus',
+      'Olive oil',
+      'Herbs'
+    ],
+    instructions: [
+      'Bake salmon at 400°F',
+      'Roast sweet potato and asparagus',
+      'Season with herbs'
+    ],
+    macros: {
+      calories: 600,
+      protein_grams: 45,
+      carbs_grams: 50,
+      fat_grams: 25
+    }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Protein Smoothie',
+    prep_time: 5,
+    cook_time: 0,
+    servings: 1,
+    ingredients: [ 'Protein powder', 'Milk', 'Banana', 'Peanut butter' ],
+    instructions: [ 'Blend all ingredients', 'Serve immediately' ],
+    macros: { calories: 200, protein_grams: 15, carbs_grams: 20, fat_grams: 7 }
+  }
+]
+[MEAL PLAN] Generation method: Mathematical
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: 'Protein Oatmeal Bowl\n' +
+      '\n' +
+      'Prep Time: 5 minutes\n' +
+      'Cook Time: 10 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Rolled oats\n' +
+      '- Protein powder\n' +
+      '- Banana\n' +
+      '- Almond butter\n' +
+      '- Milk\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Cook oats with milk\n' +
+      '• Mix in protein powder\n' +
+      '• Top with banana and almond butter',
+    calories: 500,
+    protein_grams: 38,
+    carbs_grams: 60,
+    fat_grams: 18
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Grilled Chicken Salad\n' +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 20 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Chicken breast\n' +
+      '- Mixed greens\n' +
+      '- Quinoa\n' +
+      '- Avocado\n' +
+      '- Olive oil dressing\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Grill chicken breast\n' +
+      '• Cook quinoa\n' +
+      '• Assemble salad with all ingredients',
+    calories: 700,
+    protein_grams: 53,
+    carbs_grams: 70,
+    fat_grams: 21
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Baked Salmon with Vegetables\n' +
+      '\n' +
+      'Prep Time: 10 minutes\n' +
+      'Cook Time: 25 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Salmon fillet\n' +
+      '- Sweet potato\n' +
+      '- Asparagus\n' +
+      '- Olive oil\n' +
+      '- Herbs\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Bake salmon at 400°F\n' +
+      '• Roast sweet potato and asparagus\n' +
+      '• Season with herbs',
+    calories: 600,
+    protein_grams: 45,
+    carbs_grams: 50,
+    fat_grams: 25
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Protein Smoothie\n' +
+      '\n' +
+      'Prep Time: 5 minutes\n' +
+      'Cook Time: 0 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Protein powder\n' +
+      '- Milk\n' +
+      '- Banana\n' +
+      '- Peanut butter\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Blend all ingredients\n' +
+      '• Serve immediately',
+    calories: 200,
+    protein_grams: 15,
+    carbs_grams: 20,
+    fat_grams: 7
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: 'Protein Oatmeal Bowl\n' +
+    '\n' +
+    'Prep Time: 5 minutes\n' +
+    'Cook Time: 10 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- Rolled oats\n' +
+    '- Protein powder\n' +
+    '- Banana\n' +
+    '- Almond butter\n' +
+    '- Milk\n' +
+    '\n' +
+    'Instructions:\n' +
+    '• Cook oats with milk\n' +
+    '• Mix in protein powder\n' +
+    '• Top with banana and almond butter',
+  calories: 500,
+  protein_grams: 38,
+  carbs_grams: 60,
+  fat_grams: 18
+}
+[MEAL PLAN] Database insertion error: {
+  message: 'TypeError: fetch failed',
+  details: 'TypeError: fetch failed\n' +
+    '    at node:internal/deps/undici/undici:13502:13\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n' +
+    '    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:4345:58',
+  hint: '',
+  code: ''
+}
+[MEAL PLAN] Error details: {
+  "message": "TypeError: fetch failed",
+  "details": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13502:13\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:4345:58",
+  "hint": "",
+  "code": ""
+}
+[GENERATE MEAL PLAN] Error: {
+  message: 'TypeError: fetch failed',
+  details: 'TypeError: fetch failed\n' +
+    '    at node:internal/deps/undici/undici:13502:13\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n' +
+    '    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:4345:58',
+  hint: '',
+  code: ''
+}
+[GENERATE MEAL PLAN] Error type: object
+[GENERATE MEAL PLAN] Error message: TypeError: fetch failed
+[GENERATE MEAL PLAN] Error stack: undefined
+[GENERATE MEAL PLAN] Error statusCode: undefined
+{"level":30,"time":1757998084308,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"192.168.0.116:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"50"},"remoteAddress":"192.168.0.116","remotePort":49282},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"51","etag":"W/\"33-cL3ebMk23Mqmv7ny210BkG1Mxuk\""}},"responseTime":199326,"msg":"request completed"}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Response validation: {
+  textExists: true,
+  textType: 'string',
+  textLength: 8334,
+  textTrimmedLength: 8334,
+  textPreview: '```json\n' +
+    '[\n' +
+    '  {\n' +
+    '    "meal_type": "breakfast",\n' +
+    '    "recipe_name": "Sunrise Mediterranean Shakshuka with...'
+}
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response length: 8334 characters
+[GEMINI TEXT] ✅ Text generation successful
+[GEMINI TEXT] Response length: 8334
+[GEMINI MEAL PLAN] Raw response length: 8334
+[GEMINI MEAL PLAN] Response preview: ```json
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Sunrise Mediterranean Shakshuka with Halloumi & Za'atar Flatbread",
+    "prep_time": 15,
+    "cook_time": 20,
+    "servings": 1,
+    "in...
+[GEMINI MEAL PLAN] ✅ Successfully parsed and validated AI meal plan
+[GEMINI MEAL PLAN] Generated meals: [
+  "breakfast: Sunrise Mediterranean Shakshuka with Halloumi & Za'atar Flatbread",
+  'lunch: Korean Bibimbap-Inspired Quinoa Bowl with Gochujang Glazed Tempeh',
+  'dinner: Moroccan Spiced Lamb Tagine with Fig & Almond Couscous',
+  'snack: Tropical Chia Pudding Parfait with Toasted Coconut & Passion Fruit Drizzle'
+]
+[MEAL PLAN] ✅ Successfully generated GEMINI AI meal plan with 4 meals
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: "Sunrise Mediterranean Shakshuka with Halloumi & Za'atar Flatbread",
+    prep_time: 15,
+    cook_time: 20,
+    servings: 1,
+    ingredients: [
+      '1 tbsp olive oil',
+      '1/2 small red onion, finely diced',
+      '1 clove garlic, minced',
+      '1/2 red bell pepper, diced',
+      '1/2 yellow bell pepper, diced',
+      '1 (14.5 oz) can diced tomatoes, undrained',
+      '1/2 tsp ground cumin',
+      '1/4 tsp smoked paprika',
+      'Pinch of chili flakes (optional)',
+      'Salt and freshly ground black pepper to taste',
+      '2 large eggs',
+      '2 oz halloumi cheese, sliced',
+      '1 tbsp fresh parsley, chopped',
+      '1 tbsp fresh cilantro, chopped',
+      '1 whole wheat pita bread',
+      "1/2 tsp za'atar spice blend"
+    ],
+    instructions: [
+      'Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion, bell peppers, and garlic, sauté for 5-7 minutes until softened.',
+      'Stir in diced tomatoes, cumin, smoked paprika, and chili flakes (if using). Season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld and sauce to thicken slightly.',
+      'While the sauce simmers, slice the halloumi. In a separate non-stick pan, lightly pan-fry the halloumi slices over medium-high heat for 2-3 minutes per side, until golden brown and slightly crispy. Set aside.',
+      "Preheat a toaster oven or regular oven to 350°F (175°C). Brush the whole wheat pita with a tiny bit of olive oil and sprinkle with za'atar. Toast for 3-5 minutes until warm and slightly crispy.",
+      'Create two small wells in the tomato sauce and carefully crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until the egg whites are set and yolks are still runny (or cooked to your preference).',
+      "Garnish the shakshuka with fresh parsley and cilantro. Serve immediately with the pan-fried halloumi and toasted za'atar flatbread for dipping."
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Korean Bibimbap-Inspired Quinoa Bowl with Gochujang Glazed Tempeh',
+    prep_time: 20,
+    cook_time: 25,
+    servings: 1,
+    ingredients: [
+      '1/2 cup cooked quinoa',
+      '4 oz tempeh, cut into 1/2-inch cubes',
+      '1 tbsp gochujang (Korean chili paste)',
+      '1 tbsp soy sauce (or tamari for gluten-free)',
+      '1 tsp rice vinegar',
+      '1 tsp sesame oil',
+      '1 tsp maple syrup or honey',
+      '1 clove garlic, minced',
+      '1/2 cup fresh spinach',
+      '1/4 cup shredded carrots',
+      '1/4 cup thinly sliced zucchini',
+      '1/4 cup sliced shiitake mushrooms',
+      '1 tsp olive oil (for sautéing vegetables)',
+      '1 tsp toasted sesame seeds, for garnish',
+      '1/4 cup kimchi, for garnish (optional)',
+      '1/2 tsp fresh ginger, grated (for tempeh marinade)'
+    ],
+    instructions: [
+      'Prepare quinoa according to package directions. Set aside.',
+      'In a small bowl, whisk together gochujang, soy sauce, rice vinegar, sesame oil, maple syrup/honey, minced garlic, and grated ginger to create the tempeh glaze.',
+      'Heat a non-stick skillet over medium heat. Add tempeh cubes and cook for 3-4 minutes until lightly browned. Pour the gochujang glaze over the tempeh and cook, stirring occasionally, for another 5-7 minutes until the tempeh is caramelized and the sauce has thickened. Set aside.',
+      'In the same skillet (or a separate one), add 1 tsp olive oil. Sauté the shiitake mushrooms for 3-4 minutes until tender. Add shredded carrots and zucchini, sauté for another 2-3 minutes until slightly softened but still crisp. Finally, add the spinach and cook until just wilted.',
+      'To assemble the bowl: Place the cooked quinoa in the bottom of a serving bowl. Arrange the glazed tempeh and sautéed vegetables (spinach, carrots, zucchini, mushrooms) neatly on top of the quinoa.',
+      'Garnish with toasted sesame seeds and a spoonful of kimchi if desired. Serve immediately.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Moroccan Spiced Lamb Tagine with Fig & Almond Couscous',
+    prep_time: 25,
+    cook_time: 120,
+    servings: 1,
+    ingredients: [
+      '6 oz lamb shoulder, cut into 1-inch cubes',
+      '1 tbsp olive oil',
+      '1/2 yellow onion, finely chopped',
+      '1 clove garlic, minced',
+      '1/2 inch fresh ginger, grated',
+      'Pinch of saffron threads, steeped in 1 tbsp hot water',
+      '1/2 tsp ground turmeric',
+      '1/2 tsp ground cumin',
+      '1/2 tsp ground coriander',
+      '1/4 tsp ground cinnamon',
+      '1/4 cup dried figs, stemmed and quartered',
+      '1/4 preserved lemon, rinsed and finely diced (pulp removed)',
+      '1/2 cup vegetable broth',
+      '2 tbsp green olives, pitted and halved',
+      'Salt and freshly ground black pepper to taste',
+      'For Couscous:',
+      '1/2 cup whole wheat couscous',
+      '1/2 cup hot vegetable broth',
+      '1 tbsp toasted slivered almonds',
+      '1 tbsp fresh mint, chopped'
+    ],
+    instructions: [
+      'Season lamb cubes generously with salt and pepper. Heat olive oil in a heavy-bottomed pot or Dutch oven (or a tagine if you have one) over medium-high heat. Brown the lamb cubes on all sides, then remove and set aside.',
+      'Reduce heat to medium. Add chopped onion to the pot and sauté for 5-7 minutes until softened. Add minced garlic and grated ginger, cook for 1 minute until fragrant.',
+      'Stir in the steeped saffron, turmeric, cumin, coriander, and cinnamon. Cook for 1 minute, allowing spices to bloom.',
+      'Return the lamb to the pot. Add quartered figs, diced preserved lemon, and vegetable broth. Bring to a simmer, then reduce heat to low, cover, and cook for 1.5 to 2 hours, or until the lamb is fork-tender. Stir in the green olives during the last 15 minutes of cooking.',
+      'While the tagine finishes cooking, prepare the couscous: Place couscous in a heatproof bowl. Pour hot vegetable broth over it, cover tightly with a lid or plastic wrap, and let stand for 5 minutes, or until all liquid is absorbed. Fluff with a fork.',
+      'Stir toasted slivered almonds and chopped fresh mint into the fluffed couscous.',
+      'Serve the Moroccan lamb tagine hot over the fig and almond couscous. Garnish with additional fresh mint if desired.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Tropical Chia Pudding Parfait with Toasted Coconut & Passion Fruit Drizzle',
+    prep_time: 10,
+    cook_time: 0,
+    servings: 1,
+    ingredients: [
+      '3 tbsp chia seeds',
+      '1 cup unsweetened coconut milk (canned light or carton)',
+      '1 tsp maple syrup or agave nectar (adjust to taste)',
+      '1/2 tsp vanilla extract',
+      '1/4 cup diced fresh mango',
+      '1/4 cup diced fresh pineapple',
+      '1 passion fruit, pulp scooped out',
+      '1 tbsp toasted coconut flakes, for garnish',
+      'Small sprig of fresh mint, for garnish (optional)'
+    ],
+    instructions: [
+      'In a jar or bowl, combine chia seeds, coconut milk, maple syrup/agave, and vanilla extract. Whisk well to ensure no clumps. If using a jar, you can put the lid on and shake vigorously.',
+      'Refrigerate for at least 4 hours, or preferably overnight, until the mixture has thickened to a pudding-like consistency. Stir occasionally if possible during the first hour to prevent clumping.',
+      'Once the chia pudding is set, dice the fresh mango and pineapple.',
+      'To assemble the parfait: In a glass, layer half of the chia pudding, followed by half of the diced mango and pineapple. Repeat with the remaining chia pudding and fruit.',
+      'Scoop the pulp from the passion fruit and drizzle it over the top of the parfait.',
+      'Garnish with toasted coconut flakes and a small sprig of fresh mint. Serve chilled.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  }
+]
+[MEAL PLAN] Generation method: Gemini AI
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: "Sunrise Mediterranean Shakshuka with Halloumi & Za'atar Flatbread\n" +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 20 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1 tbsp olive oil\n' +
+      '- 1/2 small red onion, finely diced\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 red bell pepper, diced\n' +
+      '- 1/2 yellow bell pepper, diced\n' +
+      '- 1 (14.5 oz) can diced tomatoes, undrained\n' +
+      '- 1/2 tsp ground cumin\n' +
+      '- 1/4 tsp smoked paprika\n' +
+      '- Pinch of chili flakes (optional)\n' +
+      '- Salt and freshly ground black pepper to taste\n' +
+      '- 2 large eggs\n' +
+      '- 2 oz halloumi cheese, sliced\n' +
+      '- 1 tbsp fresh parsley, chopped\n' +
+      '- 1 tbsp fresh cilantro, chopped\n' +
+      '- 1 whole wheat pita bread\n' +
+      "- 1/2 tsp za'atar spice blend\n" +
+      '\n' +
+      'Instructions:\n' +
+      '• Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion, bell peppers, and garlic, sauté for 5-7 minutes until softened.\n' +
+      '• Stir in diced tomatoes, cumin, smoked paprika, and chili flakes (if using). Season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld and sauce to thicken slightly.\n' +
+      '• While the sauce simmers, slice the halloumi. In a separate non-stick pan, lightly pan-fry the halloumi slices over medium-high heat for 2-3 minutes per side, until golden brown and slightly crispy. Set aside.\n' +
+      "• Preheat a toaster oven or regular oven to 350°F (175°C). Brush the whole wheat pita with a tiny bit of olive oil and sprinkle with za'atar. Toast for 3-5 minutes until warm and slightly crispy.\n" +
+      '• Create two small wells in the tomato sauce and carefully crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until the egg whites are set and yolks are still runny (or cooked to your preference).\n' +
+      "• Garnish the shakshuka with fresh parsley and cilantro. Serve immediately with the pan-fried halloumi and toasted za'atar flatbread for dipping.",
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Korean Bibimbap-Inspired Quinoa Bowl with Gochujang Glazed Tempeh\n' +
+      '\n' +
+      'Prep Time: 20 minutes\n' +
+      'Cook Time: 25 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1/2 cup cooked quinoa\n' +
+      '- 4 oz tempeh, cut into 1/2-inch cubes\n' +
+      '- 1 tbsp gochujang (Korean chili paste)\n' +
+      '- 1 tbsp soy sauce (or tamari for gluten-free)\n' +
+      '- 1 tsp rice vinegar\n' +
+      '- 1 tsp sesame oil\n' +
+      '- 1 tsp maple syrup or honey\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 cup fresh spinach\n' +
+      '- 1/4 cup shredded carrots\n' +
+      '- 1/4 cup thinly sliced zucchini\n' +
+      '- 1/4 cup sliced shiitake mushrooms\n' +
+      '- 1 tsp olive oil (for sautéing vegetables)\n' +
+      '- 1 tsp toasted sesame seeds, for garnish\n' +
+      '- 1/4 cup kimchi, for garnish (optional)\n' +
+      '- 1/2 tsp fresh ginger, grated (for tempeh marinade)\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Prepare quinoa according to package directions. Set aside.\n' +
+      '• In a small bowl, whisk together gochujang, soy sauce, rice vinegar, sesame oil, maple syrup/honey, minced garlic, and grated ginger to create the tempeh glaze.\n' +
+      '• Heat a non-stick skillet over medium heat. Add tempeh cubes and cook for 3-4 minutes until lightly browned. Pour the gochujang glaze over the tempeh and cook, stirring occasionally, for another 5-7 minutes until the tempeh is caramelized and the sauce has thickened. Set aside.\n' +
+      '• In the same skillet (or a separate one), add 1 tsp olive oil. Sauté the shiitake mushrooms for 3-4 minutes until tender. Add shredded carrots and zucchini, sauté for another 2-3 minutes until slightly softened but still crisp. Finally, add the spinach and cook until just wilted.\n' +
+      '• To assemble the bowl: Place the cooked quinoa in the bottom of a serving bowl. Arrange the glazed tempeh and sautéed vegetables (spinach, carrots, zucchini, mushrooms) neatly on top of the quinoa.\n' +
+      '• Garnish with toasted sesame seeds and a spoonful of kimchi if desired. Serve immediately.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Moroccan Spiced Lamb Tagine with Fig & Almond Couscous\n' +
+      '\n' +
+      'Prep Time: 25 minutes\n' +
+      'Cook Time: 120 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 6 oz lamb shoulder, cut into 1-inch cubes\n' +
+      '- 1 tbsp olive oil\n' +
+      '- 1/2 yellow onion, finely chopped\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 inch fresh ginger, grated\n' +
+      '- Pinch of saffron threads, steeped in 1 tbsp hot water\n' +
+      '- 1/2 tsp ground turmeric\n' +
+      '- 1/2 tsp ground cumin\n' +
+      '- 1/2 tsp ground coriander\n' +
+      '- 1/4 tsp ground cinnamon\n' +
+      '- 1/4 cup dried figs, stemmed and quartered\n' +
+      '- 1/4 preserved lemon, rinsed and finely diced (pulp removed)\n' +
+      '- 1/2 cup vegetable broth\n' +
+      '- 2 tbsp green olives, pitted and halved\n' +
+      '- Salt and freshly ground black pepper to taste\n' +
+      '- For Couscous:\n' +
+      '- 1/2 cup whole wheat couscous\n' +
+      '- 1/2 cup hot vegetable broth\n' +
+      '- 1 tbsp toasted slivered almonds\n' +
+      '- 1 tbsp fresh mint, chopped\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Season lamb cubes generously with salt and pepper. Heat olive oil in a heavy-bottomed pot or Dutch oven (or a tagine if you have one) over medium-high heat. Brown the lamb cubes on all sides, then remove and set aside.\n' +
+      '• Reduce heat to medium. Add chopped onion to the pot and sauté for 5-7 minutes until softened. Add minced garlic and grated ginger, cook for 1 minute until fragrant.\n' +
+      '• Stir in the steeped saffron, turmeric, cumin, coriander, and cinnamon. Cook for 1 minute, allowing spices to bloom.\n' +
+      '• Return the lamb to the pot. Add quartered figs, diced preserved lemon, and vegetable broth. Bring to a simmer, then reduce heat to low, cover, and cook for 1.5 to 2 hours, or until the lamb is fork-tender. Stir in the green olives during the last 15 minutes of cooking.\n' +
+      '• While the tagine finishes cooking, prepare the couscous: Place couscous in a heatproof bowl. Pour hot vegetable broth over it, cover tightly with a lid or plastic wrap, and let stand for 5 minutes, or until all liquid is absorbed. Fluff with a fork.\n' +
+      '• Stir toasted slivered almonds and chopped fresh mint into the fluffed couscous.\n' +
+      '• Serve the Moroccan lamb tagine hot over the fig and almond couscous. Garnish with additional fresh mint if desired.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Tropical Chia Pudding Parfait with Toasted Coconut & Passion Fruit Drizzle\n' +
+      '\n' +
+      'Prep Time: 10 minutes\n' +
+      'Cook Time: 0 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 3 tbsp chia seeds\n' +
+      '- 1 cup unsweetened coconut milk (canned light or carton)\n' +
+      '- 1 tsp maple syrup or agave nectar (adjust to taste)\n' +
+      '- 1/2 tsp vanilla extract\n' +
+      '- 1/4 cup diced fresh mango\n' +
+      '- 1/4 cup diced fresh pineapple\n' +
+      '- 1 passion fruit, pulp scooped out\n' +
+      '- 1 tbsp toasted coconut flakes, for garnish\n' +
+      '- Small sprig of fresh mint, for garnish (optional)\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• In a jar or bowl, combine chia seeds, coconut milk, maple syrup/agave, and vanilla extract. Whisk well to ensure no clumps. If using a jar, you can put the lid on and shake vigorously.\n' +
+      '• Refrigerate for at least 4 hours, or preferably overnight, until the mixture has thickened to a pudding-like consistency. Stir occasionally if possible during the first hour to prevent clumping.\n' +
+      '• Once the chia pudding is set, dice the fresh mango and pineapple.\n' +
+      '• To assemble the parfait: In a glass, layer half of the chia pudding, followed by half of the diced mango and pineapple. Repeat with the remaining chia pudding and fruit.\n' +
+      '• Scoop the pulp from the passion fruit and drizzle it over the top of the parfait.\n' +
+      '• Garnish with toasted coconut flakes and a small sprig of fresh mint. Serve chilled.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: "Sunrise Mediterranean Shakshuka with Halloumi & Za'atar Flatbread\n" +
+    '\n' +
+    'Prep Time: 15 minutes\n' +
+    'Cook Time: 20 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- 1 tbsp olive oil\n' +
+    '- 1/2 small red onion, finely diced\n' +
+    '- 1 clove garlic, minced\n' +
+    '- 1/2 red bell pepper, diced\n' +
+    '- 1/2 yellow bell pepper, diced\n' +
+    '- 1 (14.5 oz) can diced tomatoes, undrained\n' +
+    '- 1/2 tsp ground cumin\n' +
+    '- 1/4 tsp smoked paprika\n' +
+    '- Pinch of chili flakes (optional)\n' +
+    '- Salt and freshly ground black pepper to taste\n' +
+    '- 2 large eggs\n' +
+    '- 2 oz halloumi cheese, sliced\n' +
+    '- 1 tbsp fresh parsley, chopped\n' +
+    '- 1 tbsp fresh cilantro, chopped\n' +
+    '- 1 whole wheat pita bread\n' +
+    "- 1/2 tsp za'atar spice blend\n" +
+    '\n' +
+    'Instructions:\n' +
+    '• Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion, bell peppers, and garlic, sauté for 5-7 minutes until softened.\n' +
+    '• Stir in diced tomatoes, cumin, smoked paprika, and chili flakes (if using). Season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld and sauce to thicken slightly.\n' +
+    '• While the sauce simmers, slice the halloumi. In a separate non-stick pan, lightly pan-fry the halloumi slices over medium-high heat for 2-3 minutes per side, until golden brown and slightly crispy. Set aside.\n' +
+    "• Preheat a toaster oven or regular oven to 350°F (175°C). Brush the whole wheat pita with a tiny bit of olive oil and sprinkle with za'atar. Toast for 3-5 minutes until warm and slightly crispy.\n" +
+    '• Create two small wells in the tomato sauce and carefully crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until the egg whites are set and yolks are still runny (or cooked to your preference).\n' +
+    "• Garnish the shakshuka with fresh parsley and cilantro. Serve immediately with the pan-fried halloumi and toasted za'atar flatbread for dipping.",
+  calories: 0,
+  protein_grams: 0,
+  carbs_grams: 0,
+  fat_grams: 0
+}
+{"level":30,"time":1758004992540,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"50"},"remoteAddress":"127.0.0.1","remotePort":53255},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"8877","etag":"W/\"22ad-3L/TorLKlmQ/n50WyW2u9Zu2uyM\""}},"responseTime":41308,"msg":"request completed"}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Response validation: {
+  textExists: true,
+  textType: 'string',
+  textLength: 7222,
+  textTrimmedLength: 7222,
+  textPreview: '```json\n' +
+    '[\n' +
+    '  {\n' +
+    '    "meal_type": "breakfast",\n' +
+    '    "recipe_name": "Mediterranean Sunrise Shakshuka with...'
+}
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response length: 7222 characters
+[GEMINI TEXT] ✅ Text generation successful
+[GEMINI TEXT] Response length: 7222
+[GEMINI MEAL PLAN] Raw response length: 7222
+[GEMINI MEAL PLAN] Response preview: ```json
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Mediterranean Sunrise Shakshuka with Whipped Feta & Za'atar Flatbread",
+    "prep_time": 20,
+    "cook_time": 25,
+    "servings": 1,
+   ...
+[GEMINI MEAL PLAN] ✅ Successfully parsed and validated AI meal plan
+[GEMINI MEAL PLAN] Generated meals: [
+  "breakfast: Mediterranean Sunrise Shakshuka with Whipped Feta & Za'atar Flatbread",
+  'lunch: Spicy Thai Green Curry Noodle Bowl with Pan-Seared Scallops',
+  'dinner: Moroccan Harissa-Spiced Lamb Tagine with Date & Pistachio Couscous',
+  'snack: Golden Turmeric & Ginger Energy Bites with Candied Orange Peel'
+]
+[MEAL PLAN] ✅ Successfully generated GEMINI AI meal plan with 4 meals
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: "Mediterranean Sunrise Shakshuka with Whipped Feta & Za'atar Flatbread",
+    prep_time: 20,
+    cook_time: 25,
+    servings: 1,
+    ingredients: [
+      '2 large eggs',
+      '1/2 tbsp olive oil',
+      '1/4 red onion, finely diced',
+      '1 clove garlic, minced',
+      '1/2 red bell pepper, diced',
+      '1/2 (14.5oz) can crushed tomatoes',
+      '1/4 tsp smoked paprika',
+      '1/4 tsp cumin',
+      'Pinch of red pepper flakes (optional)',
+      'Salt and black pepper to taste',
+      '2 tbsp crumbled feta cheese',
+      '1 tbsp Greek yogurt',
+      '1 tbsp fresh parsley, chopped',
+      '1 small whole wheat flatbread or pita',
+      "1/2 tsp za'atar seasoning"
+    ],
+    instructions: [
+      'Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion and bell pepper, sauté for 5-7 minutes until softened.',
+      'Add minced garlic, smoked paprika, cumin, and red pepper flakes (if using). Cook for 1 minute until fragrant.',
+      'Pour in crushed tomatoes, season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld.',
+      'Make two wells in the tomato sauce and crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until egg whites are set and yolks are to your desired runniness.',
+      "While eggs cook, warm the flatbread. In a small bowl, combine feta cheese and Greek yogurt, mashing lightly to create a 'whipped' texture. Season the flatbread with za'atar.",
+      "Once shakshuka is ready, garnish with fresh parsley. Serve immediately with the za'atar flatbread and a dollop of whipped feta on the side or directly on top of the shakshuka."
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Spicy Thai Green Curry Noodle Bowl with Pan-Seared Scallops',
+    prep_time: 20,
+    cook_time: 15,
+    servings: 1,
+    ingredients: [
+      '4-5 large sea scallops, patted dry',
+      '1 tsp coconut oil',
+      '1/2 cup light coconut milk',
+      '1 tbsp green curry paste (adjust to spice preference)',
+      '1/4 cup vegetable broth',
+      '1/4 cup snap peas, halved',
+      '1/4 cup thinly sliced red bell pepper',
+      '1/4 cup baby corn, halved',
+      '1 tbsp fish sauce',
+      '1 tsp fresh lime juice',
+      '1/2 cup cooked brown rice vermicelli noodles',
+      'Fresh cilantro for garnish',
+      'Lime wedges for serving'
+    ],
+    instructions: [
+      'Season scallops with a pinch of salt and pepper. Heat coconut oil in a non-stick pan over medium-high heat. Sear scallops for 1.5-2 minutes per side until golden brown and cooked through. Set aside.',
+      'In a medium saucepan, combine coconut milk, green curry paste, and vegetable broth. Bring to a gentle simmer over medium heat, stirring until curry paste is fully dissolved.',
+      'Add snap peas, red bell pepper, and baby corn to the curry. Cook for 3-5 minutes, until vegetables are tender-crisp.',
+      'Stir in fish sauce and lime juice. Taste and adjust seasoning if needed.',
+      'In a deep bowl, place the cooked vermicelli noodles. Ladle the hot green curry and vegetables over the noodles.',
+      'Arrange the pan-seared scallops on top of the curry noodles. Garnish with fresh cilantro and serve with a lime wedge.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Moroccan Harissa-Spiced Lamb Tagine with Date & Pistachio Couscous',
+    prep_time: 30,
+    cook_time: 60,
+    servings: 1,
+    ingredients: [
+      '6 oz lamb shoulder or leg, cut into 1-inch cubes',
+      '1 tbsp olive oil',
+      '1/2 yellow onion, thinly sliced',
+      '1 clove garlic, minced',
+      '1 tsp fresh ginger, grated',
+      '1 tbsp harissa paste (adjust to spice preference)',
+      '1/2 tsp ground cumin',
+      '1/2 tsp ground coriander',
+      'Pinch of saffron threads (optional)',
+      '1/2 cup vegetable broth',
+      '1/4 cup diced canned tomatoes',
+      '1/4 cup canned chickpeas, rinsed',
+      '1/4 cup dried apricots, halved',
+      '1/2 cup whole wheat couscous',
+      '1/4 cup hot vegetable broth (for couscous)',
+      '2 Medjool dates, pitted and chopped',
+      '1 tbsp shelled pistachios, roughly chopped',
+      'Fresh mint or cilantro for garnish'
+    ],
+    instructions: [
+      'Season lamb cubes with salt and pepper. Heat olive oil in a Dutch oven or heavy-bottomed pot over medium-high heat. Sear lamb on all sides until browned. Remove lamb and set aside.',
+      'Reduce heat to medium. Add sliced onion to the pot and sauté for 5-7 minutes until softened and lightly caramelized. Add minced garlic and grated ginger, cook for 1 minute until fragrant.',
+      'Stir in harissa paste, cumin, coriander, and saffron (if using). Cook for another minute, stirring constantly.',
+      'Return lamb to the pot. Pour in 1/2 cup vegetable broth and diced tomatoes. Bring to a simmer, then reduce heat to low, cover, and cook for 45-50 minutes, or until lamb is tender.',
+      'Add chickpeas and dried apricots to the tagine. Continue to cook, covered, for another 10 minutes.',
+      'While the tagine finishes, prepare the couscous: Place whole wheat couscous in a heatproof bowl. Pour 1/4 cup hot vegetable broth over it, cover, and let stand for 5 minutes. Fluff with a fork, then stir in chopped dates and pistachios.',
+      'Serve the Moroccan lamb tagine hot, spooned over the date and pistachio couscous. Garnish with fresh mint or cilantro.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Golden Turmeric & Ginger Energy Bites with Candied Orange Peel',
+    prep_time: 15,
+    cook_time: 0,
+    servings: 1,
+    ingredients: [
+      '1/2 cup rolled oats',
+      '1/4 cup almond butter',
+      '2 Medjool dates, pitted',
+      '1 tbsp chia seeds',
+      '1/2 tsp ground turmeric',
+      '1/4 tsp ground ginger',
+      'Pinch of black pepper (enhances turmeric absorption)',
+      '1 tbsp unsweetened shredded coconut (plus extra for rolling)',
+      '1 tsp finely chopped candied orange peel'
+    ],
+    instructions: [
+      'In a food processor, combine rolled oats, almond butter, pitted dates, chia seeds, ground turmeric, ground ginger, and black pepper. Process until the mixture comes together and forms a sticky dough.',
+      'Add the 1 tbsp of shredded coconut and finely chopped candied orange peel to the food processor. Pulse a few times to incorporate, being careful not to overmix.',
+      'Roll the mixture into 3-4 small, bite-sized balls.',
+      'If desired, roll the finished energy bites in extra shredded coconut for a decorative finish and added texture.',
+      'Store in an airtight container in the refrigerator for a quick and nutritious snack.'
+    ],
+    macros: { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }
+  }
+]
+[MEAL PLAN] Generation method: Gemini AI
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: "Mediterranean Sunrise Shakshuka with Whipped Feta & Za'atar Flatbread\n" +
+      '\n' +
+      'Prep Time: 20 minutes\n' +
+      'Cook Time: 25 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 2 large eggs\n' +
+      '- 1/2 tbsp olive oil\n' +
+      '- 1/4 red onion, finely diced\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1/2 red bell pepper, diced\n' +
+      '- 1/2 (14.5oz) can crushed tomatoes\n' +
+      '- 1/4 tsp smoked paprika\n' +
+      '- 1/4 tsp cumin\n' +
+      '- Pinch of red pepper flakes (optional)\n' +
+      '- Salt and black pepper to taste\n' +
+      '- 2 tbsp crumbled feta cheese\n' +
+      '- 1 tbsp Greek yogurt\n' +
+      '- 1 tbsp fresh parsley, chopped\n' +
+      '- 1 small whole wheat flatbread or pita\n' +
+      "- 1/2 tsp za'atar seasoning\n" +
+      '\n' +
+      'Instructions:\n' +
+      '• Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion and bell pepper, sauté for 5-7 minutes until softened.\n' +
+      '• Add minced garlic, smoked paprika, cumin, and red pepper flakes (if using). Cook for 1 minute until fragrant.\n' +
+      '• Pour in crushed tomatoes, season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld.\n' +
+      '• Make two wells in the tomato sauce and crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until egg whites are set and yolks are to your desired runniness.\n' +
+      "• While eggs cook, warm the flatbread. In a small bowl, combine feta cheese and Greek yogurt, mashing lightly to create a 'whipped' texture. Season the flatbread with za'atar.\n" +
+      "• Once shakshuka is ready, garnish with fresh parsley. Serve immediately with the za'atar flatbread and a dollop of whipped feta on the side or directly on top of the shakshuka.",
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Spicy Thai Green Curry Noodle Bowl with Pan-Seared Scallops\n' +
+      '\n' +
+      'Prep Time: 20 minutes\n' +
+      'Cook Time: 15 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 4-5 large sea scallops, patted dry\n' +
+      '- 1 tsp coconut oil\n' +
+      '- 1/2 cup light coconut milk\n' +
+      '- 1 tbsp green curry paste (adjust to spice preference)\n' +
+      '- 1/4 cup vegetable broth\n' +
+      '- 1/4 cup snap peas, halved\n' +
+      '- 1/4 cup thinly sliced red bell pepper\n' +
+      '- 1/4 cup baby corn, halved\n' +
+      '- 1 tbsp fish sauce\n' +
+      '- 1 tsp fresh lime juice\n' +
+      '- 1/2 cup cooked brown rice vermicelli noodles\n' +
+      '- Fresh cilantro for garnish\n' +
+      '- Lime wedges for serving\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Season scallops with a pinch of salt and pepper. Heat coconut oil in a non-stick pan over medium-high heat. Sear scallops for 1.5-2 minutes per side until golden brown and cooked through. Set aside.\n' +
+      '• In a medium saucepan, combine coconut milk, green curry paste, and vegetable broth. Bring to a gentle simmer over medium heat, stirring until curry paste is fully dissolved.\n' +
+      '• Add snap peas, red bell pepper, and baby corn to the curry. Cook for 3-5 minutes, until vegetables are tender-crisp.\n' +
+      '• Stir in fish sauce and lime juice. Taste and adjust seasoning if needed.\n' +
+      '• In a deep bowl, place the cooked vermicelli noodles. Ladle the hot green curry and vegetables over the noodles.\n' +
+      '• Arrange the pan-seared scallops on top of the curry noodles. Garnish with fresh cilantro and serve with a lime wedge.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Moroccan Harissa-Spiced Lamb Tagine with Date & Pistachio Couscous\n' +
+      '\n' +
+      'Prep Time: 30 minutes\n' +
+      'Cook Time: 60 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 6 oz lamb shoulder or leg, cut into 1-inch cubes\n' +
+      '- 1 tbsp olive oil\n' +
+      '- 1/2 yellow onion, thinly sliced\n' +
+      '- 1 clove garlic, minced\n' +
+      '- 1 tsp fresh ginger, grated\n' +
+      '- 1 tbsp harissa paste (adjust to spice preference)\n' +
+      '- 1/2 tsp ground cumin\n' +
+      '- 1/2 tsp ground coriander\n' +
+      '- Pinch of saffron threads (optional)\n' +
+      '- 1/2 cup vegetable broth\n' +
+      '- 1/4 cup diced canned tomatoes\n' +
+      '- 1/4 cup canned chickpeas, rinsed\n' +
+      '- 1/4 cup dried apricots, halved\n' +
+      '- 1/2 cup whole wheat couscous\n' +
+      '- 1/4 cup hot vegetable broth (for couscous)\n' +
+      '- 2 Medjool dates, pitted and chopped\n' +
+      '- 1 tbsp shelled pistachios, roughly chopped\n' +
+      '- Fresh mint or cilantro for garnish\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Season lamb cubes with salt and pepper. Heat olive oil in a Dutch oven or heavy-bottomed pot over medium-high heat. Sear lamb on all sides until browned. Remove lamb and set aside.\n' +
+      '• Reduce heat to medium. Add sliced onion to the pot and sauté for 5-7 minutes until softened and lightly caramelized. Add minced garlic and grated ginger, cook for 1 minute until fragrant.\n' +
+      '• Stir in harissa paste, cumin, coriander, and saffron (if using). Cook for another minute, stirring constantly.\n' +
+      '• Return lamb to the pot. Pour in 1/2 cup vegetable broth and diced tomatoes. Bring to a simmer, then reduce heat to low, cover, and cook for 45-50 minutes, or until lamb is tender.\n' +
+      '• Add chickpeas and dried apricots to the tagine. Continue to cook, covered, for another 10 minutes.\n' +
+      '• While the tagine finishes, prepare the couscous: Place whole wheat couscous in a heatproof bowl. Pour 1/4 cup hot vegetable broth over it, cover, and let stand for 5 minutes. Fluff with a fork, then stir in chopped dates and pistachios.\n' +
+      '• Serve the Moroccan lamb tagine hot, spooned over the date and pistachio couscous. Garnish with fresh mint or cilantro.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Golden Turmeric & Ginger Energy Bites with Candied Orange Peel\n' +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 0 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- 1/2 cup rolled oats\n' +
+      '- 1/4 cup almond butter\n' +
+      '- 2 Medjool dates, pitted\n' +
+      '- 1 tbsp chia seeds\n' +
+      '- 1/2 tsp ground turmeric\n' +
+      '- 1/4 tsp ground ginger\n' +
+      '- Pinch of black pepper (enhances turmeric absorption)\n' +
+      '- 1 tbsp unsweetened shredded coconut (plus extra for rolling)\n' +
+      '- 1 tsp finely chopped candied orange peel\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• In a food processor, combine rolled oats, almond butter, pitted dates, chia seeds, ground turmeric, ground ginger, and black pepper. Process until the mixture comes together and forms a sticky dough.\n' +
+      '• Add the 1 tbsp of shredded coconut and finely chopped candied orange peel to the food processor. Pulse a few times to incorporate, being careful not to overmix.\n' +
+      '• Roll the mixture into 3-4 small, bite-sized balls.\n' +
+      '• If desired, roll the finished energy bites in extra shredded coconut for a decorative finish and added texture.\n' +
+      '• Store in an airtight container in the refrigerator for a quick and nutritious snack.',
+    calories: 0,
+    protein_grams: 0,
+    carbs_grams: 0,
+    fat_grams: 0
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: "Mediterranean Sunrise Shakshuka with Whipped Feta & Za'atar Flatbread\n" +
+    '\n' +
+    'Prep Time: 20 minutes\n' +
+    'Cook Time: 25 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- 2 large eggs\n' +
+    '- 1/2 tbsp olive oil\n' +
+    '- 1/4 red onion, finely diced\n' +
+    '- 1 clove garlic, minced\n' +
+    '- 1/2 red bell pepper, diced\n' +
+    '- 1/2 (14.5oz) can crushed tomatoes\n' +
+    '- 1/4 tsp smoked paprika\n' +
+    '- 1/4 tsp cumin\n' +
+    '- Pinch of red pepper flakes (optional)\n' +
+    '- Salt and black pepper to taste\n' +
+    '- 2 tbsp crumbled feta cheese\n' +
+    '- 1 tbsp Greek yogurt\n' +
+    '- 1 tbsp fresh parsley, chopped\n' +
+    '- 1 small whole wheat flatbread or pita\n' +
+    "- 1/2 tsp za'atar seasoning\n" +
+    '\n' +
+    'Instructions:\n' +
+    '• Heat olive oil in a small, oven-safe skillet over medium heat. Add red onion and bell pepper, sauté for 5-7 minutes until softened.\n' +
+    '• Add minced garlic, smoked paprika, cumin, and red pepper flakes (if using). Cook for 1 minute until fragrant.\n' +
+    '• Pour in crushed tomatoes, season with salt and pepper. Bring to a simmer, then reduce heat to low and cook for 10 minutes, allowing flavors to meld.\n' +
+    '• Make two wells in the tomato sauce and crack an egg into each well. Cover the skillet and cook for 5-8 minutes, or until egg whites are set and yolks are to your desired runniness.\n' +
+    "• While eggs cook, warm the flatbread. In a small bowl, combine feta cheese and Greek yogurt, mashing lightly to create a 'whipped' texture. Season the flatbread with za'atar.\n" +
+    "• Once shakshuka is ready, garnish with fresh parsley. Serve immediately with the za'atar flatbread and a dollop of whipped feta on the side or directly on top of the shakshuka.",
+  calories: 0,
+  protein_grams: 0,
+  carbs_grams: 0,
+  fat_grams: 0
+}
+{"level":30,"time":1758005684341,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"50"},"remoteAddress":"127.0.0.1","remotePort":53789},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"7799","etag":"W/\"1e77-zJ2NPpLBMJphQTYD5vBqFVGUuGw\""}},"responseTime":30084,"msg":"request completed"}
+[MEAL PLAN] Received request for user: 2b7ea2b7-b739-47f1-b389-aba682ac8c5f
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Current targets object: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Generating mathematical meal plan with targets: { calories: null, protein: null, carbs: null, fat: null }
+[MEAL PLAN] Calling generateMathematicalMealPlan with: {
+  targets: {
+    id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    start_date: '2025-09-16',
+    end_date: null,
+    daily_calories: null,
+    protein_grams: null,
+    carbs_grams: null,
+    fat_grams: null,
+    micronutrients_targets: {
+      fiber_g: 25,
+      iron_mg: 8,
+      sodium_mg: 2300,
+      calcium_mg: 1000,
+      potassium_mg: 3400,
+      vitamin_c_mg: 90,
+      vitamin_d_mcg: 15
+    },
+    reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+    created_at: '2025-09-16T04:19:50.655995+00:00'
+  },
+  preferences: []
+}
+[MEAL PLAN] Targets properties check:
+  daily_calories: null object
+  protein_grams: null object
+  carbs_grams: null object
+  fat_grams: null object
+[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)
+[MEAL PLAN] Available AI providers: [gemini]
+[MEAL PLAN] 🤖 Attempting GEMINI AI generation
+[GEMINI MEAL PLAN] Starting AI generation with targets: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[GEMINI MEAL PLAN] Dietary preferences: []
+[GEMINI TEXT] Generating text content
+[GEMINI TEXT] Prompt length: 3646
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] ⚠️ Retryable error (attempt 1), retrying in 2000ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Attempt 2/3
+[GEMINI TEXT] ⚠️ Retryable error (attempt 2), retrying in 4000ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Attempt 3/3
+[GEMINI TEXT] ❌ Text generation failed: Gemini request timeout after 60 seconds
+[GEMINI MEAL PLAN] ❌ Error generating meal plan: Gemini request timeout after 60 seconds
+[MEAL PLAN] GEMINI generation failed: Gemini request timeout after 60 seconds
+[MEAL PLAN] All AI providers failed, will use mathematical fallback
+[MEAL PLAN] 🧮 Using mathematical meal plan generation as fallback
+[MEAL PLAN] Original targets received: {
+  id: 'a2c4baad-0f56-4b64-9de1-6c9c0fce48e5',
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  start_date: '2025-09-16',
+  end_date: null,
+  daily_calories: null,
+  protein_grams: null,
+  carbs_grams: null,
+  fat_grams: null,
+  micronutrients_targets: {
+    fiber_g: 25,
+    iron_mg: 8,
+    sodium_mg: 2300,
+    calcium_mg: 1000,
+    potassium_mg: 3400,
+    vitamin_c_mg: 90,
+    vitamin_d_mcg: 15
+  },
+  reasoning: 'Initial plan created using scientific formulas: BMR (NaN cal) × Activity Factor (1.55) = NaN TDEE. Body recomposition: Eating at maintenance calories',
+  created_at: '2025-09-16T04:19:50.655995+00:00'
+}
+[MEAL PLAN] Validated targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 70
+}
+[MEAL PLAN] generateMathematicalMealPlan called with targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 70
+}
+[MEAL PLAN] Accessing properties: daily_calories: 2000 protein_grams: 150 carbs_grams: 200 fat_grams: 70
+[MEAL PLAN] Extracted values: calories: 2000 protein: 150 carbs: 200 fat: 70
+[MEAL PLAN] All targets validated successfully
+[MEAL PLAN] Generated meal plan: [
+  {
+    meal_type: 'breakfast',
+    recipe_name: 'Protein Oatmeal Bowl',
+    prep_time: 5,
+    cook_time: 10,
+    servings: 1,
+    ingredients: [
+      'Rolled oats',
+      'Protein powder',
+      'Banana',
+      'Almond butter',
+      'Milk'
+    ],
+    instructions: [
+      'Cook oats with milk',
+      'Mix in protein powder',
+      'Top with banana and almond butter'
+    ],
+    macros: {
+      calories: 500,
+      protein_grams: 38,
+      carbs_grams: 60,
+      fat_grams: 18
+    }
+  },
+  {
+    meal_type: 'lunch',
+    recipe_name: 'Grilled Chicken Salad',
+    prep_time: 15,
+    cook_time: 20,
+    servings: 1,
+    ingredients: [
+      'Chicken breast',
+      'Mixed greens',
+      'Quinoa',
+      'Avocado',
+      'Olive oil dressing'
+    ],
+    instructions: [
+      'Grill chicken breast',
+      'Cook quinoa',
+      'Assemble salad with all ingredients'
+    ],
+    macros: {
+      calories: 700,
+      protein_grams: 53,
+      carbs_grams: 70,
+      fat_grams: 21
+    }
+  },
+  {
+    meal_type: 'dinner',
+    recipe_name: 'Baked Salmon with Vegetables',
+    prep_time: 10,
+    cook_time: 25,
+    servings: 1,
+    ingredients: [
+      'Salmon fillet',
+      'Sweet potato',
+      'Asparagus',
+      'Olive oil',
+      'Herbs'
+    ],
+    instructions: [
+      'Bake salmon at 400°F',
+      'Roast sweet potato and asparagus',
+      'Season with herbs'
+    ],
+    macros: {
+      calories: 600,
+      protein_grams: 45,
+      carbs_grams: 50,
+      fat_grams: 25
+    }
+  },
+  {
+    meal_type: 'snack',
+    recipe_name: 'Protein Smoothie',
+    prep_time: 5,
+    cook_time: 0,
+    servings: 1,
+    ingredients: [ 'Protein powder', 'Milk', 'Banana', 'Peanut butter' ],
+    instructions: [ 'Blend all ingredients', 'Serve immediately' ],
+    macros: { calories: 200, protein_grams: 15, carbs_grams: 20, fat_grams: 7 }
+  }
+]
+[MEAL PLAN] Generation method: Mathematical
+[MEAL PLAN] Attempting to insert suggestions: [
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'breakfast',
+    meal_description: 'Protein Oatmeal Bowl\n' +
+      '\n' +
+      'Prep Time: 5 minutes\n' +
+      'Cook Time: 10 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Rolled oats\n' +
+      '- Protein powder\n' +
+      '- Banana\n' +
+      '- Almond butter\n' +
+      '- Milk\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Cook oats with milk\n' +
+      '• Mix in protein powder\n' +
+      '• Top with banana and almond butter',
+    calories: 500,
+    protein_grams: 38,
+    carbs_grams: 60,
+    fat_grams: 18
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'lunch',
+    meal_description: 'Grilled Chicken Salad\n' +
+      '\n' +
+      'Prep Time: 15 minutes\n' +
+      'Cook Time: 20 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Chicken breast\n' +
+      '- Mixed greens\n' +
+      '- Quinoa\n' +
+      '- Avocado\n' +
+      '- Olive oil dressing\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Grill chicken breast\n' +
+      '• Cook quinoa\n' +
+      '• Assemble salad with all ingredients',
+    calories: 700,
+    protein_grams: 53,
+    carbs_grams: 70,
+    fat_grams: 21
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'dinner',
+    meal_description: 'Baked Salmon with Vegetables\n' +
+      '\n' +
+      'Prep Time: 10 minutes\n' +
+      'Cook Time: 25 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Salmon fillet\n' +
+      '- Sweet potato\n' +
+      '- Asparagus\n' +
+      '- Olive oil\n' +
+      '- Herbs\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Bake salmon at 400°F\n' +
+      '• Roast sweet potato and asparagus\n' +
+      '• Season with herbs',
+    calories: 600,
+    protein_grams: 45,
+    carbs_grams: 50,
+    fat_grams: 25
+  },
+  {
+    nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+    suggestion_date: '2025-09-16',
+    meal_type: 'snack',
+    meal_description: 'Protein Smoothie\n' +
+      '\n' +
+      'Prep Time: 5 minutes\n' +
+      'Cook Time: 0 minutes\n' +
+      'Servings: 1\n' +
+      '\n' +
+      'Ingredients:\n' +
+      '- Protein powder\n' +
+      '- Milk\n' +
+      '- Banana\n' +
+      '- Peanut butter\n' +
+      '\n' +
+      'Instructions:\n' +
+      '• Blend all ingredients\n' +
+      '• Serve immediately',
+    calories: 200,
+    protein_grams: 15,
+    carbs_grams: 20,
+    fat_grams: 7
+  }
+]
+[MEAL PLAN] First suggestion structure: {
+  nutrition_plan_id: '07b8a984-5c7e-4253-a9c6-6ee870f0a9cd',
+  suggestion_date: '2025-09-16',
+  meal_type: 'breakfast',
+  meal_description: 'Protein Oatmeal Bowl\n' +
+    '\n' +
+    'Prep Time: 5 minutes\n' +
+    'Cook Time: 10 minutes\n' +
+    'Servings: 1\n' +
+    '\n' +
+    'Ingredients:\n' +
+    '- Rolled oats\n' +
+    '- Protein powder\n' +
+    '- Banana\n' +
+    '- Almond butter\n' +
+    '- Milk\n' +
+    '\n' +
+    'Instructions:\n' +
+    '• Cook oats with milk\n' +
+    '• Mix in protein powder\n' +
+    '• Top with banana and almond butter',
+  calories: 500,
+  protein_grams: 38,
+  carbs_grams: 60,
+  fat_grams: 18
+}
+{"level":30,"time":1758005942569,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":9,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"50"},"remoteAddress":"127.0.0.1","remotePort":53932},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"2855","etag":"W/\"b27-zNsem8XPCBk0hyGlM9VdUFZO4BM\""}},"responseTime":100426,"msg":"request completed"}
+[MEAL PLAN] Received request for user: test-user-123
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Plan query error: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test-user-123"'
+}
+[MEAL PLAN] Current plan data: null
+[MEAL PLAN] No active nutrition plan found, generating default meal plan
+[MEAL PLAN] Using default nutritional targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] generateMathematicalMealPlan called with targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] Accessing properties: daily_calories: 2000 protein_grams: 150 carbs_grams: 200 fat_grams: 67
+[MEAL PLAN] Extracted values: calories: 2000 protein: 150 carbs: 200 fat: 67
+[MEAL PLAN] All targets validated successfully
+[MEAL PLAN] Generated default meal plan with 4 meals
+{"level":30,"time":1758006122457,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":10,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"27"},"remoteAddress":"127.0.0.1","remotePort":54149},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1548","etag":"W/\"60c-FHpJk2skZdQIXD8jIIwkOAmbkk0\""}},"responseTime":1791,"msg":"request completed"}
+[MEAL PLAN] Received request for user: test-user-456
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Plan query error: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test-user-456"'
+}
+[MEAL PLAN] Current plan data: null
+[MEAL PLAN] No active nutrition plan found, generating default meal plan
+[MEAL PLAN] Using default nutritional targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] generateMathematicalMealPlan called with targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] Accessing properties: daily_calories: 2000 protein_grams: 150 carbs_grams: 200 fat_grams: 67
+[MEAL PLAN] Extracted values: calories: 2000 protein: 150 carbs: 200 fat: 67
+[MEAL PLAN] All targets validated successfully
+[MEAL PLAN] Generated default meal plan with 4 meals
+{"level":30,"time":1758006176078,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":11,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"27"},"remoteAddress":"127.0.0.1","remotePort":54197},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1548","etag":"W/\"60c-FHpJk2skZdQIXD8jIIwkOAmbkk0\""}},"responseTime":776,"msg":"request completed"}
+[MEAL PLAN] Received request for user: test-user-789
+[MEAL PLAN] Checking Supabase configuration: true
+[MEAL PLAN] Plan query error: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "test-user-789"'
+}
+[MEAL PLAN] Current plan data: null
+[MEAL PLAN] No active nutrition plan found, generating default meal plan
+[MEAL PLAN] Using default nutritional targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] generateMathematicalMealPlan called with targets: {
+  daily_calories: 2000,
+  protein_grams: 150,
+  carbs_grams: 200,
+  fat_grams: 67
+}
+[MEAL PLAN] Accessing properties: daily_calories: 2000 protein_grams: 150 carbs_grams: 200 fat_grams: 67
+[MEAL PLAN] Extracted values: calories: 2000 protein: 150 carbs: 200 fat: 67
+[MEAL PLAN] All targets validated successfully
+[MEAL PLAN] Generated default meal plan with 4 meals
+{"level":30,"time":1758006214396,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":12,"method":"POST","url":"/api/generate-daily-meal-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"27"},"remoteAddress":"127.0.0.1","remotePort":54221},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"1548","etag":"W/\"60c-FHpJk2skZdQIXD8jIIwkOAmbkk0\""}},"responseTime":766,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /api/nutrition-plan?userId=test-user-789
+{"level":30,"time":1758006233713,"pid":21860,"hostname":"MacBook-Air-126.local","req":{"id":13,"method":"GET","url":"/api/nutrition-plan?userId=test-user-789","query":{"userId":"test-user-789"},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":54248},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"111","etag":"W/\"6f-mYWfMW1B4UNYhz+bIr1Nbf4tkHQ\""}},"responseTime":0,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...

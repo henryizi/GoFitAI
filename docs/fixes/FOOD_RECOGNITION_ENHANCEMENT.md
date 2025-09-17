@@ -139,5 +139,5 @@ CRITICAL INSTRUCTIONS FOR DISH RECOGNITION:
 
 ---
 
-*This enhancement transforms SnapBodyAI from generic food description to specific dish recognition, making it a true culinary AI assistant! 🍳✨*
+*This enhancement transforms GoFitAI from generic food description to specific dish recognition, making it a true culinary AI assistant! 🍳✨*
 

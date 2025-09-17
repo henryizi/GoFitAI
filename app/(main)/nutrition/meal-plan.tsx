@@ -166,7 +166,7 @@ const MealPlanScreen = () => {
       }
     } catch (error) {
       console.error('Error generating meal plan:', error);
-      Alert.alert('Error', 'Could not generate meal plan. Please check your internet connection and try again.');
+      Alert.alert('Error', 'Could not generate meal plan. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -209,7 +209,7 @@ const MealPlanScreen = () => {
   const MacroPill = ({ icon, value, unit, color }) => (
     <View style={styles.macroPill}>
       <Icon name={icon} size={16} color={color} style={{ marginRight: 6 }} />
-      <Text style={styles.macroValue}>{value}</Text>
+      <Text style={styles.macroValue}>{value || 0}</Text>
       <Text style={styles.macroUnit}>{unit}</Text>
     </View>
   );
@@ -217,6 +217,20 @@ const MealPlanScreen = () => {
   const renderMealCard = (meal: any) => {
     const mealId = `${meal.meal_type}_${meal.meal_description}`;
     const currentRating = mealRatings[mealId];
+
+    // Handle different data structures - some data might come from different API endpoints
+    const calories = meal.calories || meal.macros?.calories || 0;
+    const protein = meal.protein_grams || meal.macros?.protein_grams || meal.protein || 0;
+    const carbs = meal.carbs_grams || meal.macros?.carbs_grams || meal.carbs || 0;
+    const fat = meal.fat_grams || meal.macros?.fat_grams || meal.fat || 0;
+
+    console.log('[MEAL PLAN] Rendering meal card for:', meal.meal_type, {
+      calories,
+      protein,
+      carbs,
+      fat,
+      originalMeal: meal
+    });
 
     return (
       <LinearGradient
@@ -257,10 +271,10 @@ const MealPlanScreen = () => {
         </View>
         <Text style={styles.mealDescription}>{meal.meal_description}</Text>
         <View style={styles.macroContainer}>
-          <MacroPill icon="fire" value={meal.calories} unit="kcal" color="#FF9500" />
-          <MacroPill icon="food-drumstick" value={meal.protein_grams} unit="g" color="#34C759" />
-          <MacroPill icon="bread-slice" value={meal.carbs_grams} unit="g" color="#FF2D55" />
-          <MacroPill icon="oil" value={meal.fat_grams} unit="g" color="#FFD60A" />
+          <MacroPill icon="fire" value={calories} unit="kcal" color="#FF9500" />
+          <MacroPill icon="food-drumstick" value={protein} unit="g" color="#34C759" />
+          <MacroPill icon="bread-slice" value={carbs} unit="g" color="#FF2D55" />
+          <MacroPill icon="oil" value={fat} unit="g" color="#FFD60A" />
         </View>
       </LinearGradient>
     );

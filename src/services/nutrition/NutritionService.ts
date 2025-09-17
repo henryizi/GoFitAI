@@ -23,7 +23,8 @@ const getBaseUrls = () => {
   return [
     'https://gofitai-production.up.railway.app', // Railway server first (always available)
     environment.apiUrl, // Configured URL from environment
-    'http://192.168.0.100:4000', // Local server fallback (only if Railway fails)
+    'http://192.168.0.152:4000', // Local server fallback (current local IP)
+    'http://192.168.0.100:4000', // Backup local server fallback
   ].filter(Boolean) as string[];
 };
 
@@ -83,6 +84,48 @@ export class NutritionService {
   }
 
   /**
+   * Calculate nutrition targets (calories, protein, carbs, fat) based on profile and metabolic data
+   */
+  static calculateNutritionTargets(profile: any, metabolicData: MetabolicData): {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  } {
+    console.log('[NUTRITION] Calculating targets from metabolic data:', metabolicData);
+    
+    // ⭐ Use the goal-adjusted calories from metabolic data (TDEE + goal adjustment)
+    const goalCalories = metabolicData.goal_calories;
+    
+    // ⭐ Map fitness strategy to macro ratios using the proper strategy-based ratios
+    const fitnessStrategy = profile.fitness_strategy || this.mapGoalTypeToFitnessStrategy(profile.goal_type) || 'maintenance';
+    console.log('[NUTRITION] Using fitness strategy:', fitnessStrategy);
+    
+    // ⭐ Use the proper strategy-based macro ratios (not hardcoded ones)
+    const ratios = this.getMacroRatiosForStrategy(fitnessStrategy);
+    console.log('[NUTRITION] Using strategy-based macro ratios:', ratios);
+    
+    // Calculate macros in grams
+    // Protein: 4 calories per gram
+    // Carbs: 4 calories per gram  
+    // Fat: 9 calories per gram
+    const proteinGrams = Math.round((goalCalories * ratios.protein / 100) / 4);
+    const carbsGrams = Math.round((goalCalories * ratios.carbs / 100) / 4);
+    const fatGrams = Math.round((goalCalories * ratios.fat / 100) / 9);
+    
+    const targets = {
+      calories: Math.round(goalCalories), // ⭐ This is the final goal-adjusted calories
+      protein: proteinGrams,
+      carbs: carbsGrams,
+      fat: fatGrams
+    };
+    
+    console.log('[NUTRITION] ✅ Calculated nutrition targets with proper strategy-based ratios:', targets);
+    console.log('[NUTRITION] 🔍 Used goal_calories (TDEE + adjustment):', goalCalories, 'from TDEE:', metabolicData.tdee, 'adjustment:', metabolicData.goal_adjustment);
+    return targets;
+  }
+
+  /**
    * Calculate Total Daily Energy Expenditure (TDEE) 
    * TDEE = BMR × Activity Factor
    */
@@ -116,6 +159,10 @@ export class NutritionService {
     const strategyAdjustments = {
       bulk: { calories: 400, description: 'Aggressive muscle building' },
       cut: { calories: -400, description: 'Fat loss while preserving muscle' },
+      fat_loss: { calories: -400, description: 'Fat loss while preserving muscle' }, // Support fat_loss alias
+      weight_loss: { calories: -400, description: 'Fat loss while preserving muscle' }, // Support weight_loss alias
+      muscle_gain: { calories: 400, description: 'Aggressive muscle building' }, // Support muscle_gain alias
+      weight_gain: { calories: 400, description: 'Aggressive muscle building' }, // Support weight_gain alias
       maintenance: { calories: 0, description: 'Maintain current physique' },
       recomp: { calories: 0, description: 'Body recomposition' },
       maingaining: { calories: 150, description: 'Slow, lean muscle gains' }
@@ -154,6 +201,10 @@ export class NutritionService {
     const macroRatios = {
       bulk: { protein: 25, carbs: 45, fat: 30 },           // High carbs for energy, moderate protein
       cut: { protein: 35, carbs: 25, fat: 40 },            // Very high protein, lower carbs, higher fat for satiety
+      fat_loss: { protein: 35, carbs: 25, fat: 40 },       // Same as cut - fat loss strategy
+      weight_loss: { protein: 35, carbs: 25, fat: 40 },    // Same as cut - weight loss strategy
+      muscle_gain: { protein: 25, carbs: 45, fat: 30 },    // Same as bulk - muscle gain strategy
+      weight_gain: { protein: 25, carbs: 45, fat: 30 },    // Same as bulk - weight gain strategy
       maintenance: { protein: 30, carbs: 35, fat: 35 },    // Balanced approach
       recomp: { protein: 35, carbs: 35, fat: 30 },         // High protein for muscle building while in deficit
       maingaining: { protein: 30, carbs: 40, fat: 30 }     // Moderate protein, good carbs for performance
@@ -167,10 +218,10 @@ export class NutritionService {
    */
   static mapGoalTypeToFitnessStrategy(goalType: string): string {
     const goalMapping = {
-      'weight_loss': 'cut',
-      'fat_loss': 'cut', 
-      'muscle_gain': 'bulk',
-      'weight_gain': 'bulk',
+      'weight_loss': 'weight_loss',
+      'fat_loss': 'fat_loss', 
+      'muscle_gain': 'muscle_gain',
+      'weight_gain': 'weight_gain',
       'maintenance': 'maintenance',
       'body_recomposition': 'recomp'
     };
@@ -225,50 +276,79 @@ export class NutritionService {
     };
   }
 
-  // Fallback fetch method similar to ProgressService
-  private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
+  // Fallback fetch method with graceful timeout handling
+  private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response } | null> {
     const bases = getBaseUrls();
+    console.log(`[NutritionService] 🔍 Attempting API call to path: ${path}`);
+    console.log(`[NutritionService] 🌐 Available bases:`, bases);
 
     let lastError: unknown = null;
-    for (const base of bases) {
+    for (let i = 0; i < bases.length; i++) {
+      const base = bases[i];
       const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+      
       try {
-        if (__DEV__) console.log('[NutritionService] Trying base:', base, '→', url);
-        const response = await fetch(url, init);
+        console.log(`[NutritionService] 📡 Trying base ${i + 1}/${bases.length}: ${base} → ${url}`);
+        
+        // Add timeout handling for each request  
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`[NutritionService] ⏰ Request timeout after 30 seconds for: ${base}`);
+          controller.abort();
+        }, 30000); // 30 second timeout per base URL (reasonable for AI operations)
+        
+        const response = await fetch(url, {
+          ...init,
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        console.log(`[NutritionService] 📨 Response from ${base}: status ${response.status}`);
         
         // Special handling for Railway's "Route not found" errors
         if (response.status === 404) {
           const responseClone = response.clone();
           try {
             const errorData = await responseClone.json() as any;
-            if (__DEV__) console.log('[NutritionService] 404 Response from', base, ':', errorData);
+            console.log('[NutritionService] 404 Response from', base, ':', errorData);
 
             // Check for Railway-specific error patterns
             if (errorData?.message?.includes('does not exist on the Railway server') ||
                 errorData?.error === 'Route not found' ||
                 errorData?.message === 'Route not found') {
-              if (__DEV__) console.log('[NutritionService] Railway missing endpoint, trying next base...');
+              console.log('[NutritionService] 🚫 Railway missing endpoint, trying next base...');
+              lastError = new Error(`404 Not Found at ${base} - ${errorData?.message || 'Route not found'}`);
               continue; // Try the next base
             }
           } catch (parseError) {
-            if (__DEV__) console.log('[NutritionService] Could not parse 404 response as JSON:', parseError);
+            console.log('[NutritionService] Could not parse 404 response as JSON:', parseError);
             // If we can't parse response and it's from Railway, assume it's missing endpoint
             if (base.includes('railway.app')) {
-              if (__DEV__) console.log('[NutritionService] Assuming Railway 404 is missing endpoint, trying next base...');
+              console.log('[NutritionService] 🚫 Assuming Railway 404 is missing endpoint, trying next base...');
+              lastError = new Error(`404 Not Found at Railway server`);
               continue;
             }
           }
         }
         
         // Consider any network-level success a success path; status handling is done by callers
+        console.log(`[NutritionService] ✅ Success with base: ${base} (status: ${response.status})`);
         return { base, response };
       } catch (err) {
-        lastError = err;
-        if (__DEV__) console.log('[NutritionService] Failed to fetch from', base, ':', err);
+        console.log(`[NutritionService] ⚠️ Failed to fetch from ${base}:`, err);
+        
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.log(`[NutritionService] ⏱️ Request to ${base} timed out (AI taking longer than expected)`);
+          lastError = new Error(`Timeout connecting to ${base}`);
+        } else {
+          lastError = err;
+        }
       }
     }
 
-    throw lastError || new Error('All API bases failed');
+    // Instead of throwing, return null to indicate graceful fallback should be used
+    console.log(`[NutritionService] 🧮 All API endpoints unavailable, will use mathematical generation`);
+    return null; // This signals that mathematical fallback should be used
   }
   
   // Add initialization method to load plans from storage when app starts
@@ -276,20 +356,37 @@ export class NutritionService {
     try {
       console.log('[NUTRITION] Initializing from storage');
       
-      // Check if we need to clear stale data (hardcoded calories of 1800 indicates old data)
+      // Check if we need to clear stale data (hardcoded calories or inconsistent values indicate old data)
       const storedPlans = await this.readPersisted<any[]>('nutrition_plans');
       if (storedPlans && Array.isArray(storedPlans)) {
-        // Check for stale data with old hardcoded values
+        // Check for stale data with old hardcoded values or inconsistent calculations
         const hasStaleData = storedPlans.some(plan => 
           plan.daily_targets?.calories === 1800 || 
-          plan.metabolic_calculations?.goal_calories === 1800
+          plan.metabolic_calculations?.goal_calories === 1800 ||
+          plan.metabolic_calculations?.adjusted_calories === 1800 ||
+          // Also check for plans with suspicious round numbers that might be hardcoded
+          (plan.daily_targets?.calories && plan.daily_targets.calories % 100 === 0 && plan.daily_targets.calories < 1500) ||
+          // Check for missing metabolic calculations (indicates old format)
+          !plan.metabolic_calculations ||
+          // ✅ NEW: Check for missing adjusted_calories field (UI priority field)
+          !plan.metabolic_calculations?.adjusted_calories ||
+          // ✅ NEW: Check for inconsistent values between daily_targets and metabolic_calculations
+          (plan.daily_targets?.calories && plan.metabolic_calculations?.goal_calories && 
+           Math.abs(plan.daily_targets.calories - plan.metabolic_calculations.goal_calories) > 10) ||
+          // ✅ NEW: Check for inconsistent values between goal_calories and adjusted_calories
+          (plan.metabolic_calculations?.goal_calories && plan.metabolic_calculations?.adjusted_calories && 
+           Math.abs(plan.metabolic_calculations.goal_calories - plan.metabolic_calculations.adjusted_calories) > 10) ||
+          // Check for plans older than 7 days (force refresh)
+          (plan.created_at && new Date().getTime() - new Date(plan.created_at).getTime() > 7 * 24 * 60 * 60 * 1000) ||
+          // ✅ NEW: Clear plans created before the macro fix (aggressive cleanup)
+          (plan.created_at && new Date(plan.created_at) < new Date('2025-01-10'))
         );
         
         if (hasStaleData) {
-          console.log('[NUTRITION] Detected stale data with old calculations, clearing cache');
+          console.log('[NUTRITION] 🧹 Detected stale/old data, clearing ALL cached plans for fresh calculations');
           await this.clearCachedPlans();
         } else {
-          console.log(`[NUTRITION] Loaded ${storedPlans.length} plans from storage`);
+          console.log(`[NUTRITION] Loaded ${storedPlans.length} fresh plans from storage`);
           mockPlansStore.plans = storedPlans;
         }
       }
@@ -320,13 +417,50 @@ export class NutritionService {
    */
   static async clearCachedPlans(): Promise<void> {
     try {
-      console.log('[NUTRITION] Clearing cached plans');
+      console.log('[NUTRITION] 🧹 Clearing all cached nutrition plans...');
+      const previousCount = mockPlansStore.plans.length;
       mockPlansStore.plans = [];
       mockPlansStore.deletedDefaultPlan = false;
       await this.savePlansToStorage();
-      console.log('[NUTRITION] Cached plans cleared successfully');
+      console.log(`[NUTRITION] ✅ Cleared ${previousCount} cached plans successfully`);
     } catch (err) {
-      console.error('[NUTRITION] Error clearing cached plans:', err);
+      console.error('[NUTRITION] ❌ Error clearing cached plans:', err);
+    }
+  }
+
+  /**
+   * Forces a complete nutrition cache clear and refresh - use when values are inconsistent
+   */
+  static async forceNutritionRefresh(): Promise<void> {
+    try {
+      console.log('[NUTRITION] 🔄 Forcing complete nutrition refresh...');
+      
+      // Clear all cached plans
+      await this.clearCachedPlans();
+      
+      // Also clear any persistent storage keys that might be causing issues
+      const keysToRemove = [
+        'nutrition_plans',
+        'deleted_default_plan',
+        'nutrition_cache_timestamp'
+      ];
+      
+      for (const key of keysToRemove) {
+        try {
+          if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+            (globalThis as any).localStorage.removeItem(key);
+          } else {
+            await AsyncStorage.removeItem(key);
+          }
+          console.log(`[NUTRITION] 🗑️ Cleared storage key: ${key}`);
+        } catch (keyErr) {
+          console.warn(`[NUTRITION] ⚠️ Could not clear storage key ${key}:`, keyErr);
+        }
+      }
+      
+      console.log('[NUTRITION] ✅ Complete nutrition refresh completed');
+    } catch (err) {
+      console.error('[NUTRITION] ❌ Error during force refresh:', err);
     }
   }
 
@@ -452,12 +586,39 @@ export class NutritionService {
     try {
       console.log('[NUTRITION] Using mock data for getNutritionPlanById');
       console.log('[NUTRITION] Looking for plan ID:', planId);
-      console.log('[NUTRITION] Available plans in mock store:', mockPlansStore.plans.map(p => ({ id: p.id, name: p.plan_name })));
+      console.log('[NUTRITION] Available plans in mock store:', mockPlansStore.plans.map(p => ({ 
+        id: p.id, 
+        name: p.plan_name, 
+        user_id: p.user_id,
+        calories: p.daily_targets?.calories,
+        updated_at: p.updated_at
+      })));
       
       // First check the mock store for generated plans
       const storedPlan = mockPlansStore.plans.find(plan => plan.id === planId);
       if (storedPlan) {
-        console.log('[NUTRITION] Found plan in mock store:', storedPlan.plan_name);
+        console.log('[NUTRITION] ✅ Found plan in mock store:', {
+          name: storedPlan.plan_name,
+          id: storedPlan.id,
+          calories: storedPlan.daily_targets?.calories,
+          protein: storedPlan.daily_targets?.protein,
+          updated_at: storedPlan.updated_at
+        });
+        
+        // ✅ Ensure daily_targets is properly formatted for display
+        if (storedPlan.daily_targets) {
+          // Make sure we have both formats for compatibility
+          if (!storedPlan.daily_targets.protein && storedPlan.daily_targets.protein_grams) {
+            storedPlan.daily_targets.protein = storedPlan.daily_targets.protein_grams;
+          }
+          if (!storedPlan.daily_targets.carbs && storedPlan.daily_targets.carbs_grams) {
+            storedPlan.daily_targets.carbs = storedPlan.daily_targets.carbs_grams;
+          }
+          if (!storedPlan.daily_targets.fat && storedPlan.daily_targets.fat_grams) {
+            storedPlan.daily_targets.fat = storedPlan.daily_targets.fat_grams;
+          }
+        }
+        
         return storedPlan;
       }
       
@@ -528,8 +689,12 @@ export class NutritionService {
                 bmr: metabolicData.bmr,
                 tdee: metabolicData.tdee,
                 activity_level: metabolicData.activity_level,
-                adjusted_calories: metabolicData.goal_calories,
-                calorie_adjustment_reason: `Calculated for ${plan.goal_type || 'maintenance'} goal`
+                goal_calories: metabolicData.goal_calories, // ⭐ ENSURE CONSISTENCY
+                adjusted_calories: metabolicData.goal_calories, // ⭐ UI PRIORITY FIELD
+                goal_adjustment: metabolicData.goal_adjustment,
+                goal_adjustment_reason: metabolicData.goal_adjustment_reason,
+                calorie_adjustment_reason: metabolicData.goal_adjustment_reason, // ⭐ UI DISPLAY FIELD
+                calculation_method: metabolicData.calculation_method
               };
 
               console.log('[NUTRITION] Added metabolic calculations to existing plan:', plan.id);
@@ -571,18 +736,30 @@ export class NutritionService {
         const dailyTargets = storedPlan.daily_targets || storedPlan.daily_targets_json;
         
         if (dailyTargets) {
+          // Create a unique target ID that includes the plan's updated timestamp
+          // This ensures each recalculation creates a "new" target entry
+          const targetId = `target-${planId}-${storedPlan.updated_at || storedPlan.created_at || Date.now()}`;
+          const targetTimestamp = storedPlan.updated_at || storedPlan.created_at || new Date().toISOString();
+          
+          console.log('[NUTRITION] Creating target entry:', {
+            targetId,
+            targetTimestamp,
+            calories: dailyTargets.calories,
+            protein: dailyTargets.protein || dailyTargets.protein_grams
+          });
+          
           return [{
-            id: 'target-' + planId,
+            id: targetId,
             nutrition_plan_id: planId,
-            start_date: storedPlan.created_at ? storedPlan.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            start_date: targetTimestamp.split('T')[0],
             end_date: null,
             daily_calories: dailyTargets.calories,
             protein_grams: dailyTargets.protein || dailyTargets.protein_grams,
             carbs_grams: dailyTargets.carbs || dailyTargets.carbs_grams,
             fat_grams: dailyTargets.fat || dailyTargets.fat_grams,
             micronutrients_targets: storedPlan.micronutrients_targets || null,
-            reasoning: 'Generated plan targets.',
-            created_at: storedPlan.created_at || new Date().toISOString()
+            reasoning: storedPlan.updated_at ? 'Recalculated plan targets.' : 'Generated plan targets.',
+            created_at: targetTimestamp
           }];
         }
       }
@@ -714,6 +891,61 @@ export class NutritionService {
         macros: { proteinGrams, carbsGrams, fatGrams }
       });
       
+      // ✅ CRITICAL FIX: Update the mock store with the new recalculated targets
+      // Find the user's nutrition plan and update it with new targets
+      const userPlan = mockPlansStore.plans.find(plan => plan.user_id === userId);
+      if (userPlan) {
+        console.log('[REEVALUATE] 🔄 Updating mock store with new targets...');
+        
+        // Update the plan's daily_targets with new values
+        userPlan.daily_targets = {
+          calories: Math.round(goalCalories),
+          protein: proteinGrams,
+          carbs: carbsGrams,
+          fat: fatGrams,
+          // Also include the _grams versions for compatibility
+          protein_grams: proteinGrams,
+          carbs_grams: carbsGrams,
+          fat_grams: fatGrams
+        };
+        
+      // ✅ CRITICAL FIX: Also update metabolic_calculations fields
+      // The UI reads from these fields, so they must be updated too
+      if (userPlan.metabolic_calculations) {
+        userPlan.metabolic_calculations.goal_calories = Math.round(goalCalories);
+        userPlan.metabolic_calculations.adjusted_calories = Math.round(goalCalories); // ⭐ UI PRIORITY FIELD
+        userPlan.metabolic_calculations.goal_adjustment = adjustment;
+        userPlan.metabolic_calculations.goal_adjustment_reason = adjustmentReason;
+        userPlan.metabolic_calculations.calorie_adjustment_reason = adjustmentReason; // ⭐ UI DISPLAY FIELD
+        console.log('[REEVALUATE] ✅ Updated metabolic_calculations.goal_calories:', Math.round(goalCalories));
+        console.log('[REEVALUATE] ✅ Updated metabolic_calculations.adjusted_calories:', Math.round(goalCalories));
+      } else {
+          console.warn('[REEVALUATE] ⚠️ No metabolic_calculations field found to update');
+        }
+        
+        // Also update daily_targets_json if it exists
+        userPlan.daily_targets_json = userPlan.daily_targets;
+        
+        // Update the plan's updated_at timestamp
+        userPlan.updated_at = new Date().toISOString();
+        
+        console.log('[REEVALUATE] ✅ Mock store updated with new targets:', {
+          planId: userPlan.id,
+          newTargets: userPlan.daily_targets,
+          updatedAt: userPlan.updated_at
+        });
+        
+        // Save the updated plans to persistent storage
+        try {
+          await this.savePlansToStorage();
+          console.log('[REEVALUATE] ✅ Updated plans saved to persistent storage');
+        } catch (saveError) {
+          console.error('[REEVALUATE] ⚠️ Failed to save to persistent storage:', saveError);
+        }
+      } else {
+        console.warn('[REEVALUATE] ⚠️ Could not find user plan in mock store to update');
+      }
+      
       return { 
         success: true,
         new_targets: newTargets
@@ -725,7 +957,7 @@ export class NutritionService {
   }
 
   /**
-   * Calls the backend to generate a new nutrition plan using mathematical calculations.
+   * Generate a nutrition plan using pure mathematical calculations (NO API CALLS).
    */
   static async generateNutritionPlan(
     userId: string,
@@ -736,8 +968,8 @@ export class NutritionService {
     }
   ): Promise<NutritionPlan | null> {
     try {
-      console.log('[NUTRITION] Generating nutrition plan with options:', options);
-      console.log('[NUTRITION] Using API URL:', NutritionService.API_URL);
+      console.log('[NUTRITION] 🧮 Generating nutrition plan using PURE MATHEMATICAL CALCULATIONS (no API)');
+      console.log('[NUTRITION] Options:', options);
 
       let userProfile;
       try {
@@ -770,11 +1002,11 @@ export class NutritionService {
           weight: 70,
           gender: 'male',
           goal_type: options.goal,
-          goal_fat_reduction: options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5), // Realistic percentage goals
-          goal_muscle_gain: options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2), // Realistic kg goals
-          fitness_strategy: 'maintenance', // Default fitness strategy for guests
-          activity_level: 'moderately_active', // Default activity level for guests  
-          body_fat_percentage: 20 // Default body fat percentage for guests
+          goal_fat_reduction: options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5),
+          goal_muscle_gain: options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2),
+          fitness_strategy: 'maintenance',
+          activity_level: 'moderately_active',
+          body_fat_percentage: 20
         };
         console.log('[NUTRITION] Using fallback profile for guest/error:', userProfile);
       }
@@ -786,7 +1018,7 @@ export class NutritionService {
       // Get user's name for the plan name
       const userName = userProfile.full_name || userProfile.username || userProfile.email || 'User';
 
-      // Format the request to match what the server expects
+      // Create profile object for calculations
       const profile = {
         id: userId,
         goal_type: options.goal,
@@ -796,232 +1028,431 @@ export class NutritionService {
         gender: userProfile.gender || 'male',
         goal_fat_reduction: userProfile.goal_fat_reduction || (options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5)),
         goal_muscle_gain: userProfile.goal_muscle_gain || (options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2)),
-        full_name: userName, // Add user's name to the profile
-        fitness_strategy: userProfile.fitness_strategy || this.mapGoalTypeToFitnessStrategy(options.goal) || 'maintenance', // Map goal_type to fitness strategy
-        activity_level: userProfile.activity_level || 'moderately_active', // Include activity level
-        body_fat_percentage: userProfile.body_fat_percentage || 20 // Include body fat percentage
+        full_name: userName,
+        fitness_strategy: userProfile.fitness_strategy || this.mapGoalTypeToFitnessStrategy(options.goal) || 'maintenance',
+        activity_level: userProfile.activity_level || 'moderately_active',
+        body_fat_percentage: userProfile.body_fat_percentage || 20
       };
 
-      // Calculate metabolic data (BMR, TDEE) for transparency
-      const metabolicData = this.getMetabolicData(profile, this.validateActivityLevel(profile.activity_level));
-      console.log('[NUTRITION] Calculated metabolic data:', metabolicData);
-    
-      // Combine dietary preferences and intolerances into a single array
-      const allPreferences = [...options.dietaryPreferences, ...options.intolerances];
-    
-      // Try multiple URLs with Railway server first, then environment, then local
-      const baseUrls = [
-        'https://gofitai-production.up.railway.app', // Railway server first
-        environment.apiUrl,
-        NutritionService.API_URL
-      ].filter(Boolean) as string[];
-
-      console.log('[NUTRITION] Available base URLs:', baseUrls);
-
-      // Test connectivity to each server
-      let workingUrl = null;
-      for (const baseUrl of baseUrls) {
-        try {
-          const pingUrl = `${baseUrl}/ping`;
-          console.log(`[NUTRITION] Testing connectivity to: ${pingUrl}`);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for ping
-        
-        const pingResponse = await fetch(pingUrl, { 
-          method: 'GET',
-          headers: { 'Accept': 'text/plain' },
-            signal: controller.signal as any
-        });
-        
-        clearTimeout(timeoutId);
-        
-          console.log(`[NUTRITION] Ping response from ${baseUrl}: ${pingResponse.status} ${pingResponse.statusText}`);
-          if (pingResponse.ok) {
-            console.log(`[NUTRITION] ✅ Server ${baseUrl} is working!`);
-            workingUrl = baseUrl;
-            break; // Found a working server, use it
-        } else {
-            console.warn(`[NUTRITION] ❌ Server ${baseUrl} responded with ${pingResponse.status}, trying next...`);
-        }
-      } catch (pingError) {
-          console.error(`[NUTRITION] ❌ Ping failed to ${baseUrl}:`, pingError);
-          console.warn(`[NUTRITION] Trying next server...`);
-        }
-      }
-
-      if (!workingUrl) {
-        throw new Error('All nutrition service servers are unreachable. Please check your internet connection and try again later.');
-      }
-
-      const apiUrl = `${workingUrl}/api/generate-nutrition-plan`;
-      console.log('[NUTRITION] ✅ Using working server:', apiUrl);
-      console.log('[NUTRITION] Request payload:', JSON.stringify({
-        profile: profile,
-        preferences: allPreferences,
-        mealsPerDay: 3,
-        snacksPerDay: 1
-      }, null, 2));
-
-      // Use a React Native-compatible timeout approach with retry logic
-      const timeoutMs = 30000; // 30 seconds for mathematical calculation
-      console.log(`[NUTRITION] Using timeout of ${timeoutMs}ms for nutrition plan generation`);
+      console.log('[NUTRITION] 🔢 Starting mathematical calculations...');
       
-      // Helper function to create a fetch with proper timeout handling for React Native
-      const fetchWithRNTimeout = async (url: string, options: RequestInit, timeout: number) => {
-        console.log(`[NUTRITION] Starting request to: ${url}`);
-        console.log(`[NUTRITION] Request body:`, options.body);
-        console.log(`[NUTRITION] Timeout set to: ${timeout}ms (${timeout / 1000} seconds)`);
-        
-        return new Promise<Response>((resolve, reject) => {
-          const controller = new AbortController();
-          let timeoutId: ReturnType<typeof setTimeout> | null = null;
-          const startTime = Date.now();
-          
-          // Set up timeout
-          timeoutId = setTimeout(() => {
-            const elapsed = Date.now() - startTime;
-            console.log(`[NUTRITION] Request timed out after ${elapsed}ms (limit was ${timeout}ms)`);
-            controller.abort();
-            reject(new Error(`Network request timed out after ${timeout / 1000} seconds`));
-          }, timeout);
-          
-          // Make the request
-          fetch(url, {
-            ...options,
-            signal: controller.signal as any
-          })
-          .then(response => {
-            const elapsed = Date.now() - startTime;
-            console.log(`[NUTRITION] Request completed in ${elapsed}ms`);
-            console.log(`[NUTRITION] Response status: ${response.status} ${response.statusText}`);
-            if (timeoutId) clearTimeout(timeoutId);
-            resolve(response);
-          })
-          .catch(error => {
-            const elapsed = Date.now() - startTime;
-            console.log(`[NUTRITION] Request failed after ${elapsed}ms`);
-            console.log(`[NUTRITION] Error name: ${error.name}`);
-            console.log(`[NUTRITION] Error message: ${error.message}`);
-            if (timeoutId) clearTimeout(timeoutId);
-            
-            // Check if it's a timeout error or network error
-            if (error.name === 'AbortError') {
-              reject(new Error(`Network request timed out after ${elapsed}ms`));
-            } else if (error.message.includes('Network request failed')) {
-              reject(new Error(`Network connection failed - check if server is reachable at ${url}`));
-            } else {
-              reject(error);
+      // 1. Calculate metabolic data (BMR, TDEE, goal calories)
+      const metabolicData = this.getMetabolicData(profile, this.validateActivityLevel(profile.activity_level));
+      console.log('[NUTRITION] ✅ Metabolic calculations:', metabolicData);
+      
+      // 2. Calculate nutrition targets (calories, protein, carbs, fat)
+      const nutritionTargets = this.calculateNutritionTargets(profile, metabolicData);
+      console.log('[NUTRITION] ✅ Nutrition targets calculated:', JSON.stringify(nutritionTargets, null, 2));
+      console.log('[NUTRITION] 🔍 Metabolic data used:', JSON.stringify(metabolicData, null, 2));
+      
+      // 3. Generate food suggestions (general categories, not specific meals)
+      const foodSuggestions = this.generateFoodSuggestions(options.dietaryPreferences, options.intolerances);
+      
+      console.log('[NUTRITION] ✅ Generated food suggestions (no specific meals)');
+      
+      // 4. Create the nutrition plan object - TARGETS ONLY, NO SPECIFIC MEALS
+      const planId = `math-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+      const planName = `${userName}'s Nutrition Plan`;
+      
+      const nutritionPlan: NutritionPlan = {
+        id: planId,
+        user_id: userId,
+        plan_name: planName,
+        goal_type: options.goal,
+        status: 'active',
+        preferences: {
+          dietary: options.dietaryPreferences,
+          intolerances: options.intolerances
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        metabolic_calculations: {
+          ...metabolicData,
+          adjusted_calories: metabolicData.goal_calories, // ⭐ UI PRIORITY FIELD - Final goal-adjusted calories (TDEE + adjustment)
+          calorie_adjustment_reason: metabolicData.goal_adjustment_reason // ⭐ UI DISPLAY FIELD
+        },
+        daily_targets: nutritionTargets,
+        micronutrients_targets: this.generateMicronutrientTargets(profile),
+        // ❌ REMOVED: daily_schedule - nutrition plans should only contain targets, not specific meals
+        food_suggestions: foodSuggestions.food_suggestions,
+        snack_suggestions: foodSuggestions.snack_suggestions
+      };
+
+      console.log('[NUTRITION] 🎯 Generated complete nutrition plan:', {
+        id: nutritionPlan.id,
+        plan_name: nutritionPlan.plan_name,
+        goal_type: nutritionPlan.goal_type,
+        daily_targets: nutritionPlan.daily_targets,
+        metabolic_calculations: nutritionPlan.metabolic_calculations
+      });
+
+      // 5. Store the plan locally (NO API CALLS)
+      console.log('[NUTRITION] 🧹 Clearing existing plans for user to prevent conflicts...');
+      const existingPlanIndices = [];
+      for (let i = mockPlansStore.plans.length - 1; i >= 0; i--) {
+        if (mockPlansStore.plans[i].user_id === userId) {
+          existingPlanIndices.push(i);
+        }
+      }
+      
+      if (existingPlanIndices.length > 0) {
+        console.log(`[NUTRITION] 🗑️ Removing ${existingPlanIndices.length} existing plans for user ${userId}`);
+        existingPlanIndices.forEach(index => {
+          mockPlansStore.plans.splice(index, 1);
+        });
+      }
+
+      // Ensure daily_targets has both formats for compatibility
+      const compatibleDailyTargets = {
+        calories: nutritionTargets.calories,
+        protein: nutritionTargets.protein,
+        carbs: nutritionTargets.carbs,
+        fat: nutritionTargets.fat,
+        protein_grams: nutritionTargets.protein,
+        carbs_grams: nutritionTargets.carbs,
+        fat_grams: nutritionTargets.fat
+      };
+
+      // Create the final plan to store
+      const planToStore = {
+        ...nutritionPlan,
+        daily_targets: compatibleDailyTargets
+      };
+      
+      // Add to mock store
+      mockPlansStore.plans.unshift(planToStore);
+      console.log('[NUTRITION] ✅ Added plan to mock store');
+      
+      // Save to persistent storage
+      await this.savePlansToStorage();
+      
+      console.log('[NUTRITION] 🎯 Final plan summary:', {
+        id: planToStore.id,
+        plan_name: planToStore.plan_name,
+        goal_type: planToStore.goal_type,
+        calories: planToStore.daily_targets.calories,
+        protein: planToStore.daily_targets.protein,
+        carbs: planToStore.daily_targets.carbs,
+        fat: planToStore.daily_targets.fat,
+        bmr: planToStore.metabolic_calculations.bmr,
+        tdee: planToStore.metabolic_calculations.tdee,
+        goal_calories: planToStore.metabolic_calculations.goal_calories
+      });
+      
+      console.log('[NUTRITION] 🔍 CRITICAL CHECK - Values stored in plan:');
+      console.log('  daily_targets.calories:', planToStore.daily_targets.calories);
+      console.log('  metabolic_calculations.goal_calories:', planToStore.metabolic_calculations.goal_calories);
+      console.log('  These should be IDENTICAL for UI consistency!');
+      
+      console.log('[NUTRITION] ✅ Nutrition plan generated successfully!');
+      return nutritionPlan;
+    } catch (error: any) {
+      console.error('[NUTRITION] Error generating nutrition plan:', error);
+      throw new Error('Failed to generate nutrition plan: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  /**
+   * Generate meal templates based on nutrition targets and preferences
+   */
+  static generateMealTemplates(targets: any, fitnessStrategy: string, dietaryPreferences: string[] = []): any[] {
+    console.log('[NUTRITION] Generating meal templates for strategy:', fitnessStrategy);
+    
+    // Meal distribution percentages
+    const mealDistribution = {
+      breakfast: { calories: 0.25, protein: 0.25, carbs: 0.30, fat: 0.25 },
+      lunch: { calories: 0.35, protein: 0.35, carbs: 0.35, fat: 0.30 },
+      dinner: { calories: 0.30, protein: 0.30, carbs: 0.25, fat: 0.35 },
+      snack: { calories: 0.10, protein: 0.10, carbs: 0.10, fat: 0.10 }
+    };
+
+    // Determine template type based on dietary preferences
+    let templateType = 'standard';
+    if (dietaryPreferences.includes('vegan')) templateType = 'vegan';
+    else if (dietaryPreferences.includes('vegetarian')) templateType = 'vegetarian';
+
+    const mealTemplates = [];
+    
+    Object.entries(mealDistribution).forEach(([mealType, distribution]) => {
+      const mealCalories = Math.round(targets.calories * distribution.calories);
+      const mealProtein = Math.round(targets.protein * distribution.protein);
+      const mealCarbs = Math.round(targets.carbs * distribution.carbs);
+      const mealFat = Math.round(targets.fat * distribution.fat);
+      
+      // Generate meal template based on type and preferences
+      const template = this.getMealTemplate(mealType, templateType);
+      
+      mealTemplates.push({
+        meal_type: mealType,
+        recipe_name: template.name,
+        prep_time: template.prep_time,
+        cook_time: template.cook_time,
+        servings: 1,
+        ingredients: template.ingredients,
+        instructions: template.instructions,
+        macros: {
+          calories: mealCalories,
+          protein_grams: mealProtein,
+          carbs_grams: mealCarbs,
+          fat_grams: mealFat
             }
           });
         });
-      };
+    
+    return mealTemplates;
+  }
 
-      try {
-        const response = await fetchWithRNTimeout(apiUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          body: JSON.stringify({
-            profile: profile,
-            preferences: allPreferences,
-            mealsPerDay: 3,
-            snacksPerDay: 1
-          }),
-          mode: 'cors',
-          credentials: 'omit'
-        }, timeoutMs);
-        
-        console.log('[NUTRITION] Response status:', response.status);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[NUTRITION] Error response:', errorText);
-          throw new Error(`Server error: ${response.status}. ${errorText.substring(0, 200)}`);
+  /**
+   * Get meal template based on meal type and dietary preference
+   */
+  static getMealTemplate(mealType: string, templateType: string): any {
+    const templates = {
+      breakfast: {
+        standard: {
+          name: "Protein Oatmeal Bowl",
+          prep_time: 5,
+          cook_time: 10,
+          ingredients: ["Rolled oats", "Protein powder", "Banana", "Almond butter", "Milk"],
+          instructions: ["Cook oats with milk", "Mix in protein powder", "Top with banana and almond butter"]
+        },
+        vegetarian: {
+          name: "Greek Yogurt Parfait",
+          prep_time: 5,
+          cook_time: 0,
+          ingredients: ["Greek yogurt", "Granola", "Mixed berries", "Honey", "Chia seeds"],
+          instructions: ["Layer yogurt with granola", "Add berries and honey", "Sprinkle chia seeds"]
+        },
+        vegan: {
+          name: "Plant Protein Smoothie Bowl",
+          prep_time: 10,
+          cook_time: 0,
+          ingredients: ["Plant protein powder", "Oat milk", "Frozen berries", "Banana", "Granola"],
+          instructions: ["Blend protein, milk, and fruits", "Pour into bowl", "Top with granola"]
         }
-        
-        const result = await response.json();
-        console.log('[NUTRITION] Successfully generated plan with ID:', result.id);
-        
-        // Log the full response to see metabolic calculations
-        console.log('[NUTRITION] Full API response:', JSON.stringify(result, null, 2));
-        
-        // Add the generated plan to the mock store so it appears in the nutrition page
-        if (result && result.id) {
-          // Ensure the plan has all necessary fields for display
-          const planToStore = {
-            ...result,
-            user_id: userId,
-            created_at: result.created_at || new Date().toISOString(),
-            // Make sure daily_targets is available even if stored as daily_targets_json
-            daily_targets: result.daily_targets || result.daily_targets_json || {},
-            // Use server metabolic calculations if available, otherwise use our local calculations
-            metabolic_calculations: result.metabolic_calculations || metabolicData
-          };
-          
-          // Log metabolic calculations for debugging
-          console.log('[NUTRITION] Metabolic calculations from API:', result.metabolic_calculations);
-          console.log('[NUTRITION] Local metabolic calculations:', metabolicData);
-          console.log('[NUTRITION] Final metabolic calculations being stored:', planToStore.metabolic_calculations);
-          
-          // Ensure daily_targets has all required fields
-          if (!planToStore.daily_targets) {
-            planToStore.daily_targets = {};
-          }
-          
-          // Set default values if missing
-          planToStore.daily_targets.calories = planToStore.daily_targets.calories || 2000;
-          planToStore.daily_targets.protein = planToStore.daily_targets.protein || planToStore.daily_targets.protein_grams || 120;
-          planToStore.daily_targets.carbs = planToStore.daily_targets.carbs || planToStore.daily_targets.carbs_grams || 230;
-          planToStore.daily_targets.fat = planToStore.daily_targets.fat || planToStore.daily_targets.fat_grams || 60;
-          
-          mockPlansStore.plans.push(planToStore);
-          console.log('[NUTRITION] Added generated plan to mock store');
-          
-          // Save to persistent storage
-          await this.savePlansToStorage();
+      },
+      lunch: {
+        standard: {
+          name: "Grilled Chicken Salad",
+          prep_time: 15,
+          cook_time: 20,
+          ingredients: ["Chicken breast", "Mixed greens", "Quinoa", "Avocado", "Olive oil dressing"],
+          instructions: ["Grill chicken breast", "Cook quinoa", "Assemble salad with all ingredients"]
+        },
+        vegetarian: {
+          name: "Quinoa Buddha Bowl",
+          prep_time: 10,
+          cook_time: 25,
+          ingredients: ["Quinoa", "Chickpeas", "Roasted vegetables", "Tahini", "Mixed greens"],
+          instructions: ["Cook quinoa", "Roast vegetables", "Assemble bowl with tahini dressing"]
+        },
+        vegan: {
+          name: "Lentil Power Bowl",
+          prep_time: 15,
+          cook_time: 30,
+          ingredients: ["Red lentils", "Brown rice", "Steamed broccoli", "Nutritional yeast", "Hemp seeds"],
+          instructions: ["Cook lentils and rice", "Steam broccoli", "Combine with nutritional yeast"]
         }
-        
-        // Ensure the returned result also includes metabolic calculations
-        if (!result.metabolic_calculations) {
-          result.metabolic_calculations = metabolicData;
-          console.log('[NUTRITION] Added local metabolic calculations to result');
+      },
+      dinner: {
+        standard: {
+          name: "Baked Salmon with Vegetables",
+          prep_time: 10,
+          cook_time: 25,
+          ingredients: ["Salmon fillet", "Sweet potato", "Asparagus", "Olive oil", "Herbs"],
+          instructions: ["Bake salmon and sweet potato", "Steam asparagus", "Season with herbs"]
+        },
+        vegetarian: {
+          name: "Stuffed Bell Peppers",
+          prep_time: 20,
+          cook_time: 35,
+          ingredients: ["Bell peppers", "Quinoa", "Black beans", "Cheese", "Tomatoes"],
+          instructions: ["Hollow peppers", "Mix quinoa and beans", "Stuff and bake peppers"]
+        },
+        vegan: {
+          name: "Tofu Stir-Fry",
+          prep_time: 15,
+          cook_time: 15,
+          ingredients: ["Firm tofu", "Mixed vegetables", "Brown rice", "Soy sauce", "Sesame oil"],
+          instructions: ["Press and cube tofu", "Stir-fry with vegetables", "Serve over rice"]
         }
-        
-        // Return the plan directly since the server already formatted it correctly
-        return result;
-      } catch (fetchError: any) {
-        
-        // Handle timeout errors more clearly
-        if (fetchError.message && fetchError.message.includes('timed out')) {
-          console.error('[NUTRITION] Request timed out after', timeoutMs / 1000, 'seconds');
-          throw new Error('Request timed out. The nutrition service may be overloaded. Please try again later.');
+      },
+      snack: {
+        standard: {
+          name: "Protein Shake",
+          prep_time: 2,
+          cook_time: 0,
+          ingredients: ["Protein powder", "Milk", "Banana"],
+          instructions: ["Blend all ingredients", "Serve immediately"]
+        },
+        vegetarian: {
+          name: "Trail Mix",
+          prep_time: 5,
+          cook_time: 0,
+          ingredients: ["Mixed nuts", "Dried fruits", "Seeds"],
+          instructions: ["Mix all ingredients", "Store in container"]
+        },
+        vegan: {
+          name: "Hummus with Veggies",
+          prep_time: 5,
+          cook_time: 0,
+          ingredients: ["Hummus", "Carrots", "Celery", "Bell peppers"],
+          instructions: ["Cut vegetables", "Serve with hummus"]
         }
-        
-        if (fetchError.name === 'AbortError') {
-          console.error('[NUTRITION] Request was aborted due to timeout');
-          throw new Error('Request timed out. The nutrition service may be overloaded. Please try again later.');
-        }
-        
-        // Network timeout or connection error
-        if (fetchError.message && (
-          fetchError.message.includes('Network request failed') ||
-          fetchError.message.includes('Network request timed out')
-        )) {
-          console.error('[NUTRITION] Network connection failed');
-          throw new Error('Network connection failed. Please check your internet connection and try again.');
-        }
-        
-        console.error('[NUTRITION] Fetch error:', fetchError);
-        throw fetchError;
       }
-    } catch (error: any) {
-      console.error('[NUTRITION] Error generating AI nutrition plan:', error);
-      throw new Error('Failed to generate nutrition plan: ' + (error.message || 'Unknown error'));
+    };
+
+    return templates[mealType]?.[templateType] || templates[mealType]?.standard || templates.breakfast.standard;
+  }
+
+  /**
+   * Generate food suggestions based on dietary preferences
+   */
+  static generateFoodSuggestions(dietaryPreferences: string[] = [], intolerances: string[] = []): any {
+    const baseFoodSuggestions = {
+      proteins: ["Chicken breast", "Salmon", "Eggs", "Greek yogurt", "Cottage cheese", "Lean beef"],
+      carbs: ["Oats", "Quinoa", "Sweet potato", "Brown rice", "Whole grain bread", "Fruits"],
+      fats: ["Avocado", "Nuts", "Olive oil", "Seeds", "Nut butter", "Fatty fish"],
+      vegetables: ["Spinach", "Broccoli", "Bell peppers", "Carrots", "Tomatoes", "Cucumber"]
+    };
+
+    const snackSuggestions = [
+      "Greek yogurt with berries",
+      "Apple with almond butter",
+      "Trail mix",
+      "Protein shake",
+      "Vegetable sticks with hummus",
+      "Hard-boiled eggs"
+    ];
+
+    // Filter based on dietary preferences
+    let filteredSuggestions = { ...baseFoodSuggestions };
+    let filteredSnacks = [...snackSuggestions];
+
+    if (dietaryPreferences.includes('vegan')) {
+      filteredSuggestions.proteins = ["Tofu", "Tempeh", "Lentils", "Chickpeas", "Plant protein powder", "Nuts"];
+      filteredSnacks = ["Smoothie bowl", "Nuts and fruits", "Hummus with veggies", "Plant protein shake", "Chia pudding"];
+    } else if (dietaryPreferences.includes('vegetarian')) {
+      filteredSuggestions.proteins = ["Eggs", "Greek yogurt", "Cottage cheese", "Tofu", "Lentils", "Chickpeas"];
+      filteredSnacks = ["Greek yogurt with berries", "Trail mix", "Vegetable sticks with hummus", "Cheese and crackers"];
     }
+
+    // Filter based on intolerances
+    if (intolerances.includes('dairy')) {
+      filteredSuggestions.proteins = filteredSuggestions.proteins.filter(p => 
+        !['Greek yogurt', 'Cottage cheese', 'Milk'].includes(p));
+      filteredSnacks = filteredSnacks.filter(s => !s.includes('yogurt') && !s.includes('cheese'));
+    }
+
+    if (intolerances.includes('gluten')) {
+      filteredSuggestions.carbs = filteredSuggestions.carbs.filter(c => 
+        !['Whole grain bread', 'Oats'].includes(c));
+    }
+
+    return {
+      food_suggestions: filteredSuggestions,
+      snack_suggestions: filteredSnacks
+    };
+  }
+
+  /**
+   * Generate micronutrient targets based on profile
+   */
+  static generateMicronutrientTargets(profile: any): any {
+    // Basic micronutrient targets (can be enhanced based on age, gender, etc.)
+    return {
+      vitamin_d_mcg: 15,
+      calcium_mg: profile.gender === 'female' ? 1200 : 1000,
+      iron_mg: profile.gender === 'female' ? 18 : 10,
+      potassium_mg: 4000,
+      sodium_mg: 2300,
+      fiber_g: 25,
+      vitamin_c_mg: 90,
+      vitamin_b12_mcg: 2.4
+    };
+  }
+
+  /**
+   * Generate a nutrition plan using mathematical calculations when API fails
+   */
+  static async generateMathematicalFallbackPlan(
+    userId: string, 
+    options: { goal: string; dietaryPreferences: string[]; intolerances: string[] },
+    profile: any,
+    metabolicData: any
+  ): Promise<NutritionPlan> {
+    console.log('[NUTRITION] Generating mathematical fallback plan...');
+    
+    // Map goal to fitness strategy for proper macro calculation
+    const fitnessStrategy = profile.fitness_strategy || this.mapGoalTypeToFitnessStrategy(options.goal);
+    
+    // Calculate macro ratios based on strategy
+    const macroRatios = this.getMacroRatiosForStrategy(fitnessStrategy);
+    
+    // Calculate daily targets
+    const dailyTargets = {
+      calories: Math.round(metabolicData.goal_calories),
+      protein: Math.round((metabolicData.goal_calories * macroRatios.protein / 100) / 4),
+      carbs: Math.round((metabolicData.goal_calories * macroRatios.carbs / 100) / 4),
+      fat: Math.round((metabolicData.goal_calories * macroRatios.fat / 100) / 9),
+    };
+
+    // Create plan structure
+    const fallbackPlan: NutritionPlan = {
+      id: `fallback-${Date.now()}-${userId.substring(0, 8)}`,
+            user_id: userId,
+      plan_name: `${profile.full_name || 'User'}'s Plan`,
+      goal_type: fitnessStrategy, // Use fitness strategy as goal type
+      preferences: {
+        dietary: options.dietaryPreferences,
+        intolerances: options.intolerances
+      },
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      daily_targets: dailyTargets,
+      food_suggestions: null,
+      snack_suggestions: null,
+      // ❌ REMOVED: daily_schedule - nutrition plans should only contain targets, not specific meals
+      micronutrients_targets: {
+        vitamin_d_mcg: 15,
+        calcium_mg: 1000,
+        iron_mg: 10,
+        potassium_mg: 4000,
+        sodium_mg: 2000,
+      },
+      metabolic_calculations: metabolicData
+    };
+
+    console.log('[NUTRITION] Generated mathematical fallback plan:', {
+      id: fallbackPlan.id,
+      goal_type: fallbackPlan.goal_type,
+      daily_targets: fallbackPlan.daily_targets
+    });
+
+    // Save to mock store if using mock data
+    try {
+      // Add to mock plans array (assuming it exists)
+      const mockPlan = {
+        id: fallbackPlan.id,
+        user_id: userId,
+        name: fallbackPlan.plan_name,
+        calories: dailyTargets.calories,
+        protein: dailyTargets.protein,
+        updated_at: fallbackPlan.updated_at
+      };
+      
+      // Try to access mock storage methods if they exist
+      if (typeof (this as any).mockNutritionPlans !== 'undefined') {
+        (this as any).mockNutritionPlans.push(mockPlan);
+        if (typeof (this as any).savePlansToStorage === 'function') {
+          await (this as any).savePlansToStorage();
+        }
+      }
+    } catch (mockError) {
+      console.log('[NUTRITION] Could not save to mock store, continuing with plan creation');
+    }
+
+    return fallbackPlan;
   }
 
   static async deleteNutritionPlan(planId: string): Promise<boolean> {
@@ -1100,7 +1531,7 @@ export class NutritionService {
     ingredientToReplace: string,
     newIngredient: string
   ): Promise<string> {
-    const response = await fetch(`${NutritionService.API_URL}/api/customize-meal`, {
+    const { base, response } = await this.fetchWithBaseFallback('/api/customize-meal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1133,7 +1564,7 @@ export class NutritionService {
     mealTimeSlot: string,
     newMealDescription: string
   ): Promise<void> {
-    const response = await fetch(`${NutritionService.API_URL}/api/update-meal`, {
+    const { base, response } = await this.fetchWithBaseFallback('/api/update-meal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ planId, mealTimeSlot, newMealDescription }),
@@ -1158,7 +1589,7 @@ export class NutritionService {
     metricDate: string,
     metrics: object
   ): Promise<any> {
-    const response = await fetch(`${NutritionService.API_URL}/api/log-daily-metric`, {
+    const { base, response } = await this.fetchWithBaseFallback('/api/log-daily-metric', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, metricDate, metrics }),
@@ -1250,14 +1681,18 @@ export class NutritionService {
       
       console.log('[FOOD ANALYZE] Sending request to:', `${NutritionService.API_URL}/api/analyze-food`);
       
+      // Add timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      
       // Make request to the food analysis endpoint
-      const response = await fetch(`${NutritionService.API_URL}/api/analyze-food`, {
+      const { base, response } = await this.fetchWithBaseFallback('/api/analyze-food', {
         method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        body: formData as any, // FormData is valid for fetch body
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       console.log('[FOOD ANALYZE] Response status:', response.status);
       
@@ -1281,7 +1716,9 @@ export class NutritionService {
       console.error('[FOOD ANALYZE] Error:', error.message);
       
       // Provide user-friendly error messages
-      if (error.message.includes('Network request failed')) {
+      if (error.name === 'AbortError') {
+        throw new Error('The analysis is taking longer than expected. Please try again.');
+      } else if (error.message.includes('Network request failed')) {
         throw new Error('Network connection failed. Please check your internet connection and try again.');
       } else if (error.message.includes('timeout')) {
         throw new Error('The analysis is taking longer than expected. Please try again.');
@@ -1292,61 +1729,182 @@ export class NutritionService {
   }
 
   static async generateDailyMealPlan(userId: string): Promise<any> {
-    console.log(`[NutritionService] Generating daily meal plan for user: ${userId}`);
+    console.log(`[NutritionService] 🚀 Generating daily meal plan using SERVER API with AI`);
+    
+    // Try to get AI-generated meal plan from server
+    const fetchResult = await this.fetchWithBaseFallback('/api/generate-daily-meal-plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: userId
+      }),
+    });
+
+    if (fetchResult) {
+      // Server is available, process response
+      const { base, response } = fetchResult;
+      
+      try {
+        if (!response.ok) {
+          console.log(`[NutritionService] Server responded with status ${response.status}, using mathematical generation`);
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('[NutritionService] 🔍 Server response data:', JSON.stringify(data, null, 2));
+        
+        // Handle both possible response formats: meal_plan (underscore) and mealPlan (camelCase)
+        const mealPlanData = data.meal_plan || data.mealPlan;
+        const aiGenerated = data.ai_generated || (data.method === 'ai') || (data.aiProvider && data.aiProvider !== 'none');
+        
+        if (data.success && mealPlanData && mealPlanData.length > 0) {
+          console.log(`[NutritionService] ✅ Server generated ${mealPlanData.length} meals with AI: ${aiGenerated ? 'YES' : 'NO'}`);
+          console.log(`[NutritionService] Server response format - method: ${data.method}, aiProvider: ${data.aiProvider}`);
+          return mealPlanData; // Return the meal plan array directly
+        } else {
+          console.log('[NutritionService] Server returned empty meal plan, using mathematical generation');
+          throw new Error('Server returned empty meal plan');
+        }
+      } catch (error) {
+        // Server available but returned error, fall back to mathematical generation
+        console.log('[NutritionService] 🧮 Server error, using reliable mathematical generation:', error);
+      }
+    } else {
+      // All servers unavailable/timed out, use mathematical generation
+      console.log('[NutritionService] 🧮 Servers unavailable, using mathematical generation');
+    }
+
+    // Mathematical meal plan generation (this path should not be treated as an error)
+    console.log('[NutritionService] 🧮 Using reliable mathematical generation');
     
     try {
-      // Get the active nutrition plan
       const activePlan = await this.getLatestNutritionPlan(userId);
       
       if (!activePlan) {
-        console.log('[NutritionService] No active plan found, cannot generate meal plan');
         throw new Error('No active nutrition plan found. Please create a nutrition plan first.');
       }
-      
-      // For web testing, always use mock data
-      if (Platform.OS === 'web') {
-        console.log('[NutritionService] Web mode - using mock meal plan generation');
-        return this.generateMockMealPlan(activePlan);
-      }
-      
-      // Try server API first
-      const isConnected = await this.testConnection();
-      
-      if (isConnected) {
-        try {
-          const apiUrl = `${NutritionService.API_URL}/api/generate-daily-meal-plan`;
-          console.log(`[NutritionService] Calling API: ${apiUrl}`);
-          
-          const response = await fetch(apiUrl, {
-      method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId,
-              planId: activePlan.id,
-            }),
-    });
 
-    if (!response.ok) {
-            throw new Error(`API returned ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          console.log('[NutritionService] API meal plan generation successful');
-          return data;
-        } catch (apiError) {
-          console.error('[NutritionService] API meal plan generation failed:', apiError);
-          console.log('[NutritionService] Falling back to mock meal plan');
-        }
+      console.log('[NutritionService] Generating mathematical meal plan');
+      const dailyTargets = activePlan.daily_targets;
+      const preferences = activePlan.preferences?.dietary || [];
+      const mealPlan = this.generateMathematicalMealPlan(dailyTargets, preferences);
+
+      console.log(`[NutritionService] ✅ Successfully generated ${mealPlan.length} meals using mathematical approach`);
+      return mealPlan; // This is a success, not an error!
+    } catch (fallbackError) {
+      console.error('[NutritionService] Mathematical generation failed:', fallbackError);
+      throw fallbackError; // Only throw if the mathematical approach actually fails
+    }
+  }
+
+  /**
+   * Generate AI-powered daily meal plan with recipes using user's nutrition targets
+   */
+  static async generateAIDailyMealPlan(
+    dailyCalories: number,
+    proteinGrams: number, 
+    carbsGrams: number,
+    fatGrams: number,
+    dietaryPreferences: string[] = [],
+    cuisinePreference?: string
+  ): Promise<any> {
+    console.log('[NUTRITION] Generating AI-powered daily meal plan with recipes');
+    console.log('[NUTRITION] Targets:', { dailyCalories, proteinGrams, carbsGrams, fatGrams });
+    console.log('[NUTRITION] Preferences:', { dietaryPreferences, cuisinePreference });
+    
+    try {
+      // Use the Gemini service to generate the meal plan
+      const { GeminiService } = await import('../ai/GeminiService');
+      
+      const result = await GeminiService.generateDailyMealPlan(
+        dailyCalories,
+        proteinGrams,
+        carbsGrams, 
+        fatGrams,
+        dietaryPreferences,
+        cuisinePreference
+      );
+      
+      if (result.success && result.mealPlan) {
+        console.log('[NUTRITION] Successfully generated AI meal plan with', result.mealPlan.meals.length, 'meals');
+        console.log('[NUTRITION] Cuisines used:', result.mealPlan.cuisine_variety);
+        return {
+          success: true,
+          mealPlan: result.mealPlan.meals,
+          totalNutrition: result.mealPlan.total_nutrition,
+          cuisineVariety: result.mealPlan.cuisine_variety,
+          cookingTips: result.mealPlan.cooking_tips,
+          method: 'gemini_ai',
+          aiProvider: 'gemini',
+          message: 'Daily meal plan generated successfully with AI-powered recipes and cooking instructions'
+        };
+      } else {
+        throw new Error(result.error || 'Failed to generate AI meal plan');
       }
       
-      // Fallback to mock data
-      return this.generateMockMealPlan(activePlan);
-    } catch (error) {
-      console.error('[NutritionService] Error in generateDailyMealPlan:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[NUTRITION] Error generating AI daily meal plan:', error.message);
+      
+      // Return fallback error response
+      return {
+        success: false,
+        error: error.message || 'Failed to generate AI meal plan',
+        fallback: true,
+        message: 'AI meal plan generation failed. Please try again or use the basic meal plan generator.'
+      };
     }
+  }
+
+  /**
+   * Generate mathematical meal plan based on targets and preferences
+   */
+  static generateMathematicalMealPlan(targets: any, dietaryPreferences: string[] = []): any[] {
+    console.log('[NUTRITION] Generating mathematical meal plan with targets:', targets);
+    
+    // Meal distribution percentages
+    const mealDistribution = {
+      breakfast: { calories: 0.25, protein: 0.25, carbs: 0.30, fat: 0.25 },
+      lunch: { calories: 0.35, protein: 0.35, carbs: 0.35, fat: 0.30 },
+      dinner: { calories: 0.30, protein: 0.30, carbs: 0.25, fat: 0.35 },
+      snack: { calories: 0.10, protein: 0.10, carbs: 0.10, fat: 0.10 }
+    };
+
+    // Determine template type based on dietary preferences
+    let templateType = 'standard';
+    if (dietaryPreferences.includes('vegan')) templateType = 'vegan';
+    else if (dietaryPreferences.includes('vegetarian')) templateType = 'vegetarian';
+
+    const mealPlan: any[] = [];
+    
+    Object.entries(mealDistribution).forEach(([mealType, distribution]) => {
+      const mealCalories = Math.round(targets.calories * distribution.calories);
+      const mealProtein = Math.round((targets.protein || targets.protein_grams) * distribution.protein);
+      const mealCarbs = Math.round((targets.carbs || targets.carbs_grams) * distribution.carbs);
+      const mealFat = Math.round((targets.fat || targets.fat_grams) * distribution.fat);
+      
+      // Generate meal template
+      const template = this.getMealTemplate(mealType, templateType);
+      
+      mealPlan.push({
+        meal_type: mealType,
+        recipe_name: template.name,
+        prep_time: template.prep_time,
+        cook_time: template.cook_time,
+        servings: 1,
+        ingredients: template.ingredients,
+        instructions: template.instructions,
+        macros: {
+          calories: mealCalories,
+          protein_grams: mealProtein,
+          carbs_grams: mealCarbs,
+          fat_grams: mealFat
+        }
+      });
+    });
+    
+    return mealPlan;
   }
 
   // Helper method to generate mock meal plan
@@ -1420,6 +1978,140 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     }
     
     return mockMealPlan;
+  }
+
+  /**
+   * Generate a new meal plan for a specific date using Gemini AI or fallback to mathematical calculation
+   */
+  static async generateMealPlanForDate(
+    planId: string,
+    date: string
+  ): Promise<any[]> {
+    try {
+      console.log('[NUTRITION] Generating NEW meal plan for date:', date, 'plan ID:', planId);
+      
+      // Get the nutrition plan to use its targets
+      const nutritionPlan = await this.getNutritionPlanById(planId);
+      if (!nutritionPlan) {
+        throw new Error('Nutrition plan not found');
+      }
+
+      // Try to generate using the server API (which may use Gemini)
+      try {
+        console.log('[NUTRITION] Attempting to generate meal plan via server API...');
+        
+        // Add timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+        
+        const { base, response } = await this.fetchWithBaseFallback('/api/generate-daily-meal-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: nutritionPlan.user_id,
+            date: date
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.meal_plan && data.meal_plan.length > 0) {
+            console.log('[NUTRITION] ✅ Generated meal plan via server API');
+            
+            // Transform server API response to match expected UI format
+            const transformedServerMealPlan = data.meal_plan.map((meal: any) => ({
+              id: `${meal.meal_type}_${Date.now()}`,
+              meal_type: meal.meal_type,
+              meal_description: meal.recipe_name, // Map recipe_name to meal_description for UI
+              calories: meal.macros?.calories || meal.calories,
+              protein_grams: meal.macros?.protein_grams || meal.protein_grams,
+              carbs_grams: meal.macros?.carbs_grams || meal.carbs_grams,
+              fat_grams: meal.macros?.fat_grams || meal.fat_grams,
+              prep_time: meal.prep_time,
+              cook_time: meal.cook_time,
+              servings: meal.servings,
+              ingredients: meal.ingredients,
+              instructions: meal.instructions,
+              // Keep original structure for compatibility
+              recipe_name: meal.recipe_name,
+              macros: meal.macros
+            }));
+            
+            return transformedServerMealPlan;
+          }
+        } else {
+          console.log('[NUTRITION] Server API failed, falling back to mathematical generation');
+        }
+      } catch (apiError: any) {
+        console.log('[NUTRITION] API error, falling back to mathematical generation:', apiError);
+        
+        // Log specific error types for debugging
+        if (apiError.name === 'AbortError') {
+          console.log('[NUTRITION] Server API request timed out');
+        } else if (apiError.message?.includes('Network request failed')) {
+          console.log('[NUTRITION] Network connection failed');
+        } else if (apiError.message?.includes('fetch')) {
+          console.log('[NUTRITION] Fetch request failed');
+        }
+      }
+
+      // Fallback to mathematical meal plan generation
+      console.log('[NUTRITION] Using mathematical meal plan generation as fallback');
+      const mealPlan = this.generateMathematicalMealPlan(
+        nutritionPlan.daily_targets,
+        nutritionPlan.preferences?.dietary || []
+      );
+
+      // Store the generated meal plan in mock store for future retrieval
+      const existingPlanIndex = mockPlansStore.plans.findIndex(
+        plan => plan.suggestion_date === date
+      );
+      
+      if (existingPlanIndex === -1) {
+        mockPlansStore.plans.push({
+          id: `meal-plan-${date}`,
+          user_id: nutritionPlan.user_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          daily_targets: nutritionPlan.daily_targets,
+          meal_plan: mealPlan,
+          suggestion_date: date
+        });
+      } else {
+        mockPlansStore.plans[existingPlanIndex].meal_plan = mealPlan;
+      }
+
+      // Transform the meal plan data to match the expected UI format
+      const transformedMealPlan = mealPlan.map(meal => ({
+        id: `${meal.meal_type}_${Date.now()}`,
+        meal_type: meal.meal_type,
+        meal_description: meal.recipe_name, // Map recipe_name to meal_description for UI
+        calories: meal.macros.calories,
+        protein_grams: meal.macros.protein_grams,
+        carbs_grams: meal.macros.carbs_grams,
+        fat_grams: meal.macros.fat_grams,
+        prep_time: meal.prep_time,
+        cook_time: meal.cook_time,
+        servings: meal.servings,
+        ingredients: meal.ingredients,
+        instructions: meal.instructions,
+        // Keep original structure for compatibility
+        recipe_name: meal.recipe_name,
+        macros: meal.macros
+      }));
+
+      console.log('[NUTRITION] ✅ Generated mathematical meal plan with', transformedMealPlan.length, 'meals');
+      return transformedMealPlan;
+
+    } catch (error) {
+      console.error('[NUTRITION] Error generating meal plan for date:', date, error);
+      throw error;
+    }
   }
 
   static async getMealPlanForDate(
@@ -1591,7 +2283,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
   }
 
   static async analyzeBehavior(userId: string): Promise<any> {
-    const response = await fetch(`${NutritionService.API_URL}/api/analyze-behavior`, {
+    const { base, response } = await this.fetchWithBaseFallback('/api/analyze-behavior', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
@@ -1638,7 +2330,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     insight: any,
     chatHistory: any[]
   ): Promise<string> {
-    const response = await fetch(`${NutritionService.API_URL}/api/behavioral-coaching-chat`, {
+    const { base, response } = await this.fetchWithBaseFallback('/api/behavioral-coaching-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ insight, chatHistory }),

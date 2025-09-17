@@ -1,7 +1,7 @@
 # Cloudflare Workers AI Setup Guide
 
 ## Overview
-This guide will help you set up Cloudflare Workers AI for enhanced food image analysis in your SnapBodyAI application. When properly configured, Cloudflare Workers AI provides more accurate dish recognition and nutritional analysis compared to the basic fallback system.
+This guide will help you set up Cloudflare Workers AI for enhanced food image analysis in your GoFitAI application. When properly configured, Cloudflare Workers AI provides more accurate dish recognition and nutritional analysis compared to the basic fallback system.
 
 ## Current Status
 ✅ **System is working without Cloudflare** - Your food analysis works perfectly using the BasicFoodAnalyzer fallback system
@@ -43,7 +43,7 @@ This error code 7000 specifically means:
 4. Or create a custom token with these permissions:
    - **Account**: Workers AI - Read
    - **Account**: Workers AI - Edit
-5. Set token name: "SnapBodyAI Workers AI"
+5. Set token name: "GoFitAI Workers AI"
 6. Click **"Continue to summary"**
 7. Copy the generated API token (keep it secure!)
 
@@ -72,7 +72,7 @@ export CF_VISION_MODEL="@cf/llava-hf/llava-1.5-7b-hf"
 Run this test to verify your setup:
 
 ```bash
-cd /Users/ngkwanho/Desktop/SnapBodyAI
+cd /Users/ngkwanho/Desktop/GoFitAI
 node test-cloudflare-llava.js
 ```
 

@@ -95,7 +95,7 @@ export class ShareService {
       : '';
 
     // Footer
-    const footer = '\n\n🤖 Generated with SnapBodyAI - Your AI Fitness & Nutrition Coach';
+    const footer = '\n\n🤖 Generated with GoFitAI - Your AI Fitness & Nutrition Coach';
 
     return `${title}${mealType}${timing}${macros}${ingredientsList}${instructionsList}${tips}${footer}`;
   }
@@ -266,7 +266,7 @@ export class ShareService {
    */
   static generateShareableURL(recipe: Recipe): string {
     // This would be used when you have a web version
-    const baseUrl = 'https://snapbodyai.com/recipe';
+    const baseUrl = 'https://gofitai.com/recipe';
     const encodedName = encodeURIComponent(recipe.recipe_name.toLowerCase().replace(/\s+/g, '-'));
     return `${baseUrl}/${recipe.id}/${encodedName}`;
   }
@@ -281,7 +281,7 @@ export class ShareService {
     
     const summary = `🍽️ ${recipe.recipe_name}`;
     const macroInfo = calories ? ` - ${calories} cal, ${protein}g protein` : '';
-    const footer = ' 🤖 Made with SnapBodyAI';
+    const footer = ' 🤖 Made with GoFitAI';
     
     return `${summary}${macroInfo}${footer}`;
   }

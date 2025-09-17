@@ -71,7 +71,7 @@ if (cfCode === 3016 || (cfMessage && cfMessage.includes('Tensor error'))) {
 
 ### 1. **Manual Test**
 ```bash
-cd /Users/ngkwanho/Desktop/SnapBodyAI/server
+cd /Users/ngkwanho/Desktop/GoFitAI/server
 
 # Test with a problematic image that previously caused tensor errors
 curl -X POST "http://localhost:4000/api/analyze-food" \
@@ -79,7 +79,7 @@ curl -X POST "http://localhost:4000/api/analyze-food" \
 ```
 
 ### 2. **App Testing**
-1. Open the SnapBodyAI app
+1. Open the GoFitAI app
 2. Navigate to **Nutrition** → **Log Food**
 3. Take a photo or select an image from gallery
 4. Tap **"Analyze Food"**

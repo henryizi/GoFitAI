@@ -60,7 +60,7 @@ EXPO_PUBLIC_API_URL=https://gofitai-production.up.railway.app
 2. Sign in to your account
 3. Go to **Settings** → **Access Tokens**
 4. Click **"New token"**
-5. Name it "SnapBodyAI" and select **"Read"** permissions
+5. Name it "GoFitAI" and select **"Read"** permissions
 6. Copy your token → use for `HUGGINGFACE_API_TOKEN`
 
 **Note**: The Hugging Face token is optional. The simplified backend will work without it using rule-based fallbacks.

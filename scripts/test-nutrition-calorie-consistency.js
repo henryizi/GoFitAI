@@ -4,7 +4,7 @@ const axios = require('axios');
 async function testNutritionCalorieConsistency() {
   console.log('🧪 Testing Nutrition Plan Calorie Consistency\n');
 
-  const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3001';
+  const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:4000';
   
   // Test user profile
   const testProfile = {
@@ -32,8 +32,9 @@ async function testNutritionCalorieConsistency() {
     console.log(`  - Strategy: ${testProfile.fitness_strategy}`);
     console.log(`  - Goal: ${testProfile.goal_type}`);
 
-    // Calculate expected values manually for verification
-    const expectedBMR = (10 * testProfile.weight) + (6.25 * testProfile.height) - (5 * testProfile.age) + 5; // Male formula
+    // Calculate expected values manually for verification using Henry/Oxford equation (same as server)
+    // For 30-year-old male: 14.4 * weight + 3.13 * height + 113
+    const expectedBMR = 14.4 * testProfile.weight + 3.13 * testProfile.height + 113; // Henry/Oxford male formula
     const expectedTDEE = expectedBMR * 1.55; // moderately_active multiplier
     const expectedGoalCalories = expectedTDEE - 400; // cut strategy = -400 calories
     const safeGoalCalories = Math.max(1200, expectedGoalCalories); // Safety minimum

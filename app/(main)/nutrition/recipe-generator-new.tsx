@@ -136,11 +136,32 @@ const RecipeGeneratorScreen = () => {
         mealTargetPercentages[selectedMealType] ||
         1 / MEAL_TYPES.length;
 
+      // Use goal-adjusted calories from metabolic calculations
+      const goalAdjustedCalories = activePlan.metabolic_calculations?.goal_calories || 
+                                   activePlan.metabolic_calculations?.adjusted_calories || 
+                                   latestTargets.daily_calories;
+      
+      console.log('[RECIPE] Using goal-adjusted calories:', goalAdjustedCalories, 'vs base calories:', latestTargets.daily_calories);
+
+      // If using goal-adjusted calories, scale the macro targets proportionally
+      let adjustedTargets = latestTargets;
+      if (goalAdjustedCalories !== latestTargets.daily_calories) {
+        const scalingFactor = goalAdjustedCalories / latestTargets.daily_calories;
+        adjustedTargets = {
+          ...latestTargets,
+          daily_calories: goalAdjustedCalories,
+          protein_grams: Math.round(latestTargets.protein_grams * scalingFactor),
+          carbs_grams: Math.round(latestTargets.carbs_grams * scalingFactor),
+          fat_grams: Math.round(latestTargets.fat_grams * scalingFactor)
+        };
+        console.log('[RECIPE] Scaled macro targets:', adjustedTargets);
+      }
+
       const mealTargets = {
-        calories: Math.round(latestTargets.daily_calories * percentage),
-        protein: Math.round(latestTargets.protein_grams * percentage),
-        carbs: Math.round(latestTargets.carbs_grams * percentage),
-        fat: Math.round(latestTargets.fat_grams * percentage),
+        calories: Math.round(adjustedTargets.daily_calories * percentage),
+        protein: Math.round(adjustedTargets.protein_grams * percentage),
+        carbs: Math.round(adjustedTargets.carbs_grams * percentage),
+        fat: Math.round(adjustedTargets.fat_grams * percentage),
       };
 
       const ingredientsArray = ingredients

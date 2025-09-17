@@ -143,7 +143,7 @@ curl -X POST "https://your-railway-url.up.railway.app/api/analyze-food" \
 
 ## 📋 Ready to Deploy!
 
-Your SnapBodyAI server is now configured to use **only Hugging Face** for food image analysis. Simply add your Hugging Face API token to Railway and deploy!
+Your GoFitAI server is now configured to use **only Hugging Face** for food image analysis. Simply add your Hugging Face API token to Railway and deploy!
 
 🔗 **Get your token**: [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
 

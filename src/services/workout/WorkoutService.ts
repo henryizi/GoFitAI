@@ -2249,22 +2249,60 @@ export class WorkoutService {
         console.log('[WorkoutService] No active plan found');
         return null;
       }
+      
+      console.log('[WorkoutService] Active plan found:', activePlan.name, activePlan.id);
+      console.log('[WorkoutService] Active plan type:', activePlan.type);
+      console.log('[WorkoutService] Active plan weeklySchedule length:', activePlan.weeklySchedule?.length || 0);
+      if (activePlan.weeklySchedule?.length > 0) {
+        console.log('[WorkoutService] First day in schedule:', JSON.stringify(activePlan.weeklySchedule[0], null, 2));
+      }
 
       // Check if active plan has a valid UUID (skip database queries for bodybuilder plans)
       const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activePlan.id);
 
       if (!supabase || !isValidUUID) {
         console.log(`[WorkoutService] Skipping database queries for next workout session with plan ${activePlan.id} (${!supabase ? 'no supabase' : 'invalid UUID'})`);
-        // For bodybuilder plans, return a simple next session based on the local plan data
+        
+        // For local plans (bodybuilder or custom), return a simple next session based on the local plan data
         if (activePlan.weeklySchedule && activePlan.weeklySchedule.length > 0) {
-          return {
-            sessionId: `bb-session-${Date.now()}`,
-            splitName: activePlan.weeklySchedule[0].focus,
-            focusAreas: [activePlan.weeklySchedule[0].focus],
-            dayNumber: 1,
-            weekNumber: 1,
-            estimatedTime: activePlan.estimatedTimePerSession || '60 minutes'
+          console.log('[WorkoutService] Processing local plan with weekly schedule');
+          // Get completed sessions for local workout progression
+          let completedSessions: any[] = [];
+          try {
+            completedSessions = await WorkoutHistoryService.getCompletedSessions(userId);
+          } catch (error) {
+            console.log('[WorkoutService] Could not fetch completed sessions for local plan, defaulting to first day');
+          }
+          
+          // Calculate which day should be next based on completed sessions
+          const completedLocalSessions = completedSessions.filter(session => 
+            session.plan_id === activePlan.id || session.sessionId?.startsWith('local-session-')
+          );
+          
+          // Determine the next workout day index (cycle through the weekly schedule)
+          const nextDayIndex = completedLocalSessions.length % activePlan.weeklySchedule.length;
+          const nextWorkoutDay = activePlan.weeklySchedule[nextDayIndex];
+          
+          // Support both bodybuilder plans (focus) and custom plans (dayName)
+          const splitName = nextWorkoutDay.focus || nextWorkoutDay.dayName || 'Workout';
+          
+          console.log(`[WorkoutService] Next local workout: day ${nextDayIndex + 1}/${activePlan.weeklySchedule.length} - ${splitName}`);
+          
+          const nextSession = {
+            sessionId: `local-session-${Date.now()}`,
+            splitName: splitName,
+            focusAreas: [splitName],
+            dayNumber: nextDayIndex + 1,
+            weekNumber: Math.floor(completedLocalSessions.length / activePlan.weeklySchedule.length) + 1,
+            estimatedTime: activePlan.estimatedTimePerSession || activePlan.estimated_time_per_session || '60 minutes',
+            exercises: nextWorkoutDay.exercises || []
           };
+          
+          console.log('[WorkoutService] Returning next session:', JSON.stringify(nextSession, null, 2));
+          return nextSession;
+        } else {
+          console.log('[WorkoutService] No weekly schedule found in active plan');
+          console.log('[WorkoutService] Active plan structure:', JSON.stringify(activePlan, null, 2));
         }
         return null;
       }

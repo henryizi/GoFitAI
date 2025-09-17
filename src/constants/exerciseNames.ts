@@ -3,7 +3,7 @@ export interface ExerciseInfo {
   category: 'Push' | 'Pull' | 'Legs' | 'Core' | 'Cardio';
   muscleGroups: string[];
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  equipment?: 'Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Bodyweight' | 'Cable Machine' | 'Plate';
+  equipment?: 'Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Bodyweight' | 'Cable Machine' | 'Plate' | 'Machine';
 }
 
 export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
@@ -1035,6 +1035,399 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     muscleGroups: ["Full Body"],
     difficulty: "Intermediate",
     equipment: "Plate"
+  },
+
+  // Additional Hamstring Exercises (to balance muscle group distribution)
+  {
+    name: "Stiff Leg Deadlift",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes", "Lower Back"],
+    difficulty: "Intermediate",
+    equipment: "Barbell"
+  },
+  {
+    name: "Single Leg Romanian Deadlift",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes", "Core"],
+    difficulty: "Advanced",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Nordic Hamstring Curl",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Glute Ham Raise",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes"],
+    difficulty: "Advanced",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Lying Leg Curl",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Cable Pull Through",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Reverse Hyperextension",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes", "Lower Back"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Single Leg Deadlift",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Glutes", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Barbell Hip Thrust",
+    category: "Legs",
+    muscleGroups: ["Glutes", "Hamstrings"],
+    difficulty: "Intermediate",
+    equipment: "Barbell"
+  },
+  {
+    name: "Dumbbell Hip Thrust",
+    category: "Legs",
+    muscleGroups: ["Glutes", "Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Stability Ball Leg Curl",
+    category: "Legs",
+    muscleGroups: ["Hamstrings", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Eccentric Nordic Curl",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+
+  // Additional Quadricep Exercises (to balance muscle group distribution)
+  {
+    name: "Bulgarian Split Squat",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Weighted Bulgarian Split Squat",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Advanced",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Reverse Lunge",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Weighted Reverse Lunge",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Lateral Lunge",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Weighted Lateral Lunge",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Advanced",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Sissy Squat",
+    category: "Legs",
+    muscleGroups: ["Quadriceps"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Single Leg Press",
+    category: "Legs",
+    muscleGroups: ["Quadriceps", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+
+  // Additional Chest Exercises (to balance with other muscle groups)
+  {
+    name: "Decline Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Wide Grip Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Diamond Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Archer Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Single Arm Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps", "Core"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Clap Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Triceps"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Hindu Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Shoulders", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Dive Bomber Push-up",
+    category: "Chest",
+    muscleGroups: ["Chest", "Shoulders", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Chest Squeeze Press",
+    category: "Chest",
+    muscleGroups: ["Chest"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Single Arm Dumbbell Press",
+    category: "Chest",
+    muscleGroups: ["Chest", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Dumbbell Pullover",
+    category: "Chest",
+    muscleGroups: ["Chest", "Back"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Cable Crossover High",
+    category: "Chest",
+    muscleGroups: ["Chest"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Cable Crossover Low",
+    category: "Chest",
+    muscleGroups: ["Chest"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Cable Crossover Mid",
+    category: "Chest",
+    muscleGroups: ["Chest"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Single Arm Cable Fly",
+    category: "Chest",
+    muscleGroups: ["Chest", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+
+  // Additional Calf Exercises (severely lacking - only 9 currently)
+  {
+    name: "Standing Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Seated Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Single Leg Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Weighted Standing Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Weighted Seated Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Dumbbell Single Leg Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Calf Press on Leg Press",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Standing Calf Raise Machine",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Seated Calf Raise Machine",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Cable Machine"
+  },
+  {
+    name: "Donkey Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Jump Rope",
+    category: "Legs",
+    muscleGroups: ["Calves", "Core"],
+    difficulty: "Beginner",
+    equipment: "Jump Rope"
+  },
+  {
+    name: "Box Jump Calf Focus",
+    category: "Legs",
+    muscleGroups: ["Calves", "Quadriceps"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Pogo Jumps",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Ankle Hops",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Single Leg Ankle Hops",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Calf Raise to Toe Walk",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Wall Calf Stretch Hold",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Step Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Weighted Step Calf Raise",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Advanced",
+    equipment: "Dumbbell"
+  },
+  {
+    name: "Farmer's Walk on Toes",
+    category: "Legs",
+    muscleGroups: ["Calves", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Dumbbell"
   }
 ];
 
@@ -1160,4 +1553,391 @@ export const canUseOptionalWeight = (exerciseName: string): boolean => {
   }
   
   return false;
-}; 
+};
+
+// Machine Exercises - Comprehensive gym machine coverage
+const MACHINE_EXERCISES: ExerciseInfo[] = [
+  // Push Machines - Chest
+  {
+    name: "Chest Press Machine",
+    category: "Push",
+    muscleGroups: ["Chest", "Shoulders", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Incline Chest Press Machine",
+    category: "Push",
+    muscleGroups: ["Upper Chest", "Shoulders", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Decline Chest Press Machine",
+    category: "Push",
+    muscleGroups: ["Lower Chest", "Shoulders", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Pec Deck Machine",
+    category: "Push",
+    muscleGroups: ["Chest"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Chest Fly Machine",
+    category: "Push",
+    muscleGroups: ["Chest"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Push Machines - Shoulders
+  {
+    name: "Shoulder Press Machine",
+    category: "Push",
+    muscleGroups: ["Shoulders", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Lateral Raise Machine",
+    category: "Push",
+    muscleGroups: ["Shoulders"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Rear Delt Fly Machine",
+    category: "Push",
+    muscleGroups: ["Rear Delts", "Upper Back"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Push Machines - Triceps
+  {
+    name: "Tricep Extension Machine",
+    category: "Push",
+    muscleGroups: ["Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Tricep Dip Machine",
+    category: "Push",
+    muscleGroups: ["Triceps", "Chest", "Shoulders"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Pull Machines - Back
+  {
+    name: "Lat Pulldown Machine",
+    category: "Pull",
+    muscleGroups: ["Lat", "Biceps", "Rear Delts"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Wide Grip Lat Pulldown Machine",
+    category: "Pull",
+    muscleGroups: ["Lat", "Rear Delts"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Close Grip Lat Pulldown Machine",
+    category: "Pull",
+    muscleGroups: ["Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Seated Row Machine",
+    category: "Pull",
+    muscleGroups: ["Back", "Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Low Row Machine",
+    category: "Pull",
+    muscleGroups: ["Back", "Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "High Row Machine",
+    category: "Pull",
+    muscleGroups: ["Upper Back", "Rear Delts", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "T-Bar Row Machine",
+    category: "Pull",
+    muscleGroups: ["Back", "Lat", "Biceps"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Assisted Pull Up Machine",
+    category: "Pull",
+    muscleGroups: ["Lat", "Biceps", "Back"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Assisted Chin Up Machine",
+    category: "Pull",
+    muscleGroups: ["Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Pull Machines - Biceps
+  {
+    name: "Bicep Curl Machine",
+    category: "Pull",
+    muscleGroups: ["Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Preacher Curl Machine",
+    category: "Pull",
+    muscleGroups: ["Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Hammer Curl Machine",
+    category: "Pull",
+    muscleGroups: ["Biceps", "Forearms"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Leg Machines - Quadriceps
+  {
+    name: "Leg Press Machine",
+    category: "Legs",
+    muscleGroups: ["Quad", "Glutes", "Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Leg Extension Machine",
+    category: "Legs",
+    muscleGroups: ["Quad"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Hack Squat Machine",
+    category: "Legs",
+    muscleGroups: ["Quad", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Bulgarian Split Squat Machine",
+    category: "Legs",
+    muscleGroups: ["Quad", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+
+  // Leg Machines - Hamstrings
+  {
+    name: "Leg Curl Machine",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Seated Leg Curl Machine",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Lying Leg Curl Machine",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Standing Leg Curl Machine",
+    category: "Legs",
+    muscleGroups: ["Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Leg Machines - Glutes
+  {
+    name: "Hip Thrust Machine",
+    category: "Legs",
+    muscleGroups: ["Glutes", "Hamstrings"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Hip Abduction Machine",
+    category: "Legs",
+    muscleGroups: ["Glutes", "Hip Abductors"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Hip Adduction Machine",
+    category: "Legs",
+    muscleGroups: ["Hip Adductors", "Inner Thighs"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Glute Kickback Machine",
+    category: "Legs",
+    muscleGroups: ["Glutes"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Leg Machines - Calves
+  {
+    name: "Standing Calf Raise Machine",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Seated Calf Raise Machine",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Leg Press Calf Raise Machine",
+    category: "Legs",
+    muscleGroups: ["Calves"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+
+  // Core Machines
+  {
+    name: "Abdominal Crunch Machine",
+    category: "Core",
+    muscleGroups: ["Abdominal"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Rotary Torso Machine",
+    category: "Core",
+    muscleGroups: ["Obliques", "Core"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Back Extension Machine",
+    category: "Core",
+    muscleGroups: ["Lower Back", "Glutes"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Roman Chair Machine",
+    category: "Core",
+    muscleGroups: ["Lower Back", "Glutes", "Hamstrings"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Ab Coaster Machine",
+    category: "Core",
+    muscleGroups: ["Abdominal", "Core"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Captain's Chair Machine",
+    category: "Core",
+    muscleGroups: ["Abdominal", "Hip Flexors"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+
+  // Multi-Station Machines
+  {
+    name: "Smith Machine Squat",
+    category: "Legs",
+    muscleGroups: ["Quad", "Glutes", "Hamstrings"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Smith Machine Bench Press",
+    category: "Push",
+    muscleGroups: ["Chest", "Shoulders", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Smith Machine Row",
+    category: "Pull",
+    muscleGroups: ["Back", "Lat", "Biceps"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Smith Machine Shoulder Press",
+    category: "Push",
+    muscleGroups: ["Shoulders", "Triceps"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Smith Machine Deadlift",
+    category: "Pull",
+    muscleGroups: ["Back", "Glutes", "Hamstrings"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+
+  // Functional Trainer Machines
+  {
+    name: "Functional Trainer Chest Press",
+    category: "Push",
+    muscleGroups: ["Chest", "Shoulders", "Triceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Functional Trainer Row",
+    category: "Pull",
+    muscleGroups: ["Back", "Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Functional Trainer Lat Pulldown",
+    category: "Pull",
+    muscleGroups: ["Lat", "Biceps"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  }
+];
+
+// Add machine exercises to the main array
+SUPPORTED_EXERCISES.push(...MACHINE_EXERCISES); 

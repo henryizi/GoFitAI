@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
 import { formatHeightWithUnit, formatWeightWithUnit } from '../../../src/utils/unitConversions';
+import HealthDisclaimer from '../../../src/components/legal/HealthDisclaimer';
 
 import { WorkoutLocalStore } from '../../../src/services/workout/WorkoutLocalStore';
 import { track as analyticsTrack } from '../../../src/services/analytics/analytics';
@@ -58,15 +59,21 @@ const colors = {
 const planTypes = [
   {
     id: 'custom',
-    name: 'Custom Plan',
+    name: 'AI Custom Plan',
     description: 'Generate a personalized workout plan based on your profile data',
-    icon: 'account-outline'
+    icon: 'robot-outline'
   },
   {
     id: 'bodybuilder',
     name: 'Famous Bodybuilder',
     description: 'Follow a workout plan inspired by famous bodybuilders',
     icon: 'weight-lifter'
+  },
+  {
+    id: 'build-your-own',
+    name: 'Build Your Own',
+    description: 'Create your own fully customized workout plan using our exercise library',
+    icon: 'hammer-wrench'
   }
 ];
 
@@ -510,6 +517,15 @@ export default function PlanCreateScreen() {
   // Modify the showConfirmation function to bypass profile check in guest mode
   const showConfirmation = () => {
     console.log('showConfirmation called');
+    
+    // Handle "Build Your Own" option - navigate to custom workout builder
+    if (selectedPlanType === 'build-your-own') {
+      console.log('Navigating to custom workout builder');
+      analyticsTrack('custom_workout_builder_clicked', { user_id: user?.id });
+      router.push('/workout/custom-builder');
+      return;
+    }
+    
     // Validate selection if bodybuilder type is selected
     if (selectedPlanType === 'bodybuilder' && !selectedBodybuilder) {
       console.log('Validation failed: No bodybuilder selected');
@@ -912,14 +928,30 @@ export default function PlanCreateScreen() {
                   </View>
                 ) : (
                   <View style={styles.buttonContent}>
-                    <Icon name="lightning-bolt" size={18} color={colors.white} />
-                    <Text style={styles.buttonText}>Generate Plan</Text>
+                    <Icon 
+                      name={selectedPlanType === 'build-your-own' ? 'hammer-wrench' : 'lightning-bolt'} 
+                      size={18} 
+                      color={colors.white} 
+                    />
+                    <Text style={styles.buttonText}>
+                      {selectedPlanType === 'build-your-own' 
+                        ? 'Start Building' 
+                        : selectedPlanType === 'bodybuilder' 
+                          ? 'Generate Plan'
+                          : 'Generate Plan'
+                      }
+                    </Text>
                   </View>
                 )}
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.disclaimer}>By generating, you agree to the AI usage policy.</Text>
+            {/* Health Disclaimer */}
+            <View style={styles.disclaimerSection}>
+              <HealthDisclaimer variant="compact" />
+            </View>
+
+            <Text style={styles.disclaimer}>By generating, you agree to the AI usage policy and health disclaimer.</Text>
           </View>
         </ScrollView>
       </View>
@@ -1278,6 +1310,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     marginHorizontal: 8,
+  },
+  disclaimerSection: {
+    marginBottom: 16,
   },
   disclaimer: {
     color: 'rgba(255,255,255,0.5)',

@@ -182,6 +182,14 @@ const DashboardScreen = () => {
       // Get next workout session
       const nextWorkoutSession = await WorkoutService.getNextWorkoutSession(user.id);
       console.log('[DASHBOARD] Next workout session:', nextWorkoutSession);
+      console.log('[DASHBOARD] User ID:', user.id);
+      console.log('[DASHBOARD] Active plan available:', !!nextWorkoutSession);
+      if (nextWorkoutSession) {
+        console.log('[DASHBOARD] Next workout splitName:', nextWorkoutSession.splitName);
+        console.log('[DASHBOARD] Next workout estimatedTime:', nextWorkoutSession.estimatedTime);
+      } else {
+        console.log('[DASHBOARD] No next workout found - debugging getNextWorkoutSession');
+      }
       setNextWorkout(nextWorkoutSession);
       
     } catch (error) {
@@ -313,9 +321,16 @@ const DashboardScreen = () => {
     },
   ];
 
-  // Calculate nutrition progress
-  const nutritionProgress = activePlan?.daily_targets?.calories 
-    ? Math.min((todayIntake.calories / activePlan.daily_targets.calories) * 100, 100)
+  // Get goal-adjusted calories for accurate progress calculation
+  const getGoalAdjustedCalories = () => {
+    return activePlan?.metabolic_calculations?.goal_calories || 
+           activePlan?.metabolic_calculations?.adjusted_calories || 
+           activePlan?.daily_targets?.calories || 0;
+  };
+
+  // Calculate nutrition progress using goal-adjusted calories
+  const nutritionProgress = getGoalAdjustedCalories() > 0
+    ? Math.min((todayIntake.calories / getGoalAdjustedCalories()) * 100, 100)
     : 0;
 
   // Update the overview cards with real nutrition data
@@ -327,7 +342,7 @@ const DashboardScreen = () => {
       icon: 'food-apple-outline',
       color: colors.primary,
       gradient: colors.gradient as [string, string],
-      value: activePlan?.daily_targets?.calories?.toString() || '0',
+      value: getGoalAdjustedCalories().toString(),
       unit: 'kcal',
       progress: Math.round(nutritionProgress),
       route: '/nutrition',
@@ -339,7 +354,7 @@ const DashboardScreen = () => {
       icon: 'dumbbell',
       color: colors.accent,
       gradient: colors.gradientSecondary as [string, string],
-      value: nextWorkout ? nextWorkout.estimatedTime.replace(' minutes', '').replace(' minute', '') : '0',
+      value: nextWorkout ? nextWorkout.estimatedTime.replace(' minutes', '').replace(' minute', '').replace(' min', '') : '0',
       unit: 'min',
       progress: 0, // Remove progress bar by setting to 0
       route: '/workout',

@@ -5,8 +5,8 @@ const { createClient } = require('@supabase/supabase-js');
 const GITHUB_URL = 'https://raw.githubusercontent.com/longhaul-fitness/exercises/main/strength.json';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!supabaseKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in .env');
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+if (!supabaseKey) throw new Error('Missing SUPABASE_SERVICE_KEY in .env');
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const GIPHY_API_KEY = process.env.GIPHY_API_KEY;
@@ -52,7 +52,7 @@ async function seedExercises() {
         description: ex.steps.join('\n'),
         form_tips: [],
         muscle_groups: [...ex.primaryMuscles, ...(ex.secondaryMuscles || [])],
-        category: categorizeExercise(ex.primaryMuscles[0]),
+        category: categorizeExercise(ex.primaryMuscles[0], ex.name),
         difficulty: 'intermediate',
         equipment_needed: ['bodyweight'],
         rpe_recommendation: null,
@@ -104,19 +104,37 @@ async function seedExercises() {
   }
 }
 
-function categorizeExercise(primaryMuscle) {
-  if (!primaryMuscle) return 'Other';
+function categorizeExercise(primaryMuscle, exerciseName = '') {
+  if (!primaryMuscle) return 'accessory';
+  
   const muscle = primaryMuscle.toLowerCase();
+  const name = exerciseName.toLowerCase();
   
-  const pushMuscles = ['chest', 'shoulders', 'triceps'];
-  const pullMuscles = ['back', 'biceps', 'traps'];
-  const legMuscles = ['quadriceps', 'hamstrings', 'glutes', 'calves'];
-
-  if (pushMuscles.some(m => muscle.includes(m))) return 'Push';
-  if (pullMuscles.some(m => muscle.includes(m))) return 'Pull';
-  if (legMuscles.some(m => muscle.includes(m))) return 'Legs';
+  // Compound exercises - multi-joint movements
+  const compoundKeywords = [
+    'squat', 'deadlift', 'press', 'row', 'pull-up', 'chin-up', 'dip',
+    'lunge', 'clean', 'snatch', 'thruster', 'burpee', 'turkish get-up'
+  ];
   
-  return 'Core';
+  // Check if it's a compound movement
+  if (compoundKeywords.some(keyword => name.includes(keyword))) {
+    return 'compound';
+  }
+  
+  // Multi-muscle movements are typically compound
+  const compoundMuscles = ['chest', 'back', 'shoulders', 'legs', 'quadriceps', 'hamstrings', 'glutes'];
+  if (compoundMuscles.some(m => muscle.includes(m))) {
+    return 'compound';
+  }
+  
+  // Isolation exercises - single joint/muscle focus
+  const isolationMuscles = ['biceps', 'triceps', 'calves', 'forearms'];
+  if (isolationMuscles.some(m => muscle.includes(m))) {
+    return 'isolation';
+  }
+  
+  // Default to accessory for smaller muscle groups and core work
+  return 'accessory';
 }
 
 seedExercises(); 

@@ -1,4 +1,4 @@
--- SnapBodyAI Profile Table Cleanup Script
+-- GoFitAI Profile Table Cleanup Script
 -- This script removes redundant and legacy fields from the profiles table
 -- Run this in your Supabase SQL editor
 
@@ -55,6 +55,13 @@ SELECT
 FROM profiles 
 GROUP BY fitness_strategy
 ORDER BY user_count DESC;
+
+
+
+
+
+
+
 
 
 

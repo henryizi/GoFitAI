@@ -97,10 +97,12 @@ const PlanCreateScreen = () => {
       const fitnessStrategy = profile.fitness_strategy;
 
       // Determine goal based on primary_goal or fitness_strategy
-      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut') {
+      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut' || fitnessStrategy === 'fat_loss') {
         setSelectedGoal('fat_loss');
-      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk') {
+      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk' || fitnessStrategy === 'muscle_gain') {
         setSelectedGoal('muscle_gain');
+      } else if (fitnessStrategy === 'recomp') {
+        setSelectedGoal('body_recomposition'); // Map recomp strategy to body_recomposition goal
       } else {
         setSelectedGoal('maintenance');
       }
@@ -210,7 +212,7 @@ const PlanCreateScreen = () => {
       // Show a user-friendly error message
       Alert.alert(
         'Error',
-        'Failed to generate nutrition plan. Please check your internet connection and try again.',
+        'Failed to generate nutrition plan. Please try again.',
         [{ text: 'OK' }]
       );
     }

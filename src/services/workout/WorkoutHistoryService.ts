@@ -741,6 +741,69 @@ export class WorkoutHistoryService {
   /**
    * Save workout history entry with complete data for permanent storage
    */
+  /**
+   * Save custom workout history (for workouts not from database plans)
+   */
+  static async saveCustomWorkoutHistory(historyData: {
+    user_id: string;
+    plan_name: string;
+    session_name: string;
+    completed_at: string;
+    duration_minutes?: number;
+    total_sets?: number;
+    total_exercises?: number;
+    estimated_calories?: number | null;
+    notes?: string;
+    exercises_data?: any;
+  }): Promise<boolean> {
+    console.log(`[WorkoutHistoryService] Saving custom workout history: ${historyData.session_name}`);
+    
+    // Check if supabase client is available
+    if (!supabase) {
+      console.error('[WorkoutHistoryService] Supabase client not initialized. Check environment variables.');
+      return false;
+    }
+    
+    try {
+      // Create enhanced history data with permanent information for custom workouts
+      const enhancedHistoryData = {
+        user_id: historyData.user_id,
+        plan_id: null, // No database plan for custom workouts
+        session_id: null, // No database session for custom workouts
+        completed_at: historyData.completed_at,
+        duration_minutes: historyData.duration_minutes,
+        total_sets: historyData.total_sets,
+        total_exercises: historyData.total_exercises,
+        estimated_calories: historyData.estimated_calories,
+        notes: historyData.notes,
+        // Permanent storage fields for custom workouts
+        plan_name: historyData.plan_name,
+        session_name: historyData.session_name,
+        week_number: null, // Custom workouts don't have week/day structure
+        day_number: null,
+        exercises_data: historyData.exercises_data || null
+      };
+
+      const { data, error } = await supabase
+        .from('workout_history')
+        .insert([enhancedHistoryData])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('[WorkoutHistoryService] Error saving custom workout history:', error);
+        return false;
+      }
+      
+      console.log(`[WorkoutHistoryService] Successfully saved custom workout history with ID: ${data?.id}`);
+      console.log(`[WorkoutHistoryService] Custom workout: "${historyData.plan_name}" - "${historyData.session_name}", ${historyData.total_exercises} exercises, ${historyData.total_sets} sets, ${historyData.estimated_calories} calories`);
+      return true;
+    } catch (error) {
+      console.error(`[WorkoutHistoryService] Error saving custom workout history:`, error);
+      return false;
+    }
+  }
+
   static async saveWorkoutHistory(historyData: {
     user_id: string;
     plan_id: string;
