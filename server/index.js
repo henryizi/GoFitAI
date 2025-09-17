@@ -1,5 +1,5 @@
 console.log('--- SERVER RESTARTED ---');
-console.log('--- Code version: 2.9.1 - Mathematical calculations only, no AI ---');
+console.log('--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---');
 
 // Load environment variables
 require('dotenv').config();
@@ -48,7 +48,6 @@ const { z } = require('zod');
 const path = require('path');
 const GeminiVisionService = require('./services/geminiVisionService.js');
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
-const DeepSeekService = require('./services/deepSeekService.js');
 const GeminiTextService = require('./services/geminiTextService.js');
 
 // Helper function to get local IP address
@@ -795,29 +794,15 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 // AI Provider Configuration with Fallbacks
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-// OpenRouter removed - using DeepSeek only
-
-// DeepSeek native API
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
+// AI configuration - using Gemini only
 
 // Gemini Vision API configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
 
 // Warn if keys are missing
-if (!DEEPSEEK_API_KEY) {
-  console.warn('[CONFIG] DEEPSEEK_API_KEY is not set. DeepSeek provider will be disabled.');
-}
 if (!GEMINI_API_KEY) {
   console.warn('[CONFIG] GEMINI_API_KEY is not set. Gemini provider will be disabled.');
-}
-const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || process.env.EXPO_PUBLIC_DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
-// Force DeepSeek V3.1 for chat by default unless overridden
-// Safeguard: Ensure we never use vision models for chat API
-let DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || process.env.EXPO_PUBLIC_DEEPSEEK_MODEL || 'deepseek-chat';
-if (DEEPSEEK_MODEL.includes('vl') || DEEPSEEK_MODEL.includes('vision')) {
-  console.warn(`[CONFIG] Vision model detected (${DEEPSEEK_MODEL}), forcing to deepseek-chat for compatibility`);
-  DEEPSEEK_MODEL = 'deepseek-chat';
 }
 
 // Vision services: Gemini (primary) only
@@ -856,22 +841,7 @@ if (FOOD_ANALYZE_PROVIDER === 'gemini' && GEMINI_API_KEY) {
 const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // Initialize AI services for recipe generation
-let deepSeekService = null;
 let geminiTextService = null;
-
-// Initialize DeepSeek service
-if (process.env.DEEPSEEK_API_KEY) {
-  console.log('[AI SERVICE] Initializing DeepSeek Service');
-  try {
-    deepSeekService = new DeepSeekService(process.env.DEEPSEEK_API_KEY);
-  } catch (error) {
-    console.error('[AI SERVICE] Failed to initialize DeepSeek Service:', error.message);
-    deepSeekService = null;
-  }
-} else {
-  console.log('[AI SERVICE] DeepSeek API key not configured');
-  deepSeekService = null;
-}
 
 // Initialize Gemini Text service
 if (GEMINI_API_KEY) {
@@ -887,30 +857,12 @@ if (GEMINI_API_KEY) {
   geminiTextService = null;
 }
 
-// AI Provider Priority List (DeepSeek first)
-const AI_DEEPSEEK_ONLY = String(process.env.AI_DEEPSEEK_ONLY || '').toLowerCase() === 'true';
-const AI_STRICT_ONLY = String(process.env.AI_STRICT_ONLY || '').toLowerCase() === 'true';
-const AI_STRICT_EFFECTIVE = AI_DEEPSEEK_ONLY || AI_STRICT_ONLY;
+// AI Provider Priority List (Gemini only)
 const AI_PROVIDERS = [
-  {
-    name: 'deepseek',
-    apiKey: DEEPSEEK_API_KEY,
-    apiUrl: DEEPSEEK_API_URL,
-    model: DEEPSEEK_MODEL,
-    enabled: !!DEEPSEEK_API_KEY
-  },
-  // OpenRouter removed - using DeepSeek only
-  {
-    name: 'openai',
-    apiKey: OPENAI_API_KEY,
-    apiUrl: 'https://api.openai.com/v1/chat/completions',
-    model: OPENAI_MODEL,
-    enabled: !!OPENAI_API_KEY
-  },
   {
     name: 'gemini',
     apiKey: GEMINI_API_KEY,
-    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    apiUrl: null, // Gemini uses SDK, not direct API calls
     model: GEMINI_MODEL,
     enabled: !!GEMINI_API_KEY
   },
@@ -923,9 +875,7 @@ const AI_PROVIDERS = [
   }
 ]
   // Filter to enabled providers first
-  .filter(provider => provider.enabled)
-  // Enforce DeepSeek-only if requested
-  .filter(provider => (AI_DEEPSEEK_ONLY ? provider.name === 'deepseek' : true));
+  .filter(provider => provider.enabled);
 
 // Validate provider configurations
 function isValidUrl(string) {
@@ -945,21 +895,19 @@ AI_PROVIDERS.forEach(provider => {
   }
 });
 
-// Default provider (prefer DeepSeek if available, then Gemini); enforce deepseek when AI_DEEPSEEK_ONLY
-const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'deepseek')?.name ||
-                        AI_PROVIDERS.find(p => p.name === 'gemini')?.name ||
-                        AI_PROVIDERS[0]?.name || 'deepseek';
-const AI_PROVIDER = AI_DEEPSEEK_ONLY ? 'deepseek' : (process.env.AI_PROVIDER || DEFAULT_PROVIDER);
+// Default provider (Gemini only)
+const DEFAULT_PROVIDER = AI_PROVIDERS.find(p => p.name === 'gemini')?.name ||
+                        AI_PROVIDERS[0]?.name || 'gemini';
+const AI_PROVIDER = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
+const AI_STRICT_EFFECTIVE = process.env.AI_STRICT_MODE === 'true';
 
 // Legacy AI configuration for backward compatibility
-const AI_API_KEY = OPENAI_API_KEY || DEEPSEEK_API_KEY;
-const AI_API_URL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.apiUrl || 'https://api.openai.com/v1/chat/completions';
-const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || OPENAI_MODEL;
+const AI_API_KEY = GEMINI_API_KEY;
+const AI_API_URL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.apiUrl;
+const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || GEMINI_MODEL;
 
 // Debug logging for API configuration
-console.log('=== API CONFIGURATION ===');
-console.log('DeepSeek-only mode:', AI_DEEPSEEK_ONLY ? 'ENABLED' : 'DISABLED');
-console.log('Strict mode (effective):', AI_STRICT_EFFECTIVE ? 'ENABLED' : 'DISABLED');
+console.log('=== AI CONFIGURATION ===');
 console.log('Available AI Providers:', AI_PROVIDERS.map(p => p.name));
 console.log('Default AI_PROVIDER:', AI_PROVIDER);
 console.log('Total providers available:', AI_PROVIDERS.length);
@@ -1373,16 +1321,10 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
       
       // Use maxTokensOverride if provided, otherwise use provider-specific defaults
       const max_tokens = maxTokensOverride ||
-                        (provider.name === 'deepseek' ? 4000 :
-                         provider.name === 'gemini' ? 4000 :
+                        (provider.name === 'gemini' ? 4000 :
                          provider.name === 'fallback' ? 1000 : 2000);
     
-    // Safeguard: Ensure DeepSeek never uses vision models
     let modelToUse = provider.model;
-    if (provider.name === 'deepseek' && (modelToUse.includes('vl') || modelToUse.includes('vision'))) {
-      console.warn(`[AI] Vision model detected (${modelToUse}), forcing to deepseek-chat for compatibility`);
-      modelToUse = 'deepseek-chat';
-    }
     
     const requestBody = {
         model: modelToUse,
@@ -2690,10 +2632,8 @@ INSPIRATION EXAMPLES:
 
 Generate a complete, nutritionally balanced daily meal plan now!`;
 
-    // Call Gemini AI
-    const result = await geminiTextService.generateContentWithRetry([prompt]);
-    const response = await result.response;
-    const text = response.text();
+    // Call Gemini AI using the working generateText method
+    const text = await geminiTextService.generateText(prompt);
 
     console.log('[GEMINI MEAL PLAN] Raw response length:', text.length);
     console.log('[GEMINI MEAL PLAN] Response preview:', text.substring(0, 200) + '...');
@@ -2758,32 +2698,6 @@ Generate a complete, nutritionally balanced daily meal plan now!`;
   }
 }
 
-/**
- * Generate a personalized meal plan using DeepSeek AI
- */
-async function generateDeepSeekMealPlan(targets, dietaryPreferences = []) {
-  console.log('[DEEPSEEK MEAL PLAN] Starting AI generation with targets:', targets);
-  console.log('[DEEPSEEK MEAL PLAN] Dietary preferences:', dietaryPreferences);
-
-  try {
-    if (!deepSeekService) {
-      throw new Error('DeepSeek service is not available');
-    }
-
-    const mealPlan = await deepSeekService.generateMealPlan(targets, dietaryPreferences);
-    
-    if (!mealPlan || !Array.isArray(mealPlan) || mealPlan.length === 0) {
-      throw new Error('DeepSeek returned invalid meal plan');
-    }
-
-    console.log('[DEEPSEEK MEAL PLAN] ✅ Successfully generated meal plan with', mealPlan.length, 'meals');
-    return mealPlan;
-
-  } catch (error) {
-    console.error('[DEEPSEEK MEAL PLAN] ❌ Error generating meal plan:', error.message);
-    throw error;
-  }
-}
 
 /**
  * Generate a mathematical meal plan based on target macros (no AI)
@@ -2791,12 +2705,15 @@ async function generateDeepSeekMealPlan(targets, dietaryPreferences = []) {
  */
 function generateMathematicalMealPlan(targets, dietaryPreferences = []) {
   console.log('[MEAL PLAN] generateMathematicalMealPlan called with targets:', targets);
-  console.log('[MEAL PLAN] Accessing properties: daily_calories:', targets.daily_calories, 'protein_grams:', targets.protein_grams, 'carbs_grams:', targets.carbs_grams, 'fat_grams:', targets.fat_grams);
-
-  const totalCalories = targets.daily_calories;
-  const totalProtein = targets.protein_grams;
-  const totalCarbs = targets.carbs_grams;
-  const totalFat = targets.fat_grams;
+  
+  // Handle both old format (direct properties) and new format (daily_targets object)
+  const targetData = targets.daily_targets || targets;
+  console.log('[MEAL PLAN] Using target data:', targetData);
+  
+  const totalCalories = targetData.calories || targetData.daily_calories;
+  const totalProtein = targetData.protein_grams;
+  const totalCarbs = targetData.carbs_grams;
+  const totalFat = targetData.fat_grams;
 
   console.log('[MEAL PLAN] Extracted values: calories:', totalCalories, 'protein:', totalProtein, 'carbs:', totalCarbs, 'fat:', totalFat);
 
@@ -3047,7 +2964,12 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
           const calorieAdjustmentReason = goalAdjustmentResult.adjustmentReason;
 
     // Calculate strategy-based macro targets
-          const macroRatios = getMacroRatiosForStrategy(profile.fitness_strategy || 'maintenance');
+    // Prioritize primary_goal for macro ratios when it conflicts with fitness_strategy
+    let macroStrategy = profile.fitness_strategy || 'maintenance';
+    if (profile.primary_goal === 'muscle_gain' && profile.fitness_strategy === 'recomp') {
+      macroStrategy = 'muscle_gain'; // Use muscle_gain macros for better muscle building
+    }
+          const macroRatios = getMacroRatiosForStrategy(macroStrategy);
     const dailyTargets = {
       calories: Math.round(adjustedCalories),
       protein: Math.round((adjustedCalories * macroRatios.protein / 100) / 4),
@@ -3114,7 +3036,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
           .insert({
             user_id: profile.user_id,
             plan_name: mockPlanName,
-            goal_type: profile.goal_type,
+            goal_type: profile.primary_goal,
             status: 'active',
             preferences: {
               dietary: preferences || [],
@@ -3165,7 +3087,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
           id: savedPlan.id,
           plan_name: mockPlanName,
           user_id: profile.user_id,
-          goal_type: profile.goal_type,
+          goal_type: profile.primary_goal,
           status: 'active',
           preferences: {
             dietary: preferences || [],
@@ -3201,7 +3123,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
       id: planId,
       plan_name: mockPlanName,
       user_id: profile.user_id || profile.id,
-      goal_type: profile.goal_type,
+      goal_type: profile.primary_goal,
       status: 'active',
       preferences: {
         dietary: preferences || [],
@@ -3362,14 +3284,14 @@ async function calculateHabitScore(userId, date) {
       // Get user's nutrition targets
       const { data: nutritionPlan } = await supabase
         .from('nutrition_plans')
-        .select('daily_calories, protein_grams')
+        .select('daily_targets')
         .eq('user_id', userId)
         .eq('status', 'active')
         .single();
 
-      if (nutritionPlan) {
-        const targetCalories = nutritionPlan.daily_calories || 2000;
-        const targetProtein = nutritionPlan.protein_grams || 150;
+      if (nutritionPlan && nutritionPlan.daily_targets) {
+        const targetCalories = nutritionPlan.daily_targets.calories || 2000;
+        const targetProtein = nutritionPlan.daily_targets.protein_grams || 150;
 
         // Calculate compliance (how close to targets)
         const calorieCompliance = Math.max(0, 1 - Math.abs(totalCalories - targetCalories) / targetCalories);
@@ -4102,7 +4024,12 @@ app.post('/api/re-evaluate-plan', async (req, res) => {
     const calorieAdjustmentReason = goalAdjustmentResult.adjustmentReason;
 
     // Calculate strategy-based macro targets
-    const macroRatios = getMacroRatiosForStrategy(fitnessStrategy || 'maintenance');
+    // Prioritize primary_goal for macro ratios when it conflicts with fitness_strategy
+    let macroStrategy = fitnessStrategy || 'maintenance';
+    if (userProfile.primary_goal === 'muscle_gain' && fitnessStrategy === 'recomp') {
+      macroStrategy = 'muscle_gain'; // Use muscle_gain macros for better muscle building
+    }
+    const macroRatios = getMacroRatiosForStrategy(macroStrategy);
     const proteinGrams = Math.round((adjustedCalories * macroRatios.protein / 100) / 4);
     const carbsGrams = Math.round((adjustedCalories * macroRatios.carbs / 100) / 4);
     const fatGrams = Math.round((adjustedCalories * macroRatios.fat / 100) / 9);
@@ -4157,6 +4084,258 @@ app.post('/api/re-evaluate-plan', async (req, res) => {
   }
 });
 
+// Helper function to build the daily meal plan prompt for Gemini
+function buildDailyMealPlanPrompt(dailyCalories, proteinGrams, carbsGrams, fatGrams, dietaryPreferences = [], cuisinePreference) {
+  const dietaryText = dietaryPreferences.length > 0 
+    ? `\nDietary restrictions/preferences: ${dietaryPreferences.join(', ')}`
+    : '';
+  
+  const cuisineText = cuisinePreference 
+    ? `\nPreferred cuisine style: ${cuisinePreference}`
+    : '\nCuisine variety: Mix of different international cuisines for variety';
+
+  return `Create a complete daily meal plan that meets these exact nutritional targets:
+
+DAILY NUTRITIONAL TARGETS:
+- Total Calories: ${dailyCalories} kcal
+- Protein: ${proteinGrams}g  
+- Carbohydrates: ${carbsGrams}g
+- Fat: ${fatGrams}g${dietaryText}${cuisineText}
+
+MEAL DISTRIBUTION REQUIREMENTS:
+- Generate 4 meals: Breakfast, Lunch, Dinner, and 1 Snack
+- Distribute calories and macros appropriately across meals
+- Each meal should be from a different cuisine/cooking style for variety
+- Each meal must include a complete recipe with cooking instructions
+
+RECIPE REQUIREMENTS FOR EACH MEAL:
+- Creative, appetizing meal names
+- Realistic prep and cook times
+- Detailed ingredient list with amounts
+- Step-by-step cooking instructions (4-6 steps minimum)
+- Accurate nutritional breakdown per ingredient
+- Practical and achievable recipes
+
+Please respond with a JSON object in this EXACT format:
+{
+  "total_nutrition": {
+    "calories": ${dailyCalories},
+    "protein": ${proteinGrams},
+    "carbs": ${carbsGrams},
+    "fat": ${fatGrams},
+    "fiber": estimated_total_fiber,
+    "sugar": estimated_total_sugar
+  },
+  "meals": [
+    {
+      "meal_type": "breakfast",
+      "name": "Creative breakfast name",
+      "cuisine": "Cuisine type (e.g., American, Mediterranean, Asian)",
+      "prep_time": 10,
+      "cook_time": 15,
+      "servings": 1,
+      "ingredients": [
+        {
+          "ingredient": "ingredient name",
+          "amount": "amount with unit",
+          "calories": ingredient_calories,
+          "protein": ingredient_protein,
+          "carbs": ingredient_carbs,
+          "fat": ingredient_fat
+        }
+      ],
+      "instructions": [
+        "Step 1: Detailed cooking instruction",
+        "Step 2: Detailed cooking instruction",
+        "Step 3: Detailed cooking instruction",
+        "Step 4: Detailed cooking instruction"
+      ],
+      "nutrition": {
+        "calories": meal_total_calories,
+        "protein": meal_total_protein,
+        "carbs": meal_total_carbs,
+        "fat": meal_total_fat,
+        "fiber": meal_estimated_fiber,
+        "sugar": meal_estimated_sugar
+      }
+    }
+  ],
+  "cuisine_variety": ["List of cuisines used"],
+  "cooking_tips": [
+    "Helpful cooking tip 1",
+    "Helpful cooking tip 2", 
+    "Helpful cooking tip 3"
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+1. The sum of all meal calories must equal ${dailyCalories} (±50 calories acceptable)
+2. The sum of all meal macros must match the targets (±5g acceptable)
+3. Each meal must be from a different cuisine for variety
+4. All recipes must be practical and achievable
+5. Include accurate nutritional estimates for each ingredient
+6. Provide detailed, step-by-step cooking instructions
+7. Respond ONLY with valid JSON, no additional text
+8. Make each meal delicious and nutritious!`;
+}
+
+// Helper function to parse Gemini's daily meal plan response
+function parseGeminiMealPlanResponse(responseText) {
+  try {
+    // Clean up the response - remove any markdown or extra text
+    let cleanResponse = responseText.trim();
+    
+    // Remove markdown code blocks if present
+    if (cleanResponse.startsWith('```json')) {
+      cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanResponse.startsWith('```')) {
+      cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Try to find JSON within the response
+    const jsonStart = cleanResponse.indexOf('{');
+    const jsonEnd = cleanResponse.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      cleanResponse = cleanResponse.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    const mealPlan = JSON.parse(cleanResponse);
+    
+    // Validate required fields
+    if (!mealPlan.total_nutrition || !mealPlan.meals || !Array.isArray(mealPlan.meals)) {
+      throw new Error('Invalid meal plan format - missing required fields');
+    }
+    
+    // Validate each meal has required fields
+    for (const meal of mealPlan.meals) {
+      if (!meal.name || !meal.ingredients || !meal.instructions || !meal.nutrition) {
+        throw new Error(`Invalid meal format - missing required fields in meal: ${meal.name || 'unnamed'}`);
+      }
+    }
+    
+    console.log('[AI MEAL PLAN] Successfully parsed meal plan with', mealPlan.meals.length, 'meals');
+    return mealPlan;
+    
+  } catch (error) {
+    console.error('[AI MEAL PLAN] Error parsing Gemini response:', error);
+    console.error('[AI MEAL PLAN] Raw response:', responseText.substring(0, 500) + '...');
+    
+    throw new Error(`Failed to parse Gemini meal plan response: ${error.message}`);
+  }
+}
+
+// NEW: AI-powered daily meal plan generation with recipes
+app.post('/api/generate-daily-meal-plan-ai', async (req, res) => {
+  console.log('[AI MEAL PLAN] Received request for AI-powered meal plan generation');
+  const { 
+    dailyCalories, 
+    proteinGrams, 
+    carbsGrams, 
+    fatGrams, 
+    dietaryPreferences = [], 
+    cuisinePreference 
+  } = req.body;
+
+  if (!dailyCalories || !proteinGrams || !carbsGrams || !fatGrams) {
+    console.log('[AI MEAL PLAN] Missing required nutrition targets');
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Daily nutrition targets are required (calories, protein, carbs, fat).' 
+    });
+  }
+
+  try {
+    console.log('[AI MEAL PLAN] Generating meal plan with Gemini AI');
+    console.log('[AI MEAL PLAN] Targets:', { dailyCalories, proteinGrams, carbsGrams, fatGrams });
+    console.log('[AI MEAL PLAN] Preferences:', { dietaryPreferences, cuisinePreference });
+
+    // Check if Gemini service is available
+    if (!geminiTextService) {
+      throw new Error('Gemini AI service is not available');
+    }
+
+    // Create targets object in the expected format
+    const targets = {
+      daily_calories: dailyCalories,
+      protein_grams: proteinGrams,
+      carbs_grams: carbsGrams,
+      fat_grams: fatGrams
+    };
+
+    // Use the working generateGeminiMealPlan function
+    const mealPlan = await generateGeminiMealPlan(targets, dietaryPreferences);
+    
+    console.log('[AI MEAL PLAN] Successfully generated meal plan with', mealPlan.length, 'meals');
+    
+    // Calculate total nutrition
+    const totalNutrition = mealPlan.reduce((total, meal) => ({
+      calories: total.calories + meal.macros.calories,
+      protein_grams: total.protein_grams + meal.macros.protein_grams,
+      carbs_grams: total.carbs_grams + meal.macros.carbs_grams,
+      fat_grams: total.fat_grams + meal.macros.fat_grams
+    }), { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 });
+
+    console.log('[AI MEAL PLAN] Total calories:', totalNutrition.calories);
+
+    res.json({
+      success: true,
+      meal_plan: mealPlan,
+      total_nutrition: totalNutrition,
+      method: 'gemini_ai',
+      aiProvider: 'gemini',
+      used_ai: true,
+      message: 'Daily meal plan generated successfully with AI-powered recipes'
+    });
+
+  } catch (error) {
+    console.error('[AI MEAL PLAN] Error generating meal plan:', error.message);
+    console.log('[AI MEAL PLAN] Falling back to mathematical meal plan generation');
+    
+    try {
+      // Fallback to mathematical meal plan generation
+      const targets = {
+        daily_calories: dailyCalories,
+        protein_grams: proteinGrams,
+        carbs_grams: carbsGrams,
+        fat_grams: fatGrams
+      };
+      
+      const fallbackMealPlan = await generateMathematicalMealPlan(targets);
+      
+      console.log('[AI MEAL PLAN] Successfully generated fallback meal plan with', fallbackMealPlan.length, 'meals');
+      
+      // Calculate total nutrition
+      const totalNutrition = fallbackMealPlan.reduce((total, meal) => ({
+        calories: total.calories + meal.macros.calories,
+        protein_grams: total.protein_grams + meal.macros.protein_grams,
+        carbs_grams: total.carbs_grams + meal.macros.carbs_grams,
+        fat_grams: total.fat_grams + meal.macros.fat_grams
+      }), { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 });
+
+      res.json({
+        success: true,
+        meal_plan: fallbackMealPlan,
+        total_nutrition: totalNutrition,
+        method: 'mathematical_fallback',
+        aiProvider: 'fallback',
+        used_ai: false,
+        message: 'Daily meal plan generated successfully using mathematical approach (AI temporarily unavailable)',
+        fallback_reason: error.message
+      });
+      
+    } catch (fallbackError) {
+      console.error('[AI MEAL PLAN] Fallback generation also failed:', fallbackError.message);
+      res.status(500).json({
+        success: false,
+        error: 'Both AI and fallback meal plan generation failed',
+        ai_error: error.message,
+        fallback_error: fallbackError.message
+      });
+    }
+  }
+});
+
 app.post('/api/generate-daily-meal-plan', async (req, res) => {
   console.log('[MEAL PLAN] Received request for user:', req.body.userId);
   const { userId } = req.body;
@@ -4164,6 +4343,93 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
     console.log('[MEAL PLAN] Missing userId in request');
     return res.status(400).json({ error: 'User ID is required.' });
   }
+
+  // Handle guest users early - skip all database operations
+  if (userId === 'guest-user') {
+    console.log('[MEAL PLAN] Guest user detected, providing default meal plan');
+    
+    // Use standard nutritional targets for an average adult
+    const defaultTargets = {
+      calories: 2000,
+      protein: 150,  // grams
+      carbs: 250,    // grams  
+      fat: 67        // grams
+    };
+
+    const mealPlan = [
+      {
+        meal_type: 'breakfast',
+        recipe_name: 'Protein Oatmeal Bowl',
+        prep_time: 5,
+        cook_time: 10,
+        servings: 1,
+        ingredients: ['Rolled oats', 'Protein powder', 'Banana', 'Almond butter', 'Milk'],
+        instructions: ['Cook oats with milk', 'Mix in protein powder', 'Top with banana and almond butter'],
+        macros: {
+          calories: 500,
+          protein_grams: 38,
+          carbs_grams: 60,
+          fat_grams: 17
+        }
+      },
+      {
+        meal_type: 'lunch', 
+        recipe_name: 'Grilled Chicken Salad',
+        prep_time: 15,
+        cook_time: 20,
+        servings: 1,
+        ingredients: ['Chicken breast', 'Mixed greens', 'Quinoa', 'Avocado', 'Olive oil dressing'],
+        instructions: ['Grill chicken breast', 'Cook quinoa', 'Assemble salad with all ingredients'],
+        macros: {
+          calories: 700,
+          protein_grams: 53,
+          carbs_grams: 70,
+          fat_grams: 20
+        }
+      },
+      {
+        meal_type: 'dinner',
+        recipe_name: 'Baked Salmon with Vegetables', 
+        prep_time: 10,
+        cook_time: 25,
+        servings: 1,
+        ingredients: ['Salmon fillet', 'Sweet potato', 'Asparagus', 'Olive oil', 'Herbs'],
+        instructions: ['Bake salmon at 400°F', 'Roast sweet potato and asparagus', 'Season with herbs'],
+        macros: {
+          calories: 600,
+          protein_grams: 45,
+          carbs_grams: 50,
+          fat_grams: 23
+        }
+      },
+      {
+        meal_type: 'snack',
+        recipe_name: 'Protein Smoothie',
+        prep_time: 5,
+        cook_time: 0,
+        servings: 1,
+        ingredients: ['Protein powder', 'Milk', 'Banana', 'Peanut butter'],
+        instructions: ['Blend all ingredients', 'Serve immediately'],
+        macros: {
+          calories: 200,
+          protein_grams: 15,
+          carbs_grams: 20,
+          fat_grams: 7
+        }
+      }
+    ];
+
+    return res.json({
+      success: true,
+      meal_plan: mealPlan,
+      used_ai: false,
+      message: 'Generated default meal plan. For personalized plans, please create a nutrition plan first.',
+      is_default: true
+    });
+  }
+
+  let currentTargets = null; // Declare at function scope
+  let currentPlan = null;    // Declare at function scope
 
   try {
     // Check if Supabase is configured
@@ -4177,7 +4443,7 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
     }
 
     // 1. Fetch user's most recent active plan
-    const { data: currentPlan, error: planError } = await supabase
+    const { data: planData, error: planError } = await supabase
       .from('nutrition_plans')
       .select('id, preferences')
       .eq('user_id', userId)
@@ -4186,9 +4452,9 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
       .limit(1)
       .single();
 
-    if (planError || !currentPlan) {
+    if (planError || !planData) {
       console.log('[MEAL PLAN] Plan query error:', planError);
-      console.log('[MEAL PLAN] Current plan data:', currentPlan);
+      console.log('[MEAL PLAN] Current plan data:', planData);
       
       // Instead of failing, generate a default meal plan with standard values
       console.log('[MEAL PLAN] No active nutrition plan found, generating default meal plan');
@@ -4203,51 +4469,124 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
       
       console.log('[MEAL PLAN] Using default nutritional targets:', defaultTargets);
       
-      // Generate meal plan using mathematical approach
-      const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+      // Create a temporary nutrition plan for this user
+      console.log('[MEAL PLAN] Creating temporary nutrition plan for user without one');
       
-      console.log('[MEAL PLAN] Generated default meal plan with', mealPlan.length, 'meals');
-      
-      return res.json({
-        success: true,
-        meal_plan: mealPlan,
-        used_ai: false,
-        message: 'Generated default meal plan. For personalized plans, please create a nutrition plan first.',
-        is_default: true
-      });
-    }
+      const tempPlanData = {
+        user_id: userId,
+        plan_name: 'Default Nutrition Plan',
+        goal_type: 'maintenance',
+        status: 'active',
+        preferences: {
+          dietary: [],
+          intolerances: []
+        },
+        daily_targets: {
+          calories: defaultTargets.daily_calories,
+          protein_grams: defaultTargets.protein_grams,
+          carbs_grams: defaultTargets.carbs_grams,
+          fat_grams: defaultTargets.fat_grams,
+          fiber_grams: 25,
+          water_liters: 2.5
+        },
+        metabolic_calculations: {
+          bmr: 1600,
+          tdee: 2000,
+          activity_multiplier: 1.25
+        },
+        micronutrients_targets: {
+          vitamin_c_mg: 90,
+          vitamin_d_iu: 600,
+          calcium_mg: 1000,
+          iron_mg: 8,
+          magnesium_mg: 400,
+          zinc_mg: 11
+        }
+      };
 
-    // Try to get targets from historical_nutrition_targets first
-    let { data: currentTargets, error: targetsError } = await supabase
-      .from('historical_nutrition_targets')
-      .select('*')
-      .eq('nutrition_plan_id', currentPlan.id)
-      .is('end_date', null)
-      .single();
-
-    // If no historical targets found, get targets from nutrition_plans.daily_targets
-    if (targetsError || !currentTargets) {
-      console.log('[MEAL PLAN] No historical targets found, fetching from nutrition_plans.daily_targets');
-      const { data: planWithTargets, error: planTargetsError } = await supabase
+      const { data: tempPlan, error: tempPlanError } = await supabase
         .from('nutrition_plans')
-        .select('daily_targets')
-        .eq('id', currentPlan.id)
+        .insert(tempPlanData)
+        .select()
         .single();
 
-      if (planTargetsError || !planWithTargets?.daily_targets) {
-        throw new Error('No nutrition targets found for your plan. Please regenerate your nutrition plan to ensure proper calorie and macro targets are set.');
+      if (tempPlanError) {
+        console.error('[MEAL PLAN] Error creating temporary nutrition plan:', tempPlanError);
+        // Fallback to returning meal plan without database storage
+        const mealPlan = generateMathematicalMealPlan(defaultTargets, []);
+        return res.json({
+          success: true,
+          meal_plan: mealPlan,
+          used_ai: false,
+          message: 'Generated default meal plan. For personalized plans, please create a nutrition plan first.',
+          is_default: true
+        });
       }
 
-      // Convert daily_targets to the expected format
+      console.log('[MEAL PLAN] Successfully created temporary nutrition plan:', tempPlan.id);
+      currentPlan = tempPlan;
+      
+      // Set current targets to the default values
       currentTargets = {
-        daily_calories: planWithTargets.daily_targets.daily_calories || planWithTargets.daily_targets.calories,
-        protein_grams: planWithTargets.daily_targets.protein_grams || planWithTargets.daily_targets.protein,
-        carbs_grams: planWithTargets.daily_targets.carbs_grams || planWithTargets.daily_targets.carbs,
-        fat_grams: planWithTargets.daily_targets.fat_grams || planWithTargets.daily_targets.fat
+        daily_calories: defaultTargets.daily_calories,
+        protein_grams: defaultTargets.protein_grams,
+        carbs_grams: defaultTargets.carbs_grams,
+        fat_grams: defaultTargets.fat_grams
       };
+      
+      console.log('[MEAL PLAN] Using default nutritional targets:', currentTargets);
+    } else {
+      // User has an existing nutrition plan
+      currentPlan = planData;
+    }
+
+    // Try to get targets from historical_nutrition_targets first (only if not already set from default plan)
+    if (!currentTargets) {
+      let { data: currentTargetsFromDB, error: targetsError } = await supabase
+        .from('historical_nutrition_targets')
+        .select('*')
+        .eq('nutrition_plan_id', currentPlan.id)
+        .is('end_date', null)
+        .single();
+
+      // If no historical targets found, get targets from nutrition_plans.daily_targets
+      if (targetsError || !currentTargetsFromDB) {
+        console.log('[MEAL PLAN] No historical targets found, fetching from nutrition_plans.daily_targets');
+        const { data: planWithTargets, error: planTargetsError } = await supabase
+          .from('nutrition_plans')
+          .select('daily_targets')
+          .eq('id', currentPlan.id)
+          .single();
+
+        if (planTargetsError || !planWithTargets?.daily_targets) {
+          throw new Error('No nutrition targets found for your plan. Please regenerate your nutrition plan to ensure proper calorie and macro targets are set.');
+        }
+
+        // Convert daily_targets to the expected format
+        currentTargets = {
+          daily_calories: planWithTargets.daily_targets.daily_calories || planWithTargets.daily_targets.calories,
+          protein_grams: planWithTargets.daily_targets.protein_grams || planWithTargets.daily_targets.protein,
+          carbs_grams: planWithTargets.daily_targets.carbs_grams || planWithTargets.daily_targets.carbs,
+          fat_grams: planWithTargets.daily_targets.fat_grams || planWithTargets.daily_targets.fat
+        };
+      } else {
+        currentTargets = currentTargetsFromDB;
+      }
     }
 
     console.log('[MEAL PLAN] Current targets object:', currentTargets);
+    
+    // DEBUG: Let's check what macro percentages these targets represent
+    if (currentTargets.daily_calories) {
+      const carbPercent = Math.round((currentTargets.carbs_grams * 4 / currentTargets.daily_calories) * 100);
+      const proteinPercent = Math.round((currentTargets.protein_grams * 4 / currentTargets.daily_calories) * 100);  
+      const fatPercent = Math.round((currentTargets.fat_grams * 9 / currentTargets.daily_calories) * 100);
+      console.log('[MEAL PLAN] 🧮 Target macro percentages:');
+      console.log('  Carbs:', carbPercent + '%', '(' + currentTargets.carbs_grams + 'g)');
+      console.log('  Protein:', proteinPercent + '%', '(' + currentTargets.protein_grams + 'g)');
+      console.log('  Fat:', fatPercent + '%', '(' + currentTargets.fat_grams + 'g)');
+      console.log('  Total:', carbPercent + proteinPercent + fatPercent + '%');
+    }
     console.log('[MEAL PLAN] Generating mathematical meal plan with targets:', {
       calories: currentTargets.daily_calories,
       protein: currentTargets.protein_grams,
@@ -4266,58 +4605,49 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
     console.log('  carbs_grams:', currentTargets.carbs_grams, typeof currentTargets.carbs_grams);
     console.log('  fat_grams:', currentTargets.fat_grams, typeof currentTargets.fat_grams);
     
-    // Try to generate meal plan using AI first
+    // PRIORITIZE AI GENERATION (GEMINI)
     let mealPlan = null;
     let usedAI = false;
+    let aiProvider = 'none';
     
-    // Get available AI providers in priority order
+    console.log('[MEAL PLAN] 🤖 Attempting AI meal plan generation (Gemini primary)');
+    
+    // Try AI providers first
     const availableProviders = [];
-    if (deepSeekService) availableProviders.push('deepseek');
     if (geminiTextService) availableProviders.push('gemini');
     
-    // Prioritize the configured AI_PROVIDER
-    let providersToTry = [];
-    if (availableProviders.includes(AI_PROVIDER)) {
-      providersToTry = [AI_PROVIDER, ...availableProviders.filter(p => p !== AI_PROVIDER)];
-    } else {
-      providersToTry = availableProviders;
-    }
-    
     console.log(`[MEAL PLAN] Available AI providers: [${availableProviders.join(', ')}]`);
-    console.log(`[MEAL PLAN] Primary provider: ${AI_PROVIDER}`);
-    console.log(`[MEAL PLAN] Will try providers in order: [${providersToTry.join(', ')}]`);
     
-    // Try each AI provider in order
-    for (const provider of providersToTry) {
+    // Try Gemini AI generation
+    for (const provider of availableProviders) {
       if (mealPlan && mealPlan.length > 0) break; // Stop if we got a successful meal plan
       
       try {
-        console.log(`[MEAL PLAN] 🤖 Attempting to generate meal plan using ${provider.toUpperCase()} AI`);
+        console.log(`[MEAL PLAN] 🤖 Attempting ${provider.toUpperCase()} AI generation`);
         
-        if (provider === 'deepseek') {
-          mealPlan = await generateDeepSeekMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
-        } else if (provider === 'gemini') {
+        if (provider === 'gemini') {
           mealPlan = await generateGeminiMealPlan(currentTargets, currentPlan.preferences?.dietary || []);
         }
         
         if (mealPlan && mealPlan.length > 0) {
           console.log(`[MEAL PLAN] ✅ Successfully generated ${provider.toUpperCase()} AI meal plan with`, mealPlan.length, 'meals');
           usedAI = true;
+          aiProvider = provider;
           break; // Success! Exit the loop
         }
       } catch (aiError) {
-        console.log(`[MEAL PLAN] ❌ ${provider.toUpperCase()} AI generation failed:`, aiError.message);
-        if (provider === providersToTry[providersToTry.length - 1]) {
-          console.log('[MEAL PLAN] All AI providers failed, falling back to mathematical generation');
+        console.error(`[MEAL PLAN] ${provider.toUpperCase()} generation failed:`, aiError.message);
+        if (provider === availableProviders[availableProviders.length - 1]) {
+          console.log('[MEAL PLAN] All AI providers failed, will use mathematical fallback');
         } else {
           console.log(`[MEAL PLAN] Will try next AI provider...`);
         }
       }
     }
     
-    // Fallback to mathematical generation if AI failed or not configured
+    // Fallback to mathematical generation if AI failed
     if (!mealPlan || mealPlan.length === 0) {
-      console.log('[MEAL PLAN] 🧮 Using mathematical meal plan generation');
+      console.log('[MEAL PLAN] 🧮 Using mathematical meal plan generation as fallback');
       
       // Validate and transform targets to prevent 500 errors
       const validateAndTransformTargets = (currentTargets) => {
@@ -4433,8 +4763,10 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
       meal_plan: newSuggestions,
       plan_id: currentPlan.id,
       generated_at: new Date().toISOString(),
-      generation_method: usedAI ? 'gemini_ai' : 'mathematical',
-      ai_generated: usedAI
+      generation_method: usedAI ? `${aiProvider}_ai` : 'mathematical',
+      ai_provider: aiProvider,
+      ai_generated: usedAI,
+      used_ai: usedAI
     });
   } catch (error) {
     console.error('[GENERATE MEAL PLAN] Error:', error);
@@ -5602,7 +5934,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     provider: AI_PROVIDER,
     model: CHAT_MODEL,
-    version: '2.9.2-fix-404',
+    version: '4.0.0-gemini-only',
     deployment_time: new Date().toISOString()
   });
 });
@@ -5616,7 +5948,7 @@ app.get('/api/debug-env', (req, res) => {
       EXPO_PUBLIC_SUPABASE_URL_length: process.env.EXPO_PUBLIC_SUPABASE_URL?.length || 0,
       SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
       SUPABASE_SERVICE_KEY_length: process.env.SUPABASE_SERVICE_KEY?.length || 0,
-      DEEPSEEK_API_KEY: !!process.env.DEEPSEEK_API_KEY,
+      GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
       supabase_client: !!supabase,
       node_env: process.env.NODE_ENV
     }
@@ -5675,7 +6007,7 @@ app.get('/api/test', (req, res) => {
     timestamp,
     environment: {
       node_version: process.version,
-      deepseek_api_configured: !!DEEPSEEK_API_KEY,
+      gemini_api_configured: !!GEMINI_API_KEY,
       openai_configured: !!OPENAI_API_KEY,
       server_port: port,
       server_ip: getLocalIpAddress(),
@@ -5766,7 +6098,6 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     
     // Get available AI providers in priority order
     const availableProviders = [];
-    if (deepSeekService) availableProviders.push('deepseek');
     if (geminiTextService) availableProviders.push('gemini');
     
     // Prioritize the configured AI_PROVIDER
@@ -5790,7 +6121,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       
       try {
         console.log(`[WORKOUT] 🤖 Attempting workout generation using ${provider.toUpperCase()}`);
-        console.log(`[WORKOUT] Current ${provider.toUpperCase()}_MODEL:`, provider === 'gemini' ? GEMINI_MODEL : 'deepseek-chat');
+        console.log(`[WORKOUT] Current ${provider.toUpperCase()}_MODEL:`, provider === 'gemini' ? GEMINI_MODEL : 'unknown');
         console.log(`[WORKOUT] Current provider config:`, JSON.stringify(getProviderConfig(provider), null, 2));
         
         aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, provider);
@@ -6357,7 +6688,7 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           geminiRequestBody,
           {
             headers: { 'Content-Type': 'application/json' },
-            timeout: 30000
+            timeout: 5000 // 5 second timeout for fast fallback
           }
         );
 
@@ -6642,7 +6973,6 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
     console.log('[TEST AI] Dietary preferences:', dietaryPreferences);
     console.log('[TEST AI] AI_PROVIDER:', AI_PROVIDER);
     console.log('[TEST AI] geminiTextService available:', !!geminiTextService);
-    console.log('[TEST AI] deepSeekService available:', !!deepSeekService);
     console.log('[TEST AI] Available providers:', AI_PROVIDERS?.map(p => `${p.name}:${p.enabled}`).join(', '));
     
     // Try to generate meal plan using Gemini AI directly
@@ -6651,7 +6981,6 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
     
     // Get available AI providers in priority order
     const availableProviders = [];
-    if (deepSeekService) availableProviders.push('deepseek');
     if (geminiTextService) availableProviders.push('gemini');
     
     // Prioritize the configured AI_PROVIDER
@@ -6673,9 +7002,7 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
       try {
         console.log(`[TEST AI] 🤖 Attempting direct ${provider.toUpperCase()} AI generation`);
         
-        if (provider === 'deepseek') {
-          mealPlan = await generateDeepSeekMealPlan(targets, dietaryPreferences);
-        } else if (provider === 'gemini') {
+        if (provider === 'gemini') {
           mealPlan = await generateGeminiMealPlan(targets, dietaryPreferences);
         }
         
@@ -6726,7 +7053,7 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();
-  console.log(`SnapBodyAI Server v2.0 running on port ${port}`);
+  console.log(`GoFitAI Server v2.0 running on port ${port}`);
   console.log(`Local IP: ${localIp}`);
   console.log(`Server URL: http://${localIp}:${port}`);
   console.log(`Test API with: curl http://${localIp}:${port}/api/test`);
@@ -6918,6 +7245,15 @@ app.post('/api/generate-recipe', async (req, res) => {
     console.log(`[RECIPE GENERATION] Ingredients: ${ingredients.join(', ')}`);
     console.log(`[RECIPE GENERATION] Strict mode: ${strict ? 'enabled' : 'disabled'}`);
     
+    // Get available AI providers in priority order
+    const availableProviders = [];
+    if (geminiTextService) availableProviders.push('gemini');
+    
+    console.log(`[RECIPE GENERATION] Available AI providers: [${availableProviders.join(', ')}]`);
+    
+    // Define AI_STRICT_EFFECTIVE locally to ensure availability
+    const AI_STRICT_EFFECTIVE = process.env.AI_STRICT_MODE === 'true';
+    
     try {
       // Try to generate recipe using AI services
       console.log(`[RECIPE GENERATION] Trying ${AI_PROVIDER} for recipe generation`);
@@ -6925,33 +7261,11 @@ app.post('/api/generate-recipe', async (req, res) => {
       let recipe = null;
       let aiError = null;
       
-      // Use appropriate AI service based on provider
-      if (AI_PROVIDER === 'deepseek' && deepSeekService) {
-        try {
-          // Add timeout for recipe generation
-          const RECIPE_TIMEOUT = 35000; // 35 seconds for recipe generation
-          const recipePromise = deepSeekService.generateRecipe(mealType, targets, ingredients);
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Recipe generation timeout')), RECIPE_TIMEOUT);
-          });
-          
-          recipe = await Promise.race([recipePromise, timeoutPromise]);
-          if (recipe) {
-            console.log(`[DEEPSEEK] ✅ Recipe generated successfully: ${recipe.recipe_name || recipe.name}`);
-            console.log(`[RECIPE GENERATION] ✅ Recipe generated successfully using deepseek`);
-            console.log(`[RECIPE GENERATION] Returning recipe: ${recipe.recipe_name || recipe.name}`);
-            return res.json({ success: true, recipe: attachPerIngredientMacros(recipe), fallback: false });
-          }
-        } catch (error) {
-          aiError = error;
-          console.log(`[DEEPSEEK] ❌ Failed: ${error.message}`);
-        }
-      }
       
       if (AI_PROVIDER === 'gemini' && geminiTextService) {
         try {
-          // Add timeout for recipe generation
-          const RECIPE_TIMEOUT = 35000; // 35 seconds for recipe generation
+          // Add timeout for recipe generation (should be longer than Gemini's internal timeout)
+          const RECIPE_TIMEOUT = 80000; // 80 seconds for recipe generation (allows for 60s + retry overhead)
           const recipePromise = geminiTextService.generateRecipe(mealType, targets, ingredients);
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Recipe generation timeout')), RECIPE_TIMEOUT);
@@ -6977,9 +7291,7 @@ app.post('/api/generate-recipe', async (req, res) => {
           try {
             console.log(`[RECIPE GENERATION] Trying fallback provider: ${provider}`);
             
-            if (provider === 'deepseek' && deepSeekService) {
-              recipe = await deepSeekService.generateRecipe(mealType, targets, ingredients);
-            } else if (provider === 'gemini' && geminiTextService) {
+            if (provider === 'gemini' && geminiTextService) {
               recipe = await geminiTextService.generateRecipe(mealType, targets, ingredients);
             }
             
