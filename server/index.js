@@ -3241,6 +3241,12 @@ app.post('/api/update-meal', async (req, res) => {
 
 // Helper function to calculate habit score
 async function calculateHabitScore(userId, date) {
+  // Handle guest users - return default score
+  if (userId === 'guest-user') {
+    console.log('[HABIT SCORE] Guest user detected, returning default score');
+    return 0;
+  }
+
   try {
     let totalScore = 0;
 
@@ -3396,6 +3402,16 @@ app.post('/api/log-daily-metric', async (req, res) => {
     return res.status(400).json({ error: 'Missing required parameters.' });
   }
 
+  // Handle guest users - return success without database operations
+  if (userId === 'guest-user') {
+    console.log('[LOG METRIC] Guest user detected, returning success without database operations');
+    return res.json({ 
+      success: true, 
+      message: 'Metrics logged successfully',
+      habitScore: 0
+    });
+  }
+
   try {
     let trendWeight = null;
 
@@ -3501,6 +3517,12 @@ app.get('/api/recent-nutrition/:userId', async (req, res) => {
 
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required.' });
+  }
+
+  // Handle guest users - return empty data
+  if (userId === 'guest-user') {
+    console.log('[RECENT NUTRITION] Guest user detected, returning empty data');
+    return res.json({ success: true, data: [] });
   }
 
   try {
