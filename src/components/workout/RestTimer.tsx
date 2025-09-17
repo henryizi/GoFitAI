@@ -27,23 +27,48 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
 
   useEffect(() => {
     if (isPaused) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       return;
     }
 
-    if (secondsLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setSecondsLeft((prev) => prev - 1);
-      }, 1000);
-    } else {
+    if (secondsLeft <= 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       Vibration.vibrate(500);
       onFinish();
+      return;
+    }
+
+    // Only create interval if one doesn't exist
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        setSecondsLeft((prev) => {
+          const newValue = prev - 1;
+          if (newValue <= 0) {
+            // Clear interval when timer reaches zero
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+            return 0;
+          }
+          return newValue;
+        });
+      }, 1000);
     }
     
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [secondsLeft, isPaused]);
+  }, [isPaused, secondsLeft, onFinish]);
 
   const dashOffset = useMemo(() => {
     return CIRCUMFERENCE * (1 - secondsLeft / duration);
