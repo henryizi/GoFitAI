@@ -44,6 +44,7 @@ export default function SessionExecutionScreen() {
   const [resting, setResting] = useState(false);
   const [sessionProgress, setSessionProgress] = useState(0);
   const [estimatedCalories, setEstimatedCalories] = useState<number | null>(null);
+  const [splitName, setSplitName] = useState<string | null>(null);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -131,10 +132,16 @@ export default function SessionExecutionScreen() {
       // If we have a valid UUID, also fetch the session details
       if (isValidUUID) {
         try {
-          // Fetch session details to get estimated calories
+          // Fetch session details to get estimated calories and split info
           const { data: sessionData, error: sessionError } = await supabase
             .from('workout_sessions')
-            .select('*')
+            .select(`
+              *,
+              training_splits (
+                name,
+                focus_areas
+              )
+            `)
             .eq('id', sessionId)
             .single();
           
@@ -143,6 +150,12 @@ export default function SessionExecutionScreen() {
             // Set estimated calories if available
             if (sessionData.estimated_calories) {
               setEstimatedCalories(sessionData.estimated_calories);
+            }
+            
+            // Set split name from the training split
+            if (sessionData.training_splits && sessionData.training_splits.name) {
+              setSplitName(sessionData.training_splits.name);
+              console.log('[Session] Set split name:', sessionData.training_splits.name);
             }
           }
         } catch (e) {
@@ -277,7 +290,7 @@ export default function SessionExecutionScreen() {
     }
 
     // Insert log only if this is a real set (skip synthetic fallback ids)
-    if (!String(currentSet.id).toString().startsWith('fallback-')) {
+    if (!String(currentSet.id).toString().startsWith('fallback-') && !String(currentSet.id).toString().startsWith('ex-')) {
       try {
         console.log(`[Session] Logging set for exercise: ${currentSet.id}, reps: ${repsNum}, weight: ${weightNum}`);
         
@@ -307,7 +320,7 @@ export default function SessionExecutionScreen() {
         return;
       }
     } else {
-      console.log('[Session] Skipping database log for fallback exercise');
+      console.log('[Session] Skipping database log for fallback/synthetic exercise');
     }
 
     // Reset inputs
@@ -322,7 +335,7 @@ export default function SessionExecutionScreen() {
       console.log('[Session] Last set completed - finishing workout');
       
       // Mark session as completed if it's not a fallback exercise
-      if (!String(currentSet.id).startsWith('fallback-')) {
+      if (!String(currentSet.id).startsWith('fallback-') && !String(currentSet.id).startsWith('ex-')) {
         try {
           console.log(`[Session] Marking session ${sessionId} as completed`);
           
@@ -391,6 +404,8 @@ export default function SessionExecutionScreen() {
         } catch (err) {
           console.error('[Session] Exception while updating session status:', err);
         }
+      } else {
+        console.log('[Session] Skipping session completion database operations for fallback/synthetic session');
       }
       
       // Show completion dialog instead of navigating to non-existent route
@@ -775,7 +790,7 @@ export default function SessionExecutionScreen() {
               <Icon name="arrow-left" size={24} color={colors.text} />
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle}>{sessionTitle || 'Workout'}</Text>
+            <Text style={styles.headerTitle}>{splitName || sessionTitle || 'Workout'}</Text>
             
             <TouchableOpacity style={styles.menuButton}>
               <Icon name="dots-vertical" size={24} color={colors.text} />
