@@ -863,7 +863,7 @@ const AI_PROVIDERS = [
   {
     name: 'gemini',
     apiKey: GEMINI_API_KEY,
-    apiUrl: null, // Gemini uses SDK, not direct API calls
+    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
     model: GEMINI_MODEL,
     enabled: !!GEMINI_API_KEY
   },
