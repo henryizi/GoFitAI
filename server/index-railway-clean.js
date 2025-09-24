@@ -233,6 +233,56 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
 // ====================
 // WORKOUT PLAN GENERATION - GEMINI TEXT
 // ====================
+
+/**
+ * Transforms GeminiTextService plan format to app's expected format
+ */
+function transformGeminiPlanToAppFormat(plan, profileData) {
+  console.log('[WORKOUT] Transforming plan format for app compatibility');
+  
+  // Convert snake_case weekly_schedule to camelCase weeklySchedule
+  const weeklySchedule = (plan.weekly_schedule || []).map(day => {
+    // Combine all exercises from warm_up, main_workout, and cool_down
+    const allExercises = [
+      ...(day.warm_up || []),
+      ...(day.main_workout || []),
+      ...(day.cool_down || [])
+    ];
+
+    // Transform exercises to app format
+    const exercises = allExercises.map(exercise => ({
+      name: exercise.name || exercise.exercise || 'Unknown Exercise',
+      sets: exercise.sets || 3,
+      reps: exercise.reps || '8-12',
+      restBetweenSets: exercise.rest || exercise.rest_seconds || '60-90s',
+      instructions: exercise.instructions || '',
+      muscleGroups: exercise.muscle_groups || []
+    }));
+
+    return {
+      day: day.day_name || `Day ${day.day}`,
+      focus: day.workout_type || 'Training',
+      exercises: exercises
+    };
+  });
+
+  // Return in app's expected format
+  return {
+    name: plan.plan_name || `${profileData.primaryGoal || 'Custom'} Workout Plan`,
+    training_level: plan.target_level || profileData.fitnessLevel || 'intermediate',
+    goal_fat_loss: profileData.fatLossGoal || 2,
+    goal_muscle_gain: profileData.muscleGainGoal || 3,
+    mesocycle_length_weeks: plan.duration_weeks || 4,
+    weeklySchedule: weeklySchedule,
+    recommendations: {
+      nutrition: plan.nutrition_tips || [],
+      safety: plan.safety_guidelines || [],
+      progression: plan.progression_plan || {}
+    },
+    estimatedTimePerSession: `${plan.sessions_per_week ? Math.round(60 * plan.sessions_per_week / 7) : 60}-90 minutes`
+  };
+}
+
 app.post('/api/generate-workout-plan', async (req, res) => {
   console.log('[WORKOUT] /api/generate-workout-plan called');
   try {
@@ -259,8 +309,15 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     const preferences = {};
     const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
 
+    console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
+
+    // Transform the plan to match app's expected format
+    const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
+
+    console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
+
     // Return in Railway format expected by client
-    return res.json({ success: true, workoutPlan: plan });
+    return res.json({ success: true, workoutPlan: transformedPlan });
   } catch (error) {
     console.error('[WORKOUT] Workout plan generation failed:', error?.message || error);
     return res.status(500).json({ success: false, error: error?.message || 'Workout plan generation failed' });
