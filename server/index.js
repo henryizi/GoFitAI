@@ -910,6 +910,9 @@ const CHAT_MODEL = AI_PROVIDERS.find(p => p.name === AI_PROVIDER)?.model || GEMI
 // Debug logging for API configuration
 console.log('=== AI CONFIGURATION ===');
 console.log('Available AI Providers:', AI_PROVIDERS.map(p => p.name));
+console.log('GEMINI_API_KEY exists:', !!GEMINI_API_KEY);
+console.log('GEMINI_MODEL:', GEMINI_MODEL);
+console.log('Gemini provider config:', AI_PROVIDERS.find(p => p.name === 'gemini'));
 console.log('Default AI_PROVIDER:', AI_PROVIDER);
 console.log('Total providers available:', AI_PROVIDERS.length);
 AI_PROVIDERS.forEach(provider => {
@@ -6003,6 +6006,22 @@ app.get('/api/health', (req, res) => {
     model: CHAT_MODEL,
     version: '4.0.0-gemini-only',
     deployment_time: new Date().toISOString()
+  });
+});
+
+// Debug endpoint for AI configuration
+app.get('/api/debug/ai-config', (req, res) => {
+  res.json({
+    providers: AI_PROVIDERS.map(p => ({
+      name: p.name,
+      enabled: p.enabled,
+      model: p.model,
+      hasApiKey: !!p.apiKey,
+      apiUrl: p.apiUrl
+    })),
+    defaultProvider: AI_PROVIDER,
+    geminiModel: GEMINI_MODEL,
+    geminiKeyExists: !!GEMINI_API_KEY
   });
 });
 
