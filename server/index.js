@@ -863,7 +863,7 @@ const AI_PROVIDERS = [
   {
     name: 'gemini',
     apiKey: GEMINI_API_KEY,
-    apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    apiUrl: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     model: GEMINI_MODEL,
     enabled: !!GEMINI_API_KEY
   },
