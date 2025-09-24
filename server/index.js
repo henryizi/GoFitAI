@@ -1,3 +1,4 @@
+
 console.log('--- SERVER RESTARTED ---');
 console.log('--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---');
 
@@ -4246,7 +4247,6 @@ function parseGeminiMealPlanResponse(responseText) {
     throw new Error(`Failed to parse Gemini meal plan response: ${error.message}`);
   }
 }
-
 // NEW: AI-powered daily meal plan generation with recipes
 app.post('/api/generate-daily-meal-plan-ai', async (req, res) => {
   console.log('[AI MEAL PLAN] Received request for AI-powered meal plan generation');
@@ -5006,14 +5006,14 @@ app.post('/api/generate-motivational-message', async (req, res) => {
 
 app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
   const { planId } = req.params;
-  
+
   if (!planId) {
     return res.status(400).json({ error: 'Plan ID is required.' });
   }
 
   try {
     console.log(`[NUTRITION DELETE] Deleting plan with ID: ${planId}`);
-    
+
     // First, check if the plan exists
     const { data: plan, error: fetchError } = await supabase
       .from('nutrition_plans')
@@ -5041,9 +5041,54 @@ app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
     res.json({ success: true, message: 'Nutrition plan deleted successfully.' });
   } catch (error) {
     console.error(`[NUTRITION DELETE] Exception during plan deletion:`, error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to delete the nutrition plan.' 
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete the nutrition plan.'
+    });
+  }
+});
+
+// Add workout plan deletion endpoint
+app.delete('/api/delete-workout-plan/:planId', async (req, res) => {
+  const { planId } = req.params;
+
+  if (!planId) {
+    return res.status(400).json({ error: 'Plan ID is required.' });
+  }
+
+  try {
+    console.log(`[WORKOUT DELETE] Deleting plan with ID: ${planId}`);
+
+    // First, check if the plan exists
+    const { data: plan, error: fetchError } = await supabase
+      .from('workout_plans')
+      .select('id, user_id')
+      .eq('id', planId)
+      .single();
+
+    if (fetchError || !plan) {
+      console.error(`[WORKOUT DELETE] Plan not found: ${planId}`);
+      return res.status(404).json({ error: 'Workout plan not found.' });
+    }
+
+    // Delete the plan
+    const { error: deleteError } = await supabase
+      .from('workout_plans')
+      .delete()
+      .eq('id', planId);
+
+    if (deleteError) {
+      console.error(`[WORKOUT DELETE] Error deleting plan:`, deleteError);
+      throw deleteError;
+    }
+
+    console.log(`[WORKOUT DELETE] Successfully deleted plan ${planId}`);
+    res.json({ success: true, message: 'Workout plan deleted successfully.' });
+  } catch (error) {
+    console.error(`[WORKOUT DELETE] Exception during plan deletion:`, error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete the workout plan.'
     });
   }
 });
@@ -6117,50 +6162,56 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     
     // Try AI providers with systematic fallback
     console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
-    
-    // Get available AI providers in priority order
-    const availableProviders = [];
-    if (geminiTextService) availableProviders.push('gemini');
-    
-    // Prioritize the configured AI_PROVIDER
-    let providersToTry = [];
-    if (availableProviders.includes(AI_PROVIDER)) {
-      providersToTry = [AI_PROVIDER, ...availableProviders.filter(p => p !== AI_PROVIDER)];
-    } else {
-      providersToTry = availableProviders;
-    }
-    
-    console.log(`[WORKOUT] Available AI providers: [${availableProviders.join(', ')}]`);
-    console.log(`[WORKOUT] Primary provider: ${AI_PROVIDER}`);
-    console.log(`[WORKOUT] Will try providers in order: [${providersToTry.join(', ')}]`);
-    
+
+    // Use GeminiTextService directly for workout plan generation
     let aiResponse = null;
     let usedProvider = null;
-    
-    // Try each AI provider in order
-    for (const provider of providersToTry) {
-      if (aiResponse && !aiResponse.error) break; // Stop if we got a successful response
-      
-      try {
-        console.log(`[WORKOUT] 🤖 Attempting workout generation using ${provider.toUpperCase()}`);
-        console.log(`[WORKOUT] Current ${provider.toUpperCase()}_MODEL:`, provider === 'gemini' ? GEMINI_MODEL : 'unknown');
-        console.log(`[WORKOUT] Current provider config:`, JSON.stringify(getProviderConfig(provider), null, 2));
-        
-        aiResponse = await callAI(messages, { type: 'json_object' }, 0.7, provider);
-        
-        if (aiResponse && !aiResponse.error) {
-          console.log(`[WORKOUT] ✅ Successfully generated workout plan using ${provider.toUpperCase()}`);
-          usedProvider = provider;
-          break; // Success! Exit the loop
-        }
-      } catch (aiError) {
-        console.log(`[WORKOUT] ❌ ${provider.toUpperCase()} workout generation failed:`, aiError.message);
-        if (provider === providersToTry[providersToTry.length - 1]) {
-          console.log('[WORKOUT] All AI providers failed, will use rule-based fallback');
-        } else {
-          console.log(`[WORKOUT] Will try next AI provider...`);
-        }
+    let usedAI = false;
+
+    try {
+      console.log('[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService');
+      console.log('[WORKOUT] Current GEMINI_MODEL:', GEMINI_MODEL);
+      console.log('[WORKOUT] geminiTextService available:', !!geminiTextService);
+
+      // Check if Gemini service is available
+      if (!geminiTextService) {
+        throw new Error('Gemini Text Service is not available');
       }
+
+      // Use the GeminiTextService to generate the workout plan
+      console.log('[WORKOUT] Calling generateWorkoutPlan with normalized profile');
+      console.log('[WORKOUT] Profile data:', JSON.stringify(normalizedProfile, null, 2));
+
+      const workoutPlanData = await geminiTextService.generateWorkoutPlan(normalizedProfile, {});
+      console.log('[WORKOUT] Workout plan data received:', !!workoutPlanData);
+
+      if (workoutPlanData && workoutPlanData.weekly_schedule) {
+        console.log('[WORKOUT] ✅ Successfully generated workout plan using Gemini TextService');
+        console.log('[WORKOUT] Plan name:', workoutPlanData.plan_name);
+        console.log('[WORKOUT] Weekly schedule length:', workoutPlanData.weekly_schedule.length);
+
+        // Return the structured plan directly instead of going through JSON parsing
+        const workoutPlan = {
+          plan_name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal?.toUpperCase()} Workout Plan`,
+          primary_goal: normalizedProfile.primary_goal,
+          workout_frequency: normalizedProfile.workout_frequency,
+          weekly_schedule: workoutPlanData.weekly_schedule,
+          created_at: new Date().toISOString(),
+          source: workoutPlanData.source || 'gemini_text'
+        };
+
+        return res.json({
+          success: true,
+          workoutPlan,
+          provider: 'gemini',
+          used_ai: true
+        });
+      } else {
+        throw new Error('Invalid response from Gemini TextService - missing weekly_schedule');
+      }
+    } catch (aiError) {
+      console.log('[WORKOUT] ❌ GEMINI failed:', aiError.message);
+      console.log('[WORKOUT] 🧮 All AI providers failed, using rule-based workout plan generation');
     }
 
     // If all AI providers failed, use rule-based fallback
@@ -6430,7 +6481,8 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     return res.json({
       success: true,
       workoutPlan,
-      provider: 'gemini'
+      provider: usedProvider || 'rule_based_fallback',
+      used_ai: usedAI
     });
   } catch (error) {
     console.error('[WORKOUT] Error generating workout plan:', error);
@@ -6945,6 +6997,52 @@ app.get('/api/profile/:userId', async (req, res) => {
   }
 });
 
+// Get weight metrics for a user
+app.get('/api/weight-metrics/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { limit = 30, startDate, endDate } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing required parameters.' });
+  }
+
+  try {
+    console.log(`[WEIGHT GET] Getting weight metrics for user: ${userId}`);
+
+    let query = supabase
+      .from('daily_user_metrics')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (startDate) {
+      query = query.gte('metric_date', startDate);
+    }
+
+    if (endDate) {
+      query = query.lte('metric_date', endDate);
+    }
+
+    const { data, error } = await query
+      .order('metric_date', { ascending: false })
+      .limit(parseInt(limit));
+
+    if (error) {
+      console.error('[WEIGHT GET] Error getting weight metrics:', error);
+      throw new Error(error.message);
+    }
+
+    console.log(`[WEIGHT GET] Retrieved ${data?.length || 0} weight records`);
+    res.json({
+      success: true,
+      data: data || [],
+      count: data?.length || 0
+    });
+  } catch (error) {
+    console.error('[WEIGHT GET] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Test endpoint for Gemini service
 app.get('/api/test-gemini', async (req, res) => {
   try {
@@ -7436,3 +7534,4 @@ app.use((req, res) => {
     method: req.method
   });
 });
+
