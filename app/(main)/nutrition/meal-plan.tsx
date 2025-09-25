@@ -357,7 +357,7 @@ const MealPlanScreen = () => {
                 onPress={handleGeneratePlan}
                 loading={isGenerating}
                 disabled={isGenerating}
-                title="Get Daily Meal Plan"
+                title="Generate Meal Plan"
               />
             )}
           </View>

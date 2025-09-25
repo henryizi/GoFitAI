@@ -33,23 +33,22 @@ async function debugUserFrequency(userId) {
 
     console.log('📋 Profile data:');
     console.log('  - exercise_frequency:', profile.exercise_frequency);
-    console.log('  - preferred_workout_frequency:', profile.preferred_workout_frequency);
     console.log('  - workout_frequency:', profile.workout_frequency);
     console.log('  - primary_goal:', profile.primary_goal);
     console.log('  - training_level:', profile.training_level);
 
     // Check what the onboarding should have saved
     console.log('\n🔄 Expected values based on onboarding logic:');
-    if (profile.preferred_workout_frequency === '4-5') {
+    if (profile.exercise_frequency === '4-5') {
       console.log('  - Should map to workout_frequency: "4_5"');
-    } else if (profile.preferred_workout_frequency === '2-3') {
+    } else if (profile.exercise_frequency === '2-3') {
       console.log('  - Should map to workout_frequency: "2_3"');
-    } else if (profile.preferred_workout_frequency === '6-7') {
+    } else if (profile.exercise_frequency === '6-7') {
       console.log('  - Should map to workout_frequency: "6"');
     }
 
     // Check if there's a mismatch
-    if (profile.preferred_workout_frequency === '4-5' && profile.workout_frequency !== '4_5') {
+    if (profile.exercise_frequency === '4-5' && profile.workout_frequency !== '4_5') {
       console.log('\n❌ MISMATCH DETECTED!');
       console.log('  User selected "4-5" but workout_frequency is:', profile.workout_frequency);
     } else {

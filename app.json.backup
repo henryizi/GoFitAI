@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "GoFitAI",
+    "slug": "GoFitAI",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.jpg",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF8A00"
+    },
+    "ios": {
+      "bundleIdentifier": "com.henryizi.gofitai"
+    },
+    "android": {
+      "package": "com.henryizi.gofitai"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ef3d416e-a498-42f4-9f9c-8d99769ce008"
+      }
+    },
+    "owner": "henryizi"
+  }
+}

@@ -17,7 +17,7 @@ type WorkoutFrequency = '1' | '2-3' | '4-5' | '6-7';
 // This screen collects the user's preferred workout frequency 
 // which will be used to generate personalized workout plans
 const ExerciseFrequencyScreen = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
 
   // Map exercise frequency to workout plan frequency
@@ -43,17 +43,31 @@ const ExerciseFrequencyScreen = () => {
         selected_frequency: frequency,
         mapped_workout_frequency: workoutFrequency,
         exercise_frequency: frequency,
-        preferred_workout_frequency: frequency,
         workout_frequency: workoutFrequency
       });
-      await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').update({
         exercise_frequency: frequency,
-        preferred_workout_frequency: frequency,
         workout_frequency: workoutFrequency
       }).eq('id', user.id);
-      try { identify(user.id, { 
+      
+      if (error) {
+        console.error('❌ Error saving exercise frequency:', error);
+        console.error('Exercise frequency values:', { frequency, workoutFrequency });
+        // Continue anyway to prevent blocking the user
+      } else {
+        console.log('✅ Exercise frequency saved successfully');
+      }
+      
+      // Refresh profile data to ensure changes are immediately reflected
+      try {
+        await refreshProfile();
+        console.log('Profile refreshed after exercise frequency update');
+      } catch (refreshError) {
+        console.warn('Failed to refresh profile after exercise frequency update:', refreshError);
+      }
+      
+      try { identify(user.id, {
         exercise_frequency: frequency,
-        preferred_workout_frequency: frequency,
         workout_frequency: workoutFrequency
       }); } catch {}
       router.push('/(onboarding)/activity-level');

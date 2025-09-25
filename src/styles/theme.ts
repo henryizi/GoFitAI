@@ -2,49 +2,49 @@ import { MD3LightTheme, configureFonts } from 'react-native-paper';
 import { colors } from './colors';
 import { fontFamily, typography } from './fonts';
 
-// Modern typography system with custom fonts
+// Modern typography system with enhanced hierarchy and spacing
 const fontConfig = {
   displayLarge: {
     fontFamily: fontFamily.primary,
-    fontSize: 57,
-    fontWeight: '700' as const,
-    letterSpacing: -1.0,
-    lineHeight: 64,
+    fontSize: 64,
+    fontWeight: '900' as const,
+    letterSpacing: -1.5,
+    lineHeight: 72,
   },
   displayMedium: {
     fontFamily: fontFamily.primary,
-    fontSize: 45,
-    fontWeight: '700' as const,
-    letterSpacing: -0.5,
-    lineHeight: 52,
+    fontSize: 52,
+    fontWeight: '900' as const,
+    letterSpacing: -1.0,
+    lineHeight: 60,
   },
   displaySmall: {
     fontFamily: fontFamily.primary,
-    fontSize: 36,
-    fontWeight: '700' as const,
-    letterSpacing: -0.25,
-    lineHeight: 44,
+    fontSize: 40,
+    fontWeight: '800' as const,
+    letterSpacing: -0.75,
+    lineHeight: 48,
   },
   headlineLarge: {
     fontFamily: fontFamily.primary,
-    fontSize: 32,
-    fontWeight: '700' as const,
-    letterSpacing: -0.25,
-    lineHeight: 40,
+    fontSize: 36,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+    lineHeight: 44,
   },
   headlineMedium: {
     fontFamily: fontFamily.primary,
-    fontSize: 28,
-    fontWeight: '700' as const,
+    fontSize: 32,
+    fontWeight: '800' as const,
     letterSpacing: -0.25,
-    lineHeight: 36,
+    lineHeight: 40,
   },
   headlineSmall: {
     fontFamily: fontFamily.primary,
-    fontSize: 24,
-    fontWeight: '700' as const,
-    letterSpacing: -0.25,
-    lineHeight: 32,
+    fontSize: 28,
+    fontWeight: '800' as const,
+    letterSpacing: 0,
+    lineHeight: 36,
   },
   titleLarge: {
     fontFamily: fontFamily.primary,

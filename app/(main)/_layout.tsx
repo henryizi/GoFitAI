@@ -1,11 +1,12 @@
 import React from 'react';
-import { Tabs, router } from 'expo-router';
-import { StyleSheet, View, Platform } from 'react-native';
+import { Tabs, router, Redirect } from 'expo-router';
+import { StyleSheet, View, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons as Icon, Ionicons } from '@expo/vector-icons';
 import { Text } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSubscription } from '../../src/hooks/useSubscription';
 
 const colors = {
   primary: '#FF6B35',
@@ -29,6 +30,22 @@ export const SAFE_AREA_PADDING_BOTTOM = 34;
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
+  const { isPremium, isLoading } = useSubscription();
+
+  // 如果订阅状态正在加载，显示加载界面
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.text, marginTop: 16 }}>正在验证订阅状态...</Text>
+      </View>
+    );
+  }
+
+  // 如果用户没有付费，重定向到付费墙
+  if (!isPremium) {
+    return <Redirect href="/paywall" />;
+  }
   
   return (
     <Tabs
@@ -319,3 +336,4 @@ const styles = StyleSheet.create({
     opacity: 0.1,
   },
 });
+

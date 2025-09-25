@@ -1,20 +1,31 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "target": "es2017",
+    "target": "esnext",
     "lib": [
-      "es2017"
+      "esnext",
+      "dom"
     ],
-    "declaration": true,
+    "declaration": false,
     "outDir": "./dist",
     "rootDir": ".",
     "strict": false,
     "noImplicitAny": false,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "importHelpers": true,
+    "noEmit": false,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "src/**/*",

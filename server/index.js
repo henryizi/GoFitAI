@@ -65,6 +65,13 @@ function getLocalIpAddress() {
   return 'localhost';
 }
 
+// Helper function to safely format workout frequency
+function formatWorkoutFrequency(frequency) {
+  if (!frequency) return '4-5';
+  const freqStr = String(frequency);
+  return freqStr.replace('_', '-');
+}
+
 // Generate rule-based workout plan as fallback when AI fails
 function generateRuleBasedWorkoutPlan(userProfile) {
   console.log('[WORKOUT] Generating rule-based workout plan for:', userProfile.primary_goal);
@@ -226,7 +233,55 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       },
       { day: "Saturday", focus: "Rest Day", exercises: [] },
       { day: "Sunday", focus: "Rest Day", exercises: [] }
-    ]
+    ],
+    athletic_performance: {
+      plan_name: "Athletic Performance Workout Plan",
+      weekly_schedule: [
+        {
+          day: "Monday",
+          focus: "Upper Body Power",
+          exercises: [
+            { name: "Push-ups", sets: 4, reps: "10-15", restBetweenSets: "60s" },
+            { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
+            { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
+            { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
+          ]
+        },
+        {
+          day: "Tuesday",
+          focus: "Lower Body Power",
+          exercises: [
+            { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
+            { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
+            { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+            { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
+          ]
+        },
+        { day: "Wednesday", focus: "Rest Day", exercises: [] },
+        {
+          day: "Thursday",
+          focus: "Full Body Athletic",
+          exercises: [
+            { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
+            { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
+            { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
+            { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
+          ]
+        },
+        {
+          day: "Friday",
+          focus: "Core & Stability",
+          exercises: [
+            { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+            { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
+            { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
+            { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
+          ]
+        },
+        { day: "Saturday", focus: "Rest Day", exercises: [] },
+        { day: "Sunday", focus: "Rest Day", exercises: [] }
+      ]
+    }
   };
 
   // Select appropriate plan based on user's goal
@@ -799,7 +854,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // Gemini Vision API configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
 
 // Warn if keys are missing
 if (!GEMINI_API_KEY) {
@@ -846,9 +901,10 @@ let geminiTextService = null;
 
 // Initialize Gemini Text service
 if (GEMINI_API_KEY) {
-  console.log('[AI SERVICE] Initializing Gemini Text Service');
+  console.log('[AI SERVICE] Initializing Gemini Text Service with API key rotation');
   try {
-    geminiTextService = new GeminiTextService(GEMINI_API_KEY);
+    const APIKeyManager = require('./services/apiKeyManager');
+    geminiTextService = new GeminiTextService(APIKeyManager);
   } catch (error) {
     console.error('[AI SERVICE] Failed to initialize Gemini Text Service:', error.message);
     geminiTextService = null;
@@ -1153,7 +1209,7 @@ CLIENT PROFILE:
 - Age: ${profile.age || 'Not specified'}
 - Training Level: ${profile.training_level || 'intermediate'}
 - Primary Goal: ${profile.primary_goal || 'general fitness'}
-- Preferred Workout Frequency: ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') + ' times per week' : '4-5 times per week'}
+- Preferred Workout Frequency: ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) + ' times per week' : '4-5 times per week'}
 
 PROGRAMMING & PROGRESSION:
 1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.
@@ -1186,7 +1242,7 @@ CARDIO EXERCISES: Kettlebell Swing, Dumbbell Clean and Press, Weighted Step-Up, 
 
 INSTRUCTIONS:
 1. Create a 7-day workout schedule with appropriate rest days based on their exercise frequency
-2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} TRAINING DAYS PER WEEK
+2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} TRAINING DAYS PER WEEK
    - Count the training days in your response to ensure accuracy
    - Do NOT create more or fewer training days than specified
    - For '2_3' frequency: Create exactly 2-3 training days (4-5 rest days)
@@ -1223,11 +1279,11 @@ INSTRUCTIONS:
 
 Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
 
-🚨 CRITICAL ENFORCEMENT: You MUST create exactly ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} training days per week. This is ABSOLUTELY NON-NEGOTIABLE.
+🚨 CRITICAL ENFORCEMENT: You MUST create exactly ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} training days per week. This is ABSOLUTELY NON-NEGOTIABLE.
 
 FINAL CHECKS BEFORE RESPONDING:
 1. Count the number of training days in your weeklySchedule array
-2. Ensure it matches EXACTLY: ${profile.workout_frequency ? profile.workout_frequency.replace('_', '-') : '4-5'} training days
+2. Ensure it matches EXACTLY: ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} training days
 3. If it doesn't match, adjust the schedule immediately
 4. Double-check that rest days are properly distributed
 5. Verify that the total equals 7 days (training + rest)
@@ -5009,14 +5065,14 @@ app.post('/api/generate-motivational-message', async (req, res) => {
 
 app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
   const { planId } = req.params;
-
+  
   if (!planId) {
     return res.status(400).json({ error: 'Plan ID is required.' });
   }
 
   try {
     console.log(`[NUTRITION DELETE] Deleting plan with ID: ${planId}`);
-
+    
     // First, check if the plan exists
     const { data: plan, error: fetchError } = await supabase
       .from('nutrition_plans')
@@ -5044,9 +5100,9 @@ app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
     res.json({ success: true, message: 'Nutrition plan deleted successfully.' });
   } catch (error) {
     console.error(`[NUTRITION DELETE] Exception during plan deletion:`, error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete the nutrition plan.'
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete the nutrition plan.' 
     });
   }
 });
@@ -6116,7 +6172,10 @@ app.get('/api/test-users-with-plans', async (req, res) => {
 
     if (error) {
       console.error('[TEST] Database error:', error);
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({
+      success: false,
+      error: error.message
+    });
     }
 
     console.log(`[TEST] Found ${users?.length || 0} users with active nutrition plans`);
@@ -6149,8 +6208,55 @@ app.get('/api/test-users-with-plans', async (req, res) => {
 // (duplicate /api/health removed to avoid ambiguity)
 
 // Add workout plan generation endpoint with robust JSON parsing
+// TODO: Fix generate-workout-plan endpoint syntax error
 app.post('/api/generate-workout-plan', async (req, res) => {
   try {
+    // Import quota monitor
+    const quotaMonitor = require('./services/quotaMonitor');
+
+    // Import services
+    const quotaMonitor = require('./services/quotaMonitor');
+    const responseCache = require('./services/responseCache');
+    const rateLimiter = require('./services/rateLimiter');
+
+    // Check rate limits first
+    if (!rateLimiter.isAllowed(req)) {
+      const rateLimitError = rateLimiter.createErrorResponse(req);
+      return res.status(429).json(rateLimitError);
+    }
+
+    // Check quota availability
+    const quotaStatus = quotaMonitor.getQuotaStatus();
+    const quotaWarning = quotaMonitor.getQuotaWarning();
+
+    // Check cache first for workout plans
+    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, req.body.preferences || {});
+    let cachedResponse = responseCache.get('workout', cacheKey);
+
+    if (cachedResponse) {
+      console.log('[WORKOUT] ✅ Using cached workout plan');
+      // Add rate limit headers
+      const rateLimitHeaders = rateLimiter.getHeaders(req);
+      Object.keys(rateLimitHeaders).forEach(header => {
+        res.setHeader(header, rateLimitHeaders[header]);
+      });
+
+      return res.json({
+        success: true,
+        workoutPlan: cachedResponse,
+        provider: 'cache',
+        used_ai: false,
+        quota: quotaStatus,
+        warning: quotaWarning,
+        cached: true
+      });
+    }
+
+    // Extract userId from request body (optional for testing)
+    const { userId } = req.body;
+    // Generate a UUID-like string for testing if no userId provided
+    const defaultUserId = userId || crypto.randomUUID();
+
     // Accept both 'profile' and 'userProfile' for backward compatibility
     const { profile, userProfile } = req.body;
     const profileData = profile || userProfile;
@@ -6166,8 +6272,11 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       age: userProfile.age,
       training_level: userProfile.fitnessLevel,
       primary_goal: userProfile.primaryGoal,
-      workout_frequency: userProfile.workoutFrequency
-    } : profileData;
+      workout_frequency: userProfile.workoutFrequency || '4_5' // Default fallback
+    } : {
+      ...profileData,
+      workout_frequency: profileData.workout_frequency || '4_5' // Ensure fallback for direct profile data too
+    };
 
     console.log('[WORKOUT] Normalized profile data:', JSON.stringify(normalizedProfile, null, 2));
     console.log('[WORKOUT] Primary goal from user profile:', userProfile?.primaryGoal);
@@ -6181,7 +6290,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     
     // Try AI providers with systematic fallback
     console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
-
+    
     // Use GeminiTextService directly for workout plan generation
     let aiResponse = null;
     let usedProvider = null;
@@ -6197,320 +6306,175 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         throw new Error('Gemini Text Service is not available');
       }
 
-      // Use the GeminiTextService to generate the workout plan
-      console.log('[WORKOUT] Calling generateWorkoutPlan with normalized profile');
-      console.log('[WORKOUT] Profile data:', JSON.stringify(normalizedProfile, null, 2));
+      // Map normalizedProfile to expected GeminiTextService format
+      const userProfileForGemini = {
+        fullName: normalizedProfile.full_name,
+        gender: normalizedProfile.gender,
+        age: normalizedProfile.age,
+        fitnessLevel: normalizedProfile.training_level,
+        primaryGoal: normalizedProfile.primary_goal,
+        workoutFrequency: normalizedProfile.workout_frequency,
+        // Keep original profile fields as backup
+        ...normalizedProfile
+      };
 
-      const workoutPlanData = await geminiTextService.generateWorkoutPlan(normalizedProfile, {});
-      console.log('[WORKOUT] Workout plan data received:', !!workoutPlanData);
+      // Use the GeminiTextService to generate the workout plan
+      console.log('[WORKOUT] Calling generateWorkoutPlan with mapped user profile');
+      console.log('[WORKOUT] User profile for Gemini:', {
+        fullName: userProfileForGemini.fullName,
+        fitnessLevel: userProfileForGemini.fitnessLevel,
+        primaryGoal: userProfileForGemini.primaryGoal,
+        workoutFrequency: userProfileForGemini.workoutFrequency
+      });
+      console.log('[WORKOUT] Full user profile for Gemini:', JSON.stringify(userProfileForGemini, null, 2));
+
+      const workoutPlanData = await geminiTextService.generateWorkoutPlan(userProfileForGemini, {});
 
       if (workoutPlanData && workoutPlanData.weekly_schedule) {
         console.log('[WORKOUT] ✅ Successfully generated workout plan using Gemini TextService');
         console.log('[WORKOUT] Plan name:', workoutPlanData.plan_name);
         console.log('[WORKOUT] Weekly schedule length:', workoutPlanData.weekly_schedule.length);
 
-        // Return the structured plan directly instead of going through JSON parsing
-        const workoutPlan = {
-          plan_name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal?.toUpperCase()} Workout Plan`,
-          primary_goal: normalizedProfile.primary_goal,
-          workout_frequency: normalizedProfile.workout_frequency,
-          weekly_schedule: workoutPlanData.weekly_schedule,
-          created_at: new Date().toISOString(),
-          source: workoutPlanData.source || 'gemini_text'
+        // Transform plan data to match database function expectations
+        const transformedPlan = {
+          name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal?.toUpperCase()} Workout Plan`,
+          training_level: normalizedProfile.training_level || 'intermediate',
+          goal_fat_loss: normalizedProfile.primary_goal === 'fat_loss' ? 5 : 0,
+          goal_muscle_gain: normalizedProfile.primary_goal === 'muscle_gain' ? 5 : 0,
+          mesocycle_length_weeks: 8,
+          estimated_time_per_session: "45-60 min",
+          weeklySchedule: workoutPlanData.weekly_schedule && Array.isArray(workoutPlanData.weekly_schedule) ? workoutPlanData.weekly_schedule.map(day => ({
+            day: day.day || day.day_name || 'Unknown',
+            focus: day.focus || day.day || 'General',
+            exercises: [
+              // Warm-up exercises
+              ...(day.warm_up || []).map(exercise => ({
+                name: exercise.exercise || exercise.name,
+                sets: exercise.sets || 1,
+                reps: exercise.reps || exercise.duration || "Warm-up",
+                restBetweenSets: exercise.restBetweenSets || exercise.rest || "0s",
+                type: "warm_up"
+              })),
+              // Main workout exercises
+              ...(day.main_workout || []).map(exercise => ({
+                name: exercise.exercise || exercise.name,
+                sets: exercise.sets || 3,
+                reps: exercise.reps || "8-12",
+                restBetweenSets: exercise.restBetweenSets || exercise.rest_seconds || "60s",
+                type: "main_workout"
+              })),
+              // Cool-down exercises
+              ...(day.cool_down || []).map(exercise => ({
+                name: exercise.exercise || exercise.name,
+                sets: exercise.sets || 1,
+                reps: exercise.reps || exercise.duration || "Cool-down",
+                restBetweenSets: exercise.restBetweenSets || exercise.rest || "0s",
+                type: "cool_down"
+              }))
+            ]
+          })) : []
         };
 
-        return res.json({
-          success: true,
-          workoutPlan,
-          provider: 'gemini',
-          used_ai: true
-        });
-      } else {
-        throw new Error('Invalid response from Gemini TextService - missing weekly_schedule');
-      }
-    } catch (aiError) {
-      console.log('[WORKOUT] ❌ GEMINI failed:', aiError.message);
-      console.log('[WORKOUT] 🧮 All AI providers failed, using rule-based workout plan generation');
-    }
+        // Save final plan to database
+        let savedFinalPlanId = null;
+        try {
+          if (supabase && userId) {
+            console.log('[WORKOUT] Saving final plan to database for user:', userId);
+            const { data, error } = await supabase.rpc('upsert_ai_workout_plan', {
+              user_id_param: userId,
+              plan_data: transformedPlan
+            });
 
-    // If all AI providers failed, use rule-based fallback
-    if (!aiResponse || aiResponse.error) {
-      console.log('[WORKOUT] 🧮 All AI providers failed, using rule-based workout plan generation');
-      
-      const fallbackPlan = generateRuleBasedWorkoutPlan(normalizedProfile);
+            if (error) {
+              console.error('[WORKOUT] Error saving final plan to database:', error);
+            } else {
+              savedFinalPlanId = data;
+              console.log('[WORKOUT] ✅ Final plan saved to database with ID:', savedFinalPlanId);
 
-        return res.json({
-          success: true,
-          workoutPlan: fallbackPlan,
-        provider: 'rule_based_fallback',
-        used_ai: false
-        });
-    }
-    
-    console.log(`[WORKOUT] ✅ Successfully generated workout plan using ${usedProvider?.toUpperCase()} AI`);
-    console.log('[WORKOUT] AI response type:', typeof aiResponse);
-    console.log('[WORKOUT] AI response keys:', Object.keys(aiResponse || {}));
-    console.log('[WORKOUT] Raw AI response content:', aiResponse?.choices?.[0]?.message?.content || 'No content in response');
-    
-    if (!aiResponse || !aiResponse.choices || !aiResponse.choices[0]) {
-      console.error('[WORKOUT] No valid AI response received');
-      throw new Error('Failed to get valid response from AI provider');
-    }
-    
-    // Process response as before
-    const content = aiResponse.choices[0].message.content;
-    console.log('[WORKOUT] Raw AI response content:', content.substring(0, 2000)); // Log first 2000 chars
-    let plan;
-    
-    // Ultra-robust JSON parsing with multiple fallback strategies
-    console.log('[WORKOUT] Processing AI response with enhanced parsing...');
-    
-    function parseAIResponse(content) {
-      const strategies = [
-        // Strategy 1: Extract from ```json``` blocks
-        () => {
-          const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
-          if (match) {
-            console.log('[WORKOUT] Strategy 1: Found JSON markdown block');
-            return match[1].trim();
-          }
-          return null;
-        },
-        
-        // Strategy 2: Extract from any ``` blocks
-        () => {
-          const match = content.match(/```\s*([\s\S]*?)\s*```/);
-          if (match) {
-            console.log('[WORKOUT] Strategy 2: Found generic markdown block');
-            return match[1].trim();
-          }
-          return null;
-        },
-        
-        // Strategy 3: Find JSON object with proper nesting
-        () => {
-          const match = content.match(/\{(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*\}/);
-          if (match) {
-            console.log('[WORKOUT] Strategy 3: Found JSON object pattern');
-            return match[0].trim();
-          }
-          return null;
-        },
-        
-        // Strategy 4: Look for specific workout plan structure
-        () => {
-          const weeklyScheduleMatch = content.match(/"weeklySchedule"\s*:\s*\[([\s\S]*?)\]/);
-          if (weeklyScheduleMatch) {
-            console.log('[WORKOUT] Strategy 4: Found weeklySchedule structure');
-            // Try to reconstruct full object
-            const objectMatch = content.match(/(\{[\s\S]*"weeklySchedule"[\s\S]*?\})/);
-            if (objectMatch) {
-              return objectMatch[1].trim();
+              // Update the plan to be active
+              await supabase
+                .from('workout_plans')
+                .update({ status: 'active' })
+                .eq('id', savedFinalPlanId)
+                .eq('user_id', userId || defaultUserId);
+
+              console.log('[WORKOUT] ✅ Final plan set as active');
             }
           }
-          return null;
-        },
-        
-        // Strategy 5: Remove all markdown and extra text
-        () => {
-          console.log('[WORKOUT] Strategy 5: Cleaning markdown and text');
-          let cleaned = content
-            .replace(/```json/gi, '')
-            .replace(/```/g, '')
-            .replace(/^[^{]*/, '') // Remove everything before first {
-            .replace(/[^}]*$/, '') // Remove everything after last }
-            .trim();
-          
-          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-            return cleaned;
-          }
-          return null;
-        },
-        
-        // Strategy 6: Direct parse (original content)
-        () => {
-          console.log('[WORKOUT] Strategy 6: Direct parse attempt');
-          return content.trim();
+        } catch (dbError) {
+          console.error('[WORKOUT] Database save failed for final plan:', dbError);
         }
-      ];
-      
-      for (let i = 0; i < strategies.length; i++) {
-        try {
-          const extracted = strategies[i]();
-          if (extracted) {
-            const parsed = JSON.parse(extracted);
-            console.log(`[WORKOUT] Success with strategy ${i + 1}`);
-            return parsed;
-          }
-        } catch (error) {
-          console.log(`[WORKOUT] Strategy ${i + 1} failed:`, error.message);
-          continue;
-        }
+
+        // Format response to match expected structure
+        const workoutPlan = {
+          id: savedFinalPlanId,
+          plan_name: `${normalizedProfile.primary_goal} Workout Plan`,
+          name: `${normalizedProfile.primary_goal} Workout Plan`,
+          training_level: normalizedProfile.training_level || 'intermediate',
+          goal_fat_loss: normalizedProfile.primary_goal === 'fat_loss' ? 5 : 0,
+          goal_muscle_gain: normalizedProfile.primary_goal === 'muscle_gain' ? 5 : 0,
+          mesocycle_length_weeks: 8,
+          estimated_time_per_session: "45-60 min",
+          primary_goal: normalizedProfile.primary_goal,
+          weekly_schedule: workoutPlanData.weekly_schedule || workoutPlanData.weeklySchedule,
+          weeklySchedule: workoutPlanData.weekly_schedule || workoutPlanData.weeklySchedule,
+          status: 'active',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          source: 'gemini'
+        };
+
+        // Record successful AI usage
+        quotaMonitor.recordUsage();
+
+        aiResponse = workoutPlanData;
+        usedProvider = 'gemini';
+        usedAI = true;
+
+        // Cache successful AI response (with shorter timeout for AI-generated content)
+        responseCache.set('workout', cacheKey, aiResponse, 15 * 60 * 1000); // 15 minutes
+
+      } else {
+        throw new Error('Gemini returned invalid workout plan data');
       }
-      
-      throw new Error('All parsing strategies failed');
+
+    } catch (aiError) {
+      console.error('[WORKOUT] AI generation failed:', aiError);
+      usedProvider = 'fallback';
+      usedAI = false;
+
+      // Fallback to rule-based generation
+      console.log('[WORKOUT] Using fallback rule-based generation');
+      aiResponse = generateRuleBasedWorkoutPlan(normalizedProfile);
     }
-    
-    // Normalize various plausible AI response shapes into { weeklySchedule: Day[] }
-    function normalizePlan(parsed) {
-      if (!parsed) return parsed;
-      
-      // If already in expected shape
-      if (Array.isArray(parsed.weeklySchedule)) {
-        return { weeklySchedule: parsed.weeklySchedule };
-      }
-      
-      // Common alternative nestings
-      if (parsed.plan && Array.isArray(parsed.plan.weeklySchedule)) {
-        return { weeklySchedule: parsed.plan.weeklySchedule };
-      }
-      if (parsed.workoutPlan && Array.isArray(parsed.workoutPlan.weeklySchedule)) {
-        return { weeklySchedule: parsed.workoutPlan.weeklySchedule };
-      }
-      if (Array.isArray(parsed.days)) {
-        return { weeklySchedule: parsed.days };
-      }
-      if (Array.isArray(parsed.week)) {
-        return { weeklySchedule: parsed.week };
-      }
-      
-      // If the root is directly an array of day objects
-      if (Array.isArray(parsed)) {
-        return { weeklySchedule: parsed };
-      }
-      
-      // If the AI returned a single day object
-      if (parsed.day && parsed.exercises && Array.isArray(parsed.exercises)) {
-        return { weeklySchedule: [parsed] };
-      }
-      
-      // Last attempt: look for a property that looks like a schedule array
-      for (const key of Object.keys(parsed)) {
-        const value = parsed[key];
-        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && (value[0].day || value[0].exercises)) {
-          return { weeklySchedule: value };
-        }
-      }
-      
-      return parsed;
-    }
-    
-    try {
-      plan = parseAIResponse(content);
-      console.log('[WORKOUT] Successfully parsed AI response');
-      console.log('[WORKOUT] Parsed object before normalization:', JSON.stringify(plan, null, 2));
-      
-      // Normalize and validate structure
-      plan = normalizePlan(plan);
-      if (!plan || !Array.isArray(plan.weeklySchedule)) {
-        console.error('[WORKOUT] Parsed plan missing weeklySchedule array after normalization:', plan);
-        throw new Error('Parsed plan missing required weeklySchedule structure');
-      }
-      
-      // Validate and fix workout frequency
-      plan = validateAndFixWorkoutFrequency(plan, normalizedProfile);
-      console.log('[WORKOUT] Workout frequency validated and fixed if necessary');
-      
-    } catch (parseError) {
-      console.error('[WORKOUT] All parsing strategies failed:', parseError);
-      console.log('[WORKOUT] Raw response (first 1000 chars):', content.substring(0, 1000));
-      
-      // Generate a valid fallback plan structure
-      console.log('[WORKOUT] Generating fallback plan structure...');
-      plan = {
-        plan_name: "General Fitness Workout Plan",
-        primary_goal: normalizedProfile.primary_goal || "general_fitness",
-        weekly_schedule: [
-          {
-            day: "Monday",
-            focus: "Upper Body",
-            exercises: [
-              { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
-              { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
-              { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
-              { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
-            ]
-          },
-          {
-            day: "Tuesday", 
-            focus: "Lower Body",
-            exercises: [
-              { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
-              { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
-              { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-              { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
-            ]
-          },
-          {
-            day: "Wednesday",
-            focus: "Rest Day",
-            exercises: []
-          },
-          {
-            day: "Thursday",
-            focus: "Full Body",
-            exercises: [
-              { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
-              { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
-              { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
-              { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
-            ]
-          },
-          {
-            day: "Friday",
-            focus: "Core",
-            exercises: [
-              { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-              { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-              { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
-              { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
-            ]
-          },
-          {
-            day: "Saturday",
-            focus: "Cardio",
-            exercises: [
-              { name: "Running", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
-              { name: "Jump Rope", sets: 3, reps: "2 min", restBetweenSets: "60s" }
-            ]
-          },
-          {
-            day: "Sunday",
-            focus: "Rest Day", 
-            exercises: []
-          }
-        ],
-        created_at: new Date().toISOString()
-      };
-      console.log('[WORKOUT] Using generated fallback plan');
-    }
-    
-    if (!plan) {
-      return res.status(500).json({ success: false, error: 'Failed to generate workout plan' });
-    }
-    
-    // Format response to match expected structure
-    const workoutPlan = {
-      plan_name: `${normalizedProfile.primary_goal} Workout Plan`,
-      primary_goal: normalizedProfile.primary_goal,
-      weekly_schedule: plan.weekly_schedule || plan.weeklySchedule,
-      created_at: new Date().toISOString()
-    };
+
+    // Add rate limit headers
+    const rateLimitHeaders = rateLimiter.getHeaders(req);
+    Object.keys(rateLimitHeaders).forEach(header => {
+      res.setHeader(header, rateLimitHeaders[header]);
+    });
 
     return res.json({
       success: true,
-      workoutPlan,
+      workoutPlan: aiResponse,
       provider: usedProvider || 'rule_based_fallback',
-      used_ai: usedAI
+      used_ai: usedAI,
+      quota: quotaStatus,
+      warning: quotaWarning,
     });
+
   } catch (error) {
     console.error('[WORKOUT] Error generating workout plan:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// ===================
-// IMAGE PROCESSING HELPERS
+// TODO: Old commented code removed
+// TODO: Old commented code removed
 // ===================
 
 async function compressImageForVision(imageBuffer, maxSizeBytes = 2_000_000) { // 2MB target for Gemini
@@ -6774,7 +6738,7 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           };
         }
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
         const response = await axios.post(
           geminiUrl,
@@ -7342,6 +7306,43 @@ app.post('/api/generate-recipe', async (req, res) => {
   console.log(`[${new Date().toISOString()}] Received recipe generation request`);
   
   try {
+    // Import services
+    const quotaMonitor = require('./services/quotaMonitor');
+    const responseCache = require('./services/responseCache');
+    const rateLimiter = require('./services/rateLimiter');
+
+    // Check rate limits first
+    if (!rateLimiter.isAllowed(req)) {
+      const rateLimitError = rateLimiter.createErrorResponse(req);
+      return res.status(429).json(rateLimitError);
+    }
+
+    // Check quota availability
+    const quotaStatus = quotaMonitor.getQuotaStatus();
+    const quotaWarning = quotaMonitor.getQuotaWarning();
+
+    // Check cache first for recipes
+    const cacheKey = responseCache.getRecipeCacheKey(mealType, targets, ingredients, strict);
+    let cachedRecipe = responseCache.get('recipe', cacheKey);
+
+    if (cachedRecipe) {
+      console.log('[RECIPE] ✅ Using cached recipe');
+      // Add rate limit headers
+      const rateLimitHeaders = rateLimiter.getHeaders(req);
+      Object.keys(rateLimitHeaders).forEach(header => {
+        res.setHeader(header, rateLimitHeaders[header]);
+      });
+
+      return res.json({
+        success: true,
+        recipe: attachPerIngredientMacros(cachedRecipe),
+        fallback: false,
+        quota: quotaStatus,
+        warning: quotaWarning,
+        cached: true
+      });
+    }
+
     const { mealType, targets, ingredients, strict } = req.body;
     
     // Check for meal plan recipe request (new behavior)
@@ -7414,7 +7415,27 @@ app.post('/api/generate-recipe', async (req, res) => {
           if (recipe) {
             console.log(`[GEMINI] ✅ Recipe generated successfully: ${recipe.recipe_name || recipe.name}`);
             console.log(`[RECIPE GENERATION] ✅ Recipe generated successfully using gemini`);
-            return res.json({ success: true, recipe: attachPerIngredientMacros(recipe), fallback: false });
+
+            // Record successful AI usage
+            quotaMonitor.recordUsage();
+
+            // Cache successful AI response
+            responseCache.set('recipe', cacheKey, recipe, 60 * 60 * 1000); // 1 hour
+
+            // Add rate limit headers
+            const rateLimitHeaders = rateLimiter.getHeaders(req);
+            Object.keys(rateLimitHeaders).forEach(header => {
+              res.setHeader(header, rateLimitHeaders[header]);
+            });
+
+            return res.json({
+              success: true,
+              recipe: attachPerIngredientMacros(recipe),
+              fallback: false,
+              quota: quotaStatus,
+              warning: quotaWarning,
+              cached: false
+            });
           }
         } catch (error) {
           aiError = error;
@@ -7457,7 +7478,23 @@ app.post('/api/generate-recipe', async (req, res) => {
         
         const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
         console.log(`[RECIPE GENERATION] ✅ Rule-based recipe generated: ${highQualityRecipe.name}`);
-        return res.json({ success: true, recipe: attachPerIngredientMacros(highQualityRecipe), fallback: true });
+        // Cache fallback recipe too (with longer timeout)
+        responseCache.set('recipe', cacheKey, highQualityRecipe, 24 * 60 * 60 * 1000); // 24 hours
+
+        // Add rate limit headers
+        const rateLimitHeaders = rateLimiter.getHeaders(req);
+        Object.keys(rateLimitHeaders).forEach(header => {
+          res.setHeader(header, rateLimitHeaders[header]);
+        });
+
+        return res.json({
+          success: true,
+          recipe: attachPerIngredientMacros(highQualityRecipe),
+          fallback: true,
+          quota: quotaStatus,
+          warning: quotaWarning,
+          cached: false
+        });
       }
       
     } catch (error) {
@@ -7474,7 +7511,23 @@ app.post('/api/generate-recipe', async (req, res) => {
       try {
         const simpleRecipe = generateSimpleRecipe(mealType, ingredients, targets);
         console.log(`[RECIPE GENERATION] ✅ Simple recipe generated: ${simpleRecipe.recipe_name || simpleRecipe.name}`);
-        return res.json({ success: true, recipe: attachPerIngredientMacros(simpleRecipe), fallback: true });
+        // Cache final fallback recipe
+        responseCache.set('recipe', cacheKey, simpleRecipe, 24 * 60 * 60 * 1000); // 24 hours
+
+        // Add rate limit headers
+        const rateLimitHeaders = rateLimiter.getHeaders(req);
+        Object.keys(rateLimitHeaders).forEach(header => {
+          res.setHeader(header, rateLimitHeaders[header]);
+        });
+
+        return res.json({
+          success: true,
+          recipe: attachPerIngredientMacros(simpleRecipe),
+          fallback: true,
+          quota: quotaStatus,
+          warning: quotaWarning,
+          cached: false
+        });
       } catch (fallbackError) {
         console.error(`[RECIPE GENERATION] Even fallback recipe generation failed:`, fallbackError);
         return res.status(500).json({ 
@@ -7510,7 +7563,23 @@ app.get('/api/simple-recipe', (req, res) => {
     // Use a more sophisticated recipe generator for the fallback
     const recipe = generateSimpleRecipe(mealType, ingredients, targets);
     console.log(`[${new Date().toISOString()}] Simple recipe generated successfully`);
-    return res.json({ success: true, recipe, fallback: true });
+        // Cache the recipe response
+        responseCache.set('recipe', cacheKey, recipe, 24 * 60 * 60 * 1000); // 24 hours
+
+        // Add rate limit headers
+        const rateLimitHeaders = rateLimiter.getHeaders(req);
+        Object.keys(rateLimitHeaders).forEach(header => {
+          res.setHeader(header, rateLimitHeaders[header]);
+        });
+
+        return res.json({
+          success: true,
+          recipe,
+          fallback: true,
+          quota: quotaStatus,
+          warning: quotaWarning,
+          cached: false
+        });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error generating simple recipe:`, error);
     return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
@@ -7553,4 +7622,5 @@ app.use((req, res) => {
     method: req.method
   });
 });
+
 

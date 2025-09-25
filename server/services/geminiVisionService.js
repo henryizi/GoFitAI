@@ -14,8 +14,9 @@ class GeminiVisionService {
     this.apiKey = apiKey;
     this.genAI = new GoogleGenerativeAI(apiKey);
     // ✅ Add temperature control for more consistent results
-    this.model = this.genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
+    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    this.model = this.genAI.getGenerativeModel({
+      model: modelName,
       generationConfig: {
         temperature: 0.1, // Lower temperature = more consistent, less random
         topP: 0.8,
@@ -23,7 +24,7 @@ class GeminiVisionService {
       }
     });
     
-    console.log('[GEMINI VISION] Service initialized with model: gemini-2.5-flash');
+    console.log('[GEMINI VISION] Service initialized with model:', modelName);
     console.log('[GEMINI VISION] Temperature: 0.1 (low for consistency)');
     console.log('[GEMINI VISION] API Key configured: ✅ Yes');
   }
@@ -391,7 +392,7 @@ BEVERAGE ANALYSIS GUIDELINES:
     return {
       service: 'GeminiVisionService',
       status: 'healthy',
-      model: 'gemini-2.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
       apiKeyConfigured: !!this.apiKey,
       timestamp: new Date().toISOString()
     };

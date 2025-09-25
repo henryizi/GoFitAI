@@ -14,7 +14,6 @@ import TodayCard from '../../../src/components/progress/TodayCard';
 import BeforeAfterComparison from '../../../src/components/progress/BeforeAfterComparison';
 import { BlurView } from 'expo-blur';
 import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
-import { SafeImage } from '../../../src/components/ui/SafeImage';
 
 // Modern, premium colors with enhanced palette
 const colors = {
@@ -686,7 +685,7 @@ const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
               <Text style={styles.emptyText}>No History Yet</Text>
               <Text style={styles.emptySubText}>Your fitness journey starts with the first step</Text>
               <TouchableOpacity
-                onPress={() => router.push('/(main)/progress/log-metrics')}
+                onPress={() => router.push('/(main)/progress/log-progress')}
                 style={styles.createButtonContainer}
               >
                 <LinearGradient
@@ -990,8 +989,8 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
               <View style={styles.photosGrid}>
                 {entry.front_photo && (
                   <View style={styles.photoContainer}>
-                    <SafeImage 
-                      sourceUrl={entry.front_photo.storage_path} 
+                    <Image 
+                      source={{ uri: entry.front_photo.storage_path }}
                       style={styles.photoImage}
                       resizeMode="cover"
                     />
@@ -1003,8 +1002,8 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
                 
                 {entry.back_photo && (
                   <View style={styles.photoContainer}>
-                    <SafeImage 
-                      sourceUrl={entry.back_photo.storage_path} 
+                    <Image 
+                      source={{ uri: entry.back_photo.storage_path }}
                       style={styles.photoImage}
                       resizeMode="cover"
                     />
@@ -1487,6 +1486,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginBottom: 20,
+    justifyContent: 'center',
   },
   photoContainer: {
     flex: 1,

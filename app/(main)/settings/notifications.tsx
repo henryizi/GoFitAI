@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, ImageBackground, Alert, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -335,4 +336,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-}); 
+});

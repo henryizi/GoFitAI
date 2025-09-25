@@ -1,7 +1,5 @@
 import { supabase } from './supabase/client';
-import { NutritionService } from './nutrition/NutritionService'; // Assuming API_URL is exported from here
-
-const API_URL = NutritionService.API_URL;
+import { NutritionService } from './nutrition/NutritionService';
 
 export class AnalysisService {
   static async startAnalysis(
@@ -9,11 +7,12 @@ export class AnalysisService {
     frontPhotoUrl: string,
     backPhotoUrl: string
   ): Promise<any> {
-    const response = await fetch(`${API_URL}/api/analyze-body`, {
+    const { base, response } = await NutritionService.fetchWithBaseFallback('/api/analyze-body', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, frontPhotoUrl, backPhotoUrl }),
     });
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to start analysis.');

@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Pressable, Alert } from 'react-native';
 import { Text, Button, Card, ActivityIndicator, Portal, Modal } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import ViewShot from 'react-native-view-shot';
 import { colors } from '../../styles/colors';
+import { typography } from '../../styles/fonts';
 import { ProgressService } from '../../services/progressService';
 import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
 import { SafeImage } from '../ui/SafeImage';
 import { Image } from 'react-native';
+import { ImageOptimizer } from '../../services/storage/imageOptimizer';
 import HealthDisclaimer from '../legal/HealthDisclaimer';
+import ContentSafetyWarning from '../legal/ContentSafetyWarning';
+import PrivacyModeToggle from './PrivacyModeToggle';
+import { PhotoPrivacyService, PrivacyOptions } from '../../services/privacy/PhotoPrivacyService';
 
 type BodyPhoto = Database['public']['Tables']['body_photos']['Row'];
 
@@ -50,6 +56,9 @@ export default function BeforeAfterComparison({
   const [beforeIndex, setBeforeIndex] = useState<number>(0);
   const [afterIndex, setAfterIndex] = useState<number>(0);
   const [openSelector, setOpenSelector] = useState<null | 'before' | 'after'>(null);
+  const [showContentWarning, setShowContentWarning] = useState(false);
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
 
 
@@ -70,7 +79,7 @@ export default function BeforeAfterComparison({
   const loadProgressEntries = useCallback(async () => {
     setIsLoading(true);
     try {
-      const entries = await ProgressService.getProgressEntries(userId) as ProgressEntryWithPhotos[];
+      const entries = await ProgressService.getProgressPhotos(userId) as ProgressEntryWithPhotos[];
       console.log('loadProgressEntries - Loaded entries:', entries);
       console.log('Entries with photos:', entries.filter(entry => entry.front_photo || entry.back_photo));
       setProgressEntries(entries);
@@ -122,8 +131,96 @@ export default function BeforeAfterComparison({
     }
   }, [userId, loadProgressEntries]);
 
+  // Preload images for better performance
+  useEffect(() => {
+    const preloadImages = async () => {
+      if (sortedEntries.length > 0) {
+        const imageUris = sortedEntries
+          .flatMap(entry => [
+            entry.front_photo?.storage_path,
+            entry.back_photo?.storage_path
+          ])
+          .filter(Boolean) as string[];
+        
+        // Preload first few images
+        const priorityUris = imageUris.slice(0, 6); // Preload first 6 images
+        
+        console.log('🚀 Preloading', priorityUris.length, 'priority images...');
+        await ImageOptimizer.preloadImages(priorityUris, {
+          maxWidth: 2400, // Increased to preserve high-res photos
+          maxHeight: 3200, // Increased to preserve high-res photos
+          quality: 1.0, // Maximum quality for best photo display
+          enableCache: true
+        });
+        console.log('✅ Priority images preloaded');
+      }
+    };
+
+    if (sortedEntries.length > 0) {
+      // Delay preloading to not interfere with initial render
+      setTimeout(preloadImages, 1000);
+    }
+  }, [sortedEntries]);
+
+
+  const generateProgressFilename = () => {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    
+    // Create filename based on comparison type and view
+    const viewType = selectedView === 'front' ? 'Front' : 'Back';
+    const comparisonType = comparisonMode === 'beforeAfter' ? 'BeforeAfter' : 'Timeline';
+    
+    return `GoFitAI-Progress-${comparisonType}-${viewType}-${dateStr}.png`;
+  };
+
   const handleShareProgress = async () => {
-    if (!viewShotRef.current || !hasBeforeAfterPhotos) return;
+    console.log('[BeforeAfterComparison] Share Progress button pressed');
+    console.log('hasBeforeAfterPhotos:', hasBeforeAfterPhotos);
+    console.log('viewShotRef.current exists:', !!viewShotRef.current);
+    console.log('showContentWarning before:', showContentWarning);
+    
+    // Check if we have enough photos first
+    if (!hasBeforeAfterPhotos) {
+      console.log('Not enough photos for sharing');
+      Alert.alert(
+        'Not enough photos', 
+        'You need at least 2 different progress photos to share a comparison. Please upload more photos first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    // Check ViewShot ref with a small retry mechanism
+    if (!viewShotRef.current) {
+      console.log('ViewShot ref not available, retrying...');
+      setTimeout(() => {
+        if (!viewShotRef.current) {
+          console.log('ViewShot ref still not available after retry');
+          Alert.alert('Error', 'Unable to capture progress view. Please try again.');
+          return;
+        }
+        console.log('ViewShot ref available after retry, showing modal');
+        setShowContentWarning(true);
+      }, 100);
+      return;
+    }
+    
+    // Show content safety warning first
+    console.log('Setting showContentWarning to true');
+    setShowContentWarning(true);
+    console.log('showContentWarning after:', true);
+  };
+
+  const proceedWithSharing = async () => {
+    setShowContentWarning(false);
+    setIsSharing(true);
+    
+    if (!viewShotRef.current || !hasBeforeAfterPhotos) {
+      setIsSharing(false);
+      Alert.alert('Error', 'Unable to capture progress view. Please try again.');
+      return;
+    }
     
     try {
       // Wait for images to load and layout to settle
@@ -138,25 +235,69 @@ export default function BeforeAfterComparison({
       console.log('After photo:', afterPhoto);
       console.log('Before photo URL:', getPhotoUrl(beforePhoto || null));
       console.log('After photo URL:', getPhotoUrl(afterPhoto || null));
+      console.log('Privacy mode enabled:', isPrivacyMode);
       
       // Capture the comparison view
-      const uri = await viewShotRef.current.capture();
+      let uri = await viewShotRef.current.capture();
       console.log('ViewShot captured:', uri);
+      
+      // Apply privacy filters if enabled
+      if (isPrivacyMode) {
+        console.log('Applying privacy filters...');
+        const privacyOptions = PhotoPrivacyService.getDefaultPrivacyOptions();
+        uri = await PhotoPrivacyService.applyPrivacyFilters(uri, privacyOptions);
+        console.log('Privacy filters applied:', uri);
+      }
+      
+      const filename = PhotoPrivacyService.generatePrivacyFilename(
+        generateProgressFilename(),
+        isPrivacyMode
+      );
+      
+      // Create a copy with the proper filename in the document directory
+      const documentDirectory = FileSystem.documentDirectory;
+      const newUri = `${documentDirectory}${filename}`;
+      
+      // Copy the file with the new name
+      await FileSystem.copyAsync({
+        from: uri,
+        to: newUri
+      });
       
       // Check if sharing is available
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(newUri, {
           mimeType: 'image/png',
-          dialogTitle: 'Share Your Progress',
+          dialogTitle: isPrivacyMode ? 'Share Your Progress (Privacy Mode)' : 'Share Your Progress',
           UTI: 'public.png'
         });
         
+        // Clean up the temporary files after sharing
+        try {
+          await FileSystem.deleteAsync(newUri, { idempotent: true });
+          if (uri !== newUri) {
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+          }
+        } catch (cleanupError) {
+          console.log('[BeforeAfterComparison] Cleanup warning:', cleanupError);
+        }
+        
         // Show success message (you could add a toast notification here)
-        console.log('Progress shared successfully!');
+        console.log(`Progress shared successfully${isPrivacyMode ? ' with privacy protection' : ''}!`);
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
       }
     } catch (error) {
       console.error('Failed to share progress:', error);
+      Alert.alert('Error', `Failed to share progress: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSharing(false);
     }
+  };
+
+  const cancelSharing = () => {
+    console.log('[BeforeAfterComparison] Cancelling sharing, setting showContentWarning to false');
+    setShowContentWarning(false);
   };
 
   const getPhotoUrl = (photo: BodyPhoto | null) => {
@@ -203,6 +344,7 @@ export default function BeforeAfterComparison({
                   <SafeImage 
                     sourceUrl={getPhotoUrl(beforePhoto) || ''} 
                     style={styles.photoImage}
+                    enableCache={true}
                   />
                 ) : (
                   <View style={styles.noPhotoPlaceholder}>
@@ -226,6 +368,7 @@ export default function BeforeAfterComparison({
                   <SafeImage 
                     sourceUrl={getPhotoUrl(afterPhoto) || ''} 
                     style={styles.photoImage}
+                    enableCache={true}
                   />
                 ) : (
                   <View style={styles.noPhotoPlaceholder}>
@@ -268,23 +411,25 @@ export default function BeforeAfterComparison({
         </View>
 
         {/* Progress Summary */}
-        {renderProgressSummary()}
+        {renderProgressSummary(      )}
 
-        {/* Share Progress Button */}
-        {beforeEntry && afterEntry && (
+      {/* Share Progress Button - Temporarily Disabled */}
+        {/* {beforeEntry && afterEntry && (
           <Card style={styles.shareCard}>
             <Card.Content>
               <Button 
                 mode="contained" 
                 onPress={handleShareProgress}
-                style={[styles.shareButton, { backgroundColor: '#FF6B35' }]}
-                icon="share-variant"
+                style={[styles.shareButton, { backgroundColor: isSharing ? colors.disabled : '#FF6B35' }]}
+                icon={isSharing ? "loading" : "share-variant"}
+                labelStyle={styles.shareButtonText}
+                disabled={isSharing}
               >
-                <Text>Share Progress</Text>
+                {isSharing ? 'Preparing...' : 'Share Progress'}
               </Button>
             </Card.Content>
           </Card>
-        )}
+        )} */}
 
         {/* Hidden ViewShot for Sharing - Full Screen Before/After Layout */}
         <ViewShot ref={viewShotRef} style={styles.shareViewShotContainer} options={{ format: 'png', quality: 0.9 }}>
@@ -372,6 +517,7 @@ export default function BeforeAfterComparison({
                     <SafeImage 
                       sourceUrl={getPhotoUrl(photo) || ''} 
                       style={styles.timelineImage}
+                      enableCache={true}
                     />
                   ) : (
                     <View style={styles.timelineNoPhoto}>
@@ -512,6 +658,13 @@ export default function BeforeAfterComparison({
         title="Progress Photo Disclaimer"
         showAcceptButton={false}
       />
+
+      {/* Privacy Mode Toggle */}
+      <PrivacyModeToggle
+        isPrivacyMode={isPrivacyMode}
+        onToggle={setIsPrivacyMode}
+        variant="compact"
+      />
       
       {/* Compact controls card */}
       <Card style={styles.controlsCard}>
@@ -526,11 +679,13 @@ export default function BeforeAfterComparison({
         </Card.Content>
       </Card>
 
+      {/* Photo Comparison */}
       {renderPhotoComparison()}
     </>
   );
 
   return (
+    <>
     <View style={styles.container}>
       {/* Main content */}
       {showScrollView ? (
@@ -587,7 +742,32 @@ export default function BeforeAfterComparison({
           </Button>
         </Modal>
       </Portal>
+
+      {/* Debug info */}
+      {console.log('[BeforeAfterComparison] Render - showContentWarning:', showContentWarning)}
+      
+      {/* Loading overlay for sharing */}
+      {isSharing && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Preparing your progress...</Text>
+          </View>
+        </View>
+      )}
     </View>
+    
+    {/* Content Safety Warning Modal - Rendered outside main container */}
+    <Portal>
+      {showContentWarning && (
+        <ContentSafetyWarning
+          onProceed={proceedWithSharing}
+          onCancel={cancelSharing}
+          variant="sharing"
+        />
+      )}
+    </Portal>
+    </>
   );
 }
 
@@ -601,7 +781,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 120, // Increased to account for bottom tab bar (60px + safe area + extra margin)
   },
   title: {
     fontSize: 28,
@@ -620,7 +800,7 @@ const styles = StyleSheet.create({
   modeToggleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     marginBottom: 16,
   },
   segmentContainer: {
@@ -628,7 +808,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 3,
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -656,11 +836,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     marginBottom: 20,
   },
   controlsCard: {
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     marginTop: 8,
     marginBottom: 20,
     backgroundColor: colors.card,
@@ -684,7 +864,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 40,
     paddingVertical: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     backgroundColor: colors.background,
     zIndex: 50,
     position: 'relative',
@@ -731,7 +911,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 107, 53, 0.3)',
     minHeight: 48,
     paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     zIndex: 20,
     elevation: 3,
     flexShrink: 1,
@@ -768,13 +948,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    gap: 8,
+    gap: 2,
   },
   photoRowStack: {
     flexDirection: 'column',
   },
   photoColumn: {
-    width: '42%',
+    width: '49%',
     alignItems: 'center',
   },
   photoLabel: {
@@ -809,15 +989,15 @@ const styles = StyleSheet.create({
   },
   comparisonImage: {
     width: '100%',
-    height: 200,
+    height: 280,
     borderRadius: 12,
   },
   comparisonImageLarge: {
-    height: 280,
+    height: 360,
   },
   noPhotoPlaceholder: {
     width: '100%',
-    height: 200,
+    height: 280,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -910,8 +1090,8 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.surface,
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 4,
+    marginBottom: 12,
     zIndex: 1,
   },
   summaryTitle: {
@@ -949,7 +1129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     marginTop: 28,
     marginBottom: 12,
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     shadowColor: '#4ECDC4',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,
@@ -965,14 +1145,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
   },
   shareButtonText: {
+    ...typography.button,
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    marginLeft: 14,
+    fontSize: 16,
+    fontWeight: '600' as const,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   shareButtonIcon: {
     width: 24,
@@ -1020,7 +1200,7 @@ const styles = StyleSheet.create({
   },
 
   timelineContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     paddingBottom: 20,
   },
   timelineItem: {
@@ -1050,12 +1230,12 @@ const styles = StyleSheet.create({
   },
   timelineImage: {
     width: '100%',
-    height: 160,
+    height: 200,
     borderRadius: 8,
   },
   timelineNoPhoto: {
     width: '100%',
-    height: 160,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1086,7 +1266,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   modalContent: {
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     padding: 16,
     borderRadius: 12,
     backgroundColor: colors.surface,
@@ -1129,14 +1309,30 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
+  // Loading Overlay Styles
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+
   // Sharing Layout Styles
   shareViewShotContainer: {
     position: 'absolute',
-    left: -9999,
-    top: -9999,
+    top: 0,
+    left: 0,
     width: 400,
     height: 500,
     backgroundColor: 'transparent',
+    opacity: 0,
+    zIndex: -1,
+    pointerEvents: 'none',
   },
   shareLayoutContainer: {
     backgroundColor: '#FFFFFF',
@@ -1167,7 +1363,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     paddingVertical: 16,
   },
   shareHeaderLine: {
@@ -1180,7 +1376,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 2,
-    marginHorizontal: 12,
+    marginHorizontal: 8,
   },
   brandingContainer: {
     position: 'relative',
@@ -1245,7 +1441,7 @@ const styles = StyleSheet.create({
     top: 8,
     left: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
   },
@@ -1261,7 +1457,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
   },
@@ -1301,12 +1497,12 @@ const styles = StyleSheet.create({
   },
 
   photoContainer: {
-    width: '48%',
+    width: '49.5%',
     alignItems: 'center',
   },
   photoImage: {
     width: '100%',
-    height: 200,
+    height: 280,
     borderRadius: 12,
   },
   photoLabelMainText: {
@@ -1323,8 +1519,9 @@ const styles = StyleSheet.create({
   },
 
   shareCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+    marginHorizontal: 8,
+    marginTop: 8,
+    marginBottom: 12,
     backgroundColor: colors.card,
     borderRadius: 12,
     elevation: 2,

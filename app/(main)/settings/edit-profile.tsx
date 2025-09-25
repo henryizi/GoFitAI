@@ -397,5 +397,4 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     width: '48%',
-  },
-}); 
+  },}); 

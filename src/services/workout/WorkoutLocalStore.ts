@@ -143,6 +143,17 @@ export class WorkoutLocalStore {
   /**
    * Save all plans to storage (global list)
    */
+  static async saveAllPlans(plans: StoredWorkoutPlan[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
+    } catch (error) {
+      console.error('[WorkoutLocalStore] Error saving all plans to storage:', error);
+    }
+  }
+
+  /**
+   * Save all plans to storage (global list)
+   */
   static async savePlansToStorage(plans: StoredWorkoutPlan[]): Promise<void> {
     try {
       await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));

@@ -1,0 +1,3403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFitAI - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .tagline {
+            font-size: 16px;
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-title {
+            font-size: 24px;
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF8A00, #FF6B00);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(255, 138, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .backup-url {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+        .features {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .features-title {
+            font-size: 18px;
+            color: #FF8A00;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #555;
+        }
+        .feature-icon {
+            margin-right: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer-text {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            margin: 15px 0 0 0;
+            color: #999;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 14px 28px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="logo">GoFitAI</h1>
+            <p class="tagline">AI-Powered Fitness Platform</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to GoFitAI</h2>
+            
+            <p class="message">
+                Thank you for creating your GoFitAI account. We appreciate your interest in our AI-powered fitness platform.
+            </p>
+            
+            <p class="message">
+                To complete your account setup and access all platform features, please verify your email address by clicking the button below:
+            </p>
+
+            <!-- CTA Button -->
+            <div class="cta-container">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Verify Email Address
+                </a>
+            </div>
+
+            <!-- Backup URL -->
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                If you're unable to click the button above, please copy and paste the following URL into your browser:
+            </p>
+            <div class="backup-url">
+                {{ .ConfirmationURL }}
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        Personalized AI workout programming tailored to your fitness goals and experience level
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">🍎</span>
+                        Advanced nutrition analysis with photo-based food recognition technology
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        Comprehensive progress tracking and performance analytics
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-icon">💪</span>
+                        Expert fitness guidance with evidence-based training methodologies
+                    </li>
+                </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                If you did not create a GoFitAI account, please disregard this message. Your data security and privacy remain protected.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">
+                <strong>GoFitAI</strong> - AI-Powered Fitness Solutions
+            </p>
+            <p class="disclaimer">
+                This is an automated message from our system. Please do not reply to this email.<br>
+                For assistance, please contact our customer support team.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,39 +1,16 @@
---- SERVER RESTARTED ---
---- Code version: 2.2 ---
-[VISION SERVICE] Initializing Gemini Vision Service
-[GEMINI VISION] Service initialized with model: gemini-2.5-flash
-[GEMINI VISION] API Key configured: ✅ Yes
-=== API CONFIGURATION ===
-DeepSeek-only mode: DISABLED
-Strict mode (effective): DISABLED
-Available AI Providers: [ 'deepseek', 'gemini', 'fallback' ]
-Default AI_PROVIDER: gemini
-Total providers available: 3
-- deepseek: ENABLED (deepseek-chat)
-- gemini: ENABLED (gemini-2.0-flash-exp)
-- fallback: ENABLED (rule-based)
-========================
-Server running on port 4000
-Local IP: 192.168.0.100
-Server URL: http://192.168.0.100:4000
-Test API with: curl http://192.168.0.100:4000/api/test
-[FOOD ANALYZE] Received food analysis request using Gemini only
-{"level":30,"time":1756867428355,"pid":50189,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"24"},"remoteAddress":"127.0.0.1","remotePort":54537},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"65","etag":"W/\"41-f3EPw7wj5HZFtnLxJr+Bg0oYTU0\""}},"responseTime":8,"msg":"request completed"}
-[FOOD ANALYZE] Received food analysis request using Gemini only
-[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: true, fileInfo: null }
-[FOOD ANALYZE] Processing text description with Gemini
-[FOOD ANALYZE] Gemini API error: Request failed with status code 400
-[FOOD ANALYZE] Using enhanced fallback analysis
-{"level":30,"time":1756867523460,"pid":50189,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"29"},"remoteAddress":"127.0.0.1","remotePort":54573},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"326","etag":"W/\"146-DtNqWeDhWvgL6LBeQkN//Nhguk0\""}},"responseTime":1536,"msg":"request completed"}
-[FOOD ANALYZE] Received food analysis request using Gemini only
-[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: true, fileInfo: null }
-[FOOD ANALYZE] Processing text description with Gemini
-[FOOD ANALYZE] Gemini API error: Request failed with status code 400
-[FOOD ANALYZE] Using enhanced fallback analysis
-{"level":30,"time":1756867681784,"pid":50189,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"46"},"remoteAddress":"127.0.0.1","remotePort":54610},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"346","etag":"W/\"15a-a1wGIdSvSXqvBaUbYFIKc/OiEZw\""}},"responseTime":1330,"msg":"request completed"}
-[FOOD ANALYZE] Received food analysis request using Gemini only
-[FOOD ANALYZE] Request details: { hasFile: false, hasDescription: true, fileInfo: null }
-[FOOD ANALYZE] Processing text description with Gemini
-[FOOD ANALYZE] Gemini API error: Request failed with status code 400
-[FOOD ANALYZE] Using enhanced fallback analysis
-{"level":30,"time":1756867733767,"pid":50189,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/analyze-food","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"47"},"remoteAddress":"127.0.0.1","remotePort":54617},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"345","etag":"W/\"159-JTKrCPb6oqs38xqg7aK7YIGEmMo\""}},"responseTime":581,"msg":"request completed"}
+/Users/ngkwanho/Desktop/GoFitAI/server/index.js:287
+  let selectedPlan = defaultPlan;
+  ^^^
+
+SyntaxError: Unexpected identifier 'let'
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.14.0

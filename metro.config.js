@@ -1,45 +1,41 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
+const { MetroConfig } = require('@expo/metro-runtime');
 
 const config = getDefaultConfig(__dirname);
 
-// Configure for react-native-svg
-const { resolver: { sourceExts, assetExts } } = getDefaultConfig(__dirname);
-config.transformer.babelTransformerPath = require.resolve("react-native-svg-transformer");
-config.resolver.assetExts = assetExts.filter(ext => ext !== "svg");
-config.resolver.sourceExts = [...sourceExts, "svg", "cjs"];
-
-// Add path aliases to Metro resolver
-config.resolver.alias = {
-  '@': path.resolve(__dirname, 'src'),
-  '@/components': path.resolve(__dirname, 'src/components'),
-  '@/hooks': path.resolve(__dirname, 'src/hooks'),
-  '@/services': path.resolve(__dirname, 'src/services'),
-  '@/types': path.resolve(__dirname, 'src/types'),
-  '@/utils': path.resolve(__dirname, 'src/utils'),
-  '@/store': path.resolve(__dirname, 'src/store'),
-  '@/styles': path.resolve(__dirname, 'src/styles'),
-  tslib: require.resolve('tslib'),
+// Explicitly configure for React 19 and new architecture
+config.resolver = {
+  ...config.resolver,
+  // Ensure proper TypeScript resolution
+  nodeModulesPath: [__dirname + '/node_modules'],
+  // Enable React 19 imports
+  alias: {
+    ...config.resolver.alias,
+    'react': 'react',
+    'react-dom': 'react-dom',
+  },
+  // Ensure TypeScript files are properly resolved
+  sourceExts: ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'],
 };
 
-// Fix for react-native-svg web bundling issue
-config.resolver.platforms = ['ios', 'android', 'web'];
-// Prefer native, then main, then browser to avoid pulling web bundles on native
-config.resolver.mainFields = ['react-native', 'main', 'browser'];
-// Force Metro to ignore package "exports" maps so tslib resolves to CommonJS entry
-config.resolver.unstable_enablePackageExports = false;
-
-// Custom resolver to handle react-native-svg for web
-const originalResolver = config.resolver.resolverMainFields;
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'react-native-svg' && platform === 'web') {
-    return {
-      filePath: require.resolve('react-native-svg-web'),
-      type: 'sourceFile',
-    };
-  }
-  // Use default resolver for everything else
-  return context.resolveRequest(context, moduleName, platform);
+// Configure for new architecture
+config.transformer = {
+  ...config.transformer,
+  // Ensure proper JSX handling
+  babelTransformerPath: require.resolve('react-native-svg-transformer'),
+  // Enable React 19 JSX runtime
+  enableBabelRCLookup: false,
+  // Add TypeScript support
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
 };
 
-module.exports = config; 
+// Enable TypeScript support
+config.transformer.experimentalImportSupport = false;
+config.transformer.inlineRequires = true;
+
+module.exports = config;

@@ -17,103 +17,6 @@ export interface MealPreferences {
 }
 
 export class MealPreferenceService {
-  // Store daily meal plan for a specific date
-  static async storeDailyMealPlan(userId: string, dateString: string, mealPlan: any[]): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('daily_meal_plans')
-        .upsert({
-          user_id: userId,
-          date: dateString,
-          meal_plan: mealPlan,
-          created_at: new Date().toISOString(),
-        });
-
-      return !error;
-    } catch (error) {
-      console.error('Error storing daily meal plan:', error);
-      return false;
-    }
-  }
-
-  // Get daily meal plan for a specific date
-  static async getDailyMealPlan(userId: string, dateString: string): Promise<any[] | null> {
-    try {
-      const { data, error } = await supabase
-        .from('daily_meal_plans')
-        .select('meal_plan')
-        .eq('user_id', userId)
-        .eq('date', dateString)
-        .single();
-
-      if (error || !data) return null;
-      return data.meal_plan;
-    } catch (error) {
-      console.error('Error getting daily meal plan:', error);
-      return null;
-    }
-  }
-
-  // Get meal rating for a specific meal
-  static async getMealRating(mealId: string, userId: string): Promise<'liked' | 'disliked' | null> {
-    try {
-      const { data, error } = await supabase
-        .from('meal_ratings')
-        .select('rating')
-        .eq('meal_id', mealId)
-        .eq('user_id', userId)
-        .single();
-
-      if (error || !data) return null;
-      return data.rating as 'liked' | 'disliked';
-    } catch (error) {
-      console.error('Error getting meal rating:', error);
-      return null;
-    }
-  }
-
-  // Rate a meal
-  static async rateMeal(
-    mealId: string,
-    mealDescription: string,
-    mealType: string,
-    rating: 'liked' | 'disliked',
-    userId: string
-  ): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('meal_ratings')
-        .upsert({
-          meal_id: mealId,
-          user_id: userId,
-          meal_description: mealDescription,
-          meal_type: mealType,
-          rating: rating,
-          created_at: new Date().toISOString(),
-        });
-
-      return !error;
-    } catch (error) {
-      console.error('Error rating meal:', error);
-      return false;
-    }
-  }
-
-  // Remove meal rating
-  static async removeRating(mealId: string, userId: string): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('meal_ratings')
-        .delete()
-        .eq('meal_id', mealId)
-        .eq('user_id', userId);
-
-      return !error;
-    } catch (error) {
-      console.error('Error removing meal rating:', error);
-      return false;
-    }
-  }
   private static readonly STORAGE_KEY = 'meal_preferences';
 
   /**
@@ -310,6 +213,38 @@ export class MealPreferenceService {
         dislikedCount: 0,
         favoriteType: null
       };
+    }
+  }
+
+  /**
+   * Get daily meal plan from storage
+   */
+  static async getDailyMealPlan(userId: string, dateString: string): Promise<any[] | null> {
+    try {
+      const storageKey = `daily_meal_plan_${userId}_${dateString}`;
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (!stored) {
+        return null;
+      }
+      return JSON.parse(stored);
+    } catch (error) {
+      console.error('[MealPreferenceService] Error getting daily meal plan:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Store daily meal plan to storage
+   */
+  static async storeDailyMealPlan(userId: string, dateString: string, mealPlan: any[]): Promise<boolean> {
+    try {
+      const storageKey = `daily_meal_plan_${userId}_${dateString}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(mealPlan));
+      console.log(`[MealPreferenceService] Daily meal plan stored for ${dateString}`);
+      return true;
+    } catch (error) {
+      console.error('[MealPreferenceService] Error storing daily meal plan:', error);
+      return false;
     }
   }
 

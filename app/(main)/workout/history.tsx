@@ -84,11 +84,9 @@ export default function WorkoutHistoryListScreen() {
     if (!user?.id) return;
     setLoading(true);
     console.log('[WorkoutHistory] Loading workout history for user:', user.id);
-    console.log('[WorkoutHistory] User object:', JSON.stringify(user, null, 2));
     try {
-      const data = await WorkoutHistoryService.getCompletedSessions(user.id);
+      const data = await WorkoutHistoryService.getCompletedSessionsWithDetails(user.id);
       console.log('[WorkoutHistory] Loaded sessions:', data.length);
-      console.log('[WorkoutHistory] Session data:', JSON.stringify(data, null, 2));
       setSessions(data);
     } catch (error) {
       console.error('[WorkoutHistory] Error loading sessions:', error);
@@ -103,7 +101,6 @@ export default function WorkoutHistoryListScreen() {
       console.log('[WorkoutHistory] Refreshing workout history');
       const data = await WorkoutHistoryService.getCompletedSessions(user?.id || '');
       console.log('[WorkoutHistory] Refreshed sessions:', data.length);
-      console.log('[WorkoutHistory] Refreshed session data:', JSON.stringify(data, null, 2));
       setSessions(data);
     } catch (error) {
       console.error('[WorkoutHistory] Error refreshing sessions:', error);
@@ -419,14 +416,14 @@ export default function WorkoutHistoryListScreen() {
                       <View style={styles.sessionStatsRow}>
                         {item.total_exercises != null && item.total_exercises > 0 ? (
                           <View style={styles.sessionStatItem}>
-                            <Icon name="fitness-center" size={14} color={colors.textSecondary} />
+                            <Icon name="dumbbell" size={14} color={colors.textSecondary} />
                             <Text style={styles.sessionStatText}>
-                              {item.total_exercises} {item.total_exercises === 1 ? 'Exercise' : 'Exercises'}
+                              {String(item.total_exercises).replace(/[?]/g, '')} {item.total_exercises === 1 ? 'Exercise' : 'Exercises'}
                             </Text>
                           </View>
                         ) : (
                           <View style={styles.sessionStatItem}>
-                            <Icon name="fitness-center" size={14} color={colors.textSecondary} />
+                            <Icon name="dumbbell" size={14} color={colors.textSecondary} />
                             <Text style={styles.sessionStatText}>
                               No exercises
                             </Text>
@@ -436,7 +433,7 @@ export default function WorkoutHistoryListScreen() {
                           <View style={styles.sessionStatItem}>
                             <Icon name="repeat" size={14} color={colors.textSecondary} />
                             <Text style={styles.sessionStatText}>
-                              {item.total_sets} {item.total_sets === 1 ? 'Set' : 'Sets'}
+                              {String(item.total_sets).replace(/[?]/g, '')} {item.total_sets === 1 ? 'Set' : 'Sets'}
                             </Text>
                           </View>
                         ) : (
@@ -449,20 +446,50 @@ export default function WorkoutHistoryListScreen() {
                         )}
                         {item.estimated_calories != null && item.estimated_calories > 0 ? (
                           <View style={styles.sessionStatItem}>
-                            <Icon name="local-fire-department" size={14} color={colors.textSecondary} />
+                            <Icon name="fire" size={14} color={colors.textSecondary} />
                             <Text style={styles.sessionStatText}>
-                              {item.estimated_calories} cal
+                              {String(item.estimated_calories).replace(/[?]/g, '')} cal
                             </Text>
                           </View>
                         ) : (
                           <View style={styles.sessionStatItem}>
-                            <Icon name="local-fire-department" size={14} color={colors.textSecondary} />
+                            <Icon name="fire" size={14} color={colors.textSecondary} />
                             <Text style={styles.sessionStatText}>
                               No calories
                             </Text>
                           </View>
                         )}
                       </View>
+
+                      {/* Detailed Exercise Information */}
+                      {item.exercises && item.exercises.length > 0 && (
+                        <View style={styles.exerciseDetailsContainer}>
+                          <Text style={styles.exerciseDetailsTitle}>Exercises Completed:</Text>
+                          {item.exercises.map((exercise, exerciseIndex) => (
+                            <View key={exerciseIndex} style={styles.exerciseDetailRow}>
+                              <View style={styles.exerciseNameContainer}>
+                                <Icon name="dumbbell" size={12} color={colors.primary} />
+                                <Text style={styles.exerciseDetailName} numberOfLines={1}>
+                                  {exercise.exercise_name}
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseStatsContainer}>
+                                <Text style={styles.exerciseDetailStat}>
+                                  {exercise.sets_completed} sets
+                                </Text>
+                                <Text style={styles.exerciseDetailStat}>
+                                  {exercise.total_reps} reps
+                                </Text>
+                                {exercise.max_weight && (
+                                  <Text style={styles.exerciseDetailStat}>
+                                    {exercise.max_weight}kg max
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                     
                     <View style={styles.sessionActionsContainer}>
@@ -789,5 +816,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  
+  // Exercise Details Styles
+  exerciseDetailsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  exerciseDetailsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  exerciseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  exerciseNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  exerciseDetailName: {
+    fontSize: 13,
+    color: colors.text,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  exerciseStatsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exerciseDetailStat: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

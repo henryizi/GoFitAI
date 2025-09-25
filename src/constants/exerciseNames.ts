@@ -1,9 +1,9 @@
 export interface ExerciseInfo {
   name: string;
-  category: 'Push' | 'Pull' | 'Legs' | 'Core' | 'Cardio';
+  category: 'Push' | 'Pull' | 'Legs' | 'Core' | 'Cardio' | 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Abs' | 'Glutes' | 'Full Body';
   muscleGroups: string[];
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  equipment?: 'Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Bodyweight' | 'Cable Machine' | 'Plate' | 'Machine';
+  equipment?: 'Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Bodyweight' | 'Cable Machine' | 'Plate' | 'Machine' | 'Jump Rope' | 'Other';
 }
 
 export const SUPPORTED_EXERCISES: ExerciseInfo[] = [

@@ -1,5 +1,6 @@
 import { supabase } from './supabase/client';
 import { PhotoStorageService } from './storage/photoStorage';
+import { LocalPhotoStorageService } from './storage/localPhotoStorage';
 import { Database } from '../types/database';
 import { environment } from '../config/environment';
 import { mockMetrics, mockPrediction, mockMetricsStore } from '../mock-data';
@@ -23,9 +24,8 @@ type DailyMetric = Database['public']['Tables']['daily_user_metrics']['Row'];
 export class ProgressService {
   private static async fetchWithBaseFallback(path: string, init?: RequestInit): Promise<{ base: string; response: Response }> {
     const bases = [
+      'https://gofitai-production.up.railway.app', // Railway server first (always available)
       environment.apiUrl,
-      'http://192.168.0.116:4000', // Current machine IP
-      'http://192.168.0.100:4000', // Backup machine IP
     ].filter(Boolean) as string[];
 
     let lastError: unknown = null;
@@ -43,9 +43,9 @@ export class ProgressService {
             if (__DEV__) console.log('[ProgressService] 404 Response from', base, ':', errorData);
             
             // Check for Railway-specific error patterns
-            if (errorData.message?.includes('does not exist on the Railway server') || 
-                errorData.error === 'Route not found' ||
-                errorData.message === 'Route not found') {
+            if ((errorData as any).message?.includes('does not exist on the Railway server') || 
+                (errorData as any).error === 'Route not found' ||
+                (errorData as any).message === 'Route not found') {
               if (__DEV__) console.log('[ProgressService] Railway missing endpoint, trying next base...');
               continue; // Try the next base
             }
@@ -105,7 +105,7 @@ export class ProgressService {
             // Remove photo_id references since photos are local now
             front_photo_id: null,
             back_photo_id: null,
-          },
+          } as any,
           { onConflict: 'user_id, date' }
         )
         .select()
@@ -172,7 +172,7 @@ export class ProgressService {
     });
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to predict progress.');
+      throw new Error((errorData as any).error || 'Failed to predict progress.');
     }
     return response.json();
   }
@@ -239,9 +239,10 @@ export class ProgressService {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to analyze behavior.');
+      throw new Error((errorData as any).error || 'Failed to analyze behavior.');
     }
-    return response.json();
+    const data = await response.json();
+    return { success: true, ...data };
   }
 
   static async generateMotivationalMessage(userId: string, triggerEvent: string): Promise<{ success: boolean; message?: any }> {
@@ -252,9 +253,10 @@ export class ProgressService {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to get motivational message.');
+      throw new Error((errorData as any).error || 'Failed to get motivational message.');
     }
-    return response.json();
+    const data = await response.json();
+    return { success: true, ...data };
   }
 
   /**
@@ -265,7 +267,7 @@ export class ProgressService {
       console.log('Fetching progress photos for user:', userId);
       
       // Get photo sessions from local storage
-      const sessions = await PhotoStorageService.getProgressPhotoSessions(userId);
+      const sessions = await LocalPhotoStorageService.getProgressPhotoSessions(userId);
       
       // Convert to format compatible with existing UI
       const photoEntries = sessions.map(session => ({
@@ -333,7 +335,7 @@ export class ProgressService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error(`Weight entry failed on ${base}:`, errorData);
-        throw new Error(errorData.error || 'Failed to save weight entry.');
+        throw new Error((errorData as any).error || 'Failed to save weight entry.');
       }
 
       const result = await response.json();

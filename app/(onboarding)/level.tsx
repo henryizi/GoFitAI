@@ -15,7 +15,7 @@ import { OnboardingButton } from '../../src/components/onboarding/OnboardingButt
 type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
 
 const LevelScreen = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [level, setLevel] = useState<TrainingLevel | null>(null);
 
   const handleFinish = async () => {
@@ -33,7 +33,17 @@ const LevelScreen = () => {
       } else {
         try { identify(user.id, { training_level: level, onboarding_completed: true }); } catch {}
         try { analyticsTrack('onboarding_complete_success', { user_id: user.id, training_level: level }); } catch {}
-        router.replace('/(main)/dashboard');
+        
+        // Refresh profile data to ensure latest onboarding data is available
+        try {
+          await refreshProfile();
+          console.log('Profile refreshed after onboarding completion');
+        } catch (refreshError) {
+          console.warn('Failed to refresh profile after onboarding:', refreshError);
+        }
+        
+        // 入门完成后显示付费墙
+        router.replace('/paywall');
       }
     } catch (error) {
       console.error('Error completing onboarding:', error);
@@ -222,3 +232,18 @@ const styles = StyleSheet.create({
 });
 
 export default LevelScreen;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

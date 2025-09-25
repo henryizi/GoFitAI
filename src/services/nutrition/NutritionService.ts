@@ -18,13 +18,11 @@ export type FoodSuggestion = {
 import { environment } from '../../config/environment';
 import { GeminiService } from '../ai/GeminiService';
 
-// Base URLs for fallback system (Railway first, then local)
+// Base URLs for fallback system (Railway first, then environment)
 const getBaseUrls = () => {
   return [
     'https://gofitai-production.up.railway.app', // Railway server first (always available)
     environment.apiUrl, // Configured URL from environment
-    'http://192.168.0.152:4000', // Local server fallback (current local IP)
-    'http://192.168.0.100:4000', // Backup local server fallback
   ].filter(Boolean) as string[];
 };
 
@@ -563,17 +561,9 @@ export class NutritionService {
         return sortedPlans[0];
       }
       
-      // If no plans found in the mock store and default plan wasn't deleted, return the default mock plan
-      if (!mockPlansStore.deletedDefaultPlan) {
-        console.log('[NUTRITION] Returning default mock plan');
-      return {
-        ...mockNutritionPlan,
-        user_id: userId
-      };
-      } else {
-        console.log('[NUTRITION] No plans available - default plan was deleted');
-        return null;
-      }
+      // Don't return default plan for new users - let them create their own
+      console.log('[NUTRITION] No user plans found - new users should create their own plan');
+      return null;
     } catch (error) {
       console.error('Error fetching latest nutrition plan:', error);
       return null;
@@ -648,15 +638,9 @@ export class NutritionService {
       const userPlans = mockPlansStore.plans
         .filter(plan => plan.user_id === userId);
       
-      // Only add the default mock plan if no user plans exist and it hasn't been deleted
-      if (userPlans.length === 0 && !mockPlansStore.deletedDefaultPlan) {
-        console.log('[NUTRITION] Adding default mock plan to empty list');
-        userPlans.push({
-          ...mockNutritionPlan,
-          user_id: userId
-        });
-      } else if (userPlans.length === 0 && mockPlansStore.deletedDefaultPlan) {
-        console.log('[NUTRITION] Default mock plan was deleted, returning empty list');
+      // Don't add default plan for new users - let them create their own
+      if (userPlans.length === 0) {
+        console.log('[NUTRITION] No user plans found - new users should create their own plan');
       }
 
       // Add metabolic calculations to existing plans that don't have them
@@ -1372,10 +1356,168 @@ export class NutritionService {
   }
 
   /**
+   * Create a manual nutrition plan with user-specified targets (no mathematical calculations)
+   */
+  static async createManualNutritionPlan(
+    userId: string,
+    manualTargets: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    },
+    options: {
+      goal: string;
+      dietaryPreferences: string[];
+      intolerances: string[];
+    }
+  ): Promise<NutritionPlan> {
+    try {
+      console.log('[NUTRITION] Creating manual nutrition plan with user-specified targets');
+
+      // Get user profile for plan metadata
+      let userProfile;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (error) {
+          console.error('[NUTRITION] Error fetching user profile:', error);
+          throw new Error('Unable to fetch user profile');
+        }
+
+        userProfile = data;
+      } catch (profileError) {
+        console.log('[NUTRITION] Using fallback profile for manual plan creation');
+        userProfile = {
+          id: userId,
+          full_name: 'User',
+          goal_type: options.goal,
+          goal_fat_reduction: 5,
+          goal_muscle_gain: 2,
+          fitness_strategy: 'maintenance'
+        };
+      }
+
+      // Get user's name for the plan name
+      const userName = userProfile.full_name || userProfile.username || userProfile.email || 'User';
+
+      // Create plan ID
+      const planId = `manual-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+      const planName = `${userName}'s Manual Nutrition Plan`;
+
+      // Calculate basic BMR for reference (even though we're using manual targets)
+      const age = userProfile.birthday ?
+        new Date().getFullYear() - new Date(userProfile.birthday).getFullYear() : 30;
+
+      const bmr = this.calculateBMR(
+        userProfile.weight || 70,
+        userProfile.height || 170,
+        age,
+        userProfile.gender || 'male'
+      );
+
+      // Create the manual nutrition plan
+      const manualPlan: NutritionPlan = {
+        id: planId,
+        user_id: userId,
+        plan_name: planName,
+        goal_type: options.goal,
+        status: 'active',
+        preferences: {
+          dietary: options.dietaryPreferences,
+          intolerances: options.intolerances
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+
+        // Use the manual targets provided by the user
+        daily_targets: manualTargets,
+
+        // Create minimal metabolic calculations (for reference only)
+        metabolic_calculations: {
+          bmr: Math.round(bmr),
+          tdee: Math.round(bmr * 1.375), // Use moderate activity as default
+          activity_level: 'moderately_active',
+          activity_multiplier: 1.375,
+          goal_calories: manualTargets.calories,
+          adjusted_calories: manualTargets.calories, // UI priority field
+          goal_adjustment: 0, // No adjustment since it's manual
+          goal_adjustment_reason: 'Manual plan - user specified exact targets',
+          calorie_adjustment_reason: 'Manual plan - user specified exact targets',
+          calculation_method: 'Manual Input'
+        },
+
+        // Generate food suggestions based on preferences
+        food_suggestions: this.generateFoodSuggestions(options.dietaryPreferences, options.intolerances).food_suggestions,
+        snack_suggestions: this.generateFoodSuggestions(options.dietaryPreferences, options.intolerances).snack_suggestions,
+
+        micronutrients_targets: this.generateMicronutrientTargets(userProfile)
+      };
+
+      console.log('[NUTRITION] ✅ Created manual nutrition plan:', {
+        id: manualPlan.id,
+        plan_name: manualPlan.plan_name,
+        goal_type: manualPlan.goal_type,
+        daily_targets: manualPlan.daily_targets,
+        metabolic_calculations: manualPlan.metabolic_calculations
+      });
+
+      // Clear existing plans for this user to prevent conflicts
+      const existingPlanIndices = [];
+      for (let i = mockPlansStore.plans.length - 1; i >= 0; i--) {
+        if (mockPlansStore.plans[i].user_id === userId) {
+          existingPlanIndices.push(i);
+        }
+      }
+
+      if (existingPlanIndices.length > 0) {
+        console.log(`[NUTRITION] 🗑️ Removing ${existingPlanIndices.length} existing plans for user ${userId}`);
+        existingPlanIndices.forEach(index => {
+          mockPlansStore.plans.splice(index, 1);
+        });
+      }
+
+      // Ensure daily_targets has both formats for compatibility
+      const compatibleDailyTargets = {
+        calories: manualTargets.calories,
+        protein: manualTargets.protein,
+        carbs: manualTargets.carbs,
+        fat: manualTargets.fat,
+        protein_grams: manualTargets.protein,
+        carbs_grams: manualTargets.carbs,
+        fat_grams: manualTargets.fat
+      };
+
+      // Create the final plan to store
+      const planToStore = {
+        ...manualPlan,
+        daily_targets: compatibleDailyTargets
+      };
+
+      // Add to mock store
+      mockPlansStore.plans.unshift(planToStore);
+      console.log('[NUTRITION] ✅ Added manual plan to mock store');
+
+      // Save to persistent storage
+      await this.savePlansToStorage();
+
+      console.log('[NUTRITION] ✅ Manual nutrition plan created and saved successfully!');
+      return manualPlan;
+    } catch (error: any) {
+      console.error('[NUTRITION] Error creating manual nutrition plan:', error);
+      throw new Error('Failed to create manual nutrition plan: ' + (error.message || 'Unknown error'));
+    }
+  }
+
+  /**
    * Generate a nutrition plan using mathematical calculations when API fails
    */
   static async generateMathematicalFallbackPlan(
-    userId: string, 
+    userId: string,
     options: { goal: string; dietaryPreferences: string[]; intolerances: string[] },
     profile: any,
     metabolicData: any
@@ -1510,7 +1652,7 @@ export class NutritionService {
       
       if (!response.ok) {
           const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete nutrition plan');
+        throw new Error((errorData as any).message || 'Failed to delete nutrition plan');
       }
       
       return true;
@@ -1546,7 +1688,7 @@ export class NutritionService {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `API Error: ${response.status}`);
+        throw new Error((errorData as any).error || `API Error: ${response.status}`);
       } else {
         const errorText = await response.text();
         throw new Error(
@@ -1574,7 +1716,7 @@ export class NutritionService {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `API Error: ${response.status}`);
+        throw new Error((errorData as any).error || `API Error: ${response.status}`);
       } else {
         const errorText = await response.text();
         throw new Error(
@@ -1597,7 +1739,7 @@ export class NutritionService {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to log daily metric.');
+      throw new Error((errorData as any).error || 'Failed to log daily metric.');
     }
 
     return response.json();
@@ -1647,7 +1789,7 @@ export class NutritionService {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to log food entry.');
+          throw new Error((errorData as any).error || 'Failed to log food entry.');
         }
 
         return response.json();
@@ -1699,7 +1841,7 @@ export class NutritionService {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('[FOOD ANALYZE] API error:', errorData);
-        throw new Error(errorData.message || errorData.error || 'Food analysis failed');
+        throw new Error((errorData as any).message || (errorData as any).error || 'Food analysis failed');
       }
       
       const result = await response.json();
@@ -1815,9 +1957,7 @@ export class NutritionService {
     console.log('[NUTRITION] Preferences:', { dietaryPreferences, cuisinePreference });
     
     try {
-      // Use the Gemini service to generate the meal plan
-      const { GeminiService } = await import('../ai/GeminiService');
-      
+      // Use the Gemini service to generate the meal plan (already imported at top)
       const result = await GeminiService.generateDailyMealPlan(
         dailyCalories,
         proteinGrams,
@@ -2020,11 +2160,11 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
 
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.meal_plan && data.meal_plan.length > 0) {
+          if ((data as any).success && (data as any).meal_plan && (data as any).meal_plan.length > 0) {
             console.log('[NUTRITION] ✅ Generated meal plan via server API');
             
             // Transform server API response to match expected UI format
-            const transformedServerMealPlan = data.meal_plan.map((meal: any) => ({
+            const transformedServerMealPlan = (data as any).meal_plan.map((meal: any) => ({
               id: `${meal.meal_type}_${Date.now()}`,
               meal_type: meal.meal_type,
               meal_description: meal.recipe_name, // Map recipe_name to meal_description for UI
@@ -2290,7 +2430,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
     });
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to analyze behavior.');
+      throw new Error((errorData as any).error || 'Failed to analyze behavior.');
     }
     return response.json();
   }
@@ -2338,17 +2478,17 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to get coaching response.');
+      throw new Error((errorData as any).error || 'Failed to get coaching response.');
     }
 
     const data = await response.json();
-    return data.aiMessage;
+    return (data as any).aiMessage;
   }
 
   static async acknowledgeInsight(insightId: string): Promise<void> {
     const { error } = await supabase
       .from('behavioral_insights')
-      .update({ is_acknowledged: true })
+      .update({ is_acknowledged: true } as any)
       .eq('id', insightId);
 
     if (error) {
@@ -2380,11 +2520,132 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
   static async markMessageAsSeen(messageId: string): Promise<void> {
     const { error } = await supabase
       .from('motivational_messages')
-      .update({ is_seen: true })
+      .update({ is_seen: true } as any)
       .eq('id', messageId);
 
     if (error) {
       console.error('Error marking message as seen:', error);
+      throw error;
+    }
+  }
+
+  // Additional missing methods
+  static async chatAdjustNutritionPlan(history: any[], plan: any, user: any): Promise<{ aiMessage: string; newPlan?: any }> {
+    try {
+      const { base, response } = await this.fetchWithBaseFallback('/api/nutrition-chat-adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history, plan, user }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error((errorData as any).error || 'Failed to adjust nutrition plan.');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error adjusting nutrition plan via chat:', error);
+      throw error;
+    }
+  }
+
+  static async testConnection(): Promise<boolean> {
+    try {
+      const baseUrls = getBaseUrls();
+      for (const baseUrl of baseUrls) {
+        try {
+          const response = await fetch(`${baseUrl}/api/health`, {
+            method: 'GET',
+            timeout: 5000,
+          } as any);
+          if (response.ok) {
+            return true;
+          }
+        } catch (err) {
+          console.log(`Connection test failed for ${baseUrl}:`, err);
+          continue;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      return false;
+    }
+  }
+
+  static async generateRecipe(mealType: string, targets: any, ingredients: string[]): Promise<any> {
+    try {
+      const { base, response } = await this.fetchWithBaseFallback('/api/generate-recipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mealType, targets, ingredients }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error((errorData as any).error || 'Failed to generate recipe.');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating recipe:', error);
+      throw error;
+    }
+  }
+
+  static async saveRecipe(recipe: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('saved_recipes')
+        .insert([recipe])
+        .select();
+
+      if (error) {
+        console.error('Error saving recipe:', error);
+        throw error;
+      }
+
+      return data?.[0];
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      throw error;
+    }
+  }
+
+  static async getSavedRecipes(userId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('saved_recipes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching saved recipes:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching saved recipes:', error);
+      return [];
+    }
+  }
+
+  static async deleteSavedRecipe(recipeId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('saved_recipes')
+        .delete()
+        .eq('id', recipeId);
+
+      if (error) {
+        console.error('Error deleting saved recipe:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting saved recipe:', error);
       throw error;
     }
   }

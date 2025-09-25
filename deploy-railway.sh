@@ -23,7 +23,7 @@ railway init --name gofitai
 # Set environment variables
 echo "🔧 Setting environment variables..."
 railway variables set NODE_ENV=production
-railway variables set PORT=4001
+# Do NOT set PORT manually. Railway provides PORT; the server should bind to process.env.PORT.
 
 # Deploy the application
 echo "🚀 Deploying to Railway..."

@@ -200,8 +200,13 @@ export const usePhotoUpload = () => {
 
 
   const deletePhoto = useCallback(async (photoId: string, photoType: 'front' | 'back') => {
+    if (!user?.id) {
+      console.log('❌ usePhotoUpload: User not authenticated for delete');
+      return false;
+    }
+
     try {
-      const success = await PhotoStorageService.deletePhoto(photoId);
+      const success = await PhotoStorageService.deletePhoto(user.id, photoId);
       
       if (success) {
         setState(prev => ({

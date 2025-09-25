@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Alert, Image } from 'react-native';
 import { Text, TextInput, Card, IconButton } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,12 +31,22 @@ const RegisterScreen = () => {
     }
     setIsLoading(true);
     setError(null);
-    const { error } = await signUp(email, password, email, email);
+    const { error } = await signUp(email, password);
     setIsLoading(false);
     if (error) {
       setError(error.message);
     } else {
-      router.replace('/login');
+      // Show email verification reminder with GoFitAI branding
+      Alert.alert(
+        "Welcome to GoFitAI! 🏋️‍♂️",
+        `Thanks for joining GoFitAI - your AI fitness coach!\n\nWe've sent a verification link to ${email}. Please check your email and click the link to activate your account.\n\nOnce verified, you'll have access to:\n• AI-powered workout plans\n• Smart nutrition guidance\n• Progress tracking\n• Personalized coaching`,
+        [
+          {
+            text: "Check My Email",
+            onPress: () => router.replace('/login')
+          }
+        ]
+      );
     }
   };
 
@@ -58,25 +68,29 @@ const RegisterScreen = () => {
   return (
     <LinearGradient
       colors={['#000000', '#1C1C1E', '#2C2C2E']}
-      style={styles.gradientContainer}
+      style={styles.container}
     >
       <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardContainer} 
+        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          style={styles.scrollView}
+          bounces={false}
         >
           {/* Header Section */}
           <View style={styles.headerSection}>
             <View style={styles.logoContainer}>
-              <LinearGradient
-                colors={colors.gradients.primary as any}
-                style={styles.logoGradient}
-              >
-                <Text style={styles.logoText}>GF</Text>
-              </LinearGradient>
+              <Image 
+                source={require('../../assets/custom-logo.jpg')} 
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             
             <Text style={styles.welcomeTitle}>
@@ -116,6 +130,7 @@ const RegisterScreen = () => {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
                         outline: colors.border,
+                        onSurface: colors.text,
                       }
                     }}
                   />
@@ -139,11 +154,14 @@ const RegisterScreen = () => {
                         onPress={() => setShowPassword(!showPassword)}
                       />
                     }
+                    autoComplete="new-password"
+                    textContentType="newPassword"
                     theme={{
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
                         outline: colors.border,
+                        onSurface: colors.text,
                       }
                     }}
                   />
@@ -170,11 +188,14 @@ const RegisterScreen = () => {
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                       />
                     }
+                    autoComplete="new-password"
+                    textContentType="newPassword"
                     theme={{
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
                         outline: colors.border,
+                        onSurface: colors.text,
                       }
                     }}
                   />
@@ -232,17 +253,20 @@ const RegisterScreen = () => {
               By creating an account, you agree to our Terms of Service, Privacy Policy, and Health Disclaimer
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  gradientContainer: {
+  container: {
     flex: 1,
   },
-  container: {
+  keyboardContainer: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   scrollContent: {
@@ -250,6 +274,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: height * 0.06,
     paddingBottom: 40,
+    minHeight: height,
   },
   
   // Header Section
@@ -260,22 +285,15 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 28,
   },
-  logoGradient: {
+  logoImage: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 12,
     elevation: 8,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.textInverse,
   },
   welcomeTitle: {
     fontSize: 32,

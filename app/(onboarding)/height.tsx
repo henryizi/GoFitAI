@@ -39,7 +39,7 @@ const HeightScreen = () => {
   const [unit, setUnit] = useState('ft');
   const [selectedIndex, setSelectedIndex] = useState(20); // Default to 5'8" (around index 20 in feet/inches array)
   const flatListRef = useRef<FlatList<any>>(null);
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const gestureStartY = useRef(0);
   const initialScrollOffset = useRef(0);
   const isGesturing = useRef(false);
@@ -195,6 +195,15 @@ const HeightScreen = () => {
         height_unit_preference: unit 
       })
       .eq('id', user.id);
+    
+    // Refresh profile data to ensure changes are immediately reflected
+    try {
+      await refreshProfile();
+      console.log('Profile refreshed after height update');
+    } catch (refreshError) {
+      console.warn('Failed to refresh profile after height update:', refreshError);
+    }
+    
     try { identify(user.id, { height_cm: heightCm }); } catch {}
     try { analyticsTrack('onboarding_step_next', { step: 'height' }); } catch {}
     router.push('/(onboarding)/weight');

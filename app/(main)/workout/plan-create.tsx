@@ -283,17 +283,9 @@ export default function PlanCreateScreen() {
       }
       
       console.log('Checking existing plan count...');
-      // Check the number of existing plans
+      // Note: Removed the 3-plan limitation - users can now create unlimited workout plans
       const planCount = await WorkoutService.getPlanCountForUser(user.id);
       console.log('Current plan count:', planCount);
-      if (planCount >= 3) {
-        console.log('Error: Plan limit reached');
-        Alert.alert(
-          "Plan Limit Reached",
-          "You can only have up to 3 workout plans. Please delete an existing plan to generate a new one."
-        );
-        return;
-      }
 
       // Extract required data from the profile
       const {

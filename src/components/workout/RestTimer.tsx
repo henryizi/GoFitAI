@@ -21,6 +21,11 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
 
   // Reset timer when duration prop changes
   useEffect(() => {
+    // Clear any existing interval when duration changes
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setSecondsLeft(duration);
     setIsPaused(false);
   }, [duration]);
@@ -34,27 +39,16 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
       return;
     }
 
-    if (secondsLeft <= 0) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      Vibration.vibrate(500);
-      onFinish();
-      return;
-    }
-
-    // Only create interval if one doesn't exist
+    // Start the timer if not already running
     if (!intervalRef.current) {
       intervalRef.current = setInterval(() => {
         setSecondsLeft((prev) => {
           const newValue = prev - 1;
           if (newValue <= 0) {
-            // Clear interval when timer reaches zero
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-              intervalRef.current = null;
-            }
+            // Timer finished
+            Vibration.vibrate(500);
+            // Use setTimeout to avoid state update during render
+            setTimeout(() => onFinish(), 0);
             return 0;
           }
           return newValue;
@@ -68,11 +62,32 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
         intervalRef.current = null;
       }
     };
-  }, [isPaused, secondsLeft, onFinish]);
+  }, [isPaused, onFinish]);
+
+  // Separate effect to handle timer completion
+  useEffect(() => {
+    if (secondsLeft <= 0 && intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [secondsLeft]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   const dashOffset = useMemo(() => {
     return CIRCUMFERENCE * (1 - secondsLeft / duration);
   }, [secondsLeft, duration]);
+
+  const minutes = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+  const secs = (secondsLeft % 60).toString().padStart(2, '0');
 
   const renderTicks = () => {
     const ticks = [];
@@ -99,9 +114,6 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
     }
     return ticks;
   };
-
-  const minutes = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
-  const secs = (secondsLeft % 60).toString().padStart(2, '0');
 
   return (
     <View style={styles.container}>
@@ -133,7 +145,9 @@ const RestTimer: React.FC<RestTimerProps> = ({ duration, onFinish }) => {
       </Svg>
 
         <View style={styles.timeTextContainer}>
-          <Text style={styles.timeText}>{minutes}:{secs}</Text>
+          <View style={styles.timeTextWrapper}>
+            <Text style={styles.timeText}>{minutes}:{secs}</Text>
+          </View>
         </View>
       </View>
 
@@ -164,19 +178,30 @@ const styles = StyleSheet.create({
   },
   timeTextContainer: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: 'rgba(0,0,0,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 5,
+    display: 'flex',
+  },
+  timeTextWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
   },
   timeText: {
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: 'bold',
     color: colors.primary,
     letterSpacing: 2,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    lineHeight: 54,
   },
   label: {
     fontSize: 16,

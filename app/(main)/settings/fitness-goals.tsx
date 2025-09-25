@@ -109,7 +109,6 @@ export default function FitnessGoalsScreen() {
   useEffect(() => {
     console.log('🚀 Fitness Goals: Component mounted with profile:', {
       workout_frequency: profile?.workout_frequency,
-      preferred_workout_frequency: profile?.preferred_workout_frequency,
       exercise_frequency: profile?.exercise_frequency,
       selectedFrequency: selectedFrequency,
       profileExists: !!profile,
@@ -122,7 +121,6 @@ export default function FitnessGoalsScreen() {
     if (profile) {
       console.log('📊 Profile loaded/changed:', {
         workout_frequency: profile.workout_frequency,
-        preferred_workout_frequency: profile.preferred_workout_frequency,
         exercise_frequency: profile.exercise_frequency,
         onboarding_completed: profile.onboarding_completed
       });
@@ -145,7 +143,6 @@ export default function FitnessGoalsScreen() {
         training_level: profile.training_level,
         primary_goal: profile.primary_goal,
         workout_frequency: profile.workout_frequency,
-        preferred_workout_frequency: profile.preferred_workout_frequency,
         exercise_frequency: profile.exercise_frequency,
         fitness_strategy: profile.fitness_strategy
       });

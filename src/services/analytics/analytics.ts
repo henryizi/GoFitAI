@@ -18,17 +18,18 @@ export function initAnalytics(): void {
     if (__DEV__) console.warn('[analytics] PostHog disabled: missing API key');
     return;
   }
-  // Lazy import PostHog to avoid platform-specific resolution issues at module evaluation time
-  import('posthog-react-native')
-    .then(({ default: PostHog }) => {
-      try {
-        client = new PostHog(apiKey, { host, captureAppLifecycleEvents: true });
-        if (__DEV__) console.log('[analytics] initialized', { host });
-      } catch (error) {
-        if (__DEV__) console.warn('[analytics] init error', error);
-      }
-    })
-    .catch((error) => { if (__DEV__) console.warn('[analytics] import error', error); });
+  // Convert dynamic import to require to avoid Metro bundler issues
+  try {
+    const { default: PostHog } = require('posthog-react-native');
+    try {
+      client = new PostHog(apiKey, { host, captureAppLifecycleEvents: true });
+      if (__DEV__) console.log('[analytics] initialized', { host });
+    } catch (error) {
+      if (__DEV__) console.warn('[analytics] init error', error);
+    }
+  } catch (error) {
+    if (__DEV__) console.warn('[analytics] require error', error);
+  }
 }
 
 export function identify(userId: string, props?: Record<string, unknown>): void {

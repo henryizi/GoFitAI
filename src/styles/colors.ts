@@ -26,6 +26,9 @@ export const colors = {
   textSecondary: 'rgba(235, 235, 245, 0.6)', // Semi-transparent white for secondary text
   textTertiary: 'rgba(235, 235, 245, 0.4)',  // More transparent white for tertiary text
   textInverse: '#000000',   // Black text for use on light backgrounds
+
+  // Common colors
+  white: '#FFFFFF',         // Pure white
   
   // Utility colors
   border: '#2C2C2E',        // Dark gray for borders and dividers

@@ -816,32 +816,80 @@ const WorkoutPlansScreen = () => {
         <HealthDisclaimer variant="compact" />
       </View>
 
-                {/* Enhanced View History Action */}
+                {/* Enhanced Track Progress Button */}
       <View style={styles.historyButtonContainer}>
         <TouchableOpacity
           style={styles.historyButton}
           onPress={() => router.push('/(main)/workout/history')}
-          activeOpacity={0.8}
+          activeOpacity={0.88}
         >
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            style={styles.historyButtonGradient}
-          >
-            <View style={styles.historyButtonContent}>
-              <Icon name="trending-up" size={20} color={colors.white} />
-              <View style={styles.historyButtonTextContainer}>
-                <Text style={styles.historyButtonTitle}>Track Progress</Text>
-                <Text style={styles.historyButtonSubtitle}>View workout history & gains</Text>
+          {/* Background blur layer */}
+          <BlurView intensity={30} style={styles.historyButtonBlur}>
+            {/* Main gradient with app theme colors */}
+            <LinearGradient
+              colors={[
+                colors.primary,
+                colors.primaryLight,
+                colors.primaryDark,
+                colors.primaryLight
+              ]}
+              style={styles.historyButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              locations={[0, 0.25, 0.75, 1]}
+            >
+              {/* Content container */}
+              <View style={styles.historyButtonContent}>
+                {/* Left icon with enhanced background */}
+                <View style={styles.historyIconContainer}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0.2)']}
+                    style={styles.historyIconBackground}
+                  >
+                    <Icon name="chart-line-variant" size={20} color={colors.white} />
+                  </LinearGradient>
+                </View>
+
+                {/* Text content with cleaner layout */}
+                <View style={styles.historyButtonTextContainer}>
+                  <Text style={styles.historyButtonTitle}>Track Progress</Text>
+                  <Text style={styles.historyButtonSubtitle}>View workout history & growth</Text>
+                </View>
+
+                {/* Right arrow with enhanced background */}
+                <View style={styles.historyArrowContainer}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
+                    style={styles.arrowBackground}
+                  >
+                    <Icon name="arrow-right" size={18} color="rgba(255,255,255,0.98)" />
+                  </LinearGradient>
+                </View>
               </View>
-              <Icon name="chevron-right" size={18} color={colors.white} />
-            </View>
-          </LinearGradient>
 
-          {/* Subtle glow effect */}
+              {/* Enhanced shine overlay */}
+              <LinearGradient
+                colors={[
+                  'rgba(255,255,255,0.6)',
+                  'rgba(255,255,255,0.3)',
+                  'rgba(255,255,255,0.1)',
+                  'transparent'
+                ]}
+                style={styles.historyButtonShine}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1.3, y: 1.3 }}
+              />
+
+              {/* Accent lines */}
+              <View style={styles.accentLine} />
+              <View style={styles.accentLineSecondary} />
+            </LinearGradient>
+          </BlurView>
+
+          {/* Enhanced glow effects */}
           <View style={styles.historyButtonGlow} />
+          <View style={styles.historyButtonGlowSecondary} />
         </TouchableOpacity>
-
-
       </View>
 
       {/* Stats row */}
@@ -1485,57 +1533,149 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   
-  // Enhanced History Button Styles
+  // Enhanced Track Progress Button Styles
   historyButtonContainer: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 12,
   },
   historyButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 15,
+    position: 'relative',
+  },
+  historyButtonBlur: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   historyButtonGradient: {
     paddingVertical: 16,
     paddingHorizontal: 20,
+    position: 'relative',
+    minHeight: 64,
+    justifyContent: 'center',
   },
   historyButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 3,
+  },
+  historyIconContainer: {
+    marginRight: 18,
+  },
+  historyIconBackground: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   historyButtonTextContainer: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    marginRight: 14,
   },
   historyButtonTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.white,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  progressBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   historyButtonSubtitle: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.92)',
     marginTop: 2,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  historyArrowContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrowBackground: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  historyButtonShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '55%',
+    borderRadius: 22,
+    zIndex: 2,
+  },
+  accentLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 26,
+    right: 26,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 1,
+    zIndex: 2,
+  },
+  accentLineSecondary: {
+    position: 'absolute',
+    bottom: 2,
+    left: 30,
+    right: 30,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 0.5,
+    zIndex: 2,
   },
   historyButtonGlow: {
     position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 18,
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 24,
     backgroundColor: colors.primary,
-    opacity: 0.1,
+    opacity: 0.12,
     zIndex: -1,
+  },
+  historyButtonGlowSecondary: {
+    position: 'absolute',
+    top: -8,
+    left: -8,
+    right: -8,
+    bottom: -8,
+    borderRadius: 28,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.06,
+    zIndex: -2,
   },
 
   // Select Button Styles

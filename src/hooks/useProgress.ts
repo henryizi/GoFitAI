@@ -23,7 +23,7 @@ export const useProgress = () => {
     if (!user) return;
     try {
       setIsLoading(true);
-      const data = await ProgressService.getProgressEntries(user.id);
+      const data = await ProgressService.getProgressPhotos(user.id);
       
       const entriesWithUrls = (data as ProgressEntryWithPhotos[]).map(entry => {
         // Photos are now stored locally, so storage_path contains the local URI

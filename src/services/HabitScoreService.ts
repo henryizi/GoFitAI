@@ -112,14 +112,14 @@ export class HabitScoreService {
           // Get user's nutrition plan targets
           const { data: nutritionPlan } = await supabase
             .from('nutrition_plans')
-            .select('daily_calories, protein_grams')
+            .select('*')
             .eq('user_id', userId)
             .eq('status', 'active')
             .single();
 
           if (nutritionPlan) {
-            const targetCalories = nutritionPlan.daily_calories || 2000;
-            const targetProtein = nutritionPlan.protein_grams || 150;
+            const targetCalories = (nutritionPlan as any).daily_calories || 2000;
+            const targetProtein = (nutritionPlan as any).protein_grams || 150;
 
             // Calculate compliance (how close to targets)
             const calorieCompliance = Math.max(0, 1 - Math.abs(totalCalories - targetCalories) / targetCalories);
@@ -174,7 +174,7 @@ export class HabitScoreService {
         .eq('metric_date', date)
         .single();
 
-      const weightLogged = !!(todayMetric?.weight_kg);
+      const weightLogged = !!(todayMetric && (todayMetric as any).weight_kg);
 
       // Calculate streak for bonus
       const { data: recentMetrics } = await supabase
@@ -187,7 +187,7 @@ export class HabitScoreService {
 
       let streakDays = 0;
       if (recentMetrics) {
-        const byDate = new Set(recentMetrics.map(m => m.metric_date));
+        const byDate = new Set(recentMetrics.map((m: any) => m.metric_date));
         for (let i = 0; i < 30; i++) {
           const d = new Date(date);
           d.setDate(d.getDate() - i);
@@ -236,7 +236,7 @@ export class HabitScoreService {
         .gte('created_at', `${date}T00:00:00`)
         .lte('created_at', `${date}T23:59:59`);
 
-      const workoutCompleted = todayWorkouts?.some(w => w.status === 'completed') || false;
+      const workoutCompleted = todayWorkouts?.some((w: any) => w.status === 'completed') || false;
 
       // Calculate weekly consistency (last 7 days)
       const weekAgo = new Date(date);
@@ -289,8 +289,8 @@ export class HabitScoreService {
         .eq('metric_date', date)
         .single();
 
-      const sleepLogged = !!(todayMetric?.sleep_hours);
-      const stressLogged = !!(todayMetric?.stress_level);
+      const sleepLogged = !!(todayMetric && (todayMetric as any).sleep_hours);
+      const stressLogged = !!(todayMetric && (todayMetric as any).stress_level);
 
       const score = (sleepLogged ? 5 : 0) + (stressLogged ? 5 : 0);
 
@@ -338,7 +338,7 @@ export class HabitScoreService {
           user_id: userId,
           metric_date: date,
           habit_score: habitScore.total,
-        }, {
+        } as any, {
           onConflict: 'user_id, metric_date'
         });
 
@@ -371,7 +371,7 @@ export class HabitScoreService {
         .eq('metric_date', date)
         .single();
 
-      return data?.habit_score || null;
+      return (data as any)?.habit_score || null;
     } catch (error) {
       console.error('[HabitScoreService] Error getting stored habit score:', error);
       return null;

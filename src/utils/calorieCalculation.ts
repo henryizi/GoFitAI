@@ -250,14 +250,49 @@ function estimateCaloriesForUnknownExercise(
   reps: number,
   userWeight: number
 ): number {
-  // Use a moderate MET value for unknown exercises
-  const estimatedMET = 4.5;
+  // Intelligent MET estimation based on workout pattern
+  let estimatedMET = 4.5; // Base moderate value
   
-  // Estimate 3 seconds per rep + 60 seconds rest between sets
-  const estimatedDuration = (sets * reps * 3) + ((sets - 1) * 60);
+  // Adjust MET based on rep ranges (exercise intensity patterns)
+  if (reps >= 15) {
+    // High rep = likely cardio/endurance work
+    estimatedMET = 6.0;
+  } else if (reps >= 8) {
+    // Moderate rep = likely hypertrophy/moderate strength
+    estimatedMET = 5.0;
+  } else if (reps >= 3) {
+    // Low rep = likely heavy strength work
+    estimatedMET = 4.5;
+  } else {
+    // Very low rep = likely max strength/power
+    estimatedMET = 4.0;
+  }
   
-  // Calculate calories
-  const calories = estimatedMET * userWeight * (estimatedDuration / 3600);
+  // Adjust for set volume
+  if (sets >= 5) {
+    estimatedMET *= 1.1; // More sets = higher total energy expenditure
+  } else if (sets >= 3) {
+    estimatedMET *= 1.05;
+  }
+  
+  // Estimate exercise duration more accurately
+  let timePerRep = 3; // Base 3 seconds per rep
+  
+  // Adjust time per rep based on intensity
+  if (reps <= 3) {
+    timePerRep = 6; // Heavy lifts take longer
+  } else if (reps <= 6) {
+    timePerRep = 4; // Moderate strength takes a bit longer
+  } else if (reps >= 15) {
+    timePerRep = 2; // High rep exercises are usually faster
+  }
+  
+  const workingTime = sets * reps * timePerRep;
+  const restTime = (sets - 1) * 60; // 60 seconds rest between sets
+  const totalDuration = workingTime + restTime;
+  
+  // Calculate calories: METs × weight(kg) × time(hours)
+  const calories = estimatedMET * userWeight * (totalDuration / 3600);
   
   return Math.round(calories);
 }

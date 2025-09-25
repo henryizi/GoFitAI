@@ -22,6 +22,9 @@ import { initSentry } from '../src/services/monitoring/sentry';
 import { initAnalytics } from '../src/services/analytics/analytics';
 import { NutritionService } from '../src/services/nutrition/NutritionService';
 import { WorkoutService } from '../src/services/workout/WorkoutService';
+import { ImageOptimizer } from '../src/services/storage/imageOptimizer';
+import { clearSafeImageCache } from '../src/components/ui/SafeImage';
+import { RevenueCatService } from '../src/services/subscription/RevenueCatService';
 
 const InitialLayout = () => {
   return (
@@ -35,6 +38,7 @@ const InitialLayout = () => {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
       </Stack>
   )
 }
@@ -46,6 +50,18 @@ export default function RootLayout() {
       try {
         console.log('Initializing app data from storage...');
         
+        // Clear image cache to force regeneration with new quality settings (guarded)
+        try {
+          await (ImageOptimizer?.clearCache?.());
+        } catch (e) {
+          console.log('ImageOptimizer.clearCache not available yet or failed; continuing');
+        }
+        
+        // Also clear SafeImage component cache
+        if (clearSafeImageCache) {
+          clearSafeImageCache();
+        }
+        
         // Load nutrition plans
         await NutritionService.initializeFromStorage();
         console.log('Nutrition data initialization complete');
@@ -53,6 +69,16 @@ export default function RootLayout() {
         // Load workout plans with more detailed logging
         await WorkoutService.initializeFromStorage();
         console.log(`Workout data initialization complete. Loaded ${WorkoutService.getPlanCount()} plans.`);
+
+        // Initialize RevenueCat early in app lifecycle
+        // This ensures it's ready before any components that need subscription status
+        try {
+          await RevenueCatService.initialize();
+          console.log('RevenueCat initialization complete');
+        } catch (error) {
+          console.warn('RevenueCat initialization failed, will retry when needed:', error.message);
+          // Don't block app startup if RevenueCat fails to initialize
+        }
       } catch (error) {
         console.error('Error initializing app data:', error);
       }
@@ -84,4 +110,4 @@ export default function RootLayout() {
       </ServerStatusProvider>
     </AuthProvider>
   );
-} 
+}

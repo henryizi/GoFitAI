@@ -62,9 +62,9 @@ export class ShareService {
     // Nutritional info
     const nutrition = recipe.nutrition || recipe.macros;
     const calories = nutrition?.calories || recipe.calories;
-    const protein = nutrition?.protein_grams || nutrition?.protein || recipe.protein;
-    const carbs = nutrition?.carbs_grams || nutrition?.carbs || recipe.carbs;
-    const fat = nutrition?.fat_grams || nutrition?.fat || recipe.fat;
+    const protein = (nutrition as any)?.protein_grams || (nutrition as any)?.protein || recipe.protein;
+    const carbs = (nutrition as any)?.carbs_grams || (nutrition as any)?.carbs || recipe.carbs;
+    const fat = (nutrition as any)?.fat_grams || (nutrition as any)?.fat || recipe.fat;
 
     const macros = calories ? 
       `\n📊 Nutrition (per serving): ${calories} cal | ${protein}g protein | ${carbs}g carbs | ${fat}g fat` : '';
@@ -277,7 +277,7 @@ export class ShareService {
   static createRecipeSummary(recipe: Recipe): string {
     const nutrition = recipe.nutrition || recipe.macros;
     const calories = nutrition?.calories || recipe.calories;
-    const protein = nutrition?.protein_grams || nutrition?.protein || recipe.protein;
+    const protein = (nutrition as any)?.protein_grams || (nutrition as any)?.protein || recipe.protein;
     
     const summary = `🍽️ ${recipe.recipe_name}`;
     const macroInfo = calories ? ` - ${calories} cal, ${protein}g protein` : '';

@@ -96,9 +96,9 @@ const PlanCreateScreen = () => {
       const fitnessStrategy = profile.fitness_strategy;
 
       // Determine goal based on primary_goal or fitness_strategy
-      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut' || fitnessStrategy === 'fat_loss') {
+      if (primaryGoal === 'fat_loss' || fitnessStrategy === 'cut') {
         setSelectedGoal('fat_loss');
-      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk' || fitnessStrategy === 'muscle_gain') {
+      } else if (primaryGoal === 'muscle_gain' || fitnessStrategy === 'bulk') {
         setSelectedGoal('muscle_gain');
       } else if (fitnessStrategy === 'recomp') {
         setSelectedGoal('body_recomposition'); // Map recomp strategy to body_recomposition goal

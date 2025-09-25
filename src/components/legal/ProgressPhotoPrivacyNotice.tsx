@@ -165,6 +165,13 @@ export default function ProgressPhotoPrivacyNotice({
         <Text style={styles.bulletPoint}>• You can view, delete, or export your photos at any time</Text>
         <Text style={styles.bulletPoint}>• No data leaves your device unless you explicitly share it</Text>
 
+        <Text style={styles.sectionTitle}>Sharing & Content Safety</Text>
+        <Text style={styles.bulletPoint}>• When you choose to share photos, you are responsible for the content</Text>
+        <Text style={styles.bulletPoint}>• Use Privacy Mode for enhanced protection when sharing</Text>
+        <Text style={styles.bulletPoint}>• Content safety warnings will appear before sharing</Text>
+        <Text style={styles.bulletPoint}>• Shared content may be subject to platform policies</Text>
+        <Text style={styles.bulletPoint}>• Consider who might see your shared content</Text>
+
         <View style={styles.disclaimerContainer}>
           <Text style={styles.disclaimerText}>
             Disclaimer: This feature is provided for personal fitness tracking only. We do not provide medical advice, diagnosis, or treatment. Always consult a qualified health professional before making changes to your exercise or nutrition.

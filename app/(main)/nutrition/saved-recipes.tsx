@@ -19,9 +19,11 @@ import {
 } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 import { ShareService } from '../../../src/services/sharing/ShareService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { typography } from '../../../src/styles/fonts';
 
 // Modern, premium colors
 const colors = {
@@ -47,6 +49,7 @@ const colors = {
 
 const SavedRecipesScreen = () => {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -55,10 +58,10 @@ const SavedRecipesScreen = () => {
     loadSavedRecipes();
   }, []);
 
-  const loadSavedRecipes = () => {
+  const loadSavedRecipes = async () => {
     try {
       setLoading(true);
-      const recipes = NutritionService.getSavedRecipes();
+      const recipes = await NutritionService.getSavedRecipes(user?.id || '');
       setSavedRecipes(recipes);
     } catch (error) {
       console.error('Failed to load saved recipes:', error);
@@ -629,9 +632,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   shareButtonText: {
+    fontFamily: typography.button.fontFamily,
+    fontSize: typography.button.fontSize,
+    fontWeight: typography.button.fontWeight as any,
+    letterSpacing: typography.button.letterSpacing,
     color: colors.white,
-    fontWeight: 'bold',
-    fontSize: 14,
   },
   copyButton: {
     flex: 1,

@@ -7,24 +7,85 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiTextService {
-  constructor(apiKey) {
-    if (!apiKey) {
-      throw new Error('Gemini API key is required');
+  constructor(apiKeyManager) {
+    if (!apiKeyManager) {
+      throw new Error('API key manager is required');
     }
-    
-    this.apiKey = apiKey;
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        maxOutputTokens: 8000
-      }
-    });
-    
-    console.log('[GEMINI TEXT] Service initialized with model: gemini-2.5-flash');
-    console.log('[GEMINI TEXT] API Key configured: ✅ Yes');
+
+    this.apiKeyManager = apiKeyManager;
+    this.currentKey = null;
+    this.genAI = null;
+    this.model = null;
+
+    this.initializeWithBestKey();
+
+    console.log('[GEMINI TEXT] Service initialized with model:', this.modelName);
+    console.log('[GEMINI TEXT] API Key rotation enabled: ✅ Yes');
+  }
+
+  /**
+   * Initialize with the best available API key
+   */
+  initializeWithBestKey() {
+    try {
+      const bestKey = this.apiKeyManager.getBestAvailableKey();
+      this.currentKey = bestKey;
+      this.genAI = new GoogleGenerativeAI(bestKey);
+      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
+      this.modelName = modelName;
+      this.model = this.genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 8000
+        }
+      });
+
+      console.log('[GEMINI TEXT] Using key with best quota availability');
+    } catch (error) {
+      console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Rotate to next available API key
+   */
+  rotateToNextKey() {
+    try {
+      const nextKey = this.apiKeyManager.getNextKey();
+      this.currentKey = nextKey;
+      this.genAI = new GoogleGenerativeAI(nextKey);
+      this.model = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 8000
+        }
+      });
+
+      console.log('[GEMINI TEXT] Rotated to next API key');
+    } catch (error) {
+      console.error('[GEMINI TEXT] Failed to rotate API key:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Record API usage and rotate if needed
+   */
+  recordUsage() {
+    const usage = this.apiKeyManager.recordUsage(this.currentKey);
+
+    // If current key is near quota limit, rotate to next key
+    if (usage.remaining <= 2) {
+      console.log('[GEMINI TEXT] Current key near quota limit, rotating...');
+      this.rotateToNextKey();
+    }
+
+    return usage;
   }
 
   /**
@@ -260,14 +321,25 @@ class GeminiTextService {
       console.log('[GEMINI TEXT] Generating workout plan');
       console.log('[GEMINI TEXT] User level:', userProfile.fitnessLevel);
       console.log('[GEMINI TEXT] Goal:', userProfile.primaryGoal);
+      console.log('[GEMINI TEXT] User profile keys:', Object.keys(userProfile));
+      console.log('[GEMINI TEXT] Full user profile:', JSON.stringify(userProfile, null, 2));
 
       const startTime = Date.now();
 
       const prompt = this.createWorkoutPrompt(userProfile, preferences);
-      
-      const result = await this.generateContentWithRetry([prompt]);
+      console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
+      console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
+
+      // Use longer timeout and more retries for workout plan generation
+      const maxRetries = 3; // Workout plans need more retries due to complexity
+      const result = await this.generateContentWithRetry([prompt], maxRetries);
+      console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
+
       const response = await result.response;
+      console.log('[GEMINI TEXT] Response object:', !!response);
+
       const text = response.text();
+      console.log('[GEMINI TEXT] Response text:', !!text, 'length:', text?.length || 0);
 
       const generationTime = Date.now() - startTime;
       console.log(`[GEMINI TEXT] Workout plan generated in ${generationTime}ms`);
@@ -303,14 +375,33 @@ class GeminiTextService {
    * Creates a detailed prompt for recipe generation
    */
   createRecipePrompt(mealType, targets, ingredients, strict) {
-    const strictnessNote = strict 
+    const strictnessNote = strict
       ? "You MUST use ONLY the ingredients listed. Do not add any other ingredients, seasonings, or components."
       : "Use primarily the listed ingredients, but you may add basic seasonings (salt, pepper, herbs) if needed for flavor.";
 
-    return `You are a professional chef and nutritionist. Create ONE detailed recipe for ${mealType} using the provided ingredients.
+    // Create example recipe structure based on meal type
+    const exampleIngredients = ingredients.slice(0, 3).map(ingredient => ({
+      name: ingredient,
+      quantity: "1 serving",
+      calories: 100,
+      protein: 5,
+      carbs: 10,
+      fat: 3
+    }));
+
+    return `You are a professional chef and nutritionist. Create ONE detailed recipe for ${mealType} as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all numbers are complete (e.g., 4.0, not 4.)
+5. All arrays and objects must be properly closed
+6. No trailing commas
+7. Escape any quotes within strings
 
 MEAL TYPE: ${mealType}
-NUTRITIONAL TARGETS: 
+NUTRITIONAL TARGETS:
 - Calories: ${targets.calories} kcal
 - Protein: ${targets.protein}g
 - Carbohydrates: ${targets.carbs}g
@@ -320,73 +411,46 @@ AVAILABLE INGREDIENTS: ${ingredients.join(', ')}
 
 INGREDIENT RULES: ${strictnessNote}
 
-REQUIREMENTS:
-1. Create a realistic, delicious recipe that matches the nutritional targets as closely as possible
-2. Use appropriate quantities for each ingredient
-3. Provide clear, step-by-step cooking instructions
-4. Calculate accurate nutritional information for each ingredient
-5. Ensure the recipe serves 1 person unless specified otherwise
-
-CRITICAL: You must respond with ONLY valid JSON. Do not include any explanation, markdown, or extra text before or after the JSON. 
-
-RESPONSE REQUIREMENTS:
-- NEVER return an empty response
-- NEVER return "I can't help with that" or similar refusals
-- ALWAYS generate a recipe using the ingredients provided
-- If ingredients seem insufficient, create a simple but complete recipe anyway
-- Your response must be complete and valid JSON
-
-IMPORTANT JSON FORMATTING RULES:
-1. Use ONLY double quotes (") for strings, never single quotes (')
-2. Ensure all property names are quoted
-3. Do not include trailing commas
-4. Escape any quotes within strings with backslash (\")
-5. Use proper JSON syntax - no JavaScript comments or syntax
-6. Ensure all arrays and objects are properly closed
-7. Do not truncate the response - provide complete JSON
-8. Start your response immediately with { and end with }
-
-Return ONLY the JSON object in this exact format:
+EXAMPLE RECIPE STRUCTURE (copy this format):
 {
-  "recipe_name": "Descriptive name of the dish",
+  "recipe_name": "${mealType} with ${ingredients.slice(0, 2).join(' and ')}",
   "meal_type": "${mealType.toLowerCase()}",
   "prep_time": 15,
   "cook_time": 20,
   "total_time": 35,
   "servings": 1,
-  "difficulty": "easy|medium|hard",
-  "ingredients": [
-    {
-      "name": "ingredient name",
-      "quantity": "amount with unit (e.g., 150g, 1 cup, 2 tbsp)",
-      "calories": 120,
-      "protein": 8.5,
-      "carbs": 15.2,
-      "fat": 4.1
-    }
-  ],
+  "difficulty": "medium",
+  "ingredients": ${JSON.stringify(exampleIngredients, null, 2)},
   "instructions": [
-    "Step 1: Detailed instruction",
-    "Step 2: Another detailed instruction",
-    "Step 3: Continue with clear steps"
+    "Step 1: Prepare all ingredients",
+    "Step 2: Cook the main components",
+    "Step 3: Combine and serve"
   ],
   "nutrition": {
     "calories": ${targets.calories},
     "protein": ${targets.protein},
     "carbs": ${targets.carbs},
     "fat": ${targets.fat},
-    "fiber": 5.2,
-    "sugar": 8.1,
-    "sodium": 650
+    "fiber": 5.0,
+    "sugar": 8.0,
+    "sodium": 500
   },
   "tips": [
-    "Helpful cooking tip 1",
-    "Helpful cooking tip 2"
+    "Season to taste",
+    "Serve immediately for best results"
   ],
-  "tags": ["quick", "healthy", "high-protein"]
+  "tags": ["${mealType.toLowerCase()}", "healthy", "balanced"]
 }
 
-IMPORTANT: Ensure your response is complete and properly formatted JSON. Do not truncate or leave incomplete JSON objects.`;
+REQUIREMENTS:
+- Create a realistic recipe using the available ingredients
+- Match nutritional targets as closely as possible
+- Provide 4-6 clear step-by-step instructions
+- Calculate accurate nutritional values
+- Use proper ingredient quantities with units
+- Ensure recipe serves 1 person
+
+IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example structure above as a template.`;
   }
 
   /**
@@ -397,12 +461,14 @@ IMPORTANT: Ensure your response is complete and properly formatted JSON. Do not 
     const fitnessLevel = userProfile.fitnessLevel || 'intermediate';
     const primaryGoal = userProfile.primaryGoal || 'general_fitness';
     const age = userProfile.age || 25;
-    
+
     // Use userProfile.workoutFrequency if available, otherwise fall back to preferences
     let daysPerWeek;
     if (userProfile.workoutFrequency) {
       // Convert workout frequency format to number of days
-      if (userProfile.workoutFrequency === '2_3') {
+      if (userProfile.workoutFrequency === '1') {
+        daysPerWeek = 1;
+      } else if (userProfile.workoutFrequency === '2_3') {
         // For 2-3 times per week, randomly choose between 2 and 3 days
         daysPerWeek = Math.random() < 0.5 ? 2 : 3;
       } else if (userProfile.workoutFrequency === '4_5') {
@@ -410,16 +476,18 @@ IMPORTANT: Ensure your response is complete and properly formatted JSON. Do not 
         daysPerWeek = Math.random() < 0.5 ? 4 : 5;
       } else if (userProfile.workoutFrequency === '6') {
         daysPerWeek = 6;
+      } else if (userProfile.workoutFrequency === '7') {
+        daysPerWeek = 7;
       } else {
-        daysPerWeek = parseInt(userProfile.workoutFrequency) || 3;
+        daysPerWeek = parseInt(userProfile.workoutFrequency) || 4;
       }
     } else {
-      daysPerWeek = preferences?.daysPerWeek || 3;
+      daysPerWeek = preferences?.daysPerWeek || 4;
     }
-    
+
     const sessionDuration = preferences?.sessionDuration || 45;
     const gender = (userProfile.gender || 'unspecified').toLowerCase();
-    
+
     // Customize based on fitness level
     const levelSpecific = {
       beginner: {
@@ -518,28 +586,86 @@ IMPORTANT: Ensure your response is complete and properly formatted JSON. Do not 
     // Generate appropriate workout split based on frequency
     const workoutSplit = this.generateWorkoutSplit(daysPerWeek, primaryGoal, fitnessLevel);
 
-    return `You are a certified personal trainer and fitness expert. Create a personalized workout plan.
+    // Generate workout exercises based on goal and level
+    const exercisesByGoal = {
+      athletic_performance: {
+        beginner: [
+          { name: "Bodyweight Squats", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Push-ups (modified)", sets: 3, reps: "8-12", rest: 60 },
+          { name: "Bent-over Rows (bodyweight)", sets: 3, reps: "10-12", rest: 60 },
+          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 },
+          { name: "Jumping Jacks", sets: 3, reps: "30-45 seconds", rest: 60 }
+        ],
+        intermediate: [
+          { name: "Goblet Squats", sets: 4, reps: "10-12", rest: 90 },
+          { name: "Push-ups", sets: 4, reps: "8-12", rest: 90 },
+          { name: "Dumbbell Rows", sets: 4, reps: "10-12", rest: 90 },
+          { name: "Lunges", sets: 4, reps: "8-10 per leg", rest: 90 },
+          { name: "Burpees", sets: 4, reps: "6-8", rest: 90 }
+        ],
+        advanced: [
+          { name: "Front Squats", sets: 5, reps: "8-10", rest: 120 },
+          { name: "Plyometric Push-ups", sets: 5, reps: "6-8", rest: 120 },
+          { name: "Pull-ups", sets: 5, reps: "6-10", rest: 120 },
+          { name: "Box Jumps", sets: 5, reps: "8-10", rest: 120 },
+          { name: "Medicine Ball Slams", sets: 5, reps: "10-12", rest: 120 }
+        ]
+      },
+      general_fitness: {
+        beginner: [
+          { name: "Walking Lunges", sets: 3, reps: "10 per leg", rest: 60 },
+          { name: "Wall Push-ups", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Seated Rows", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 }
+        ],
+        intermediate: [
+          { name: "Dumbbell Squats", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Dumbbell Bench Press", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Dumbbell Rows", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Overhead Press", sets: 3, reps: "8-10", rest: 90 }
+        ],
+        advanced: [
+          { name: "Barbell Back Squats", sets: 4, reps: "8-10", rest: 120 },
+          { name: "Bench Press", sets: 4, reps: "6-8", rest: 120 },
+          { name: "Deadlifts", sets: 4, reps: "6-8", rest: 120 },
+          { name: "Pull-ups", sets: 4, reps: "8-10", rest: 120 }
+        ]
+      }
+    };
 
-USER DETAILS:
-- Level: ${fitnessLevel}
-- Goal: ${primaryGoal}
-- Sessions: ${daysPerWeek} days/week
-- Duration: ${sessionDuration} minutes/session
-- Rest: ${goalConfig.restTime}
-- Reps: ${goalConfig.repRange}
+    const goalExercises = exercisesByGoal[primaryGoal] || exercisesByGoal.general_fitness;
+    const exercises = goalExercises[fitnessLevel] || goalExercises.intermediate;
 
-CRITICAL: Respond with ONLY valid JSON. No markdown, no explanations, no extra text.
+    return `You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
 
-JSON FORMATTING REQUIREMENTS:
-1. Use ONLY double quotes (") for all strings
-2. All property names MUST be quoted
-3. NO trailing commas anywhere
-4. NO single quotes (')
-5. NO comments, NO markdown
-6. Complete all arrays and objects
-7. Ensure proper JSON structure
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all numbers are complete (e.g., 4.0, not 4.)
+5. All arrays and objects must be properly closed
+6. No trailing commas
+7. Escape any quotes within strings
 
-Return ONLY the JSON object in this exact format (no extra text, no markdown):
+USER PROFILE:
+- Fitness Level: ${fitnessLevel}
+- Primary Goal: ${primaryGoal}
+- Workout Days: ${daysPerWeek} per week
+- Session Duration: ${sessionDuration} minutes
+- Gender: ${gender}
+- Age: ${age}
+
+WORKOUT SPECIFICATIONS:
+- Rep Range: ${goalConfig.repRange}
+- Rest Periods: ${goalConfig.restTime}
+- Intensity: ${levelConfig.intensity}
+- Focus: ${goalConfig.focus}
+- Equipment: ${levelConfig.equipment}
+
+EXERCISE EXAMPLES TO USE:
+${JSON.stringify(exercises, null, 2)}
+
+RESPONSE FORMAT (copy this exact structure):
 {
   "plan_name": "Personalized ${fitnessLevel} ${primaryGoal} Plan",
   "duration_weeks": 4,
@@ -550,58 +676,49 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
   "weekly_schedule": [
     {
       "day": 1,
-      "day_name": "Monday",
-      "focus": "Upper Body Strength",
+      "day_name": "Day 1",
+      "focus": "Upper Body",
       "workout_type": "Strength Training",
       "duration_minutes": ${sessionDuration},
       "warm_up": [
         {
-          "exercise": "Arm Circles",
-          "duration": "2 minutes",
-          "instructions": "Rotate arms forward and backward"
+          "exercise": "Light Cardio",
+          "duration": "5 minutes",
+          "instructions": "Easy pace to elevate heart rate"
         }
       ],
-      "main_workout": [
-        {
-          "exercise": "Bench Press",
-          "sets": 3,
-          "reps": "${goalConfig.repRange}",
-          "rest_seconds": ${goalConfig.restTime.split('-')[0] * 60},
-          "instructions": "Lie on bench, lower bar to chest, press up",
-          "modifications": "Use lighter weight if needed"
-        }
-      ],
+      "main_workout": ${JSON.stringify(exercises.slice(0, Math.ceil(exercises.length / daysPerWeek)), null, 2)},
       "cool_down": [
         {
-          "exercise": "Shoulder Stretch",
-          "duration": "1 minute per side",
-          "instructions": "Gently pull arm across body"
+          "exercise": "Stretching",
+          "duration": "5 minutes",
+          "instructions": "Focus on muscles trained today"
         }
       ]
     }
   ],
   "progression_plan": {
-    "week_1": "Establish proper form and technique",
-    "week_2": "Increase weight gradually",
-    "week_3": "Add complexity to exercises",
-    "week_4": "Peak performance with maximum effort"
+    "week_1": "Focus on form and technique",
+    "week_2": "Increase weight and intensity",
+    "week_3": "Add complexity and variations",
+    "week_4": "Peak performance and testing"
   },
   "nutrition_tips": [
     "${goalConfig.nutrition}",
-    "Stay hydrated throughout sessions",
-    "Eat balanced meals before workouts",
-    "Consume protein after workouts"
+    "Stay hydrated throughout the day",
+    "Eat balanced meals with adequate protein"
   ],
   "safety_guidelines": [
-    "Warm up before exercising",
-    "Stop if you feel pain",
-    "Maintain proper form",
-    "Listen to your body",
-    "Consult healthcare provider if needed"
+    "Always warm up before exercising",
+    "Stop immediately if you feel pain",
+    "Maintain proper form during all exercises",
+    "Consult a doctor before starting new exercise program"
   ],
   "equipment_needed": ["${levelConfig.equipment}"],
-  "estimated_results": "Improvements in 2-4 weeks with consistency"
-}`;
+  "estimated_results": "Visible improvements in 2-4 weeks with consistent training"
+}
+
+IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.`;
   }
 
   /**
@@ -688,20 +805,39 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
-        
-        // Add timeout to prevent hanging requests - very short timeout for faster fallback
-        // When network is unstable, fail fast to allow mathematical fallback
-        const isComplexRequest = content.includes('meal plan') || content.includes('recipe') || content.length > 2000;
-        const timeoutDuration = isComplexRequest ? 6000 : 3000; // 6s for complex, 3s for simple - faster fallback
+
+        // Add timeout to prevent hanging requests - reasonable timeout for AI generation
+        // Complex requests need more time for AI to generate comprehensive content
+        const isComplexRequest = content.includes('meal plan') || content.includes('recipe') ||
+                                content.includes('workout plan') || content.includes('exercise') ||
+                                content.includes('nutrition') || content.includes('fitness') ||
+                                content.includes('personalized workout') || content.includes('CLIENT PROFILE') ||
+                                content.length > 2000; // Workout plans are typically 2.5-6k chars
+        const timeoutDuration = isComplexRequest ? 90000 : 30000; // 90s for complex, 30s for simple - allows AI generation
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
+
+        // Add exponential backoff delay for retries
+        if (attempt > 1) {
+          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000); // 1s, 2s, 4s max
+          console.log(`[GEMINI TEXT] Applying exponential backoff delay: ${backoffDelay}ms`);
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`)), timeoutDuration);
         });
         
+        console.log('[GEMINI TEXT] About to call this.model.generateContent');
+        console.log('[GEMINI TEXT] Model object:', !!this.model);
+        console.log('[GEMINI TEXT] Content type:', Array.isArray(content) ? 'array' : typeof content);
+        console.log('[GEMINI TEXT] Content length:', Array.isArray(content) ? content.length : content.length);
+
         const result = await Promise.race([
           this.model.generateContent(content),
           timeoutPromise
         ]);
+
+        console.log('[GEMINI TEXT] Model.generateContent completed successfully');
         
         // Validate the response
         if (!result || !result.response) {
@@ -755,7 +891,11 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
         return result;
         
       } catch (error) {
-        const isServiceUnavailable = error.message.includes('503') || 
+        console.error('[GEMINI TEXT] Error in generateContentWithRetry attempt', attempt, ':', error.message);
+        console.error('[GEMINI TEXT] Error stack:', error.stack);
+        console.error('[GEMINI TEXT] Error constructor:', error.constructor.name);
+
+        const isServiceUnavailable = error.message.includes('503') ||
                                    error.message.includes('Service Unavailable') ||
                                    error.message.includes('overloaded') ||
                                    error.message.includes('quota') ||
@@ -784,13 +924,18 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
         }
         
         if (isRetryable && attempt < maxRetries) {
-          // Reduced delays to prevent client timeouts
-          const delay = 500 * attempt; // Linear backoff: 500ms, 1000ms, 1500ms
-          console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}), retrying in ${delay}ms...`);
+          // Exponential backoff with jitter to prevent thundering herd
+          const baseDelay = 1000; // 1 second base
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+          const jitter = Math.random() * 500; // Add up to 500ms jitter
+          const delay = Math.min(exponentialDelay + jitter, 8000); // Max 8s to prevent excessive delays
+
+          console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
           console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
           console.log(`[GEMINI TEXT] Error message:`, error.message);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
-          
+          console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
+
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -931,7 +1076,7 @@ Return ONLY the JSON object in this exact format (no extra text, no markdown):
     return {
       service: 'GeminiTextService',
       status: 'healthy',
-      model: 'gemini-2.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
       apiKeyConfigured: !!this.apiKey,
       capabilities: ['recipe_generation', 'workout_plans'],
       timestamp: new Date().toISOString()

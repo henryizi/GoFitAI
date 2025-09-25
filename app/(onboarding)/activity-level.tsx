@@ -15,12 +15,34 @@ import { OnboardingButton } from '../../src/components/onboarding/OnboardingButt
 type ActivityLevel = 'sedentary' | 'moderately_active' | 'very_active';
 
 const ActivityLevelScreen = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
 
   const handleNext = async () => {
     if (user && activityLevel) {
-      await supabase.from('profiles').update({ activity_level: activityLevel }).eq('id', user.id);
+      console.log('💾 Onboarding: Saving activity level:', {
+        user_id: user.id,
+        activity_level: activityLevel
+      });
+      
+      const { error } = await supabase.from('profiles').update({ activity_level: activityLevel }).eq('id', user.id);
+      
+      if (error) {
+        console.error('❌ Error saving activity level:', error);
+        console.error('Activity level value:', activityLevel);
+        // Continue anyway to prevent blocking the user
+      } else {
+        console.log('✅ Activity level saved successfully');
+      }
+      
+      // Refresh profile data to ensure changes are immediately reflected
+      try {
+        await refreshProfile();
+        console.log('Profile refreshed after activity level update');
+      } catch (refreshError) {
+        console.warn('Failed to refresh profile after activity level update:', refreshError);
+      }
+      
       try { identify(user.id, { activity_level: activityLevel }); } catch {}
       router.push('/(onboarding)/body-fat');
     }

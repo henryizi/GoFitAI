@@ -27,8 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>acme</string>
-          <string>com.anonymous.GoFitAI</string>
+          <string>gofitai</string>
+          <string>com.henrymadeit.gofitai</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+gofitai</string>
         </array>
       </dict>
     </array>
@@ -46,15 +52,17 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>此应用需要访问相机以拍摄食物照片用于营养分析。</string>
+    <string>Allow GoFitAI to access your camera to take photos of your food and progress.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>此应用可能在录制带声音的视频时访问麦克风。</string>
+    <string>This app may access the microphone when recording videos with audio.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
+    <string>Allow GoFitAI to access your photos to upload food and progress images.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
     </array>
+    <key>RCTNewArchEnabled</key>
+    <true/>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
@@ -63,16 +71,23 @@
     </array>
     <key>UIRequiresFullScreen</key>
     <false/>
-      <key>UIStatusBarStyle</key>
-      <string>UIStatusBarStyleLightContent</string>
-      <key>UIViewControllerBasedStatusBarAppearance</key>
-      <false/>
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleLightContent</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
       <string>UIInterfaceOrientationPortrait</string>
       <string>UIInterfaceOrientationPortraitUpsideDown</string>
     </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationPortraitUpsideDown</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
     <key>UIUserInterfaceStyle</key>
-    <string>Automatic</string>
+    <string>Light</string>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
   </dict>
 </plist>

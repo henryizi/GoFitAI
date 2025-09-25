@@ -49,10 +49,33 @@ export default function TodayCard({ weightToday, streakDays, onLogProgress }: To
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity onPress={onLogProgress} activeOpacity={0.9} style={styles.action}> 
-            <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.actionGradient}>
-              <Icon name="plus" size={16} color={colors.white} style={{ marginRight: 8 }} />
-              <Text style={styles.actionText}>Log Progress</Text>
+          <TouchableOpacity onPress={onLogProgress} activeOpacity={0.85} style={styles.action}> 
+            <LinearGradient 
+              colors={['#FF6B35', '#F7931E', '#FF8C42']} 
+              style={styles.actionGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {/* Shine overlay */}
+              <LinearGradient
+                colors={[
+                  'rgba(255,255,255,0.3)',
+                  'rgba(255,255,255,0.1)',
+                  'transparent'
+                ]}
+                style={styles.actionShine}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+              
+              {/* Content */}
+              <View style={styles.actionContent}>
+                <View style={styles.actionIconContainer}>
+                  <Icon name="chart-line" size={18} color={colors.white} />
+                </View>
+                <Text style={styles.actionText}>Log Progress</Text>
+                <Icon name="arrow-right" size={16} color="rgba(255,255,255,0.8)" />
+              </View>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -161,19 +184,52 @@ const styles = StyleSheet.create({
   },
   action: {
     flex: 1,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   actionGradient: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  actionShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    borderRadius: 16,
+    zIndex: 1,
+  },
+  actionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    zIndex: 2,
   },
-
+  actionIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
   actionText: {
     color: colors.white,
     fontWeight: '700',
+    fontSize: 13,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
 }); 

@@ -187,22 +187,36 @@ const DailyMealPlanScreen = () => {
           prep_time: meal.prep_time,
           cook_time: meal.cook_time,
           servings: meal.servings,
-          ingredients: meal.ingredients.map(ing => ({
-            name: ing.ingredient,
-            quantity: ing.amount,
-            calories: ing.calories,
-            protein: ing.protein,
-            carbs: ing.carbs,
-            fat: ing.fat
-          })),
-          instructions: meal.instructions,
+          ingredients: meal.ingredients?.map(ing => {
+            // Handle both string ingredients (from backend API) and object ingredients (from AI)
+            if (typeof ing === 'string') {
+              return {
+                name: ing,
+                quantity: '1 serving',
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0
+              };
+            } else {
+              return {
+                name: ing?.ingredient || ing?.name || 'Unknown ingredient',
+                quantity: ing?.amount || ing?.quantity || '1 serving',
+                calories: ing?.calories || 0,
+                protein: ing?.protein || 0,
+                carbs: ing?.carbs || 0,
+                fat: ing?.fat || 0
+              };
+            }
+          }) || [],
+          instructions: meal.instructions || [],
           macros: {
-            calories: meal.nutrition.calories,
-            protein_grams: meal.nutrition.protein,
-            carbs_grams: meal.nutrition.carbs,
-            fat_grams: meal.nutrition.fat,
-            fiber_grams: meal.nutrition.fiber,
-            sugar_grams: meal.nutrition.sugar
+            calories: meal.macros?.calories || meal.nutrition?.calories || 0,
+            protein_grams: meal.macros?.protein_grams || meal.nutrition?.protein || 0,
+            carbs_grams: meal.macros?.carbs_grams || meal.nutrition?.carbs || 0,
+            fat_grams: meal.macros?.fat_grams || meal.nutrition?.fat || 0,
+            fiber_grams: meal.macros?.fiber_grams || meal.nutrition?.fiber || 0,
+            sugar_grams: meal.macros?.sugar_grams || meal.nutrition?.sugar || 0
           }
         }));
         
@@ -290,15 +304,25 @@ const DailyMealPlanScreen = () => {
           // Map the AI recipe structure to our expected format
           const mappedRecipe = {
             recipe_name: result.recipe.name,
-            ingredients: result.recipe.ingredients.map(ing => ({
-              name: ing.ingredient,
-              quantity: ing.amount
-            })),
-            instructions: result.recipe.instructions,
-            calories: result.recipe.nutrition.calories,
-            protein: result.recipe.nutrition.protein,
-            carbs: result.recipe.nutrition.carbs,
-            fat: result.recipe.nutrition.fat,
+            ingredients: result.recipe.ingredients?.map(ing => {
+              // Handle both string ingredients and object ingredients
+              if (typeof ing === 'string') {
+                return {
+                  name: ing,
+                  quantity: '1 serving'
+                };
+              } else {
+                return {
+                  name: ing?.ingredient || ing?.name || 'Unknown ingredient',
+                  quantity: ing?.amount || ing?.quantity || '1 serving'
+                };
+              }
+            }) || [],
+            instructions: result.recipe.instructions || [],
+            calories: result.recipe.nutrition?.calories || 0,
+            protein: result.recipe.nutrition?.protein || 0,
+            carbs: result.recipe.nutrition?.carbs || 0,
+            fat: result.recipe.nutrition?.fat || 0,
             prep_time: result.recipe.prep_time,
             cook_time: result.recipe.cook_time,
             servings: result.recipe.servings
@@ -1145,7 +1169,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(20px)',
   },
   headerCenter: {
     alignItems: 'center',

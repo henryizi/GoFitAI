@@ -37,9 +37,9 @@ export class PhotoStorageService {
     try {
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images, // reverted to safe fallback for compatibility
-        allowsEditing: true,
-        aspect: [3, 4], // Portrait aspect ratio for body photos
-        quality: 0.8,
+        allowsEditing: false, // Disable editing to preserve original dimensions
+        quality: 1.0, // Maximum quality - no compression
+        // Removed aspect ratio constraint to preserve original photo dimensions
       };
 
       let result;

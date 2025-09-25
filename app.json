@@ -1,52 +1,68 @@
 {
   "expo": {
-    "scheme": "acme",
-    "plugins": [
-      "expo-router",
-      "sentry-expo"
-    ],
     "name": "GoFitAI",
-    "slug": "GoFitAI",
+    "slug": "gofitai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
-    "statusBar": {
-      "style": "auto",
-      "backgroundColor": "transparent",
-      "translucent": true
-    },
+    "icon": "./assets/icon-converted.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/splash-converted.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF8A00"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
-    "extra": {
-      "SENTRY_DSN": "${EXPO_PUBLIC_SENTRY_DSN}",
-      "POSTHOG_API_KEY": "${EXPO_PUBLIC_POSTHOG_KEY}",
-      "POSTHOG_HOST": "${EXPO_PUBLIC_POSTHOG_HOST}",
-      "SUPABASE_URL": "${EXPO_PUBLIC_SUPABASE_URL}",
-      "SUPABASE_ANON_KEY": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
-      "DEEPSEEK_API_KEY": "${EXPO_PUBLIC_DEEPSEEK_API_KEY}",
-      "DEEPSEEK_API_URL": "${EXPO_PUBLIC_DEEPSEEK_API_URL}",
-      "API_URL": "${EXPO_PUBLIC_API_URL}",
-      "NGROK_AUTHTOKEN": "${NGROK_AUTHTOKEN}",
-      "SUPABASE_STORAGE_URL": "${EXPO_PUBLIC_SUPABASE_STORAGE_URL}",
-      "APP_NAME": "${EXPO_PUBLIC_APP_NAME}",
-      "APP_VERSION": "${EXPO_PUBLIC_APP_VERSION}"
-    },
     "ios": {
-      "bundleIdentifier": "com.anonymous.GoFitAI"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.henrymadeit.gofitai",
+      "buildNumber": "1"
     },
     "android": {
-      "package": "com.anonymous.GoFitAI"
-    }
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon-converted.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.henrymadeit.gofitai",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon-128.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow GoFitAI to access your camera to take photos of your food and progress."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow GoFitAI to access your photos to upload food and progress images."
+        }
+      ],
+      "sentry-expo"
+    ],
+    "scheme": "gofitai",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "8acc1562-09e6-45d8-a2ec-5689e73600e2"
+      },
+      "EXPO_PUBLIC_API_URL": "http://localhost:4000",
+      "EXPO_PUBLIC_AI_TIMEOUT_MS": "45000",
+      "EXPO_PUBLIC_AI_VERBOSE": "0"
+    },
+    "owner": "henryizi"
   }
 }

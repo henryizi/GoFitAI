@@ -236,7 +236,7 @@ export default function PlanDetailScreen() {
               
               return {
                 id: daySchedule.id || `session-${index}`,
-                day: daySchedule.day || `Day ${index + 1}`,
+                day: daySchedule.day || daySchedule.dayName || `Day ${index + 1}`,
                 focus: daySchedule.focus || 'Workout',
                 exercises
               };
@@ -397,8 +397,8 @@ export default function PlanDetailScreen() {
               
               return {
                 id: day.id || `session-${index + 1}`,
-                day: day.day || `Day ${index + 1}`,
-                focus: day.focus || 'Workout',
+                day: day.day || day.dayName || `Day ${index + 1}`,
+                focus: day.focus || day.dayName || 'Workout',
                 exercises
               };
             }).filter((session): session is WorkoutSession => session !== null);
@@ -424,7 +424,7 @@ export default function PlanDetailScreen() {
                 // Convert database sessions back to weekly schedule format
                 const weeklyScheduleFromDB = reconstructedSessions.map((session: any, index: number) => ({
                   id: session.id,
-                  day: session.day || `Day ${index + 1}`,
+                  day: session.day || session.dayName || `Day ${index + 1}`,
                   focus: session.training_splits?.name || 'Workout',
                   exercises: [] // Will be populated when session is expanded
                 }));
@@ -573,8 +573,8 @@ export default function PlanDetailScreen() {
                   
                   return {
                     id: day.id || `session-${index + 1}`,
-                    day: day.day || `Day ${index + 1}`,
-                    focus: day.focus || 'Workout',
+                    day: day.day || day.dayName || `Day ${index + 1}`,
+                    focus: day.focus || day.dayName || 'Workout',
                     exercises
                   };
                 }).filter((session): session is WorkoutSession => session !== null);
@@ -592,7 +592,7 @@ export default function PlanDetailScreen() {
                     // Convert database sessions back to weekly schedule format
                     const weeklyScheduleFromDB = reconstructedSessions.map((session: any, index: number) => ({
                       id: session.id,
-                      day: session.day || `Day ${index + 1}`,
+                      day: session.day || session.dayName || `Day ${index + 1}`,
                       focus: session.training_splits?.name || 'Workout',
                       exercises: [] // Will be populated when session is expanded
                     }));
@@ -649,8 +649,8 @@ export default function PlanDetailScreen() {
               
               return {
                 id: day.id || `session-${index + 1}`,
-                day: day.day || `Day ${index + 1}`,
-                focus: day.focus || 'Workout',
+                day: day.day || day.dayName || `Day ${index + 1}`,
+                focus: day.focus || day.dayName || 'Workout',
                 exercises
               };
             }).filter((session): session is WorkoutSession => session !== null);
@@ -774,8 +774,8 @@ export default function PlanDetailScreen() {
                   
                   return {
                     id: day.id || `session-${index + 1}`,
-                    day: day.day || `Day ${index + 1}`,
-                    focus: day.focus || 'Workout',
+                    day: day.day || day.dayName || `Day ${index + 1}`,
+                    focus: day.focus || day.dayName || 'Workout',
                     exercises
                   };
                 }).filter((session): session is WorkoutSession => session !== null);

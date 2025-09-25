@@ -43,7 +43,7 @@ const PhotoUploadForm: React.FC<PhotoUploadFormProps> = ({ userId, initialDate }
 
   useEffect(() => {
     if (userId) {
-      ProgressService.getProgressEntries(userId).then((entries: any) => {
+      ProgressService.getProgressPhotos(userId).then((entries: any) => {
         setProgressEntries(entries);
       });
     }
@@ -53,7 +53,7 @@ const PhotoUploadForm: React.FC<PhotoUploadFormProps> = ({ userId, initialDate }
   useFocusEffect(
     React.useCallback(() => {
       if (userId) {
-        ProgressService.getProgressEntries(userId).then((entries: any) => {
+        ProgressService.getProgressPhotos(userId).then((entries: any) => {
           setProgressEntries(entries);
         });
       }
@@ -136,7 +136,7 @@ const PhotoUploadForm: React.FC<PhotoUploadFormProps> = ({ userId, initialDate }
         analyticsTrack('photo_upload_success', { user_id: userId, date: selectedDate, entry_id: result.id, has_front: !!result.front_photo_id, has_back: !!result.back_photo_id });
         
         // Refresh the full data to get the photo objects with storage_path
-        ProgressService.getProgressEntries(userId).then((entries: any) => {
+        ProgressService.getProgressPhotos(userId).then((entries: any) => {
           setProgressEntries(entries);
         });
         

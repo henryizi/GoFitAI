@@ -24,7 +24,7 @@ const CENTER_OFFSET = PICKER_HEIGHT / 2 - ITEM_HEIGHT / 2;
 
 const WeightScreen = () => {
   const [weightKg, setWeightKg] = useState(70); // Set to 154lbs (70kg) as default
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [selectedIndex, setSelectedIndex] = useState(() => {
     // Default to 70kg (154lbs)
@@ -172,6 +172,15 @@ const WeightScreen = () => {
       weight_original_value: originalValue,
       weight_unit_preference: unit 
     }).eq('id', user.id);
+    
+    // Refresh profile data to ensure changes are immediately reflected
+    try {
+      await refreshProfile();
+      console.log('Profile refreshed after weight update');
+    } catch (refreshError) {
+      console.warn('Failed to refresh profile after weight update:', refreshError);
+    }
+    
     try { identify(user.id, { weight_kg: weightKg }); } catch {}
     router.push('/(onboarding)/weight-trend');
   };

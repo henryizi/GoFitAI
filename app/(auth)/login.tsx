@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Image } from 'react-native';
 import { Text, TextInput, Card, IconButton } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,14 +67,26 @@ const LoginScreen = () => {
 
       <KeyboardAvoidingView 
         style={styles.keyboardContainer} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          bounces={false}
         >
           {/* Header Section */}
           <View style={styles.headerSection}>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/custom-logo.jpg')} 
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            
             <Text style={styles.welcomeTitle}>
               Welcome Back
             </Text>
@@ -112,6 +124,7 @@ const LoginScreen = () => {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
                         outline: colors.border,
+                        onSurface: colors.text,
                       }
                     }}
                   />
@@ -140,6 +153,7 @@ const LoginScreen = () => {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
                         outline: colors.border,
+                        onSurface: colors.text,
                       }
                     }}
                   />
@@ -274,6 +288,19 @@ const styles = StyleSheet.create({
   headerSection: {
     alignItems: 'center',
     marginBottom: 48,
+  },
+  logoContainer: {
+    marginBottom: 28,
+  },
+  logoImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   welcomeTitle: {
     fontSize: 32,

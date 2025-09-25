@@ -270,24 +270,10 @@ const PlansScreen = () => {
       const latestPlan = await NutritionService.getLatestNutritionPlan(uid);
       console.log('[NUTRITION] Latest plan:', latestPlan);
       
-      // For testing purposes, create a default plan if none exists
-      if (!latestPlan) {
-        const defaultPlan = {
-          id: 'temp-plan',
-          daily_targets: {
-            calories: 0,
-            protein_grams: 0,
-            carbs_grams: 0,
-            fat_grams: 0
-          },
-          name: 'Default Plan',
-          created_at: new Date().toISOString()
-        };
-        console.log('[NUTRITION] No plan found, using default plan');
-        setActivePlan(defaultPlan);
-      } else {
+      // Set active plan (can be null for new users)
+      if (latestPlan) {
         setActivePlan(latestPlan);
-        
+
         // Fetch latest historical targets for the active plan
         if (latestPlan?.id) {
           try {
@@ -300,6 +286,10 @@ const PlansScreen = () => {
             console.error('[NUTRITION] Error fetching historical targets:', err);
           }
         }
+      } else {
+        // No plan found - new users should create their own plan
+        console.log('[NUTRITION] No active plan found - user needs to create one');
+        setActivePlan(null);
       }
 
       // Also fetch food entries to update progress
@@ -714,13 +704,9 @@ const PlansScreen = () => {
               
               {/* Quick Actions */}
               <Text style={styles.sectionTitle}>01 <Text style={styles.sectionTitleText}>QUICK ACTIONS</Text></Text>
-              <ScrollView 
-                horizontal={false}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickActions}
-              >
-                <TouchableOpacity 
-                  style={[styles.quickActionButton, { marginRight: 8 }]}
+              <View style={styles.quickActions}>
+                <TouchableOpacity
+                  style={styles.quickActionButton}
                   onPress={() => {
                     console.log('Create Plan quick action pressed');
                     router.push({
@@ -738,27 +724,8 @@ const PlansScreen = () => {
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.quickActionButton, { marginLeft: 8 }]}
-                  onPress={() => {
-                    console.log('Get Daily Meal Plan quick action pressed');
-                    router.push({
-                      pathname: '/(main)/nutrition/recipe-generator-simple'
-                    });
-                  }}
-                >
-                  <LinearGradient
-                    colors={['rgba(255,45,85,0.2)', 'rgba(255,45,85,0.1)']}
-                    style={styles.quickActionGradient}
-                  >
-                    <View style={styles.quickActionContent}>
-                      <Icon name="food-variant" size={28} color={colors.accent} />
-                      <Text style={styles.quickActionText}>Get Daily Meal Plan</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </ScrollView>
+
+              </View>
               
               <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
               {plans.length === 0 && (
@@ -1073,10 +1040,11 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     marginBottom: 32,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quickActionButton: {
-    flex: 1,
+    width: 160,
     borderRadius: 16,
     overflow: 'hidden',
     minHeight: 100,

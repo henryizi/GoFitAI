@@ -10,12 +10,28 @@ module.exports = function (api) {
           root: ['./'],
           alias: {
             '@': './src',
-            tslib: 'tslib/tslib.js',
           },
         },
       ],
-      // 'expo-router/babel' removed as it's deprecated in SDK 50
       'react-native-reanimated/plugin',
+      // Use transform-runtime with helpers to provide TypeScript helpers
+      ['@babel/plugin-transform-runtime', {
+        'regenerator': true,
+        'helpers': true,
+      }],
+    ],
+    // Explicitly configure for React 19 and new architecture
+    overrides: [
+      {
+        test: /\.(tsx?)$/,
+        presets: [
+          ['babel-preset-expo', { jsxRuntime: 'automatic' }],
+        ],
+        plugins: [
+          // Add TypeScript helpers plugin for TSX files
+          '@babel/plugin-transform-typescript',
+        ],
+      },
     ],
   };
 }; 

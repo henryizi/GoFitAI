@@ -307,17 +307,41 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 
     // Optional preferences (daysPerWeek/sessionDuration derived as needed inside service)
     const preferences = {};
-    const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
 
-    console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
+    try {
+      console.log('[WORKOUT] Attempting Gemini AI workout plan generation');
+      console.log('[WORKOUT] GeminiTextService available:', !!geminiTextService);
 
-    // Transform the plan to match app's expected format
-    const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
+      if (!geminiTextService) {
+        console.log('[WORKOUT] Gemini Text Service not available, using fallback');
+        throw new Error('Gemini Text Service not available');
+      }
 
-    console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
+      const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
+      console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
 
-    // Return in Railway format expected by client
-    return res.json({ success: true, workoutPlan: transformedPlan });
+      // Transform the plan to match app's expected format
+      const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
+      console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
+
+      // Return in Railway format expected by client
+      return res.json({ success: true, workoutPlan: transformedPlan, provider: 'gemini', used_ai: true });
+    } catch (aiError) {
+      console.log('[WORKOUT] ❌ Gemini AI failed:', aiError.message);
+      console.log('[WORKOUT] 🧮 Using rule-based fallback workout plan generation');
+
+      // Generate rule-based fallback plan
+      const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
+      console.log('[WORKOUT] Generated fallback plan with', fallbackPlan.weekly_schedule?.length || 0, 'days');
+
+      return res.json({
+        success: true,
+        workoutPlan: fallbackPlan,
+        provider: 'rule_based_fallback',
+        used_ai: false,
+        note: 'AI generation failed, using rule-based fallback'
+      });
+    }
   } catch (error) {
     console.error('[WORKOUT] Workout plan generation failed:', error?.message || error);
     return res.status(500).json({ success: false, error: error?.message || 'Workout plan generation failed' });
@@ -1309,6 +1333,131 @@ app.post('/api/log-daily-metric', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Rule-based fallback workout plan generator
+function generateRuleBasedWorkoutPlan(profileData) {
+  console.log('[WORKOUT] Generating rule-based workout plan for:', profileData.primaryGoal || 'general_fitness');
+
+  const fitnessLevel = profileData.fitnessLevel || 'intermediate';
+  const primaryGoal = profileData.primaryGoal || 'general_fitness';
+  const workoutFrequency = profileData.workoutFrequency || '4_5';
+
+  // Determine number of days per week
+  let daysPerWeek;
+  if (workoutFrequency === '1') {
+    daysPerWeek = 1;
+  } else if (workoutFrequency === '2_3') {
+    daysPerWeek = Math.random() < 0.5 ? 2 : 3;
+  } else if (workoutFrequency === '4_5') {
+    daysPerWeek = Math.random() < 0.5 ? 4 : 5;
+  } else if (workoutFrequency === '6') {
+    daysPerWeek = 6;
+  } else if (workoutFrequency === '7') {
+    daysPerWeek = 7;
+  } else {
+    daysPerWeek = parseInt(workoutFrequency) || 4;
+  }
+
+  const sessionDuration = 45;
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const weeklySchedule = [];
+
+  // Basic workout templates based on goals
+  const templates = {
+    muscle_gain: [
+      { day_name: 'Push Day', focus: 'Chest, Shoulders, Triceps', exercises: ['Bench Press', 'Overhead Press', 'Tricep Dips', 'Push-ups'] },
+      { day_name: 'Pull Day', focus: 'Back, Biceps', exercises: ['Pull-ups', 'Bent-over Rows', 'Bicep Curls', 'Face Pulls'] },
+      { day_name: 'Legs Day', focus: 'Quads, Hamstrings, Glutes', exercises: ['Squats', 'Romanian Deadlifts', 'Lunges', 'Calf Raises'] },
+      { day_name: 'Push Day', focus: 'Chest, Shoulders, Triceps', exercises: ['Incline Bench Press', 'Lateral Raises', 'Tricep Extensions', 'Push-ups'] },
+      { day_name: 'Pull Day', focus: 'Back, Biceps', exercises: ['Lat Pulldowns', 'Barbell Rows', 'Hammer Curls', 'Shrugs'] }
+    ],
+    fat_loss: [
+      { day_name: 'Full Body HIIT', focus: 'Full Body Circuit', exercises: ['Burpees', 'Mountain Climbers', 'Jump Squats', 'Push-ups', 'Plank'] },
+      { day_name: 'Strength Circuit', focus: 'Mixed Circuit', exercises: ['Squats', 'Push-ups', 'Bent-over Rows', 'Overhead Press', 'Plank'] },
+      { day_name: 'Cardio Focus', focus: 'Cardio and Core', exercises: ['High Knees', 'Jumping Jacks', 'Bicycle Crunches', 'Russian Twists', 'Plank'] },
+      { day_name: 'Full Body Circuit', focus: 'Full Body Circuit', exercises: ['Lunges', 'Push-ups', 'Pull-ups', 'Deadlifts', 'Plank'] }
+    ],
+    general_fitness: [
+      { day_name: 'Upper Body', focus: 'Chest, Back, Shoulders', exercises: ['Push-ups', 'Bent-over Rows', 'Overhead Press', 'Plank'] },
+      { day_name: 'Lower Body', focus: 'Legs and Core', exercises: ['Squats', 'Lunges', 'Calf Raises', 'Plank'] },
+      { day_name: 'Full Body', focus: 'Mixed Full Body', exercises: ['Burpees', 'Mountain Climbers', 'Push-ups', 'Squats'] },
+      { day_name: 'Upper Body', focus: 'Chest, Back, Arms', exercises: ['Push-ups', 'Superman', 'Shoulder Taps', 'Plank'] },
+      { day_name: 'Lower Body', focus: 'Legs and Core', exercises: ['Lunges', 'Glute Bridges', 'Calf Raises', 'Russian Twists'] }
+    ],
+    athletic_performance: [
+      { day_name: 'Functional Training', focus: 'Functional Movements', exercises: ['Squats', 'Push-ups', 'Pull-ups', 'Lunges', 'Plank'] },
+      { day_name: 'Power Development', focus: 'Power and Speed', exercises: ['Jump Squats', 'Push-ups', 'Burpees', 'Mountain Climbers'] },
+      { day_name: 'Core and Stability', focus: 'Core and Balance', exercises: ['Plank Variations', 'Russian Twists', 'Dead Bugs', 'Bird Dogs'] },
+      { day_name: 'Full Body Athletic', focus: 'Athletic Conditioning', exercises: ['Burpees', 'Jump Lunges', 'Push-ups', 'Mountain Climbers'] }
+    ]
+  };
+
+  const goalTemplates = templates[primaryGoal] || templates.general_fitness;
+
+  // Create weekly schedule with selected templates
+  for (let i = 0; i < Math.min(daysPerWeek, goalTemplates.length); i++) {
+    const template = goalTemplates[i];
+    const sets = fitnessLevel === 'beginner' ? 2 : fitnessLevel === 'advanced' ? 4 : 3;
+    const reps = primaryGoal === 'strength' ? '4-6' : primaryGoal === 'endurance' ? '15-20' : '8-12';
+    const restSeconds = primaryGoal === 'strength' ? 120 : primaryGoal === 'fat_loss' ? 45 : 75;
+
+    weeklySchedule.push({
+      day: i + 1,
+      day_name: template.day_name,
+      focus: template.focus,
+      workout_type: template.focus,
+      duration_minutes: sessionDuration,
+      warm_up: [
+        { exercise: 'Light Cardio', duration: '5 minutes', instructions: 'Easy pace to elevate heart rate' },
+        { exercise: 'Dynamic Stretches', duration: '3 minutes', instructions: 'Arm circles, leg swings, torso twists' }
+      ],
+      main_workout: template.exercises.map(exercise => ({
+        exercise: exercise,
+        sets: sets,
+        reps: reps,
+        rest_seconds: restSeconds,
+        instructions: `Perform ${exercise.toLowerCase()} with proper form`,
+        modifications: fitnessLevel === 'beginner' ? 'Use lighter weight or modifications as needed' : 'Focus on progressive overload'
+      })),
+      cool_down: [
+        { exercise: 'Static Stretching', duration: '5 minutes', instructions: 'Stretch major muscle groups worked' }
+      ]
+    });
+  }
+
+  return {
+    plan_name: `Rule-based ${primaryGoal.replace('_', ' ')} Plan`,
+    primary_goal: primaryGoal,
+    workout_frequency: workoutFrequency,
+    weekly_schedule: weeklySchedule,
+    created_at: new Date().toISOString(),
+    source: 'rule_based_fallback',
+    duration_weeks: 4,
+    sessions_per_week: daysPerWeek,
+    target_level: fitnessLevel,
+    progression_plan: {
+      week_1: 'Focus on form and consistency',
+      week_2: 'Increase weight or reps gradually',
+      week_3: 'Add complexity and intensity',
+      week_4: 'Peak performance and assess progress'
+    },
+    nutrition_tips: [
+      'Stay hydrated throughout your workouts',
+      'Eat a balanced meal 1-2 hours before exercising',
+      'Include protein in your post-workout nutrition',
+      'Listen to your body and adjust as needed'
+    ],
+    safety_guidelines: [
+      'Always warm up before exercising',
+      'Stop if you feel pain (not to be confused with normal muscle fatigue)',
+      'Use proper form to prevent injury',
+      'Progress gradually to avoid overtraining',
+      'Consult a healthcare provider before starting new exercise programs'
+    ],
+    equipment_needed: ['Basic fitness equipment'],
+    estimated_results: 'Consistent training will show results in 4-6 weeks'
+  };
+}
 
 // Catch-all for undefined routes
 app.use('*', (req, res) => {

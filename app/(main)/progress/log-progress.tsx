@@ -87,7 +87,7 @@ export default function LogProgressScreen() {
   // Fetch progress entries for calendar
   useEffect(() => {
     if (user) {
-      ProgressService.getProgressEntries(user.id).then((entries: any) => {
+      ProgressService.getProgressPhotos(user.id).then((entries: any) => {
         setProgressEntries(entries);
       });
     }
@@ -335,7 +335,7 @@ export default function LogProgressScreen() {
         try {
           await supabase
             .from('profiles')
-            .update({ body_fat: bodyFatNum } as Database['public']['Tables']['profiles']['Update'])
+            .update({ body_fat: bodyFatNum } as any)
             .eq('id', user.id);
         } catch (e) {
           console.warn('Failed to update body fat percentage:', e);
@@ -345,7 +345,7 @@ export default function LogProgressScreen() {
 
       // Refresh progress entries to show updated data
       if (user) {
-        const updatedEntries = await ProgressService.getProgressEntries(user.id);
+        const updatedEntries = await ProgressService.getProgressPhotos(user.id);
         setProgressEntries(updatedEntries);
       }
 
@@ -396,7 +396,7 @@ export default function LogProgressScreen() {
         try {
           await supabase
             .from('profiles')
-            .update({ body_fat: bodyFatNum } as Database['public']['Tables']['profiles']['Update'])
+            .update({ body_fat: bodyFatNum } as any)
             .eq('id', user.id);
         } catch (e) {
           console.warn('Failed to update body fat percentage:', e);
@@ -442,7 +442,7 @@ export default function LogProgressScreen() {
 
       // Refresh progress entries to show updated data
       if (user) {
-        const updatedEntries = await ProgressService.getProgressEntries(user.id);
+        const updatedEntries = await ProgressService.getProgressPhotos(user.id);
         setProgressEntries(updatedEntries);
       }
 

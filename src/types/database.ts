@@ -32,8 +32,10 @@ export interface Database {
           gender: 'male' | 'female' | null;
           height_unit_preference: 'cm' | 'ft' | null;
           weight_unit_preference: 'kg' | 'lbs' | null;
-          height_original_value: number | null;
-          weight_original_value: number | null;
+          height_original_value: string | null;
+          weight_original_value: string | null;
+          goal_fat_reduction: number | null;
+          goal_muscle_gain: number | null;
         };
         Insert: {
           id: string;
@@ -48,6 +50,7 @@ export interface Database {
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
           primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
+?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
@@ -57,8 +60,10 @@ export interface Database {
           gender?: 'male' | 'female' | null;
           height_unit_preference?: 'cm' | 'ft' | null;
           weight_unit_preference?: 'kg' | 'lbs' | null;
-          height_original_value?: number | null;
-          weight_original_value?: number | null;
+          height_original_value?: string | null;
+          weight_original_value?: string | null;
+          goal_fat_reduction?: number | null;
+          goal_muscle_gain?: number | null;
         };
         Update: {
           id?: string;
@@ -73,6 +78,7 @@ export interface Database {
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
           primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
+?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
@@ -81,8 +87,10 @@ export interface Database {
           gender?: 'male' | 'female' | null;
           height_unit_preference?: 'cm' | 'ft' | null;
           weight_unit_preference?: 'kg' | 'lbs' | null;
-          height_original_value?: number | null;
-          weight_original_value?: number | null;
+          height_original_value?: string | null;
+          weight_original_value?: string | null;
+          goal_fat_reduction?: number | null;
+          goal_muscle_gain?: number | null;
         };
       };
       body_photos: {
@@ -520,12 +528,80 @@ export interface Database {
           Database['public']['Tables']['progress_predictions']['Insert']
         >;
       };
+
+      saved_recipes: {
+        Row: {
+          id: string;
+          user_id: string;
+          recipe_name: string;
+          ingredients: Json | null;
+          instructions: string | null;
+          nutritional_info: Json | null;
+          prep_time: number | null;
+          cook_time: number | null;
+          servings: number | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database['public']['Tables']['saved_recipes']['Row'],
+          'id' | 'created_at'
+        >;
+        Update: Partial<
+          Database['public']['Tables']['saved_recipes']['Insert']
+        >;
+      };
+
+      data_deletion_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          user_email: string;
+          requested_at: string;
+          deletion_reason: string;
+          status: string;
+          compliance_notes: string | null;
+          processed_at: string | null;
+        };
+        Insert: Omit<
+          Database['public']['Tables']['data_deletion_requests']['Row'],
+          'id' | 'requested_at'
+        >;
+        Update: Partial<
+          Database['public']['Tables']['data_deletion_requests']['Insert']
+        >;
+      };
     };
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      upsert_ai_workout_plan: {
+        Args: {
+          user_id_param: string;
+          plan_data: {
+            name: string;
+            training_level: 'beginner' | 'intermediate' | 'advanced';
+            goal_fat_loss: number;
+            goal_muscle_gain: number;
+            mesocycle_length_weeks: number;
+            estimated_time_per_session: any;
+            weeklySchedule: any;
+          };
+        };
+        Returns: any;
+      };
+      update_meal_in_schedule: {
+        Args: {
+          [key: string]: any;
+        };
+        Returns: any;
+      };
+      get_table_info: {
+        Args: {
+          table_name: string;
+        };
+        Returns: any;
+      };
     }
     Enums: {
       [_ in never]: never

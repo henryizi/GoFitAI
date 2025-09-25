@@ -10,6 +10,7 @@ import {
   Animated
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import ViewShot from 'react-native-view-shot';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -17,11 +18,27 @@ import { WorkoutHistoryService, SessionDetails } from '../../../../src/services/
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import ContentSafetyWarning from '../../../../src/components/legal/ContentSafetyWarning';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useAuth } from '../../../../src/hooks/useAuth';
+import { typography } from '../../../../src/styles/fonts';
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
+
+// Weight conversion utilities
+const convertKgToLbs = (kg: number): number => kg * 2.20462;
+const formatWeightForDisplay = (weightKg: number | null, preferredUnit: 'kg' | 'lbs'): string => {
+  if (weightKg === null) return '—';
+  
+  if (preferredUnit === 'lbs') {
+    const lbs = convertKgToLbs(weightKg);
+    return `${Math.round(lbs)} lbs`;
+  } else {
+    return `${weightKg.toFixed(1)} kg`;
+  }
+};
 
 // Premium dark theme colors with proper typing for gradients
 const colors = {
@@ -58,9 +75,14 @@ export default function WorkoutHistoryDetailScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<SessionDetails | null>(null);
+  const [showContentWarning, setShowContentWarning] = useState(false);
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
   const scrollY = new Animated.Value(0);
+  const { user, profile } = useAuth();
+  
+  // Get user's preferred weight unit, default to kg
+  const preferredWeightUnit = profile?.weight_unit_preference || 'kg';
   
   // Header animation values
   const headerOpacity = scrollY.interpolate({
@@ -84,7 +106,8 @@ export default function WorkoutHistoryDetailScreen() {
         const data = await WorkoutHistoryService.getSessionDetails(sessionId);
         
         if (data) {
-          console.log(`[WorkoutHistoryDetail] Successfully loaded session with ${data.exercises.length} exercises`);
+          console.log(`[WorkoutHistoryDetail] Successfully loaded session with ${data.exercises?.length || 0} exercises`);
+          console.log(`[WorkoutHistoryDetail] Loaded session details for ID: ${sessionId}`);
           setDetails(data);
         } else {
           console.error(`[WorkoutHistoryDetail] Failed to load session details`);
@@ -147,21 +170,80 @@ export default function WorkoutHistoryDetailScreen() {
     return 'dumbbell';
   };
 
+  const generateWorkoutFilename = () => {
+    if (!details?.completed_at) return 'GoFitAI-Workout.png';
+    
+    // Format date as YYYY-MM-DD
+    const date = new Date(details.completed_at);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Get primary exercise name for context (first exercise)
+    const primaryExercise = details.exercises[0]?.exercise_name;
+    let exerciseContext = '';
+    
+    if (primaryExercise) {
+      // Clean exercise name for filename (remove special characters)
+      const cleanName = primaryExercise
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase();
+      exerciseContext = `-${cleanName}`;
+    }
+    
+    return `GoFitAI-Workout-${dateStr}${exerciseContext}.png`;
+  };
+
   const shareWorkout = async () => {
+    // Show content safety warning first
+    setShowContentWarning(true);
+  };
+
+  const proceedWithWorkoutSharing = async () => {
+    setShowContentWarning(false);
+    
     try {
       if (!viewShotRef.current) return;
       const uri = await viewShotRef.current.capture?.();
       if (!uri) return;
+      
+      const filename = generateWorkoutFilename();
+      
+      // Create a copy with the proper filename in the document directory
+      const documentDirectory = FileSystem.documentDirectory;
+      const newUri = `${documentDirectory}${filename}`;
+      
+      // Copy the file with the new name
+      await FileSystem.copyAsync({
+        from: uri,
+        to: newUri
+      });
+      
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(uri, { dialogTitle: 'Share your workout', mimeType: 'image/png' });
+        // Share the renamed file
+        await Sharing.shareAsync(newUri, { 
+          dialogTitle: 'Share your workout', 
+          mimeType: 'image/png',
+          UTI: 'public.png'
+        });
+        
+        // Clean up the temporary file after sharing
+        try {
+          await FileSystem.deleteAsync(newUri, { idempotent: true });
+        } catch (cleanupError) {
+          console.log('[WorkoutHistoryDetail] Cleanup warning:', cleanupError);
+        }
       } else {
         // Fallback: open the image or alert with location
-        console.log('[WorkoutHistoryDetail] Sharing not available, image at:', uri);
+        console.log('[WorkoutHistoryDetail] Sharing not available, image at:', newUri);
       }
     } catch (e) {
       console.error('[WorkoutHistoryDetail] Share failed', e);
     }
+  };
+
+  const cancelWorkoutSharing = () => {
+    setShowContentWarning(false);
   };
 
   if (loading) {
@@ -246,7 +328,14 @@ export default function WorkoutHistoryDetailScreen() {
       />
       <Image
         source={{uri: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'}}
-        style={styles.backgroundImage}
+        style={[
+          styles.backgroundImage,
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }
+        ] as any}
         blurRadius={2}
       />
       <View style={styles.backgroundOverlay} />
@@ -356,8 +445,8 @@ export default function WorkoutHistoryDetailScreen() {
                       </View>
                       {ex.top_set_weight != null && (
                         <View style={styles.shareChip}>
-                          <Icon name="weight-kilogram" size={26} color={colors.text} style={styles.shareChipIcon} />
-                          <Text style={styles.shareChipText}>top {ex.top_set_weight} kg</Text>
+                          <Icon name="weight" size={26} color={colors.text} style={styles.shareChipIcon} />
+                          <Text style={styles.shareChipText}>top {formatWeightForDisplay(ex.top_set_weight, preferredWeightUnit)}</Text>
                         </View>
                       )}
                       {ex.comparison && (
@@ -377,7 +466,18 @@ export default function WorkoutHistoryDetailScreen() {
                   </View>
                 ))}
               </View>
-              <Image source={require('../../../../assets/branding/gofitai-watermark.png')} style={styles.shareWatermark} resizeMode="contain" />
+              <Image
+                source={require('../../../../assets/branding/gofitai-watermark.png')}
+                style={[
+                  styles.shareWatermark,
+                  {
+                    position: 'absolute',
+                    bottom: 24,
+                    right: 24,
+                  }
+                ] as any}
+                resizeMode="contain"
+              />
             </LinearGradient>
           </ViewShot>
         </View>
@@ -414,7 +514,7 @@ export default function WorkoutHistoryDetailScreen() {
                       <Icon name="dumbbell" size={20} color={colors.primary} />
                     </LinearGradient>
                   </View>
-                  <Text style={styles.statValue}>{details.exercises.length}</Text>
+                  <Text style={styles.statValue}>{details?.exercises?.length || 0}</Text>
                   <Text style={styles.statLabel}>Exercises</Text>
                 </View>
                 
@@ -430,8 +530,8 @@ export default function WorkoutHistoryDetailScreen() {
                     </LinearGradient>
                   </View>
                   <Text style={styles.statValue}>
-                    {details.exercises.reduce((total, ex) => total + ex.logs.length, 0)}
-      </Text>
+                    {details?.exercises?.reduce((total, ex) => total + (ex.logs?.length || 0), 0) || 0}
+                  </Text>
                   <Text style={styles.statLabel}>Sets</Text>
                 </View>
                 
@@ -448,7 +548,7 @@ export default function WorkoutHistoryDetailScreen() {
                   </View>
                   <Text style={styles.statValue}>
                     {Math.round(
-                      details.exercises.reduce((total, ex) => total + ex.total_volume, 0)
+                      details?.exercises?.reduce((total, ex) => total + (ex.total_volume || 0), 0) || 0
                     )}
                   </Text>
                   <Text style={styles.statLabel}>Volume</Text>
@@ -513,7 +613,7 @@ export default function WorkoutHistoryDetailScreen() {
                     <View style={styles.performanceItem}>
                       <Text style={styles.performanceLabel}>Top Set</Text>
                       <Text style={styles.performanceValue}>
-                        {ex.top_set_weight != null ? `${ex.top_set_weight} kg` : '—'}
+                        {formatWeightForDisplay(ex.top_set_weight, preferredWeightUnit)}
           </Text>
                     </View>
                     
@@ -561,7 +661,7 @@ export default function WorkoutHistoryDetailScreen() {
                       <View style={styles.setsTableHeader}>
                         <Text style={[styles.setsTableHeaderText, { flex: 0.2 }]}>#</Text>
                         <Text style={[styles.setsTableHeaderText, { flex: 0.3 }]}>Reps</Text>
-                        <Text style={[styles.setsTableHeaderText, { flex: 0.3 }]}>Weight</Text>
+                        <Text style={[styles.setsTableHeaderText, { flex: 0.3 }]}>Weight ({preferredWeightUnit})</Text>
                         <Text style={[styles.setsTableHeaderText, { flex: 0.4 }]}>Time</Text>
                       </View>
                       
@@ -574,7 +674,7 @@ export default function WorkoutHistoryDetailScreen() {
                           </View>
                           <Text style={[styles.setRowText, styles.setRepsText, { flex: 0.3 }]}>{log.actual_reps}</Text>
                           <Text style={[styles.setRowText, { flex: 0.3 }]}>
-                            {log.actual_weight != null ? `${log.actual_weight} kg` : '—'}
+                            {formatWeightForDisplay(log.actual_weight, preferredWeightUnit)}
                 </Text>
                           <Text style={[styles.setRowText, styles.setTimeText, { flex: 0.4 }]}>
                             {formatTime(log.completed_at)}
@@ -604,6 +704,15 @@ export default function WorkoutHistoryDetailScreen() {
           </TouchableOpacity>
         </View>
       </Animated.ScrollView>
+
+      {/* Content Safety Warning Modal */}
+      {showContentWarning && (
+        <ContentSafetyWarning
+          onProceed={proceedWithWorkoutSharing}
+          onCancel={cancelWorkoutSharing}
+          variant="sharing"
+        />
+      )}
     </View>
   );
 }
@@ -614,13 +723,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   backgroundImage: {
-    position: 'absolute',
     width: '100%',
     height: 300,
-    top: 0,
-    left: 0,
     opacity: 0.3,
-  },
+  } as any,
   backgroundOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -984,8 +1090,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
     color: colors.text,
   },
   loadingContainer: {
@@ -1219,11 +1324,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,59,48,0.35)',
   },
   shareWatermark: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
     width: 160,
     height: 160,
     opacity: 0.9,
-  },
+  } as any,
 }); 

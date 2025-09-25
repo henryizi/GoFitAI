@@ -73,7 +73,7 @@ export default function PhotoUploadScreen() {
   // Fetch progress entries for calendar
   useEffect(() => {
     if (user) {
-      ProgressService.getProgressEntries(user.id).then((entries: any) => {
+      ProgressService.getProgressPhotos(user.id).then((entries: any) => {
         setProgressEntries(entries);
       });
     }
@@ -297,7 +297,7 @@ export default function PhotoUploadScreen() {
         setBackPhotoUri(null);
 
         // Refresh progress entries
-        ProgressService.getProgressEntries(user.id).then((entries: any) => {
+        ProgressService.getProgressPhotos(user.id).then((entries: any) => {
           setProgressEntries(entries);
         });
 

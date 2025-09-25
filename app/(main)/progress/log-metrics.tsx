@@ -213,11 +213,12 @@ export default function DailyMealPlanScreen() {
                   right={<TextInput.Affix text="卡路里" />}
                   outlineColor={'rgba(255,255,255,0.2)'}
                   activeOutlineColor={colors.primary}
-                  theme={{ 
+                  theme={{
                     roundness: 16,
                     colors: {
                       onSurfaceVariant: colors.textSecondary,
                       primary: colors.primary,
+                      onSurface: colors.text,
                     }
                   }}
                   onSubmitEditing={() => {
@@ -264,11 +265,12 @@ export default function DailyMealPlanScreen() {
                   left={<TextInput.Icon icon="alert-circle" />}
                   outlineColor={'rgba(255,255,255,0.2)'}
                   activeOutlineColor={colors.primary}
-                  theme={{ 
+                  theme={{
                     roundness: 16,
                     colors: {
                       onSurfaceVariant: colors.textSecondary,
                       primary: colors.primary,
+                      onSurface: colors.text,
                     }
                   }}
                 />

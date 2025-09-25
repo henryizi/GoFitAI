@@ -19,9 +19,17 @@ import { track as analyticsTrack } from '../../../../src/services/analytics/anal
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { isBodyweightExercise, canUseOptionalWeight } from '../../../../src/constants/exerciseNames';
-import { useAuth } from '../../../../src/contexts/AuthContext';
+import { useAuth } from '../../../../src/hooks/useAuth';
+import { calculateWorkoutCalories, adjustCaloriesForUserProfile } from '../../../../src/utils/calorieCalculation';
 
 const { width, height } = Dimensions.get('window');
+
+// Weight conversion utilities
+const convertLbsToKg = (lbs: number): number => lbs * 0.453592;
+const convertKgToLbs = (kg: number): number => kg * 2.20462;
+const formatWeight = (weight: number, unit: 'kg' | 'lbs'): string => {
+  return unit === 'kg' ? weight.toFixed(1) : weight.toFixed(0);
+};
 
 export type ExerciseSet = Database['public']['Tables']['exercise_sets']['Row'];
 export type ExerciseLogInsert = Database['public']['Tables']['exercise_logs']['Insert'];
@@ -41,11 +49,22 @@ export default function SessionExecutionScreen() {
   const [setNumber, setSetNumber] = useState(1);
   const [actualReps, setActualReps] = useState('');
   const [actualWeight, setActualWeight] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(user?.profile?.weight_unit_preference || 'kg');
+  const [sessionWeightUnit, setSessionWeightUnit] = useState<'kg' | 'lbs' | null>(null);
   const [exerciseMap, setExerciseMap] = useState<Record<string, { name: string }>>({});
   const [loading, setLoading] = useState(true);
   const [resting, setResting] = useState(false);
+  const [completedSets, setCompletedSets] = useState<Record<string, Array<{
+    reps: number;
+    weight: number | null;
+    weight_unit: 'kg' | 'lbs';
+    original_weight: number | null;
+    completed_at: string;
+    set_number: number;
+  }>>>({});
   const [sessionProgress, setSessionProgress] = useState(0);
   const [estimatedCalories, setEstimatedCalories] = useState<number | null>(null);
+  const [realTimeCalories, setRealTimeCalories] = useState<number>(0);
   const [splitName, setSplitName] = useState<string | null>(null);
   
   // Animation values
@@ -54,6 +73,108 @@ export default function SessionExecutionScreen() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const sessionStartTime = useRef(Date.now()).current;
+
+  // Update weight unit when user profile changes
+  useEffect(() => {
+    if (user?.profile?.weight_unit_preference) {
+      setWeightUnit(user.profile.weight_unit_preference);
+    }
+  }, [user?.profile?.weight_unit_preference]);
+
+  // Set weight unit to session preference when starting new exercises
+  useEffect(() => {
+    if (sessionWeightUnit !== null) {
+      setWeightUnit(sessionWeightUnit);
+    }
+  }, [currentIndex, sessionWeightUnit]);
+
+  // Calculate real-time calories based on actual exercises performed + projected remaining
+  const calculateRealTimeCalories = () => {
+    if (!sets || sets.length === 0) return 0;
+    
+    let completedCalories = 0;
+    let projectedCalories = 0;
+    
+    // 1. Calculate calories from completed sets
+    const completedExerciseData: Array<{ name: string; sets: number; reps: number }> = [];
+    
+    Object.entries(completedSets).forEach(([exerciseId, completedSetsList]) => {
+      const exercise = sets.find(s => s.id === exerciseId);
+      
+      // Check if we have exercise data in exerciseMap directly (for custom workouts)
+      if (exerciseMap[exerciseId]) {
+        const totalSets = completedSetsList.length;
+        const avgReps = completedSetsList.reduce((sum, set) => sum + set.reps, 0) / totalSets;
+        
+        completedExerciseData.push({
+          name: exerciseMap[exerciseId].name,
+          sets: totalSets,
+          reps: Math.round(avgReps)
+        });
+      } else if (exercise && exerciseMap[exercise.exercise_id]) {
+        const totalSets = completedSetsList.length;
+        const avgReps = completedSetsList.reduce((sum, set) => sum + set.reps, 0) / totalSets;
+        
+        completedExerciseData.push({
+          name: exerciseMap[exercise.exercise_id].name,
+          sets: totalSets,
+          reps: Math.round(avgReps)
+        });
+      }
+    });
+    
+    // Calculate completed calories
+    if (completedExerciseData.length > 0) {
+      const userWeight = user?.profile?.weight || 70;
+      const { totalCalories } = calculateWorkoutCalories(completedExerciseData, userWeight);
+      completedCalories = totalCalories;
+    }
+    
+    // 2. Calculate projected calories for remaining exercises (including current incomplete exercise)
+    const remainingExerciseData: Array<{ name: string; sets: number; reps: number }> = [];
+    
+    sets.forEach((exercise) => {
+      if (!exerciseMap[exercise.exercise_id]) return;
+      
+      const completedSetsForExercise = completedSets[exercise.id] || [];
+      const remainingSets = exercise.target_sets - completedSetsForExercise.length;
+      
+      if (remainingSets > 0) {
+        // Use target reps for projection
+        const targetReps = parseInt(exercise.target_reps?.split('-')[0] || '10', 10);
+        
+        remainingExerciseData.push({
+          name: exerciseMap[exercise.exercise_id].name,
+          sets: remainingSets,
+          reps: targetReps
+        });
+      }
+    });
+    
+    // Calculate projected calories for remaining work
+    if (remainingExerciseData.length > 0) {
+      const userWeight = user?.profile?.weight || 70;
+      const { totalCalories } = calculateWorkoutCalories(remainingExerciseData, userWeight);
+      projectedCalories = totalCalories;
+    }
+    
+    // Total calories = completed + projected remaining
+    const totalCalories = completedCalories + projectedCalories;
+    
+    // Adjust based on user profile if available
+    const fitnessLevel = user?.profile?.fitness_level || 'intermediate';
+    const age = user?.profile?.age;
+    const gender = user?.profile?.gender;
+    
+    const adjustedCalories = adjustCaloriesForUserProfile(totalCalories, {
+      fitnessLevel: fitnessLevel as 'beginner' | 'intermediate' | 'advanced',
+      age: age,
+      gender: gender as 'male' | 'female',
+      intensity: 'moderate' // Default to moderate intensity for session
+    });
+    
+    return adjustedCalories;
+  };
 
   const handleBackButtonPress = () => {
     console.log('Back button pressed in session screen');
@@ -231,15 +352,16 @@ export default function SessionExecutionScreen() {
     ]).start();
   }, [fadeAnim, slideAnim, headerOpacity]);
 
-  // Calculate session progress
+  // Calculate session progress (now handles unlimited sets)
   useEffect(() => {
     if (sets.length > 0) {
-      const totalSets = sets.reduce((acc, set) => acc + set.target_sets, 0);
-      const completedSets = (currentIndex > 0 ? 
-        sets.slice(0, currentIndex).reduce((acc, set) => acc + set.target_sets, 0) : 0) + 
-        (setNumber - 1);
+      const totalTargetSets = sets.reduce((acc, set) => acc + set.target_sets, 0);
       
-      const newProgress = totalSets > 0 ? completedSets / totalSets : 0;
+      // Calculate actual completed sets from the completedSets state
+      const actualCompletedSets = Object.values(completedSets).reduce((acc, exerciseSets) => acc + exerciseSets.length, 0);
+      
+      // Progress is based on minimum target sets, but can exceed 100% if user does extra sets
+      const newProgress = totalTargetSets > 0 ? Math.min(actualCompletedSets / totalTargetSets, 1.0) : 0;
       setSessionProgress(newProgress);
       
       // Animate progress
@@ -251,7 +373,19 @@ export default function SessionExecutionScreen() {
     } else {
       setSessionProgress(0);
     }
-  }, [sets, currentIndex, setNumber, progressAnim]);
+  }, [sets, completedSets, progressAnim]);
+
+  // Update real-time calories when completed sets change or when initial data loads
+  useEffect(() => {
+    // Only calculate if we have sets and exercise map data
+    if (sets.length > 0 && Object.keys(exerciseMap).length > 0) {
+      const newRealTimeCalories = calculateRealTimeCalories();
+      setRealTimeCalories(newRealTimeCalories);
+    } else if (sets.length > 0 && Object.keys(exerciseMap).length === 0) {
+      // Show 0 calories temporarily while exercise map is loading
+      setRealTimeCalories(0);
+    }
+  }, [completedSets, currentIndex, setNumber, exerciseMap, sets, user]);
 
   useEffect(() => {
     // Fetch session details to get estimated calories
@@ -282,14 +416,49 @@ export default function SessionExecutionScreen() {
     if (!currentSet) return;
     console.log('[Session] Complete Set tapped for set', currentSet.id, 'index', currentIndex, 'setNumber', setNumber);
 
+    // Allow unlimited sets - no restriction on going beyond target
+
     // simple validation
     const repsNum = parseInt(actualReps, 10);
-    const weightNum = actualWeight ? parseFloat(actualWeight) : null;
+    let weightNum = actualWeight ? parseFloat(actualWeight) : null;
+
+    // Set session weight unit on first weight entry
+    if (weightNum !== null && sessionWeightUnit === null) {
+      setSessionWeightUnit(weightUnit);
+    }
+
+    // Convert weight to kg if entered in lbs
+    if (weightNum !== null && weightUnit === 'lbs') {
+      weightNum = convertLbsToKg(weightNum);
+    }
 
     if (isNaN(repsNum) || repsNum <= 0) {
       Alert.alert("Invalid Input", "Please enter a valid number of reps");
       return;
     }
+
+    // Track the completed set
+    const completedSet = {
+      reps: repsNum,
+      weight: weightNum, // This is always in kg for database storage
+      weight_unit: weightUnit,
+      original_weight: actualWeight ? parseFloat(actualWeight) : null, // Original user input
+      completed_at: new Date().toISOString(),
+      set_number: setNumber
+    };
+
+    const exerciseId = currentSet.exercise_id;
+    
+    // Update completed sets state and get the updated state for immediate use
+    const updatedCompletedSets = {
+      ...completedSets,
+      [exerciseId]: [...(completedSets[exerciseId] || []), completedSet]
+    };
+    setCompletedSets(updatedCompletedSets);
+
+    // Clear input fields for next set
+    setActualReps('');
+    setActualWeight('');
 
     // Insert log only if this is a real set (skip synthetic fallback ids)
     if (!String(currentSet.id).toString().startsWith('fallback-') && !String(currentSet.id).toString().startsWith('ex-')) {
@@ -329,16 +498,23 @@ export default function SessionExecutionScreen() {
     setActualReps('');
     setActualWeight('');
     
-    // Check if this is the last set of the last exercise
-    const isLastSetOfLastExercise = (setNumber >= currentSet.target_sets) && (currentIndex + 1 >= sets.length);
+    console.log(`[Session] Set completion check - setNumber: ${setNumber}, target_sets: ${currentSet.target_sets}, currentIndex: ${currentIndex}, total sets: ${sets.length}`);
+    console.log(`[Session] Updated completedSets for exercise ${exerciseId}:`, updatedCompletedSets[exerciseId]?.length || 0, 'sets');
     
-    if (isLastSetOfLastExercise) {
+    // Check if user has completed all planned sets for this exercise
+    const completedSetsForExercise = updatedCompletedSets[exerciseId] || [];
+    const hasCompletedAllSets = completedSetsForExercise.length >= currentSet.target_sets;
+    
+    // Auto-complete workout only when all exercises are done with their target sets
+    const shouldAutoComplete = false; // Keep manual completion for now
+    
+    if (shouldAutoComplete) {
       // Skip rest timer and go directly to workout completion
       console.log('[Session] Last set completed - finishing workout');
       
       // Always save workout history for completed workouts
-      try {
-        const completedAt = new Date().toISOString();
+        try {
+          const completedAt = new Date().toISOString();
         const totalSets = sets.length;
         const totalExercises = new Set(sets.map(set => set.exercise_id)).size;
         const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
@@ -365,24 +541,64 @@ export default function SessionExecutionScreen() {
           } else {
             console.log('[Session] Database session marked as completed successfully');
           }
-          
-          // Save workout history for database workouts
-          try {
-            const { data: sessionData } = await supabase
-              .from('workout_sessions')
-              .select('plan_id')
-              .eq('id', sessionId)
-              .single();
             
-            if (sessionData?.plan_id) {
-              const { data: planData } = await supabase
-                .from('workout_plans')
-                .select('user_id')
-                .eq('id', sessionData.plan_id)
+          // Save workout history for database workouts
+            try {
+              const { data: sessionData } = await supabase
+                .from('workout_sessions')
+                .select('plan_id')
+                .eq('id', sessionId)
                 .single();
               
-              if (planData?.user_id) {
-                const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+              if (sessionData?.plan_id) {
+                const { data: planData } = await supabase
+                  .from('workout_plans')
+                  .select('user_id')
+                  .eq('id', sessionData.plan_id)
+                  .single();
+                
+                if (planData?.user_id) {
+                // Calculate only actual completed calories (no projections) for history
+                const completedExerciseData: Array<{ name: string; sets: number; reps: number }> = [];
+                
+                console.log('[Session] DEBUG: Building completed exercise data for history');
+                console.log('[Session] DEBUG: completedSets keys:', Object.keys(updatedCompletedSets));
+                console.log('[Session] DEBUG: exerciseMap keys:', Object.keys(exerciseMap));
+                console.log('[Session] DEBUG: sets length:', sets.length);
+                
+                Object.entries(updatedCompletedSets).forEach(([exerciseId, completedSetsList]) => {
+                  const exercise = sets.find(s => s.id === exerciseId);
+                  console.log(`[Session] DEBUG: Processing exercise ${exerciseId}, found exercise:`, !!exercise);
+                  
+                  if (exercise) {
+                    console.log(`[Session] DEBUG: Exercise.exercise_id: ${exercise.exercise_id}, has mapping:`, !!exerciseMap[exercise.exercise_id]);
+                    if (exerciseMap[exercise.exercise_id]) {
+                      const totalSets = completedSetsList.length;
+                      const avgReps = completedSetsList.reduce((sum, set) => sum + set.reps, 0) / totalSets;
+                      
+                      const exerciseData = {
+                        name: exerciseMap[exercise.exercise_id].name,
+                        sets: totalSets,
+                        reps: Math.round(avgReps)
+                      };
+                      
+                      console.log(`[Session] DEBUG: Adding exercise to history:`, exerciseData);
+                      completedExerciseData.push(exerciseData);
+                    } else {
+                      console.log(`[Session] DEBUG: Missing exercise mapping for ${exercise.exercise_id}`);
+                    }
+                  } else {
+                    console.log(`[Session] DEBUG: Could not find exercise with id ${exerciseId} in sets`);
+                  }
+                });
+                
+                console.log('[Session] DEBUG: Final completedExerciseData:', completedExerciseData);
+                
+                // Use the real-time calories shown in the progress bar
+                const actualCompletedCalories = realTimeCalories;
+
+                console.log(`[Session] DEBUG: Saving to history with ${actualCompletedCalories} calories (from progress bar)`);
+                console.log('[Session] DEBUG: Database workout history data being saved:', {
                   user_id: planData.user_id,
                   plan_id: sessionData.plan_id,
                   session_id: sessionId,
@@ -390,18 +606,29 @@ export default function SessionExecutionScreen() {
                   duration_minutes: durationMinutes,
                   total_sets: totalSets,
                   total_exercises: totalExercises,
-                  estimated_calories: estimatedCalories,
-                  notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
+                  estimated_calories: actualCompletedCalories
                 });
                 
-                if (historySaved) {
-                  console.log('[Session] Database workout history saved successfully');
-                } else {
-                  console.warn('[Session] Failed to save database workout history');
+                  const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+                    user_id: planData.user_id,
+                    plan_id: sessionData.plan_id,
+                    session_id: sessionId,
+                    completed_at: completedAt,
+                    duration_minutes: durationMinutes,
+                    total_sets: totalSets,
+                    total_exercises: totalExercises,
+                    estimated_calories: actualCompletedCalories,
+                    notes: `Completed ${totalExercises} exercises with ${totalSets} total sets`
+                  });
+                  
+                  if (historySaved) {
+                    console.log('[Session] ✅ Database workout history saved successfully');
+                  } else {
+                    console.error('[Session] ❌ Failed to save database workout history');
+                  }
                 }
               }
-            }
-          } catch (historyError) {
+            } catch (historyError) {
             console.error('[Session] Error saving database workout history:', historyError);
           }
         } else {
@@ -410,6 +637,73 @@ export default function SessionExecutionScreen() {
           
           try {
             if (user?.id) {
+              // Calculate only actual completed calories (no projections) for custom workout history
+              const completedExerciseData: Array<{ name: string; sets: number; reps: number }> = [];
+              
+              console.log('[Session] DEBUG CUSTOM: Building completed exercise data for custom workout history');
+              console.log('[Session] DEBUG CUSTOM: completedSets keys:', Object.keys(updatedCompletedSets));
+              console.log('[Session] DEBUG CUSTOM: exerciseMap keys:', Object.keys(exerciseMap));
+              console.log('[Session] DEBUG CUSTOM: sets length:', sets.length);
+              
+              Object.entries(updatedCompletedSets).forEach(([exerciseId, completedSetsList]) => {
+                const exercise = sets.find(s => s.id === exerciseId);
+                console.log(`[Session] DEBUG CUSTOM: Processing exercise ${exerciseId}, found exercise:`, !!exercise);
+                console.log(`[Session] DEBUG CUSTOM: Available set IDs:`, sets.map(s => s.id));
+                
+                // Check if we have exercise data in exerciseMap directly (for custom workouts)
+                if (exerciseMap[exerciseId]) {
+                  console.log(`[Session] DEBUG CUSTOM: Found exercise directly in exerciseMap for ${exerciseId}`);
+                  const totalSets = completedSetsList.length;
+                  const avgReps = completedSetsList.reduce((sum, set) => sum + set.reps, 0) / totalSets;
+                  
+                  const exerciseData = {
+                    name: exerciseMap[exerciseId].name,
+                    sets: totalSets,
+                    reps: Math.round(avgReps)
+                  };
+                  
+                  console.log(`[Session] DEBUG CUSTOM: Adding exercise to history:`, exerciseData);
+                  completedExerciseData.push(exerciseData);
+                } else if (exercise) {
+                  console.log(`[Session] DEBUG CUSTOM: Exercise.exercise_id: ${exercise.exercise_id}, has mapping:`, !!exerciseMap[exercise.exercise_id]);
+                  if (exerciseMap[exercise.exercise_id]) {
+                    const totalSets = completedSetsList.length;
+                    const avgReps = completedSetsList.reduce((sum, set) => sum + set.reps, 0) / totalSets;
+                    
+                    const exerciseData = {
+                      name: exerciseMap[exercise.exercise_id].name,
+                      sets: totalSets,
+                      reps: Math.round(avgReps)
+                    };
+                    
+                    console.log(`[Session] DEBUG CUSTOM: Adding exercise to history:`, exerciseData);
+                    completedExerciseData.push(exerciseData);
+                  } else {
+                    console.log(`[Session] DEBUG CUSTOM: Missing exercise mapping for ${exercise.exercise_id}`);
+                  }
+                } else {
+                  console.log(`[Session] DEBUG CUSTOM: Could not find exercise with id ${exerciseId} in exerciseMap or sets`);
+                }
+              });
+              
+              console.log('[Session] DEBUG CUSTOM: Final completedExerciseData:', completedExerciseData);
+              
+              // Use the real-time calories shown in the progress bar
+              const actualCompletedCalories = realTimeCalories;
+              
+              console.log(`[Session] DEBUG CUSTOM: Saving to history with ${actualCompletedCalories} calories (from progress bar)`);
+              console.log('[Session] DEBUG CUSTOM: Workout history data being saved:', {
+                user_id: user.id,
+                plan_name: 'Custom Workout',
+                session_name: sessionTitle || splitName || 'Custom Session',
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: actualCompletedCalories,
+                exercises_count: sets.length
+              });
+              
               // Create workout history entry for custom workouts
               const customHistorySaved = await WorkoutHistoryService.saveCustomWorkoutHistory({
                 user_id: user.id,
@@ -419,21 +713,34 @@ export default function SessionExecutionScreen() {
                 duration_minutes: durationMinutes,
                 total_sets: totalSets,
                 total_exercises: totalExercises,
-                estimated_calories: estimatedCalories,
+                estimated_calories: actualCompletedCalories,
                 notes: `Custom workout: ${totalExercises} exercises with ${totalSets} total sets`,
-                exercises_data: sets.map(set => ({
-                  exercise_name: exerciseMap[set.exercise_id]?.name || 'Unknown Exercise',
-                  target_sets: set.target_sets,
-                  target_reps: set.target_reps,
-                  rest_period: set.rest_period,
-                  order_in_session: sets.indexOf(set) + 1
-                }))
+                exercises_data: sets.map(set => {
+                  const exerciseCompletedSets = updatedCompletedSets[set.exercise_id] || [];
+                  return {
+                    exercise_id: set.exercise_id,
+                    exercise_name: exerciseMap[set.exercise_id]?.name || 'Unknown Exercise',
+                    target_sets: set.target_sets,
+                    target_reps: set.target_reps,
+                    rest_period: set.rest_period,
+                    order_in_session: sets.indexOf(set) + 1,
+                    // Include actual performed sets
+                    logs: exerciseCompletedSets.map((completedSet, index) => ({
+                      id: `custom-log-${set.exercise_id}-${index}`,
+                      actual_reps: completedSet.reps,
+                      actual_weight: completedSet.weight,
+                      actual_rpe: null,
+                      completed_at: completedSet.completed_at,
+                      notes: null
+                    }))
+                  };
+                })
               });
               
               if (customHistorySaved) {
-                console.log('[Session] Custom workout history saved successfully');
+                console.log('[Session] ✅ Custom workout history saved successfully');
               } else {
-                console.warn('[Session] Failed to save custom workout history');
+                console.error('[Session] ❌ Failed to save custom workout history');
               }
             } else {
               console.warn('[Session] No user ID available for saving custom workout history');
@@ -449,7 +756,7 @@ export default function SessionExecutionScreen() {
       // Show completion dialog instead of navigating to non-existent route
       showCompletionDialog();
     } else {
-      // Start rest timer for non-final sets
+      // Always start rest timer after completing a set (unlimited sets)
       setResting(true);
       console.log('[Session] Rest started');
     }
@@ -459,27 +766,313 @@ export default function SessionExecutionScreen() {
     console.log('[Session] Rest finished');
     setResting(false); // Hide the timer first
 
-    // Advance the state - this should never reach the last set since that's handled in handleSetDone
-    if (setNumber < currentSet.target_sets) {
-      // Go to the next set of the same exercise
+    const currentSet = sets[currentIndex];
+    if (!currentSet) return;
+
+    // Check if we're about to exceed the planned sets
+    if (setNumber >= currentSet.target_sets) {
+      Alert.alert(
+        'Maximum Sets Reached',
+        `This exercise is planned for ${currentSet.target_sets} sets. You've completed all planned sets for this exercise.`,
+        [
+          {
+            text: 'Finish Exercise',
+            onPress: () => handleFinishExercise(),
+            style: 'default'
+          },
+          {
+            text: 'Continue Anyway',
+            onPress: () => {
       setSetNumber(prev => prev + 1);
+              console.log('[Session] User chose to continue beyond planned sets');
+            },
+            style: 'destructive'
+          }
+        ]
+      );
     } else {
-      // Finished all sets for this exercise, move to the next one
-      if (currentIndex + 1 < sets.length) {
-        setCurrentIndex(prev => prev + 1);
-        setSetNumber(1); // Reset set counter for the new exercise
-      } else {
-        // This should not happen anymore since last sets are handled in handleSetDone
-        console.warn('[Session] Unexpected: reached last set in handleRestFinish - this should be handled in handleSetDone');
-      }
+      // Normal case: continue to next set
+      setSetNumber(prev => prev + 1);
+      console.log('[Session] Moving to next set');
     }
+  };
+
+  // Function to finish current exercise and move to next
+  const handleFinishExercise = () => {
+    console.log('[Session] Finishing current exercise');
+    
+      if (currentIndex + 1 < sets.length) {
+      // Move to next exercise
+        setCurrentIndex(prev => prev + 1);
+      setSetNumber(1);
+      setActualReps('');
+      setActualWeight('');
+      console.log('[Session] Moving to next exercise');
+      } else {
+      // This was the last exercise - automatically finish the workout
+      console.log('[Session] ✅ Last exercise completed! Auto-finishing workout...');
+      setTimeout(() => {
+        handleFinishWorkout();
+      }, 1000); // Small delay to let user see completion before dialog
+    }
+  };
+
+  // Function to finish the entire workout
+  const handleFinishWorkout = async () => {
+    console.log('[Session] Finishing entire workout');
+    console.log('[Session] DEBUG: Current completedSets state:', completedSets);
+    console.log('[Session] DEBUG: Number of exercises in completedSets:', Object.keys(completedSets).length);
+    Object.entries(completedSets).forEach(([exerciseId, sets]) => {
+      console.log(`[Session] DEBUG: Exercise ${exerciseId} has ${sets.length} completed sets:`, sets);
+    });
+    
+    // Always save workout history for completed workouts
+    try {
+      if (sessionId.startsWith('custom-')) {
+        // Handle custom workout completion
+        if (user?.id) {
+          const completedExercises = [];
+          
+          Object.entries(completedSets).forEach(([exerciseId, completedSetsList]) => {
+            const exercise = sets.find(s => s.id === exerciseId);
+            // Check if we have exercise data in exerciseMap directly (for custom workouts)
+            const exerciseData = exercise || exerciseMap[exerciseId];
+            
+            if (exerciseData && completedSetsList.length > 0) {
+              completedExercises.push({
+                exercise_name: exerciseData.name || `Exercise ${exerciseId}`,
+                sets: completedSetsList,
+                exercise_id: exerciseId
+              });
+            }
+          });
+
+          if (completedExercises.length > 0) {
+            const workoutHistoryData = {
+              user_id: user.id,
+              workout_name: sessionTitle || 'Custom Workout',
+              completed_exercises: completedExercises,
+              total_duration_minutes: Math.round((Date.now() - sessionStartTime) / 60000),
+              calories_burned: realTimeCalories,
+              workout_date: new Date().toISOString().split('T')[0],
+              split_name: splitName
+            };
+
+            console.log('[Session] Saving custom workout history');
+            
+            try {
+              const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/workout-history/custom`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(workoutHistoryData),
+              });
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Session] Failed to save custom workout history:', response.status, errorText);
+              } else {
+                const result = await response.json();
+                console.log('[Session] Custom workout history saved successfully:', result);
+              }
+            } catch (fetchError) {
+              console.error('[Session] Network error saving custom workout history:', fetchError);
+            }
+          } else {
+            console.warn('[Session] No completed exercises to save for custom workout');
+          }
+        } else {
+          console.warn('[Session] No user ID available for saving custom workout history');
+        }
+      } else {
+        // Handle regular workout completion (existing logic)
+        console.log('[Session] Saving regular workout to history');
+        
+        try {
+          // Fetch session and plan data for regular workout completion
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('workout_sessions')
+            .select('plan_id')
+            .eq('id', sessionId)
+            .single();
+          
+          if (!sessionError && sessionData?.plan_id) {
+            console.log('[Session] Found session data, saving as planned workout');
+            const { data: planData } = await supabase
+              .from('workout_plans')
+              .select('user_id')
+              .eq('id', sessionData.plan_id)
+              .single();
+            
+            if (planData?.user_id && user?.id) {
+              // Calculate workout metrics
+              const completedAt = new Date().toISOString();
+              const durationMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+              const totalSets = Object.values(completedSets).reduce((sum, sets) => sum + sets.length, 0);
+              const uniqueExercises = new Set(Object.keys(completedSets));
+              const totalExercises = uniqueExercises.size;
+
+              // Use the real-time calories shown in the progress bar
+              const actualCompletedCalories = realTimeCalories;
+
+              // Convert completedSets to exercises_data format for saving
+              const exercisesData = Object.keys(completedSets).map(exerciseId => {
+                const exerciseName = exerciseMap[exerciseId]?.name || 'Exercise';
+                const sets = completedSets[exerciseId];
+                
+                return {
+                  exercise_id: exerciseId,
+                  exercise_name: exerciseName,
+                  sets: sets.map(set => ({
+                    reps: set.reps,
+                    weight: set.weight,
+                    weight_unit: set.weight_unit,
+                    original_weight: set.original_weight,
+                    completed_at: set.completed_at,
+                    set_number: set.set_number
+                  }))
+                };
+              });
+
+              console.log(`[Session] DEBUG: Saving to history with ${actualCompletedCalories} calories (from progress bar)`);
+              console.log('[Session] DEBUG: Workout history data being saved:', {
+                user_id: planData.user_id,
+                plan_id: sessionData.plan_id,
+                session_id: sessionId,
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: actualCompletedCalories,
+                exercises_data: exercisesData
+              });
+              
+              const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+                user_id: planData.user_id,
+                plan_id: sessionData.plan_id,
+                session_id: sessionId,
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: actualCompletedCalories,
+                notes: `${sessionTitle || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
+                exercises_data: exercisesData
+              });
+              
+              if (historySaved) {
+                console.log('[Session] ✅ Database workout history saved successfully');
+              } else {
+                console.error('[Session] ❌ Failed to save database workout history');
+              }
+            } else {
+              console.warn('[Session] Missing required data for regular workout history:', {
+                hasPlanData: !!planData,
+                hasUserId: !!user?.id
+              });
+            }
+          } else {
+            // Fallback: Save as standalone workout (no plan_id/session_id)
+            console.log('[Session] No session data found, saving as standalone workout');
+            
+            if (user?.id) {
+              // Calculate workout metrics
+              const completedAt = new Date().toISOString();
+              const durationMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+              const totalSets = Object.values(completedSets).reduce((sum, sets) => sum + sets.length, 0);
+              const uniqueExercises = new Set(Object.keys(completedSets));
+              const totalExercises = uniqueExercises.size;
+
+              // Use the real-time calories shown in the progress bar
+              const actualCompletedCalories = realTimeCalories;
+
+              // Create exercises data for backup
+              const exercisesData = Object.entries(completedSets).map(([exerciseId, completedSetsList]) => {
+                // Get exercise name from exerciseMap first, then try to find the set data
+                let exerciseName = `Exercise ${exerciseId}`;
+                
+                // Check if we have the exercise name in exerciseMap (direct mapping)
+                if (exerciseMap[exerciseId]) {
+                  exerciseName = exerciseMap[exerciseId].name;
+                } else {
+                  // Try to find the exercise by looking through sets
+                  const matchingSet = sets.find(s => s.id === exerciseId || s.exercise_id === exerciseId);
+                  if (matchingSet && exerciseMap[matchingSet.exercise_id]) {
+                    exerciseName = exerciseMap[matchingSet.exercise_id].name;
+                  }
+                }
+                
+                return {
+                  id: exerciseId,
+                  name: exerciseName,
+                  sets: completedSetsList.length,
+                  reps: completedSetsList.map(set => set.reps || 0),
+                  weights: completedSetsList.map(set => set.weight || 0)
+                };
+              });
+
+              console.log(`[Session] DEBUG: Saving standalone workout with ${actualCompletedCalories} calories`);
+              console.log('[Session] DEBUG: Standalone workout history data:', {
+                user_id: user.id,
+                plan_id: null,
+                session_id: null,
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: actualCompletedCalories,
+                plan_name: splitName || 'Custom Workout',
+                session_name: sessionTitle || splitName || 'Standalone Session',
+                exercises_data: exercisesData
+              });
+              
+              const historySaved = await WorkoutHistoryService.saveWorkoutHistory({
+                user_id: user.id,
+                plan_id: null, // No plan for standalone workouts
+                session_id: null, // No session for standalone workouts
+                completed_at: completedAt,
+                duration_minutes: durationMinutes,
+                total_sets: totalSets,
+                total_exercises: totalExercises,
+                estimated_calories: actualCompletedCalories,
+                notes: `${sessionTitle || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
+                plan_name: splitName || 'Custom Workout',
+                session_name: sessionTitle || splitName || 'Standalone Session',
+                week_number: 1,
+                day_number: 1,
+                exercises_data: exercisesData
+              });
+              
+              if (historySaved) {
+                console.log('[Session] ✅ Standalone workout history saved successfully');
+              } else {
+                console.error('[Session] ❌ Failed to save standalone workout history');
+              }
+            } else {
+              console.warn('[Session] No user ID available for saving standalone workout history');
+            }
+          }
+        } catch (historyError) {
+          console.error('[Session] Error saving database workout history:', historyError);
+        }
+      }
+    } catch (err) {
+      console.error('[Session] Exception during workout completion:', err);
+    }
+    
+    // Show completion dialog
+    showCompletionDialog();
   };
 
   // Helper function to show completion dialog
   const showCompletionDialog = () => {
+    // Calculate real-time calories for the completion message
+    const realTimeCalories = calculateRealTimeCalories();
+    const finalCalories = realTimeCalories;
     Alert.alert(
       "Training Complete!", 
-      `Congratulations! You have completed your workout today!\n\nEstimated calories burned: ${estimatedCalories || Math.round((sessionProgress * 100) * 2.5)}`,
+      `Congratulations! You have completed your workout today!\n\nEstimated calories burned: ${finalCalories}`,
       [
         { 
           text: "View History", 
@@ -500,6 +1093,7 @@ export default function SessionExecutionScreen() {
       ]
     );
   };
+
 
   const renderRestTimer = () => {
     if (!currentSet) return null;
@@ -528,6 +1122,7 @@ export default function SessionExecutionScreen() {
             
             <View style={styles.timerContainer}>
               <RestTimer
+                key={`timer-${currentIndex}-${setNumber}`}
                 duration={seconds}
                 onFinish={handleRestFinish}
               />
@@ -708,16 +1303,17 @@ export default function SessionExecutionScreen() {
                       return (
                         <>
                           <Text style={styles.inputLabel}>
-                            {canAddWeight ? 'Additional Weight (kg) - Optional' : 'Bodyweight Exercise'}
+                            {canAddWeight ? `Additional Weight (${weightUnit}) - Optional` : 'Bodyweight Exercise'}
                           </Text>
                           {canAddWeight ? (
                             <>
+                              <View style={styles.weightInputContainer}>
                               <TextInput
                                 mode="outlined"
                                 value={actualWeight}
                                 onChangeText={setActualWeight}
                                 keyboardType="numeric"
-                                style={styles.input}
+                                  style={[styles.input, styles.weightInput]}
                                 outlineColor={colors.border}
                                 activeOutlineColor={colors.primary}
                                 placeholder="0 (bodyweight only)"
@@ -731,8 +1327,40 @@ export default function SessionExecutionScreen() {
                                   }
                                 }}
                               />
+                                <View style={styles.unitSelector}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.unitButton,
+                                      weightUnit === 'kg' && styles.unitButtonActive
+                                    ]}
+                                    onPress={() => setWeightUnit('kg')}
+                                  >
+                                    <Text style={[
+                                      styles.unitButtonText,
+                                      weightUnit === 'kg' && styles.unitButtonTextActive
+                                    ]}>kg</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.unitButton,
+                                      weightUnit === 'lbs' && styles.unitButtonActive
+                                    ]}
+                                    onPress={() => setWeightUnit('lbs')}
+                                  >
+                                    <Text style={[
+                                      styles.unitButtonText,
+                                      weightUnit === 'lbs' && styles.unitButtonTextActive
+                                    ]}>lbs</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
                               <Text style={styles.weightHelpText}>
                                 💡 Leave empty for bodyweight only. Add weight if using a belt, vest, or holding weights.
+                                {sessionWeightUnit && (
+                                  <Text style={styles.sessionUnitHint}>
+                                    {'\n'}📌 Session preference: {sessionWeightUnit}
+                                  </Text>
+                                )}
                               </Text>
                             </>
                           ) : (
@@ -748,13 +1376,14 @@ export default function SessionExecutionScreen() {
                     } else {
                       return (
                         <>
-                          <Text style={styles.inputLabel}>Weight (kg)</Text>
+                          <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
+                          <View style={styles.weightInputContainer}>
                           <TextInput
                             mode="outlined"
                             value={actualWeight}
                             onChangeText={setActualWeight}
                             keyboardType="numeric"
-                            style={styles.input}
+                              style={[styles.input, styles.weightInput]}
                             outlineColor={colors.border}
                             activeOutlineColor={colors.primary}
                             placeholder="Enter weight"
@@ -768,6 +1397,71 @@ export default function SessionExecutionScreen() {
                               }
                             }}
                           />
+                            <View style={styles.unitSelector}>
+                              <TouchableOpacity
+                                style={[
+                                  styles.unitButton,
+                                  weightUnit === 'kg' && styles.unitButtonActive,
+                                  // Disable if session has different unit and user has logged sets
+                                  sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0 && styles.unitButtonDisabled
+                                ]}
+                                onPress={() => {
+                                  // Check if switching would cause inconsistency
+                                  if (sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0) {
+                                    Alert.alert(
+                                      "Weight Unit Consistency",
+                                      `You've already logged sets for this exercise using ${sessionWeightUnit.toUpperCase()}. Please continue using the same unit to keep your data consistent.\n\nIf you need to change units, you can do so when starting a new exercise.`,
+                                      [{ text: "OK", style: "default" }]
+                                    );
+                                    return;
+                                  }
+                                  setWeightUnit('kg');
+                                }}
+                              >
+                                <Text style={[
+                                  styles.unitButtonText,
+                                  weightUnit === 'kg' && styles.unitButtonTextActive,
+                                  sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0 && styles.unitButtonTextDisabled
+                                ]}>kg</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[
+                                  styles.unitButton,
+                                  weightUnit === 'lbs' && styles.unitButtonActive,
+                                  // Disable if session has different unit and user has logged sets
+                                  sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0 && styles.unitButtonDisabled
+                                ]}
+                                onPress={() => {
+                                  // Check if switching would cause inconsistency
+                                  if (sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0) {
+                                    Alert.alert(
+                                      "Weight Unit Consistency",
+                                      `You've already logged sets for this exercise using ${sessionWeightUnit.toUpperCase()}. Please continue using the same unit to keep your data consistent.\n\nIf you need to change units, you can do so when starting a new exercise.`,
+                                      [{ text: "OK", style: "default" }]
+                                    );
+                                    return;
+                                  }
+                                  setWeightUnit('lbs');
+                                }}
+                              >
+                                <Text style={[
+                                  styles.unitButtonText,
+                                  weightUnit === 'lbs' && styles.unitButtonTextActive,
+                                  sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0 && styles.unitButtonTextDisabled
+                                ]}>lbs</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                          {sessionWeightUnit && (
+                            <View style={styles.sessionUnitIndicatorContainer}>
+                              <Text style={styles.sessionUnitIndicator}>
+                                📌 Session preference: {sessionWeightUnit.toUpperCase()}
+                              </Text>
+                              <Text style={styles.sessionUnitIndicatorSubtext}>
+                                Keep using {sessionWeightUnit} for consistency
+                              </Text>
+                            </View>
+                          )}
                         </>
                       );
                     }
@@ -775,6 +1469,8 @@ export default function SessionExecutionScreen() {
                 </View>
               </View>
               
+              {/* Complete Set button - alert will handle set limit */}
+              {(
               <TouchableOpacity
                 style={styles.doneButtonContainer}
                 onPress={handleSetDone}
@@ -791,6 +1487,8 @@ export default function SessionExecutionScreen() {
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
+              )}
+
             </LinearGradient>
           </View>
         </Animated.View>
@@ -853,9 +1551,7 @@ export default function SessionExecutionScreen() {
             <View style={styles.progressRightSection}>
               <Icon name="fire" size={20} color={colors.primary} style={styles.fireIcon} />
               <Text style={styles.caloriesText}>
-                {estimatedCalories 
-                  ? `${estimatedCalories} cal` 
-                  : `~${Math.round((sessionProgress * 100) * 2.5)} cal`}
+                {realTimeCalories} cal
               </Text>
             </View>
           </View>
@@ -1451,6 +2147,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 16,
   },
+  sessionUnitHint: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  sessionUnitIndicator: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   bodyweightInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1465,5 +2173,134 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  weightInputContainer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  weightInput: {
+    width: '100%',
+  },
+  unitSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    alignSelf: 'center',
+  },
+  unitButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+  },
+  unitButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  unitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  unitButtonTextActive: {
+    color: colors.text,
+  },
+  unitButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    opacity: 0.5,
+  },
+  unitButtonTextDisabled: {
+    color: colors.textTertiary,
+    opacity: 0.6,
+  },
+  sessionUnitIndicatorContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  sessionUnitIndicator: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  sessionUnitIndicatorSubtext: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  finishOptionsContainer: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: 'rgba(28, 28, 30, 0.9)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  finishOptionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  finishButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
+  finishExerciseButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '50',
+    gap: 8,
+  },
+  finishExerciseButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  finishWorkoutButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: colors.success + '20',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.success + '50',
+    gap: 8,
+  },
+  finishWorkoutButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  continueButton: {
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  continueButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
 }); 

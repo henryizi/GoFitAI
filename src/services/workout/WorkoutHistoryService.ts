@@ -15,6 +15,15 @@ export type CompletedSessionListItem = {
   session_name?: string | null;
   duration_minutes?: number | null;
   notes?: string | null;
+  exercises?: SessionExerciseSummary[]; // 添加详细练习信息
+};
+
+export type SessionExerciseSummary = {
+  exercise_name: string;
+  sets_completed: number;
+  total_reps: number;
+  max_weight: number | null;
+  total_volume: number; // weight × reps
 };
 
 export type SessionExerciseLog = {
@@ -61,11 +70,30 @@ export class WorkoutHistoryService {
       return [];
     }
     
+    // Handle guest user case - get all workout history records if user is 'guest'
+    let actualUserId = userId;
+    if (userId === 'guest') {
+      console.log(`[WorkoutHistoryService] Guest user detected, checking for actual user records`);
+      try {
+        const { data: allRecords } = await supabase
+          .from('workout_history')
+          .select('user_id')
+          .limit(1);
+        
+        if (allRecords && allRecords.length > 0) {
+          actualUserId = allRecords[0].user_id;
+          console.log(`[WorkoutHistoryService] Using actual user ID: ${actualUserId}`);
+        }
+      } catch (error) {
+        console.warn('[WorkoutHistoryService] Could not determine actual user ID:', error);
+      }
+    }
+    
     // Debug: Check current auth state
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       console.log(`[WorkoutHistoryService] Current auth user: ${user?.id || 'NONE'}, Error: ${error?.message || 'NONE'}`);
-      console.log(`[WorkoutHistoryService] Requested userId: ${userId}, Match: ${user?.id === userId}`);
+      console.log(`[WorkoutHistoryService] Requested userId: ${userId}, Actual userId: ${actualUserId}, Match: ${user?.id === actualUserId}`);
     } catch (authError) {
       console.error('[WorkoutHistoryService] Auth check error:', authError);
     }
@@ -86,16 +114,15 @@ export class WorkoutHistoryService {
           total_sets,
           total_exercises,
           duration_minutes,
-          notes
+          notes,
+          exercises_data
         `)
-        .eq('user_id', userId)
+        .eq('user_id', actualUserId)
         .order('completed_at', { ascending: false });
 
       if (!historyError && historyData && historyData.length > 0) {
         console.log(`[WorkoutHistoryService] Found ${historyData.length} completed sessions in workout_history`);
-        console.log(`[WorkoutHistoryService] Raw history data:`, JSON.stringify(historyData, null, 2));
         const mappedData = historyData.map(this.mapHistoryData);
-        console.log(`[WorkoutHistoryService] Mapped data:`, JSON.stringify(mappedData, null, 2));
         return mappedData;
       }
 
@@ -193,6 +220,111 @@ export class WorkoutHistoryService {
     }
   }
 
+  /**
+   * Get completed sessions with detailed exercise information for enhanced history display
+   */
+  static async getCompletedSessionsWithDetails(userId: string): Promise<CompletedSessionListItem[]> {
+    console.log(`[WorkoutHistoryService] Getting completed sessions with details for user: ${userId}`);
+    
+    if (!supabase) {
+      console.error('[WorkoutHistoryService] Supabase client not initialized');
+      return [];
+    }
+
+    try {
+      // Get basic session data first
+      const sessions = await this.getCompletedSessions(userId);
+      
+      // For each session, get detailed exercise information
+      const sessionsWithDetails = await Promise.all(
+        sessions.map(async (session) => {
+          try {
+            // Get exercise details for this session
+            const exercises = await this.getSessionExerciseSummary(session.id);
+            return {
+              ...session,
+              exercises
+            };
+          } catch (error) {
+            console.error(`[WorkoutHistoryService] Error getting exercise details for session ${session.id}:`, error);
+            return session; // Return session without exercise details if there's an error
+          }
+        })
+      );
+
+      console.log(`[WorkoutHistoryService] Successfully enhanced ${sessionsWithDetails.length} sessions with exercise details`);
+      return sessionsWithDetails;
+    } catch (error) {
+      console.error('[WorkoutHistoryService] Error getting sessions with details:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get exercise summary for a specific session
+   */
+  private static async getSessionExerciseSummary(sessionId: string): Promise<SessionExerciseSummary[]> {
+    try {
+      // Query the workout_history table for this session and get exercises_data
+      const { data: sessionData, error } = await supabase
+        .from('workout_history')
+        .select('exercises_data')
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(`[WorkoutHistoryService] Error fetching exercise data for session ${sessionId}:`, error);
+        return [];
+      }
+
+      if (!sessionData || !sessionData.exercises_data) {
+        console.log(`[WorkoutHistoryService] No exercise data found for session ${sessionId}`);
+        return [];
+      }
+
+      // Parse the exercises_data JSONB to extract exercise summaries
+      const exercisesData = sessionData.exercises_data;
+      
+      if (!Array.isArray(exercisesData)) {
+        console.log(`[WorkoutHistoryService] Invalid exercises_data format for session ${sessionId}`);
+        return [];
+      }
+
+      // Process the exercise data to create summaries
+      const exerciseSummaries: SessionExerciseSummary[] = exercisesData.map((exercise: any) => {
+        const logs = exercise.logs || [];
+        
+        // Calculate summary statistics
+        const sets_completed = logs.length;
+        const total_reps = logs.reduce((sum: number, log: any) => sum + (log.actual_reps || 0), 0);
+        const max_weight = logs.reduce((max: number | null, log: any) => {
+          const weight = log.actual_weight;
+          if (weight == null) return max;
+          return max == null ? weight : Math.max(max, weight);
+        }, null);
+        const total_volume = logs.reduce((sum: number, log: any) => {
+          const weight = log.actual_weight || 0;
+          const reps = log.actual_reps || 0;
+          return sum + (weight * reps);
+        }, 0);
+
+        return {
+          exercise_name: exercise.exercise_name || exercise.name,
+          sets_completed,
+          total_reps,
+          max_weight,
+          total_volume
+        };
+      });
+
+      console.log(`[WorkoutHistoryService] Generated ${exerciseSummaries.length} exercise summaries for session ${sessionId}`);
+      return exerciseSummaries;
+    } catch (error) {
+      console.error(`[WorkoutHistoryService] Error generating exercise summary for session ${sessionId}:`, error);
+      return [];
+    }
+  }
+
   static async getSessionDetails(sessionId: string): Promise<SessionDetails | null> {
     console.log(`🔍 [WorkoutHistoryService] Getting session details for ID: ${sessionId}`);
     
@@ -238,7 +370,7 @@ export class WorkoutHistoryService {
     }
     
     console.log(`[WorkoutHistoryService] Found session with completion date: ${sessionData.completed_at}`);
-    console.log(`[WorkoutHistoryService] Session data:`, JSON.stringify(sessionData, null, 2));
+    console.log(`[WorkoutHistoryService] Found session data for ID: ${sessionId}`);
     
     // Determine which session_id to use for fetching exercise data
     let actualSessionId = sessionData.session_id;
@@ -251,13 +383,19 @@ export class WorkoutHistoryService {
       console.log(`[WorkoutHistoryService] fallback sessionId: ${actualSessionId}`);
     }
     
+    // Debug: Log the complete sessionData structure
+    console.log(`🔍 [WorkoutHistoryService] Complete sessionData structure:`, JSON.stringify(sessionData, null, 2));
+    console.log(`🔍 [WorkoutHistoryService] sessionData.exercises_data exists:`, !!sessionData.exercises_data);
+    console.log(`🔍 [WorkoutHistoryService] sessionData.exercises_data type:`, typeof sessionData.exercises_data);
+    console.log(`🔍 [WorkoutHistoryService] sessionData.exercises_data value:`, sessionData.exercises_data);
+
     // FIRST: Check if we have backup exercise data in the workout_history table
     if (sessionData.exercises_data) {
       console.log(`✅ [WorkoutHistoryService] Found backup exercise data in workout_history!`);
-      console.log(`📊 [WorkoutHistoryService] Exercise data:`, JSON.stringify(sessionData.exercises_data, null, 2));
+      console.log(`📊 [WorkoutHistoryService] Found backup exercise data with ${Array.isArray(sessionData.exercises_data) ? sessionData.exercises_data.length : 'unknown count'} exercises`);
       
       // Convert backup data to exercise format
-      const exercises = this.convertBackupDataToExercises(sessionData.exercises_data);
+      const exercises = WorkoutHistoryService.convertBackupDataToExercises(sessionData.exercises_data);
       
       if (exercises.length > 0) {
         console.log(`🎯 [WorkoutHistoryService] Successfully converted backup data to ${exercises.length} exercises`);
@@ -278,6 +416,7 @@ export class WorkoutHistoryService {
       }
     } else {
       console.log(`❌ [WorkoutHistoryService] No exercises_data found in workout_history`);
+      console.log(`🔍 [WorkoutHistoryService] Available sessionData keys:`, Object.keys(sessionData || {}));
     }
     
     // FALLBACK: Try to get exercise sets from exercise_sets table (if plan/session still exist)
@@ -352,59 +491,85 @@ export class WorkoutHistoryService {
     
     console.log(`✅ [WorkoutHistoryService] Found ${sets?.length || 0} exercise sets`);
     if (sets && sets.length > 0) {
-      console.log(`📊 [WorkoutHistoryService] Sample sets:`, JSON.stringify(sets.slice(0, 2), null, 2));
+      console.log(`📊 [WorkoutHistoryService] Loaded ${sets.length} exercise sets`);
     }
 
     const exercises: SessionExerciseLog[] = [];
 
-    for (const set of sets || []) {
-      const exerciseName = (set as any).exercises?.name ?? 'Exercise';
-      
-      // Fetch logs for this set
-      const { data: logs, error: logsError } = await supabase
-        .from('exercise_logs')
-        .select('id, actual_reps, actual_weight, actual_rpe, completed_at')
-        .eq('set_id', set.id)
-        .order('completed_at');
+    if (sets && sets.length > 0) {
+      // Normal case: We have exercise_sets, process them
+      for (const set of sets) {
+        const exerciseName = (set as any).exercises?.name ?? 'Exercise';
         
-      if (logsError) {
-        console.error(`[WorkoutHistoryService] Error fetching logs for set ${set.id}:`, logsError);
+        // Fetch logs for this set
+        const { data: logs, error: logsError } = await supabase
+          .from('exercise_logs')
+          .select('id, actual_reps, actual_weight, actual_rpe, completed_at')
+          .eq('set_id', set.id)
+          .order('completed_at');
+          
+        if (logsError) {
+          console.error(`[WorkoutHistoryService] Error fetching logs for set ${set.id}:`, logsError);
+        }
+        
+        console.log(`[WorkoutHistoryService] Found ${logs?.length || 0} logs for exercise "${exerciseName}"`);
+
+        const totalVolume = (logs || []).reduce((sum, l) => {
+          if (l.actual_weight != null) return sum + l.actual_reps * Number(l.actual_weight);
+          return sum;
+        }, 0);
+        
+        const topSetWeight = (logs || []).reduce<number | null>((max, l) => {
+          if (l.actual_weight == null) return max;
+          const val = Number(l.actual_weight);
+          return max == null ? val : Math.max(max, val);
+        }, null);
+
+        const current: SessionExerciseLog = {
+          exercise_set_id: set.id,
+          exercise_name: exerciseName,
+          target_sets: set.target_sets,
+          target_reps: set.target_reps,
+          logs: logs || [],
+          total_volume: totalVolume,
+          top_set_weight: topSetWeight,
+        };
+
+        // Comparison vs previous occurrence of the same exercise in earlier completed sessions
+        const comparison = await this.computePreviousComparison(
+          sessionData.plan_id, 
+          sessionData.week_number, 
+          sessionData.day_number, 
+          set.exercise_id, 
+          set.id
+        );
+        if (comparison) current.comparison = comparison;
+
+        exercises.push(current);
       }
+    } else {
+      // Fallback case: No exercise_sets found, try to get exercises from workout_history.exercises_data
+      console.log(`🔄 [WorkoutHistoryService] No exercise_sets found, checking workout_history for exercises_data`);
       
-      console.log(`[WorkoutHistoryService] Found ${logs?.length || 0} logs for exercise "${exerciseName}"`);
-
-      const totalVolume = (logs || []).reduce((sum, l) => {
-        if (l.actual_weight != null) return sum + l.actual_reps * Number(l.actual_weight);
-        return sum;
-      }, 0);
+      const { data: historyData, error: historyError } = await supabase
+        .from('workout_history')
+        .select('exercises_data')
+        .eq('session_id', actualSessionId)
+        .single();
       
-      const topSetWeight = (logs || []).reduce<number | null>((max, l) => {
-        if (l.actual_weight == null) return max;
-        const val = Number(l.actual_weight);
-        return max == null ? val : Math.max(max, val);
-      }, null);
-
-      const current: SessionExerciseLog = {
-        exercise_set_id: set.id,
-        exercise_name: exerciseName,
-        target_sets: set.target_sets,
-        target_reps: set.target_reps,
-        logs: logs || [],
-        total_volume: totalVolume,
-        top_set_weight: topSetWeight,
-      };
-
-      // Comparison vs previous occurrence of the same exercise in earlier completed sessions
-      const comparison = await this.computePreviousComparison(
-        sessionData.plan_id, 
-        sessionData.week_number, 
-        sessionData.day_number, 
-        set.exercise_id, 
-        set.id
-      );
-      if (comparison) current.comparison = comparison;
-
-      exercises.push(current);
+      if (historyError) {
+        console.warn(`[WorkoutHistoryService] Could not fetch workout_history for session ${actualSessionId}:`, historyError);
+      } else if (historyData?.exercises_data) {
+        console.log(`[WorkoutHistoryService] Found exercises_data in workout_history, converting to exercise logs`);
+        
+        // Convert exercises_data to SessionExerciseLog format
+        const convertedExercises = WorkoutHistoryService.convertBackupDataToExercises(historyData.exercises_data);
+        exercises.push(...convertedExercises);
+        
+        console.log(`[WorkoutHistoryService] Successfully converted ${convertedExercises.length} exercises from backup data`);
+      } else {
+        console.warn(`[WorkoutHistoryService] No exercises_data found in workout_history for session ${actualSessionId}`);
+      }
     }
     
     console.log(`🎯 [WorkoutHistoryService] Successfully built details for ${exercises.length} exercises`);
@@ -426,14 +591,19 @@ export class WorkoutHistoryService {
    */
   private static convertBackupDataToExercises(exercisesData: any): SessionExerciseLog[] {
     try {
-      console.log(`[WorkoutHistoryService] Converting backup data:`, JSON.stringify(exercisesData, null, 2));
+      console.log(`[WorkoutHistoryService] Converting backup data:`, exercisesData);
       
       // Handle different data structures
       let exercisesArray: any[] = [];
       
       if (exercisesData && typeof exercisesData === 'object') {
         if (Array.isArray(exercisesData)) {
-          // Legacy format: direct array
+          // Check if this is exercise_sets data (flat array of sets)
+          if (exercisesData.length > 0 && exercisesData[0].exercise_id && exercisesData[0].actual_reps !== undefined) {
+            console.log(`[WorkoutHistoryService] Detected exercise_sets format with ${exercisesData.length} sets`);
+            return this.convertExerciseSetsToSessionLogs(exercisesData);
+          }
+          // Legacy format: direct array of exercises
           console.log(`[WorkoutHistoryService] Detected legacy array format with ${exercisesData.length} items`);
           exercisesArray = exercisesData;
         } else if (exercisesData.exercises && Array.isArray(exercisesData.exercises)) {
@@ -458,12 +628,16 @@ export class WorkoutHistoryService {
 
       for (const exercise of exercisesArray) {
         console.log(`[WorkoutHistoryService] Processing exercise:`, {
-          exercise_id: exercise.exercise_id,
-          exercise_name: exercise.exercise_name,
+          exercise_id: exercise.exercise_id || exercise.id,
+          exercise_name: exercise.exercise_name || exercise.name,
           has_sets: !!exercise.sets,
           sets_count: exercise.sets?.length || 0,
           has_actual_logs: !!exercise.actual_logs,
-          actual_logs_count: exercise.actual_logs?.length || 0
+          actual_logs_count: exercise.actual_logs?.length || 0,
+          has_reps_array: !!exercise.reps && Array.isArray(exercise.reps),
+          reps_count: exercise.reps?.length || 0,
+          has_weights_array: !!exercise.weights && Array.isArray(exercise.weights),
+          weights_count: exercise.weights?.length || 0
         });
 
         // Handle different set data structures
@@ -518,9 +692,25 @@ export class WorkoutHistoryService {
             completed_at: log.completed_at || new Date().toISOString(),
             notes: log.notes || null
           })));
+        } else if (exercise.reps && Array.isArray(exercise.reps) && exercise.weights && Array.isArray(exercise.weights)) {
+          // Standalone workout format: reps and weights arrays
+          console.log(`[WorkoutHistoryService] Processing standalone format with ${exercise.reps.length} sets`);
+          const repsArray = exercise.reps;
+          const weightsArray = exercise.weights;
+          
+          for (let i = 0; i < repsArray.length; i++) {
+            exerciseLogs.push({
+              id: `backup-log-${Date.now()}-${Math.random()}`,
+              actual_reps: repsArray[i] || 0,
+              actual_weight: weightsArray[i] || null,
+              actual_rpe: null,
+              completed_at: new Date().toISOString(),
+              notes: null
+            });
+          }
         }
 
-        console.log(`[WorkoutHistoryService] Created ${exerciseLogs.length} exercise logs for "${exercise.exercise_name || 'Unknown Exercise'}"`);
+        console.log(`[WorkoutHistoryService] Created ${exerciseLogs.length} exercise logs for "${exercise.exercise_name || exercise.name || 'Unknown Exercise'}"`);
 
         if (exerciseLogs.length > 0) {
           const totalVolume = exerciseLogs.reduce((sum: number, l: any) => {
@@ -535,8 +725,8 @@ export class WorkoutHistoryService {
           }, null as number | null);
 
           exercises.push({
-            exercise_set_id: exercise.exercise_id || `backup-exercise-${Date.now()}-${Math.random()}`,
-            exercise_name: exercise.exercise_name || 'Unknown Exercise',
+            exercise_set_id: exercise.exercise_id || exercise.id || `backup-exercise-${Date.now()}-${Math.random()}`,
+            exercise_name: exercise.exercise_name || exercise.name || 'Unknown Exercise',
             target_sets: exerciseLogs.length, // Use actual number of sets performed
             target_reps: '0', // Not available in backup data
             logs: exerciseLogs,
@@ -544,7 +734,7 @@ export class WorkoutHistoryService {
             top_set_weight: topSetWeight,
           });
         } else {
-          console.log(`[WorkoutHistoryService] Skipping exercise "${exercise.exercise_name || 'unknown'}" - no valid log data found`);
+          console.log(`[WorkoutHistoryService] Skipping exercise "${exercise.exercise_name || exercise.name || 'unknown'}" - no valid log data found`);
         }
       }
 
@@ -565,6 +755,80 @@ export class WorkoutHistoryService {
         stack: error instanceof Error ? error.stack : undefined,
         data: exercisesData
       });
+      return [];
+    }
+  }
+
+  /**
+   * Convert exercise_sets data to SessionExerciseLog format
+   * Handles the flat array of sets from exercise_sets table
+   */
+  private static convertExerciseSetsToSessionLogs(exerciseSets: any[]): SessionExerciseLog[] {
+    try {
+      console.log(`[WorkoutHistoryService] Converting ${exerciseSets.length} exercise sets to session logs`);
+      
+      // Group sets by exercise_id
+      const exerciseGroups = new Map<string, {
+        exercise_id: string;
+        exercise_name: string;
+        logs: any[];
+      }>();
+      
+      for (const set of exerciseSets) {
+        const exerciseId = set.exercise_id;
+        if (!exerciseGroups.has(exerciseId)) {
+          exerciseGroups.set(exerciseId, {
+            exercise_id: exerciseId,
+            exercise_name: set.exercises?.name || 'Unknown Exercise',
+            logs: []
+          });
+        }
+        
+        // Add this set as a log
+        exerciseGroups.get(exerciseId)!.logs.push({
+          id: set.id,
+          actual_reps: set.actual_reps || 0,
+          actual_weight: set.actual_weight || null,
+          actual_rpe: set.rpe || null,
+          completed_at: new Date().toISOString(),
+          notes: null
+        });
+      }
+      
+      // Convert to SessionExerciseLog array
+      const exercises: SessionExerciseLog[] = [];
+      
+      for (const exercise of exerciseGroups.values()) {
+        const totalVolume = exercise.logs.reduce((sum: number, log: any) => {
+          if (log.actual_weight != null) return sum + log.actual_reps * Number(log.actual_weight);
+          return sum;
+        }, 0);
+        
+        const topSetWeight = exercise.logs.reduce((max: number | null, log: any) => {
+          if (log.actual_weight == null) return max;
+          const val = Number(log.actual_weight);
+          return max == null ? val : Math.max(max, val);
+        }, null as number | null);
+
+        exercises.push({
+          exercise_set_id: exercise.exercise_id,
+          exercise_name: exercise.exercise_name,
+          target_sets: exercise.logs.length,
+          target_reps: '0', // Not available in exercise_sets data
+          logs: exercise.logs,
+          total_volume: totalVolume,
+          top_set_weight: topSetWeight,
+        });
+      }
+      
+      console.log(`[WorkoutHistoryService] Successfully converted to ${exercises.length} exercises with logs`);
+      exercises.forEach(ex => {
+        console.log(`- ${ex.exercise_name}: ${ex.logs.length} sets, ${ex.total_volume} volume`);
+      });
+      
+      return exercises;
+    } catch (error) {
+      console.error('[WorkoutHistoryService] Error converting exercise sets to session logs:', error);
       return [];
     }
   }
@@ -786,7 +1050,7 @@ export class WorkoutHistoryService {
 
       const { data, error } = await supabase
         .from('workout_history')
-        .insert([enhancedHistoryData])
+        .insert([enhancedHistoryData] as any)
         .select()
         .single();
         
@@ -806,14 +1070,19 @@ export class WorkoutHistoryService {
 
   static async saveWorkoutHistory(historyData: {
     user_id: string;
-    plan_id: string;
-    session_id: string;
+    plan_id: string | null;
+    session_id: string | null;
     completed_at: string;
     duration_minutes?: number;
     total_sets?: number;
     total_exercises?: number;
     estimated_calories?: number | null;
     notes?: string;
+    plan_name?: string;
+    session_name?: string;
+    week_number?: number;
+    day_number?: number;
+    exercises_data?: any;
   }): Promise<boolean> {
     console.log(`[WorkoutHistoryService] Saving workout history for session: ${historyData.session_id}`);
     
@@ -824,36 +1093,39 @@ export class WorkoutHistoryService {
     }
     
     try {
-      // Get plan and session details to store permanently
-      let planName = 'Unknown Plan';
-      let sessionName = 'Unknown Session';
-      let weekNumber: number | null = null;
-      let dayNumber: number | null = null;
-      let exercisesData: any = null;
+      // Use provided data or fetch from database
+      let planName = historyData.plan_name || 'Unknown Plan';
+      let sessionName = historyData.session_name || 'Unknown Session';
+      let weekNumber: number | null = historyData.week_number || null;
+      let dayNumber: number | null = historyData.day_number || null;
+      let exercisesData: any = historyData.exercises_data || null;
 
-      // Fetch plan details
-      try {
-        const { data: planData } = await supabase
-          .from('workout_plans')
-          .select('name')
-          .eq('id', historyData.plan_id)
-          .single();
-        
-        if (planData?.name) {
-          planName = planData.name;
+      // Only fetch plan details if not provided and plan_id exists
+      if (!historyData.plan_name && historyData.plan_id) {
+        try {
+          const { data: planData } = await supabase
+            .from('workout_plans')
+            .select('name')
+            .eq('id', historyData.plan_id)
+            .single();
+          
+          if (planData?.name) {
+            planName = planData.name;
+          }
+        } catch (planError) {
+          console.warn('[WorkoutHistoryService] Could not fetch plan name:', planError);
         }
-      } catch (planError) {
-        console.warn('[WorkoutHistoryService] Could not fetch plan name:', planError);
       }
 
-      // Fetch session details and exercises
-      try {
-        const { data: sessionData } = await supabase
-          .from('workout_sessions')
-          .select(`
-            week_number, 
-            day_number,
-            split_id
+      // Only fetch session details if not provided and session_id exists
+      if ((!historyData.session_name || !historyData.exercises_data) && historyData.session_id) {
+        try {
+          const { data: sessionData } = await supabase
+            .from('workout_sessions')
+            .select(`
+              week_number, 
+              day_number,
+              split_id
           `)
           .eq('id', historyData.session_id)
           .single();
@@ -888,21 +1160,29 @@ export class WorkoutHistoryService {
           }
         }
 
-        // Get exercise sets data for this session
-        const { data: setsData } = await supabase
-          .from('exercise_sets')
-          .select(`
-            id, exercise_id, set_number, target_reps, target_weight, 
-            actual_reps, actual_weight, rest_seconds, completed, rpe,
-            exercises (name, category, muscle_groups)
-          `)
-          .eq('session_id', historyData.session_id);
-        
-        if (setsData && setsData.length > 0) {
-          exercisesData = setsData;
+          // Use provided exercises_data if available, otherwise try to fetch from database
+          if (historyData.exercises_data) {
+            exercisesData = historyData.exercises_data;
+            console.log('[WorkoutHistoryService] Using provided exercises_data:', exercisesData.length, 'exercises');
+          } else if (historyData.session_id) {
+            // Fallback: Get exercise sets data from database if no exercises_data provided
+            const { data: setsData } = await supabase
+              .from('exercise_sets')
+              .select(`
+                id, exercise_id, set_number, target_reps, target_weight, 
+                actual_reps, actual_weight, rest_seconds, completed, rpe,
+                exercises (name, category, muscle_groups)
+              `)
+              .eq('session_id', historyData.session_id);
+            
+            if (setsData && setsData.length > 0) {
+              exercisesData = setsData;
+              console.log('[WorkoutHistoryService] Using fallback exercises_data from database:', setsData.length, 'sets');
+            }
+          }
+        } catch (sessionError) {
+          console.warn('[WorkoutHistoryService] Could not fetch session details:', sessionError);
         }
-      } catch (sessionError) {
-        console.warn('[WorkoutHistoryService] Could not fetch session details:', sessionError);
       }
 
       // Create enhanced history data with permanent information
@@ -917,7 +1197,7 @@ export class WorkoutHistoryService {
 
       const { data, error } = await supabase
         .from('workout_history')
-        .insert([enhancedHistoryData])
+        .insert([enhancedHistoryData] as any)
         .select()
         .single();
         
@@ -1004,6 +1284,17 @@ export class WorkoutHistoryService {
       workoutName = `Workout ${weekNum}.${dayNum}`;
     }
     
+    // Process exercises_data to create exercises summary
+    let exercises: SessionExerciseSummary[] = [];
+    if (history.exercises_data) {
+      try {
+        exercises = WorkoutHistoryService.convertExercisesDataToSummary(history.exercises_data);
+        console.log(`[WorkoutHistoryService] Converted exercises_data to ${exercises.length} exercise summaries`);
+      } catch (error) {
+        console.warn(`[WorkoutHistoryService] Error processing exercises_data for session ${history.id}:`, error);
+      }
+    }
+
     const mappedData = {
       id: history.id,
       completed_at: history.completed_at,
@@ -1018,9 +1309,114 @@ export class WorkoutHistoryService {
       session_name: workoutName || history.session_name || null,
       duration_minutes: sanitizeNumericValue(history.duration_minutes),
       notes: history.notes ?? null,
+      exercises: exercises.length > 0 ? exercises : undefined, // Only include if we have exercises
     };
     
-    console.log(`[WorkoutHistoryService] Mapped result:`, mappedData);
+    console.log(`[WorkoutHistoryService] Mapped result with ${exercises.length} exercises:`, mappedData);
     return mappedData;
+  }
+
+  /**
+   * Convert exercises_data from workout_history to SessionExerciseSummary format
+   */
+  private static convertExercisesDataToSummary(exercisesData: any): SessionExerciseSummary[] {
+    if (!exercisesData) return [];
+
+    try {
+      // Handle different formats of exercises_data
+      let exercisesArray: any[] = [];
+      
+      if (Array.isArray(exercisesData)) {
+        exercisesArray = exercisesData;
+      } else if (typeof exercisesData === 'object') {
+        // Could be a single exercise object or other format
+        if (exercisesData.id || exercisesData.name) {
+          exercisesArray = [exercisesData];
+        } else {
+          console.warn('[WorkoutHistoryService] Unknown exercises_data format:', exercisesData);
+          return [];
+        }
+      } else {
+        console.warn('[WorkoutHistoryService] Invalid exercises_data type:', typeof exercisesData);
+        return [];
+      }
+
+      const summaries: SessionExerciseSummary[] = [];
+
+      for (const exercise of exercisesArray) {
+        try {
+          // Extract exercise info - handle different data structures
+          const exerciseName = exercise.name || exercise.exercise_name || `Exercise ${exercise.id || 'Unknown'}`;
+          
+          
+          // Handle both old format (sets as number, separate reps/weights arrays) and new format (sets as array of objects)
+          let setsCompleted = 0;
+          let totalReps = 0;
+          let maxWeight: number | null = null;
+          let totalVolume = 0;
+          
+          if (Array.isArray(exercise.sets)) {
+            // New format: sets is an array of set objects
+            setsCompleted = exercise.sets.length;
+            
+            for (const set of exercise.sets) {
+              const setReps = set.reps || 0;
+              const setWeight = set.weight || set.original_weight || 0;
+              
+              totalReps += setReps;
+              totalVolume += setReps * setWeight;
+              
+              if (setWeight > 0) {
+                maxWeight = maxWeight === null ? setWeight : Math.max(maxWeight, setWeight);
+              }
+            }
+          } else {
+            // Old format: sets as number, separate reps/weights arrays
+            setsCompleted = exercise.sets || 0;
+            const reps = exercise.reps || [];
+            const weights = exercise.weights || [];
+
+            totalReps = Array.isArray(reps) ? reps.reduce((sum: number, r: number) => sum + (r || 0), 0) : 0;
+            
+            // Calculate max weight, filtering out zero/invalid weights
+            if (Array.isArray(weights) && weights.length > 0) {
+              const validWeights = weights.filter((w: any) => typeof w === 'number' && w > 0);
+              if (validWeights.length > 0) {
+                maxWeight = Math.max(...validWeights);
+              }
+            }
+            
+            // Calculate total volume (weight × reps for each set, then sum)
+            if (Array.isArray(reps) && Array.isArray(weights)) {
+              for (let i = 0; i < Math.min(reps.length, weights.length); i++) {
+                const setReps = reps[i] || 0;
+                const setWeight = weights[i] || 0;
+                totalVolume += setReps * setWeight;
+              }
+            }
+          }
+
+          const summary = {
+            exercise_name: exerciseName,
+            sets_completed: setsCompleted,
+            total_reps: totalReps,
+            max_weight: maxWeight,
+            total_volume: totalVolume
+          };
+          
+          summaries.push(summary);
+
+        } catch (exerciseError) {
+          console.warn('[WorkoutHistoryService] Error processing individual exercise:', exerciseError, exercise);
+        }
+      }
+
+      console.log(`[WorkoutHistoryService] Converted ${exercisesArray.length} exercises to ${summaries.length} summaries`);
+      return summaries;
+
+    } catch (error) {
+      console.error('[WorkoutHistoryService] Error converting exercises_data to summary:', error);
+      return [];
+    }
   }
 }
