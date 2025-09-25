@@ -3,6 +3,12 @@ const { MetroConfig } = require('@expo/metro-runtime');
 
 const config = getDefaultConfig(__dirname);
 
+// Ensure Metro always uses port 8081
+config.server = {
+  ...config.server,
+  port: 8081,
+};
+
 // Explicitly configure for React 19 and new architecture
 config.resolver = {
   ...config.resolver,
