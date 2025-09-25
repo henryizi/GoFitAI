@@ -79,12 +79,12 @@ index 0000000..b1b9389
 +  try {
 +    if (!global.location) {
 +      global.location = {
-+        href: 'http://localhost:8082',
-+        origin: 'http://localhost:8082',
++        href: 'http://localhost:8081',
++        origin: 'http://localhost:8081',
 +        protocol: 'http:',
-+        host: 'localhost:8082',
++        host: 'localhost:8081',
 +        hostname: 'localhost',
-+        port: '8082',
++        port: '8081',
 +        pathname: '/',
 +        search: '',
 +        hash: ''
