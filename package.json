@@ -14,7 +14,8 @@
     "test": "node test-recipe-generation.js && node test-food-analysis.js",
     "build": "echo 'No build step required for server'",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "postinstall": "patch-package"
   },
   "keywords": [
     "ai",
@@ -95,6 +96,7 @@
     "@types/react": "~19.1.10",
     "babel-plugin-module-resolver": "^5.0.2",
     "nodemon": "^3.1.10",
+    "patch-package": "^8.0.0",
     "typescript": "~5.9.2"
   },
   "expo": {
