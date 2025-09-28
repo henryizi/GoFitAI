@@ -470,33 +470,46 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
    * Creates a detailed prompt for workout plan generation
    */
   createWorkoutPrompt(userProfile, preferences) {
-    // Enhanced customization based on user profile
-    const fitnessLevel = userProfile.fitnessLevel || 'intermediate';
-    const primaryGoal = userProfile.primaryGoal || 'general_fitness';
+    // Enhanced customization based on user profile (support both formats)
+    const fitnessLevel = userProfile.fitnessLevel || userProfile.training_level || 'intermediate';
+    const primaryGoal = userProfile.primaryGoal || userProfile.primary_goal || 'general_fitness';
     const age = userProfile.age || 25;
+    
+    console.log('[GEMINI TEXT] Profile data:', {
+      fitnessLevel,
+      primaryGoal,
+      age,
+      gender: userProfile.gender
+    });
 
-    // Use userProfile.workoutFrequency if available, otherwise fall back to preferences
+    // Use workout frequency from userProfile (support both camelCase and snake_case)
+    const workoutFreq = userProfile.workoutFrequency || userProfile.workout_frequency;
     let daysPerWeek;
-    if (userProfile.workoutFrequency) {
+    
+    console.log('[GEMINI TEXT] Workout frequency from profile:', workoutFreq);
+    
+    if (workoutFreq) {
       // Convert workout frequency format to number of days
-      if (userProfile.workoutFrequency === '1') {
+      if (workoutFreq === '1') {
         daysPerWeek = 1;
-      } else if (userProfile.workoutFrequency === '2_3') {
-        // For 2-3 times per week, randomly choose between 2 and 3 days
-        daysPerWeek = Math.random() < 0.5 ? 2 : 3;
-      } else if (userProfile.workoutFrequency === '4_5') {
-        // For 4-5 times per week, randomly choose between 4 and 5 days
-        daysPerWeek = Math.random() < 0.5 ? 4 : 5;
-      } else if (userProfile.workoutFrequency === '6') {
+      } else if (workoutFreq === '2_3') {
+        // For 2-3 times per week, choose 3 days for better results
+        daysPerWeek = 3;
+      } else if (workoutFreq === '4_5') {
+        // For 4-5 times per week, choose 4 days for balanced approach
+        daysPerWeek = 4;
+      } else if (workoutFreq === '6') {
         daysPerWeek = 6;
-      } else if (userProfile.workoutFrequency === '7') {
+      } else if (workoutFreq === '7') {
         daysPerWeek = 7;
       } else {
-        daysPerWeek = parseInt(userProfile.workoutFrequency) || 4;
+        daysPerWeek = parseInt(workoutFreq) || 4;
       }
     } else {
       daysPerWeek = preferences?.daysPerWeek || 4;
     }
+    
+    console.log('[GEMINI TEXT] Calculated daysPerWeek:', daysPerWeek);
 
     const sessionDuration = preferences?.sessionDuration || 45;
     const gender = (userProfile.gender || 'unspecified').toLowerCase();
@@ -739,7 +752,15 @@ RESPONSE FORMAT (copy this exact structure):
   "estimatedTimePerSession": "${sessionDuration} minutes"
 }
 
-IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.`;
+CRITICAL INSTRUCTIONS:
+1. Create EXACTLY ${daysPerWeek} training days in the weeklySchedule array
+2. Number the days as: day: 1, day: 2, day: 3, etc.
+3. For rest days, use: {"day": X, "day_name": "Rest Day", "workout_type": "Rest", ...}
+4. Ensure proper muscle group distribution across training days
+5. Include warm_up, main_workout, and cool_down for ALL training days
+6. Use the exercise examples provided above for main_workout exercises
+
+IMPORTANT: Your response must be complete, valid JSON with no syntax errors.`;
   }
 
   /**
