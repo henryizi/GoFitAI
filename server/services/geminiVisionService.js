@@ -14,7 +14,7 @@ class GeminiVisionService {
     this.apiKey = apiKey;
     this.genAI = new GoogleGenerativeAI(apiKey);
     // ✅ Add temperature control for more consistent results
-    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'models/gemini-2.5-flash';
     this.model = this.genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -392,7 +392,7 @@ BEVERAGE ANALYSIS GUIDELINES:
     return {
       service: 'GeminiVisionService',
       status: 'healthy',
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'models/gemini-2.5-flash',
       apiKeyConfigured: !!this.apiKey,
       timestamp: new Date().toISOString()
     };

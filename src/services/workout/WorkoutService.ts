@@ -248,7 +248,7 @@ export class WorkoutService {
         hasBodyAnalysis: !!geminiInput.bodyAnalysis
       });
 
-      // Generate the workout plan using GeminiService (via server API)
+      // Generate the workout plan using GeminiService (with static bodybuilder data)
       const plan = await GeminiService.generateWorkoutPlan(geminiInput);
 
       if (!plan) {

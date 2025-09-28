@@ -54,7 +54,7 @@
     <key>NSCameraUsageDescription</key>
     <string>Allow GoFitAI to access your camera to take photos of your food and progress.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>This app may access the microphone when recording videos with audio.</string>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Allow GoFitAI to access your photos to upload food and progress images.</string>
     <key>NSUserActivityTypes</key>
@@ -72,7 +72,7 @@
     <key>UIRequiresFullScreen</key>
     <false/>
     <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleLightContent</string>
+    <string>UIStatusBarStyleDefault</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
       <string>UIInterfaceOrientationPortrait</string>

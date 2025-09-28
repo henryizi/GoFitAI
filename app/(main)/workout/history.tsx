@@ -57,7 +57,7 @@ const colors = {
   cardGlow: 'rgba(255, 107, 53, 0.1)',
 };
 
-export default function WorkoutHistoryListScreen() {
+const WorkoutHistoryListScreen = () => {
   const { user } = useAuth();
   const { refresh } = useLocalSearchParams<{ refresh?: string }>();
   const [loading, setLoading] = useState(true);
@@ -529,7 +529,9 @@ export default function WorkoutHistoryListScreen() {
       />
     </View>
   );
-} 
+};
+
+export default WorkoutHistoryListScreen;
 
 const styles = StyleSheet.create({
   container: {

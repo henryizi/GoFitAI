@@ -148,7 +148,9 @@ export default function MainLayout() {
         }}
         listeners={{
           tabPress: (e) => {
-            // Custom navigation handled via tab behavior
+            // Prevent default tab navigation
+            e.preventDefault();
+            // Custom navigation to dashboard
             router.push('/(main)/dashboard');
           },
         }}

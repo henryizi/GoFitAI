@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Image, ImageStyle, StyleProp, ImageResizeMode, View, ActivityIndicator } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { colors } from '../../styles/colors';
 import { ImageOptimizer } from '../../services/storage/imageOptimizer';
 

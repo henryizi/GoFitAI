@@ -222,17 +222,37 @@ export default function PlanDetailScreen() {
         // Map the weekly schedule to sessions with proper typing
         const mappedSessions = Array.isArray(parsedPlan.weekly_schedule || parsedPlan.weeklySchedule)
           ? (parsedPlan.weekly_schedule || parsedPlan.weeklySchedule).map((daySchedule: any, index: number) => {
-              // Ensure each session has a unique ID and exercises array
-              const exercises = Array.isArray(daySchedule.exercises) 
-                ? daySchedule.exercises.map((ex: any, exIndex: number) => ({
-                    id: ex.id || `ex-${index}-${exIndex}`,
-                    name: ex.name || ex.exercise || 'Exercise',
-                    sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
-                    reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
-                    rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
-                    restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
-                  }))
-                : [];
+              // Handle both old and new data structures
+              let exercises = [];
+              
+              if (Array.isArray(daySchedule.exercises)) {
+                // Old structure: direct exercises array
+                exercises = daySchedule.exercises.map((ex: any, exIndex: number) => ({
+                  id: ex.id || `ex-${index}-${exIndex}`,
+                  name: ex.name || ex.exercise || 'Exercise',
+                  sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                  reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                  rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                }));
+              } else if (daySchedule.warm_up || daySchedule.main_workout || daySchedule.cool_down) {
+                // New structure: separated warm_up, main_workout, cool_down arrays
+                const allExercises = [
+                  ...(daySchedule.warm_up || []),
+                  ...(daySchedule.main_workout || []),
+                  ...(daySchedule.cool_down || [])
+                ];
+                
+                exercises = allExercises.map((ex: any, exIndex: number) => ({
+                  id: ex.id || `ex-${index}-${exIndex}`,
+                  name: ex.name || ex.exercise || 'Exercise',
+                  sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                  reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                  rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s',
+                  type: ex.type || 'main_workout'
+                }));
+              }
               
               return {
                 id: daySchedule.id || `session-${index}`,
@@ -301,15 +321,31 @@ export default function PlanDetailScreen() {
                     if (weeklySchedule && Array.isArray(weeklySchedule)) {
                       // Find the matching session in the weekly schedule
                       const matchingDay = weeklySchedule.find(day => day.id === s.id);
+                      // Handle both data structures for weekly schedule
+                      let exercises = [];
+                      
                       if (matchingDay && matchingDay.exercises && Array.isArray(matchingDay.exercises)) {
-                        console.log(`[PlanDetail] Found ${matchingDay.exercises.length} exercises in weekly schedule for session ${s.id}`);
-                        sessionObj.exercises = matchingDay.exercises.map((ex: any, exIndex: number) => ({
+                        // Old structure: direct exercises array
+                        exercises = matchingDay.exercises;
+                      } else if (matchingDay && (matchingDay.warm_up || matchingDay.main_workout || matchingDay.cool_down)) {
+                        // New structure: separated arrays
+                        exercises = [
+                          ...(matchingDay.warm_up || []),
+                          ...(matchingDay.main_workout || []),
+                          ...(matchingDay.cool_down || [])
+                        ];
+                      }
+                      
+                      if (exercises.length > 0) {
+                        console.log(`[PlanDetail] Found ${exercises.length} exercises in weekly schedule for session ${s.id}`);
+                        sessionObj.exercises = exercises.map((ex: any, exIndex: number) => ({
                           id: ex.id || `ex-${s.id}-${exIndex}`,
-                name: ex.name || 'Exercise',
+                          name: ex.name || ex.exercise || 'Exercise',
                           sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
                           reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
                           rest: ex.rest || ex.restBetweenSets || '60s',
-                          restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                          restBetweenSets: ex.restBetweenSets || ex.rest || '60s',
+                          type: ex.type || 'main_workout'
                         }));
                       }
                     }
@@ -383,17 +419,37 @@ export default function PlanDetailScreen() {
             const processedSessions = weeklySchedule.map((day: any, index: number) => {
               if (!day) return null;
               
-              // Ensure day has exercises array
-              const exercises = Array.isArray(day.exercises) 
-                ? day.exercises.map((ex: any, exIndex: number) => ({
-                    id: ex.id || `ex-${index}-${exIndex}`,
-                    name: ex.name || 'Exercise',
-                    sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
-                    reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
-                    rest: ex.rest || ex.restBetweenSets || '60s',
-                    restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
-                  }))
-                : [];
+              // Handle both data structures
+              let exercises = [];
+              
+              if (Array.isArray(day.exercises)) {
+                // Old structure: direct exercises array
+                exercises = day.exercises.map((ex: any, exIndex: number) => ({
+                  id: ex.id || `ex-${index}-${exIndex}`,
+                  name: ex.name || ex.exercise || 'Exercise',
+                  sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                  reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                  rest: ex.rest || ex.restBetweenSets || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                }));
+              } else if (day.warm_up || day.main_workout || day.cool_down) {
+                // New structure: separated arrays
+                const allExercises = [
+                  ...(day.warm_up || []),
+                  ...(day.main_workout || []),
+                  ...(day.cool_down || [])
+                ];
+                
+                exercises = allExercises.map((ex: any, exIndex: number) => ({
+                  id: ex.id || `ex-${index}-${exIndex}`,
+                  name: ex.name || ex.exercise || 'Exercise',
+                  sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                  reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                  rest: ex.rest || ex.restBetweenSets || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s',
+                  type: ex.type || 'main_workout'
+                }));
+              }
               
               return {
                 id: day.id || `session-${index + 1}`,
@@ -552,6 +608,65 @@ export default function PlanDetailScreen() {
               
               // If no sessions in database, try to use the weekly schedule from the plan
               const weeklySchedule = fetchedPlan.weekly_schedule || fetchedPlan.weeklySchedule;
+              console.log('[PlanDetail] 🔍 DEBUG: Plan structure:', {
+                id: fetchedPlan.id,
+                name: fetchedPlan.name,
+                source: fetchedPlan.source,
+                hasWeeklySchedule: !!fetchedPlan.weekly_schedule,
+                hasWeeklyScheduleCamel: !!fetchedPlan.weeklySchedule,
+                weeklyScheduleLength: weeklySchedule?.length || 0,
+                weeklyScheduleType: Array.isArray(weeklySchedule) ? 'array' : typeof weeklySchedule,
+                firstDayStructure: weeklySchedule?.[0] ? {
+                  day: weeklySchedule[0].day,
+                  focus: weeklySchedule[0].focus,
+                  exercisesCount: (
+                    (weeklySchedule[0].exercises?.length || 0) + 
+                    (weeklySchedule[0].warm_up?.length || 0) + 
+                    (weeklySchedule[0].main_workout?.length || 0) + 
+                    (weeklySchedule[0].cool_down?.length || 0)
+                  ),
+                  hasExercises: !!(weeklySchedule[0].exercises || weeklySchedule[0].warm_up || weeklySchedule[0].main_workout || weeklySchedule[0].cool_down),
+                  firstExerciseName: (
+                    weeklySchedule[0].exercises?.[0]?.name || 
+                    weeklySchedule[0].warm_up?.[0]?.name || weeklySchedule[0].warm_up?.[0]?.exercise ||
+                    weeklySchedule[0].main_workout?.[0]?.name || weeklySchedule[0].main_workout?.[0]?.exercise ||
+                    weeklySchedule[0].cool_down?.[0]?.name || weeklySchedule[0].cool_down?.[0]?.exercise
+                  )
+                } : 'no first day'
+              });
+              
+              // Check if this is a corrupted plan (has schedule but no exercises)
+              const hasScheduleButNoExercises = weeklySchedule && Array.isArray(weeklySchedule) && 
+                weeklySchedule.length > 0 && 
+                weeklySchedule.filter(d => 
+                  (d.exercises && d.exercises.length > 0) ||
+                  (d.warm_up && d.warm_up.length > 0) ||
+                  (d.main_workout && d.main_workout.length > 0) ||
+                  (d.cool_down && d.cool_down.length > 0)
+                ).length === 0;
+              
+              if (hasScheduleButNoExercises) {
+                console.log('[PlanDetail] ⚠️ Detected corrupted plan - has schedule but no exercises. Attempting to regenerate...');
+                // If this is a server-generated plan, try to regenerate it
+                if (fetchedPlan.source === 'server_api') {
+                  Alert.alert(
+                    'Plan Data Issue',
+                    'This plan appears to have corrupted data. Would you like to regenerate it with fresh AI data?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Regenerate', 
+                        onPress: () => {
+                          // Navigate back to plan creation
+                          router.replace('/(main)/workout/plan-create');
+                        }
+                      }
+                    ]
+                  );
+                  return;
+                }
+              }
+              
               if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
                 console.log('[PlanDetail] Using weekly schedule from plan:', weeklySchedule.length, 'days');
                 
@@ -834,18 +949,32 @@ export default function PlanDetailScreen() {
                 </View>
               ))}
               
-              {Array.isArray(plan.weeklySchedule) && plan.weeklySchedule.map((day: any, i: number) => (
-                <View key={i} style={{ marginBottom: 8 }}>
-                  <Text style={[styles.previewText, { fontWeight: 'bold' }]}>
-                    - {day.day || 'Day'}: {day.focus || 'General'}
-                  </Text>
-                  {Array.isArray(day.exercises) && day.exercises.map((ex: any, j: number) => (
-                    <Text key={j} style={[styles.previewText, { marginLeft: 12, fontSize: 14 }]}>
-                      • {ex.name || 'Exercise'} ({ex.sets || 0}x{ex.reps || '0'})
+              {Array.isArray(plan.weeklySchedule) && plan.weeklySchedule.map((day: any, i: number) => {
+                // Handle both data structures for preview
+                let allExercises = [];
+                if (Array.isArray(day.exercises)) {
+                  allExercises = day.exercises;
+                } else if (day.warm_up || day.main_workout || day.cool_down) {
+                  allExercises = [
+                    ...(day.warm_up || []),
+                    ...(day.main_workout || []),
+                    ...(day.cool_down || [])
+                  ];
+                }
+                
+                return (
+                  <View key={i} style={{ marginBottom: 8 }}>
+                    <Text style={[styles.previewText, { fontWeight: 'bold' }]}>
+                      - {day.day || 'Day'}: {day.focus || 'General'}
                     </Text>
-                  ))}
-                </View>
-              ))}
+                    {allExercises.map((ex: any, j: number) => (
+                      <Text key={j} style={[styles.previewText, { marginLeft: 12, fontSize: 14 }]}>
+                        • {ex.name || ex.exercise || 'Exercise'} ({ex.sets || 0}x{ex.reps || '0'})
+                      </Text>
+                    ))}
+                  </View>
+                );
+              })}
             </>
           )}
         </ScrollView>
@@ -949,7 +1078,7 @@ export default function PlanDetailScreen() {
     extrapolate: 'clamp',
   });
 
-  // Compute rest days as 7 minus number of training days in the plan
+  // Compute rest days - handle bodybuilder authentic splits vs regular 7-day plans
   const restDaysCount = useMemo(() => {
     const weeklySource: any[] =
       (Array.isArray(sessions) && sessions.length > 0)
@@ -958,16 +1087,40 @@ export default function PlanDetailScreen() {
           ? (plan as any).weekly_schedule
           : (Array.isArray((plan as any)?.weeklySchedule) ? (plan as any).weeklySchedule : []);
 
-    const trainingDaysCount = weeklySource.reduce((count, day) => {
-      const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
-      const dayText = String(day?.day || '').toLowerCase();
-      const focusText = String(day?.focus || '').toLowerCase();
-      const isTraining = exercises.length > 0 || (!dayText.includes('rest') && !focusText.includes('rest'));
-      return count + (isTraining ? 1 : 0);
-    }, 0);
+    // 🏆 FOR BODYBUILDER AUTHENTIC SPLITS: Count explicit rest days
+    const planName = (plan as any)?.name || '';
+    const isBodybuilderPlan = planName.includes('(Authentic Training Split)');
+    
+    if (isBodybuilderPlan) {
+      // For bodybuilder plans, count days that are explicitly marked as rest
+      const restDaysInSchedule = weeklySource.reduce((count, day) => {
+        const dayText = String(day?.day || '').toLowerCase();
+        const focusText = String(day?.focus || '').toLowerCase();
+        const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+        
+        // A day is a rest day if it has no exercises OR is explicitly labeled as rest
+        const isRestDay = exercises.length === 0 || 
+                          dayText.includes('rest') || 
+                          focusText.includes('rest') ||
+                          focusText.includes('off');
+        
+        return count + (isRestDay ? 1 : 0);
+      }, 0);
+      
+      return restDaysInSchedule;
+    } else {
+      // 📅 FOR REGULAR PLANS: Use traditional 7-day week calculation
+      const trainingDaysCount = weeklySource.reduce((count, day) => {
+        const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+        const dayText = String(day?.day || '').toLowerCase();
+        const focusText = String(day?.focus || '').toLowerCase();
+        const isTraining = exercises.length > 0 || (!dayText.includes('rest') && !focusText.includes('rest'));
+        return count + (isTraining ? 1 : 0);
+      }, 0);
 
-    const rest = 7 - trainingDaysCount;
-    return Math.max(0, Math.min(7, rest));
+      const rest = 7 - trainingDaysCount;
+      return Math.max(0, Math.min(7, rest));
+    }
   }, [sessions, plan]);
 
   if (isLoading) {
@@ -1053,10 +1206,16 @@ export default function PlanDetailScreen() {
         >
           {sessions.length === 0 ? (
             <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateTitle}>No sessions yet</Text>
+              <Text style={styles.emptyStateTitle}>No workout sessions found</Text>
               <Text style={styles.emptyStateSubtitle}>
-                Your plan was created, but no sessions were loaded. Here is a quick preview:
+                This plan may have corrupted data. Try creating a new AI plan with fresh data.
               </Text>
+              <TouchableOpacity 
+                style={styles.regenerateButton}
+                onPress={() => router.replace('/(main)/workout/plan-create')}
+              >
+                <Text style={styles.regenerateButtonText}>Create New AI Plan</Text>
+              </TouchableOpacity>
               {renderPlanSummary(plan)}
             </View>
           ) : (
@@ -1743,6 +1902,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 12,
+  },
+  regenerateButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  regenerateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   sessionCard: {
     height: 80,

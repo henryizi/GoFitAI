@@ -18,7 +18,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "deploymentTarget": "16.0"
     },
     "android": {
       "adaptiveIcon": {

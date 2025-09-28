@@ -41,60 +41,7 @@ export default function ManualPlanCreateScreen() {
   const [proteinGrams, setProteinGrams] = useState('');
   const [carbsGrams, setCarbsGrams] = useState('');
   const [fatGrams, setFatGrams] = useState('');
-  const [proteinPercent, setProteinPercent] = useState('30');
-  const [carbsPercent, setCarbsPercent] = useState('40');
-  const [fatPercent, setFatPercent] = useState('30');
-  const [usePercentages, setUsePercentages] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Calculate macros from calories and percentages
-  const calculateMacrosFromCalories = () => {
-    if (!calorieTarget || !proteinPercent || !carbsPercent || !fatPercent) {
-      Alert.alert('Missing Information', 'Please enter calorie target and all macro percentages');
-      return;
-    }
-
-    const calories = parseInt(calorieTarget);
-    const proteinPct = parseFloat(proteinPercent);
-    const carbsPct = parseFloat(carbsPercent);
-    const fatPct = parseFloat(fatPercent);
-
-    // Validate percentages add up to approximately 100%
-    const totalPercent = proteinPct + carbsPct + fatPct;
-    if (Math.abs(totalPercent - 100) > 5) { // Allow 5% tolerance
-      Alert.alert('Invalid Percentages', 'Macro percentages should add up to approximately 100%');
-      return;
-    }
-
-    // Calculate grams (rounded to nearest gram)
-    const proteinGramsCalc = Math.round((calories * proteinPct / 100) / 4); // 4 calories per gram of protein
-    const carbsGramsCalc = Math.round((calories * carbsPct / 100) / 4);     // 4 calories per gram of carbs
-    const fatGramsCalc = Math.round((calories * fatPct / 100) / 9);         // 9 calories per gram of fat
-
-    setProteinGrams(proteinGramsCalc.toString());
-    setCarbsGrams(carbsGramsCalc.toString());
-    setFatGrams(fatGramsCalc.toString());
-
-    Alert.alert('Macros Calculated', `Calculated: ${proteinGramsCalc}g protein, ${carbsGramsCalc}g carbs, ${fatGramsCalc}g fat`);
-  };
-
-  // Toggle between percentage and manual input modes
-  const toggleInputMode = () => {
-    const currentMode = usePercentages;
-    setUsePercentages(!usePercentages);
-    // Clear the non-active inputs when switching modes
-    if (currentMode) {
-      // Switching FROM percentages TO manual
-      setProteinPercent('');
-      setCarbsPercent('');
-      setFatPercent('');
-    } else {
-      // Switching FROM manual TO percentages
-      setProteinGrams('');
-      setCarbsGrams('');
-      setFatGrams('');
-    }
-  };
 
   const styles = StyleSheet.create({
     container: {
@@ -180,61 +127,6 @@ export default function ManualPlanCreateScreen() {
     createButton: {
       width: '100%',
     },
-    toggleContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 12,
-      marginTop: 8,
-      backgroundColor: colors.surface,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    toggleLabel: {
-      fontSize: 14,
-      fontFamily: fontFamily.secondary,
-      color: colors.primary,
-      marginRight: 8,
-    },
-    calculateButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginTop: 16,
-    },
-    calculateButtonText: {
-      fontSize: 16,
-      fontFamily: fontFamily.secondary,
-      color: colors.white,
-      fontWeight: '600',
-    },
-    calculatedMacros: {
-      marginTop: 20,
-      padding: 16,
-      backgroundColor: colors.surface,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    calculatedLabel: {
-      fontSize: 14,
-      fontFamily: fontFamily.secondary,
-      color: colors.textSecondary,
-      marginBottom: 8,
-      fontWeight: '600',
-    },
-    calculatedRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    calculatedText: {
-      fontSize: 16,
-      fontFamily: fontFamily.secondary,
-      color: colors.primary,
-      fontWeight: '600',
-    },
   });
 
   const handleCreatePlan = async () => {
@@ -246,23 +138,8 @@ export default function ManualPlanCreateScreen() {
 
     // Check if macros have been entered
     if (!proteinGrams || !carbsGrams || !fatGrams) {
-      Alert.alert('Missing Information', usePercentages
-        ? 'Please calculate your macronutrient targets by tapping "Calculate Macros"'
-        : 'Please enter your macronutrient targets in grams'
-      );
+      Alert.alert('Missing Information', 'Please enter your macronutrient targets in grams');
       return;
-    }
-
-    // Validate percentages only in percentage mode
-    if (usePercentages) {
-      const totalPercent = parseFloat(proteinPercent || '0') +
-                          parseFloat(carbsPercent || '0') +
-                          parseFloat(fatPercent || '0');
-
-      if (totalPercent < 95 || totalPercent > 105) {
-        Alert.alert('Invalid Percentages', 'Macro percentages should add up to approximately 100%');
-        return;
-      }
     }
 
     if (!user?.id) {
@@ -346,141 +223,59 @@ export default function ManualPlanCreateScreen() {
             <Text style={styles.inputUnit}>calories</Text>
           </View>
 
-          {/* Toggle for input mode */}
-          <TouchableOpacity style={styles.toggleContainer} onPress={toggleInputMode}>
-            <Text style={styles.toggleLabel}>
-              {usePercentages ? 'Switch to Manual Entry (grams)' : 'Calculate from Percentages (%)'}
-            </Text>
-            <Ionicons
-              name={usePercentages ? "calculator" : "create"}
-              size={20}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
-
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Macronutrient Breakdown</Text>
+          <Text style={styles.sectionTitle}>Macronutrient Targets</Text>
           <Text style={styles.sectionSubtitle}>
-            {usePercentages
-              ? "Enter your preferred macro distribution and tap calculate to get gram amounts"
-              : "Enter your daily macronutrient targets in grams"
-            }
+            Enter your daily macronutrient targets in grams
           </Text>
 
           <View style={styles.macroContainer}>
-            {usePercentages ? (
-              // Percentage Mode
-              <>
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Protein (%)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={proteinPercent}
-                      onChangeText={setProteinPercent}
-                      placeholder="30"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>%</Text>
-                  </View>
-                </View>
+            <View style={styles.macroInput}>
+              <Text style={styles.macroLabel}>Protein (g)</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={proteinGrams}
+                  onChangeText={setProteinGrams}
+                  placeholder="150"
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <Text style={styles.inputUnit}>g</Text>
+              </View>
+            </View>
 
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Carbs (%)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={carbsPercent}
-                      onChangeText={setCarbsPercent}
-                      placeholder="40"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>%</Text>
-                  </View>
-                </View>
+            <View style={styles.macroInput}>
+              <Text style={styles.macroLabel}>Carbs (g)</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={carbsGrams}
+                  onChangeText={setCarbsGrams}
+                  placeholder="200"
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <Text style={styles.inputUnit}>g</Text>
+              </View>
+            </View>
 
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Fat (%)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={fatPercent}
-                      onChangeText={setFatPercent}
-                      placeholder="30"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>%</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity style={styles.calculateButton} onPress={calculateMacrosFromCalories}>
-                  <Text style={styles.calculateButtonText}>Calculate Macros</Text>
-                </TouchableOpacity>
-
-                {/* Display calculated gram values */}
-                <View style={styles.calculatedMacros}>
-                  <Text style={styles.calculatedLabel}>Calculated Daily Targets:</Text>
-                  <View style={styles.calculatedRow}>
-                    <Text style={styles.calculatedText}>Protein: {proteinGrams}g</Text>
-                    <Text style={styles.calculatedText}>Carbs: {carbsGrams}g</Text>
-                    <Text style={styles.calculatedText}>Fat: {fatGrams}g</Text>
-                  </View>
-                </View>
-              </>
-            ) : (
-              // Manual Mode - Direct Gram Input
-              <>
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Protein (g)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={proteinGrams}
-                      onChangeText={setProteinGrams}
-                      placeholder="150"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>g</Text>
-                  </View>
-                </View>
-
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Carbs (g)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={carbsGrams}
-                      onChangeText={setCarbsGrams}
-                      placeholder="200"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>g</Text>
-                  </View>
-                </View>
-
-                <View style={styles.macroInput}>
-                  <Text style={styles.macroLabel}>Fat (g)</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={fatGrams}
-                      onChangeText={setFatGrams}
-                      placeholder="80"
-                      keyboardType="numeric"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <Text style={styles.inputUnit}>g</Text>
-                  </View>
-                </View>
-              </>
-            )}
+            <View style={styles.macroInput}>
+              <Text style={styles.macroLabel}>Fat (g)</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={fatGrams}
+                  onChangeText={setFatGrams}
+                  placeholder="80"
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <Text style={styles.inputUnit}>g</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -488,10 +283,7 @@ export default function ManualPlanCreateScreen() {
           <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
           <Text style={styles.infoText}>
             These targets will be used to track your daily nutrition and provide personalized recommendations.{"\n\n"}
-            💡 <Text style={{fontWeight: '600'}}>Tip:</Text> {usePercentages
-              ? "Standard macro distributions are 30% protein, 40% carbs, 30% fat. Adjust based on your goals (e.g., higher protein for muscle building, higher fat for keto)."
-              : "Enter your exact daily gram targets based on your specific dietary needs or professional recommendations."
-            }
+            💡 <Text style={{fontWeight: '600'}}>Tip:</Text> Enter your exact daily gram targets based on your specific dietary needs or professional recommendations.
           </Text>
         </View>
       </ScrollView>

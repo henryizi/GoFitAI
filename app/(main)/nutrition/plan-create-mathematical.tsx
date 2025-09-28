@@ -106,30 +106,20 @@ export default function MathematicalPlanCreateScreen() {
       return;
     }
 
+    if (!age || !weight || !height) {
+      Alert.alert('Missing Information', 'Please ensure all fields are filled in');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Calculate macros based on calculated calories
-      const calories = calculatedCalories;
-      const proteinCalories = calories * 0.3; // 30% protein
-      const carbsCalories = calories * 0.4;   // 40% carbs
-      const fatCalories = calories * 0.3;     // 30% fat
-
-      const protein = Math.round(proteinCalories / 4);
-      const carbs = Math.round(carbsCalories / 4);
-      const fat = Math.round(fatCalories / 9);
-
-      // Create and save the plan
-      const newPlan = await NutritionService.createNutritionPlan(
+      // Create and save the plan using the proper generateNutritionPlan method
+      // This method automatically calculates BMR, TDEE, and metabolic data based on user profile
+      const newPlan = await NutritionService.generateNutritionPlan(
         user.id,
         {
-          calories: calories,
-          protein: protein,
-          carbs: carbs,
-          fat: fat,
-        },
-        {
-          goal: 'maintenance', // Default goal for mathematical plans
+          goal: goal === 'lose' ? 'cutting' : goal === 'gain' ? 'bulking' : 'maintenance',
           dietaryPreferences: [],
           intolerances: [],
         }
@@ -139,7 +129,7 @@ export default function MathematicalPlanCreateScreen() {
 
       Alert.alert(
         'Plan Created',
-        `Your mathematical nutrition plan has been created!\n\nDaily Target: ${calories} calories\nProtein: ${protein}g | Carbs: ${carbs}g | Fat: ${fat}g`,
+        `Your mathematical nutrition plan has been created!\n\nDaily Target: ${newPlan?.daily_targets?.calories || calculatedCalories} calories\nProtein: ${newPlan?.daily_targets?.protein || 'N/A'}g | Carbs: ${newPlan?.daily_targets?.carbs || 'N/A'}g | Fat: ${newPlan?.daily_targets?.fat || 'N/A'}g`,
         [
           {
             text: 'OK',

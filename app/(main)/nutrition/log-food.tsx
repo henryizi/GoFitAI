@@ -20,7 +20,10 @@ import { NutritionService } from '../../../src/services/nutrition/NutritionServi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
+// import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated'; // Temporarily disabled due to worklets version mismatch
+import { View as Animated } from 'react-native';
+const FadeInUp = { duration: () => ({ duration: 500 }), delay: () => ({ delay: 200 }) };
+const FadeInDown = { duration: () => ({ duration: 500 }) };
 // import { BlurView } from 'expo-blur'; // Disabled during rebuild
 
 import { ServerStatusIndicator } from '../../../src/components/ui/ServerStatusIndicator';
@@ -52,7 +55,7 @@ const colors = {
   glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+// const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity); // Disabled due to worklets version mismatch
 
 export default function LogFoodScreen() {
   const { user } = useAuth();
@@ -376,9 +379,8 @@ export default function LogFoodScreen() {
   }, [params?.image]);
 
   const renderAiLogFood = () => (
-    <Animated.View 
+    <Animated 
       style={styles.contentContainer}
-      entering={FadeInUp.duration(500)}
     >
       {imageUri ? (
         <View style={styles.aiCard}>
@@ -413,10 +415,9 @@ export default function LogFoodScreen() {
             </View>
             <ServerStatusIndicator size={12} showBorder={true} />
           </View>
-          <AnimatedTouchableOpacity 
+          <TouchableOpacity 
             style={styles.aiButton} 
             onPress={takePhoto}
-            entering={FadeInUp.delay(200).duration(500)}
           >
             <LinearGradient
               colors={[colors.primary, colors.primaryLight]}
@@ -426,11 +427,10 @@ export default function LogFoodScreen() {
             </LinearGradient>
             <Text style={styles.aiButtonText}>Take Photo</Text>
             <Icon name="chevron-right" size={20} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
-          </AnimatedTouchableOpacity>
-          <AnimatedTouchableOpacity 
+          </TouchableOpacity>
+          <TouchableOpacity 
             style={styles.aiButton} 
             onPress={pickImage}
-            entering={FadeInUp.delay(400).duration(500)}
           >
             <LinearGradient
               colors={[colors.primary, colors.primaryLight]}
@@ -440,18 +440,17 @@ export default function LogFoodScreen() {
             </LinearGradient>
             <Text style={styles.aiButtonText}>Choose from Gallery</Text>
             <Icon name="chevron-right" size={20} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
-          </AnimatedTouchableOpacity>
+          </TouchableOpacity>
         </View>
       )}
-    </Animated.View>
+    </Animated>
   );
 
   const renderManualForm = () => (
-    <Animated.View 
+    <Animated 
       style={styles.formContainer}
-      entering={FadeInUp.duration(500)}
     >
-        <Animated.View entering={FadeInUp.delay(100).duration(500)} style={styles.inputContainer}>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -465,8 +464,8 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
-        <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.inputContainer}>
+        </Animated>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -481,8 +480,8 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
-        <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.inputContainer}>
+        </Animated>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -497,8 +496,8 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
-        <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.inputContainer}>
+        </Animated>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -513,8 +512,8 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
-        <Animated.View entering={FadeInUp.delay(500).duration(500)} style={styles.inputContainer}>
+        </Animated>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -529,8 +528,8 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
-        <Animated.View entering={FadeInUp.delay(600).duration(500)} style={styles.inputContainer}>
+        </Animated>
+        <Animated style={styles.inputContainer}>
           <LinearGradient
             colors={[colors.primary, colors.primaryLight]}
             style={styles.inputIconGradient}
@@ -545,9 +544,9 @@ export default function LogFoodScreen() {
           style={styles.input}
             placeholderTextColor={colors.textSecondary}
         />
-        </Animated.View>
+        </Animated>
         
-        <Animated.View entering={FadeInUp.delay(700).duration(500)}>
+        <Animated>
           <TouchableOpacity
             onPress={handleLogFood}
             disabled={isLoading}
@@ -567,36 +566,34 @@ export default function LogFoodScreen() {
               )}
             </LinearGradient>
           </TouchableOpacity>
-        </Animated.View>
-      </Animated.View>
+        </Animated>
+      </Animated>
   );
 
   const renderSearch = () => (
-    <Animated.View 
+    <Animated 
       style={styles.contentContainer}
-      entering={FadeInUp.duration(500)}
     >
       <View style={styles.emptyState}>
         <Icon name="magnify" size={48} color={colors.textSecondary} />
         <Text style={styles.emptyStateText}>Search is coming soon!</Text>
       </View>
-    </Animated.View>
+    </Animated>
   );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Animated.View style={styles.header} entering={FadeInDown.duration(500)}>
+      <Animated style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/(main)/nutrition')} style={styles.backButton}>
           <Icon name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Log Food</Text>
         <View style={{ width: 40 }} />
-      </Animated.View>
+      </Animated>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Animated.View 
+        <Animated 
           style={styles.segmentedControl}
-          entering={FadeInDown.delay(200).duration(500)}
         >
           <TouchableOpacity
             style={[styles.segmentButton, mode === 'manual' && styles.segmentButtonActive]}
@@ -619,7 +616,7 @@ export default function LogFoodScreen() {
               Search
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </Animated>
 
         {mode === 'manual' && renderManualForm()}
         {mode === 'ai' && renderAiLogFood()}
@@ -1186,4 +1183,3 @@ const styles = StyleSheet.create({
   },
 });
 
- 

@@ -642,7 +642,90 @@ const NutritionPlanScreen = () => {
           </LinearGradient>
         </View>
 
+        {/* Metabolic Breakdown Explanation */}
+        {plan?.metabolic_calculations && (
+          <View style={styles.sectionContainer}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
+              style={styles.card}
+            >
+              <Text style={styles.sectionTitle}>📊 How Your Targets Were Calculated</Text>
+              <Text style={{ color: 'rgba(235,235,245,0.6)', marginBottom: 16 }}>
+                Based on your profile and {plan.metabolic_calculations.calculation_method}
+              </Text>
 
+              <View style={styles.metabolicBreakdown}>
+                {/* BMR */}
+                <View style={styles.metabolicRow}>
+                  <View style={styles.metabolicLabel}>
+                    <Text style={styles.metabolicEmoji}>⚡</Text>
+                    <View>
+                      <Text style={styles.metabolicTitle}>Basal Metabolic Rate (BMR)</Text>
+                      <Text style={styles.metabolicSubtitle}>Calories burned at rest</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.metabolicValue}>
+                    {plan.metabolic_calculations.bmr} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                  </Text>
+                </View>
+
+                {/* Activity Multiplier */}
+                <View style={styles.metabolicRow}>
+                  <View style={styles.metabolicLabel}>
+                    <Text style={styles.metabolicEmoji}>🏃</Text>
+                    <View>
+                      <Text style={styles.metabolicTitle}>Activity Level</Text>
+                      <Text style={styles.metabolicSubtitle}>
+                        {plan.metabolic_calculations.activity_level.replace('_', ' ')} (×{plan.metabolic_calculations.activity_multiplier})
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.metabolicValue}>
+                    {plan.metabolic_calculations.tdee} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                  </Text>
+                </View>
+
+                {/* Goal Adjustment */}
+                <View style={styles.metabolicRow}>
+                  <View style={styles.metabolicLabel}>
+                    <Text style={styles.metabolicEmoji}>🎯</Text>
+                    <View>
+                      <Text style={styles.metabolicTitle}>Goal Adjustment</Text>
+                      <Text style={styles.metabolicSubtitle}>
+                        {plan.metabolic_calculations.goal_adjustment_reason || 
+                         plan.metabolic_calculations.calorie_adjustment_reason || 
+                         'Adjusted for your goals'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.metabolicValue, { 
+                    color: plan.metabolic_calculations.goal_adjustment > 0 ? colors.success : 
+                           plan.metabolic_calculations.goal_adjustment < 0 ? colors.warning : colors.text 
+                  }]}>
+                    {plan.metabolic_calculations.goal_adjustment > 0 ? '+' : ''}
+                    {plan.metabolic_calculations.goal_adjustment} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                  </Text>
+                </View>
+
+                {/* Final Target */}
+                <View style={[styles.metabolicRow, styles.finalTargetRow]}>
+                  <View style={styles.metabolicLabel}>
+                    <Text style={styles.metabolicEmoji}>🔥</Text>
+                    <View>
+                      <Text style={styles.metabolicTitle}>Your Daily Target</Text>
+                      <Text style={styles.metabolicSubtitle}>Final calorie goal</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.metabolicValue, styles.finalTargetValue]}>
+                    {plan.metabolic_calculations.goal_calories || plan.metabolic_calculations.adjusted_calories} 
+                    <Text style={styles.metabolicUnit}> kcal/day</Text>
+                  </Text>
+                </View>
+              </View>
+
+            </LinearGradient>
+          </View>
+        )}
 
         {/* Calorie Trend Chart */}
         {targets.length > 1 && (
@@ -870,6 +953,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray,
     marginTop: 2,
+  },
+  
+  // Metabolic breakdown styles
+  metabolicBreakdown: {
+    gap: 16,
+  },
+  metabolicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  finalTargetRow: {
+    borderBottomWidth: 0,
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  metabolicLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  metabolicEmoji: {
+    fontSize: 20,
+  },
+  metabolicTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  metabolicSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  metabolicValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'right',
+  },
+  finalTargetValue: {
+    fontSize: 18,
+    color: colors.primary,
+  },
+  metabolicUnit: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textSecondary,
   },
 });
 

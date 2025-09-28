@@ -79,13 +79,51 @@ const PlanTypeSelectionScreen = () => {
     setSelectedType(typeId);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedType === 'manual') {
-      // Navigate to manual plan creation
       router.push('/(main)/nutrition/plan-create-manual');
-    } else if (selectedType === 'mathematical') {
-      // Navigate to mathematical plan creation (simplified)
-      router.push('/(main)/nutrition/plan-create-mathematical');
+      return;
+    }
+
+    if (selectedType === 'mathematical') {
+      try {
+        setIsGenerating(true);
+
+        // Optional simple progress animation
+        progressAnimation.setValue(0);
+        Animated.timing(progressAnimation, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        }).start();
+
+        // Coarse-grained progress text updates
+        setGenerationProgress(25);
+        setTimeout(() => setGenerationProgress(50), 300);
+        setTimeout(() => setGenerationProgress(75), 700);
+
+        const userId = user?.id || 'guest';
+        const goal = (profile as any)?.goal_type || 'maintenance';
+
+        const newPlan = await NutritionService.generateNutritionPlan(userId, {
+          goal,
+          dietaryPreferences: [],
+          intolerances: [],
+        });
+
+        setGenerationProgress(100);
+
+        if (newPlan && (newPlan as any).id) {
+          router.replace(`/(main)/nutrition/plan?planId=${(newPlan as any).id}`);
+        } else {
+          // If no ID returned, fall back to the mathematical creator screen
+          router.push('/(main)/nutrition/plan-create-mathematical');
+        }
+      } catch (e) {
+        router.push('/(main)/nutrition/plan-create-mathematical');
+      } finally {
+        setIsGenerating(false);
+      }
     }
   };
 

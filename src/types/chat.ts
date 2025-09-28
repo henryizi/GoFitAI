@@ -26,6 +26,18 @@ export interface WorkoutPlan {
   goal_muscle_gain: number;
   mesocycle_length_weeks: number;
   weeklySchedule: WorkoutDay[];
+  id?: string;
+  source?: string;
+  primary_goal?: string;
+  workout_frequency?: string;
+  estimated_time_per_session?: number;
+  // Production metadata for user messaging
+  system_metadata?: {
+    ai_available: boolean;
+    fallback_used: boolean;
+    fallback_reason: 'regional_restriction' | 'quota_exceeded' | 'ai_unavailable' | null;
+    provider: string;
+  };
 }
 
 export interface AiChatRequest {

@@ -50,6 +50,9 @@ const path = require('path');
 const GeminiVisionService = require('./services/geminiVisionService.js');
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 const GeminiTextService = require('./services/geminiTextService.js');
+const quotaMonitor = require('./services/quotaMonitor');
+const responseCache = require('./services/responseCache');
+const rateLimiter = require('./services/rateLimiter');
 
 // Helper function to get local IP address
 function getLocalIpAddress() {
@@ -74,10 +77,20 @@ function formatWorkoutFrequency(frequency) {
 
 // Generate rule-based workout plan as fallback when AI fails
 function generateRuleBasedWorkoutPlan(userProfile) {
-  console.log('[WORKOUT] Generating rule-based workout plan for:', userProfile.primary_goal);
+  console.log('[WORKOUT] Generating ENHANCED rule-based workout plan for:', userProfile.primary_goal);
+  console.log('[WORKOUT] User profile received:', JSON.stringify(userProfile, null, 2));
   
-  const planName = `${userProfile.primary_goal?.replace(/_/g, ' ')?.toUpperCase() || 'General Fitness'} Workout Plan`;
-  const frequency = userProfile.workout_frequency || '3-4';
+  // Extract user characteristics for personalization  
+  const goal = userProfile.primary_goal || "general_fitness";
+  const level = userProfile.training_level || userProfile.fitnessLevel || "intermediate";
+  const frequency = userProfile.workout_frequency || "4_5";
+  const age = userProfile.age || 25;
+  const gender = userProfile.gender || "male";
+  const name = userProfile.full_name || userProfile.fullName || "User";
+  
+  console.log('[WORKOUT] Personalization factors:', { goal, level, frequency, age, gender, name });
+  
+  const planName = `${name}'s ${goal.replace(/_/g, ' ').toUpperCase()} Plan`;
   
   // Base template that works for most fitness goals
   const baseWorkouts = {
@@ -233,71 +246,100 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       },
       { day: "Saturday", focus: "Rest Day", exercises: [] },
       { day: "Sunday", focus: "Rest Day", exercises: [] }
-    ],
-    athletic_performance: {
-      plan_name: "Athletic Performance Workout Plan",
-      weekly_schedule: [
-        {
-          day: "Monday",
-          focus: "Upper Body Power",
-          exercises: [
-            { name: "Push-ups", sets: 4, reps: "10-15", restBetweenSets: "60s" },
-            { name: "Pull-ups", sets: 3, reps: "5-10", restBetweenSets: "60s" },
-            { name: "Dumbbell Rows", sets: 3, reps: "8-12", restBetweenSets: "60s" },
-            { name: "Tricep Dips", sets: 3, reps: "8-12", restBetweenSets: "60s" }
-          ]
-        },
-        {
-          day: "Tuesday",
-          focus: "Lower Body Power",
-          exercises: [
-            { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
-            { name: "Lunges", sets: 3, reps: "10-12", restBetweenSets: "60s" },
-            { name: "Calf Raises", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-            { name: "Glute Bridges", sets: 3, reps: "12-15", restBetweenSets: "60s" }
-          ]
-        },
-        { day: "Wednesday", focus: "Rest Day", exercises: [] },
-        {
-          day: "Thursday",
-          focus: "Full Body Athletic",
-          exercises: [
-            { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "90s" },
-            { name: "Mountain Climbers", sets: 3, reps: "20", restBetweenSets: "60s" },
-            { name: "Jumping Jacks", sets: 3, reps: "20", restBetweenSets: "45s" },
-            { name: "High Knees", sets: 3, reps: "20", restBetweenSets: "45s" }
-          ]
-        },
-        {
-          day: "Friday",
-          focus: "Core & Stability",
-          exercises: [
-            { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-            { name: "Crunches", sets: 3, reps: "15-20", restBetweenSets: "45s" },
-            { name: "Russian Twists", sets: 3, reps: "20", restBetweenSets: "45s" },
-            { name: "Leg Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
-          ]
-        },
-        { day: "Saturday", focus: "Rest Day", exercises: [] },
-        { day: "Sunday", focus: "Rest Day", exercises: [] }
-      ]
-    }
+    ]
   };
 
-  // Select appropriate plan based on user's goal
+  // Enhanced plan selection with personalization
   let selectedPlan = defaultPlan;
-  if (userProfile.primary_goal && baseWorkouts[userProfile.primary_goal]) {
-    selectedPlan = baseWorkouts[userProfile.primary_goal];
+  
+  // Select base plan based on goal
+  if (goal === 'muscle_gain') {
+    selectedPlan = baseWorkouts.muscle_gain;
+  } else if (goal === 'weight_loss' || goal === 'fat_loss') {
+    selectedPlan = baseWorkouts.weight_loss;
+  } else {
+    selectedPlan = defaultPlan;
+  }
+  
+  // Apply level-based modifications
+  if (level === 'beginner') {
+    // Reduce sets and intensity for beginners
+    selectedPlan.weekly_schedule = selectedPlan.weekly_schedule.map(day => {
+      if (day.exercises && day.exercises.length > 0) {
+  return {
+          ...day,
+          exercises: day.exercises.map(exercise => ({
+            ...exercise,
+            sets: Math.max(exercise.sets - 1, 2), // Reduce sets but minimum 2
+            reps: exercise.reps.includes('-') ? 
+              exercise.reps.split('-')[0] + '-' + (parseInt(exercise.reps.split('-')[1]) - 2) :
+              exercise.reps
+          }))
+        };
+      }
+      return day;
+    });
+  } else if (level === 'advanced') {
+    // Increase intensity for advanced users
+    selectedPlan.weekly_schedule = selectedPlan.weekly_schedule.map(day => {
+      if (day.exercises && day.exercises.length > 0) {
+        return {
+          ...day,
+          exercises: day.exercises.map(exercise => ({
+            ...exercise,
+            sets: exercise.sets + 1, // Add an extra set
+            restBetweenSets: exercise.restBetweenSets.includes('90s') ? '2min' : exercise.restBetweenSets
+          }))
+        };
+      }
+      return day;
+    });
+  }
+  
+  // Age-based adjustments
+  if (age > 40) {
+    selectedPlan.weekly_schedule = selectedPlan.weekly_schedule.map(day => {
+      if (day.exercises && day.exercises.length > 0) {
+        return {
+          ...day,
+          exercises: day.exercises.map(exercise => ({
+            ...exercise,
+            restBetweenSets: exercise.restBetweenSets.includes('60s') ? '90s' : 
+                            exercise.restBetweenSets.includes('45s') ? '60s' : exercise.restBetweenSets
+          }))
+        };
+      }
+      return day;
+    });
   }
 
-  return {
+  const finalPlan = {
     ...selectedPlan,
     plan_name: planName,
-    primary_goal: userProfile.primary_goal || "general_fitness",
+    primary_goal: goal,
     workout_frequency: frequency,
+    training_level: level,
+    personalization: {
+      name: name,
+      age: age,
+      gender: gender,
+      fitness_level: level,
+      customized_for: `${level} ${goal.replace('_', ' ')} training`
+    },
     created_at: new Date().toISOString(),
-    source: 'rule_based_fallback'
+    source: 'enhanced_rule_based_fallback',
+    notes: `This personalized plan is designed specifically for ${name}, targeting ${goal.replace('_', ' ')} at ${level} level.`
   };
+  
+  console.log('[WORKOUT] ✅ Enhanced personalized plan generated for:', finalPlan.personalization.name);
+  console.log('[WORKOUT] 🔍 Schedule exercises debug:', finalPlan.weekly_schedule?.map(d => ({ 
+    day: d.day, 
+    focus: d.focus,
+    exerciseCount: d.exercises?.length || 0,
+    firstExercise: d.exercises?.[0]?.name 
+  })));
+  
+  return finalPlan;
 }
 
 // Enhanced fallback nutrition analysis
@@ -899,6 +941,9 @@ const basicFoodAnalyzer = new BasicFoodAnalyzer();
 // Initialize AI services for recipe generation
 let geminiTextService = null;
 
+// Set Gemini model to 2.5 Flash for all services
+process.env.GEMINI_MODEL = process.env.GEMINI_MODEL || 'models/gemini-2.5-flash';
+
 // Initialize Gemini Text service
 if (GEMINI_API_KEY) {
   console.log('[AI SERVICE] Initializing Gemini Text Service with API key rotation');
@@ -968,6 +1013,7 @@ console.log('=== AI CONFIGURATION ===');
 console.log('Available AI Providers:', AI_PROVIDERS.map(p => p.name));
 console.log('GEMINI_API_KEY exists:', !!GEMINI_API_KEY);
 console.log('GEMINI_MODEL:', GEMINI_MODEL);
+console.log('Using model URL:', `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`);
 console.log('Gemini provider config:', AI_PROVIDERS.find(p => p.name === 'gemini'));
 console.log('Default AI_PROVIDER:', AI_PROVIDER);
 console.log('Total providers available:', AI_PROVIDERS.length);
@@ -6211,45 +6257,12 @@ app.get('/api/test-users-with-plans', async (req, res) => {
 // TODO: Fix generate-workout-plan endpoint syntax error
 app.post('/api/generate-workout-plan', async (req, res) => {
   try {
-    // Import quota monitor
-    const quotaMonitor = require('./services/quotaMonitor');
-
-    // Import services
-    const quotaMonitor = require('./services/quotaMonitor');
-    const responseCache = require('./services/responseCache');
-    const rateLimiter = require('./services/rateLimiter');
+    // Services imported at top
 
     // Check rate limits first
     if (!rateLimiter.isAllowed(req)) {
       const rateLimitError = rateLimiter.createErrorResponse(req);
       return res.status(429).json(rateLimitError);
-    }
-
-    // Check quota availability
-    const quotaStatus = quotaMonitor.getQuotaStatus();
-    const quotaWarning = quotaMonitor.getQuotaWarning();
-
-    // Check cache first for workout plans
-    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, req.body.preferences || {});
-    let cachedResponse = responseCache.get('workout', cacheKey);
-
-    if (cachedResponse) {
-      console.log('[WORKOUT] ✅ Using cached workout plan');
-      // Add rate limit headers
-      const rateLimitHeaders = rateLimiter.getHeaders(req);
-      Object.keys(rateLimitHeaders).forEach(header => {
-        res.setHeader(header, rateLimitHeaders[header]);
-      });
-
-      return res.json({
-        success: true,
-        workoutPlan: cachedResponse,
-        provider: 'cache',
-        used_ai: false,
-        quota: quotaStatus,
-        warning: quotaWarning,
-        cached: true
-      });
     }
 
     // Extract userId from request body (optional for testing)
@@ -6277,6 +6290,33 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       ...profileData,
       workout_frequency: profileData.workout_frequency || '4_5' // Ensure fallback for direct profile data too
     };
+
+    // Check quota availability
+    const quotaStatus = quotaMonitor.getQuotaStatus();
+    const quotaWarning = quotaMonitor.getQuotaWarning();
+
+    // Check cache first for workout plans (after normalizedProfile is defined)
+    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, req.body.preferences || {});
+    let cachedResponse = responseCache.get('workout', cacheKey);
+
+    if (cachedResponse) {
+      console.log('[WORKOUT] ✅ Using cached workout plan');
+      // Add rate limit headers
+      const rateLimitHeaders = rateLimiter.getHeaders(req);
+      Object.keys(rateLimitHeaders).forEach(header => {
+        res.setHeader(header, rateLimitHeaders[header]);
+      });
+
+      return res.json({
+        success: true,
+        workoutPlan: cachedResponse,
+        provider: 'cache',
+        used_ai: false,
+        quota: quotaStatus,
+        warning: quotaWarning,
+        cached: true
+      });
+    }
 
     console.log('[WORKOUT] Normalized profile data:', JSON.stringify(normalizedProfile, null, 2));
     console.log('[WORKOUT] Primary goal from user profile:', userProfile?.primaryGoal);
@@ -6440,13 +6480,31 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       }
 
     } catch (aiError) {
-      console.error('[WORKOUT] AI generation failed:', aiError);
-      usedProvider = 'fallback';
+      console.error('[WORKOUT] AI generation failed:', aiError.message);
+      usedProvider = 'enhanced_rule_based';
       usedAI = false;
 
-      // Fallback to rule-based generation
-      console.log('[WORKOUT] Using fallback rule-based generation');
+      // Enhanced error classification for production
+      let fallbackReason = 'ai_unavailable';
+      if (aiError.message && aiError.message.includes('User location is not supported')) {
+        fallbackReason = 'regional_restriction';
+        console.log('[WORKOUT] 🌍 Regional restriction detected - seamlessly using enhanced rule-based system');
+      } else if (aiError.message && (aiError.message.includes('quota') || aiError.message.includes('rate limit'))) {
+        fallbackReason = 'quota_exceeded';
+        console.log('[WORKOUT] 📊 API quota reached - seamlessly using enhanced rule-based system');
+      } else {
+        console.log('[WORKOUT] 🔄 AI service temporarily unavailable - seamlessly using enhanced rule-based system');
+      }
+
+      // Fallback to enhanced rule-based generation
+      console.log('[WORKOUT] Using enhanced rule-based generation with fallback reason:', fallbackReason);
       aiResponse = generateRuleBasedWorkoutPlan(normalizedProfile);
+      
+      // Add fallback metadata
+      if (aiResponse) {
+        aiResponse.fallback_reason = fallbackReason;
+        aiResponse.enhanced_rule_based = true;
+      }
     }
 
     // Add rate limit headers
@@ -6462,6 +6520,13 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       used_ai: usedAI,
       quota: quotaStatus,
       warning: quotaWarning,
+      // Add helpful metadata for frontend
+      system_info: {
+        ai_available: usedAI,
+        fallback_used: !usedAI,
+        fallback_reason: aiResponse?.fallback_reason || null,
+        enhanced_system: !usedAI ? true : false
+      }
     });
 
   } catch (error) {
@@ -7306,10 +7371,7 @@ app.post('/api/generate-recipe', async (req, res) => {
   console.log(`[${new Date().toISOString()}] Received recipe generation request`);
   
   try {
-    // Import services
-    const quotaMonitor = require('./services/quotaMonitor');
-    const responseCache = require('./services/responseCache');
-    const rateLimiter = require('./services/rateLimiter');
+    // Services imported at top
 
     // Check rate limits first
     if (!rateLimiter.isAllowed(req)) {

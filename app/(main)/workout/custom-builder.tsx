@@ -12,13 +12,11 @@ import {
 import { Text, Button, Chip, Card, TextInput as PaperInput, SegmentedButtons } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ExerciseService } from '../../../src/services/workout/ExerciseService';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
-import { environment } from '../../../src/config/environment';
 
 // Modern Dark Design System
 const colors = {
@@ -102,8 +100,8 @@ export default function CustomBuilderScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('');
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
   const [selectedDay, setSelectedDay] = useState<string>('');
-  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
   const [planSetup, setPlanSetup] = useState<PlanSetup>({
     name: '',
@@ -137,7 +135,7 @@ export default function CustomBuilderScreen() {
         dayName,
         day: {
           day: dayName,
-          focus: 'Custom Workout',
+          focus: dayName,
           exercises: []
         },
         isSelected: selectedDay === dayName,
@@ -155,20 +153,16 @@ export default function CustomBuilderScreen() {
     totalExercises: workoutDays.reduce((total, day) => total + day.exercises.length, 0)
   }), [workoutDays, planSetup.daysPerWeek]);
 
-  // Step progress for the new 3-step workflow
-  const stepProgress = useMemo(() => ({
-    currentStep: step,
-    totalSteps: 3,
-    stepPercentage: (step / 3) * 100,
-    isPlanSetupComplete: !!planSetup.name.trim(),
-    isDaysConfigured: workoutDays.length === planSetup.daysPerWeek,
-    canProceedToExercises: workoutDays.length > 0,
-    canProceedToReview: workoutDays.length === planSetup.daysPerWeek
-  }), [step, planSetup.name, workoutDays.length, planSetup.daysPerWeek]);
 
   useEffect(() => {
     loadExercises();
   }, []);
+
+  // Debounce the search text to avoid recomputing filters on every keystroke
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearchText(searchText), 200);
+    return () => clearTimeout(handle);
+  }, [searchText]);
 
   // Initialize and manage workout days when daysPerWeek changes
   useEffect(() => {
@@ -183,11 +177,14 @@ export default function CustomBuilderScreen() {
       
       if (prevDays.length === 0) {
         // Initialize workout days if none exist
-        const initialDays = Array.from({ length: planSetup.daysPerWeek }, (_, index) => ({
-          day: `Day ${index + 1}`,
-          focus: 'Custom Workout',
-          exercises: []
-        }));
+        const initialDays = Array.from({ length: planSetup.daysPerWeek }, (_, index) => {
+          const dayName = `Day ${index + 1}`;
+          return {
+            day: dayName,
+            focus: dayName,
+            exercises: []
+          };
+        });
         
         // Auto-select the first day
         if (!selectedDay) {
@@ -197,11 +194,14 @@ export default function CustomBuilderScreen() {
         return initialDays;
       } else if (prevDays.length < planSetup.daysPerWeek) {
         // Add more days
-        const additionalDays = Array.from({ length: planSetup.daysPerWeek - prevDays.length }, (_, index) => ({
-          day: `Day ${prevDays.length + index + 1}`,
-          focus: 'Custom Workout',
-          exercises: []
-        }));
+        const additionalDays = Array.from({ length: planSetup.daysPerWeek - prevDays.length }, (_, index) => {
+          const dayName = `Day ${prevDays.length + index + 1}`;
+          return {
+            day: dayName,
+            focus: dayName,
+            exercises: []
+          };
+        });
         return [...prevDays, ...additionalDays];
       } else {
         // Remove excess days
@@ -217,7 +217,14 @@ export default function CustomBuilderScreen() {
         return trimmedDays;
       }
     });
-  }, [planSetup.daysPerWeek]);
+  }, [planSetup.daysPerWeek, selectedDay, setSelectedDay]);
+
+  // Ensure selectedDay is set when entering step 2
+  useEffect(() => {
+    if (step === 2 && !selectedDay && workoutDays.length > 0) {
+      setSelectedDay(workoutDays[0].day);
+    }
+  }, [step, selectedDay, workoutDays]);
 
   const loadExercises = async () => {
     setIsLoading(true);
@@ -236,49 +243,26 @@ export default function CustomBuilderScreen() {
     if (exercises.length === 0) return [];
 
     const lowerMuscleGroup = selectedMuscleGroup.toLowerCase();
-    const lowerSearchText = searchText.toLowerCase();
+    const lowerSearchText = debouncedSearchText.toLowerCase();
 
     return exercises.filter(exercise => {
       const matchesMuscleGroup = !selectedMuscleGroup ||
-        exercise.muscle_groups.some(group => group.toLowerCase().includes(lowerMuscleGroup));
-      const matchesSearch = !searchText ||
-        exercise.name.toLowerCase().includes(lowerSearchText) ||
-        exercise.description.toLowerCase().includes(lowerSearchText);
+        (exercise.muscle_groups?.some(group => (group || '').toLowerCase().includes(lowerMuscleGroup)) ?? false);
+      const nameText = (exercise.name ?? '').toLowerCase();
+      const descText = (exercise.description ?? '').toLowerCase();
+      const matchesSearch = !debouncedSearchText ||
+        nameText.includes(lowerSearchText) ||
+        descText.includes(lowerSearchText);
       return matchesMuscleGroup && matchesSearch;
     });
-  }, [exercises, selectedMuscleGroup, searchText]);
+  }, [exercises, selectedMuscleGroup, debouncedSearchText]);
 
   const updatePlanSetup = (field: keyof PlanSetup, value: any) => {
     setPlanSetup(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateWorkoutDay = (index: number, field: keyof WorkoutDay, value: any) => {
-    setWorkoutDays(prev => prev.map((day, i) =>
-      i === index ? { ...day, [field]: value } : day
-    ));
-  };
 
-  const addWorkoutDay = () => {
-    if (workoutDays.length < planSetup.daysPerWeek) {
-      setWorkoutDays(prev => [...prev, {
-        day: `Day ${prev.length + 1}`,
-        focus: 'Custom Workout',
-        exercises: []
-      }]);
-    }
-  };
 
-  const removeWorkoutDay = (index: number) => {
-    setWorkoutDays(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const toggleExerciseSelection = (exercise: Exercise) => {
-    if (selectedExercises.some(e => e.id === exercise.id)) {
-      setSelectedExercises(selectedExercises.filter(e => e.id !== exercise.id));
-    } else {
-      setSelectedExercises([...selectedExercises, exercise]);
-    }
-  };
 
   const addExerciseToDay = useCallback((day: string, exercise: Exercise) => {
     setWorkoutDays(prevDays => {
@@ -309,7 +293,7 @@ export default function CustomBuilderScreen() {
 
         return [...prevDays, {
           day,
-          focus: 'Custom Workout',
+          focus: day,
           exercises: [newExercise]
         }];
       }
@@ -376,7 +360,7 @@ export default function CustomBuilderScreen() {
       if (!hasMatchingDay) return prev;
       
       return prev.map(day => 
-        day.day === oldDayName ? { ...day, day: newDayName } : day
+        day.day === oldDayName ? { ...day, day: newDayName, focus: newDayName } : day
       );
     });
 
@@ -422,7 +406,7 @@ export default function CustomBuilderScreen() {
       });
 
       if (plan) {
-        Alert.alert('Success', `"${planSetup.name}" created successfully!`, [
+        Alert.alert('Success', `&quot;${planSetup.name}&quot; created successfully!`, [
           {
             text: 'View Plan',
             onPress: () => router.replace({
@@ -442,35 +426,14 @@ export default function CustomBuilderScreen() {
     }
   };
 
-  const renderExerciseItem = ({ item: exercise }: { item: Exercise }) => (
-    <Card style={styles.exerciseCard} theme={{ colors: { surface: colors.card } }}>
-      <TouchableOpacity
-        onPress={() => toggleExerciseSelection(exercise)}
-        style={[
-          styles.exerciseCardContent,
-          selectedExercises.some(e => e.id === exercise.id) && styles.selectedExercise
-        ]}
-      >
-        <View style={styles.exerciseInfo}>
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
-          <Text style={styles.exerciseDescription}>{exercise.description}</Text>
-          <View style={styles.exerciseTags}>
-            <Chip style={styles.chip} textStyle={styles.chipText}>
-              {exercise.difficulty}
-            </Chip>
-            {exercise.muscle_groups.map(group => (
-              <Chip key={group} style={styles.chip} textStyle={styles.chipText}>
-                {group}
-              </Chip>
-            ))}
-          </View>
-        </View>
-        {selectedExercises.some(e => e.id === exercise.id) && (
-          <Icon name="check" size={24} color={colors.primary} />
-        )}
-      </TouchableOpacity>
-    </Card>
-  );
+  const keyExtractor = useCallback((item: Exercise) => item.id, []);
+
+  const renderExerciseRow = useCallback(({ item }: { item: Exercise }) => (
+    <ExerciseListItem
+      exercise={item}
+      onPress={() => addExerciseToDay(selectedDay, item)}
+    />
+  ), [addExerciseToDay, selectedDay]);
 
   // Memoized day selection handler to prevent unnecessary re-renders
   const handleDaySelection = useCallback((dayName: string) => {
@@ -484,19 +447,6 @@ export default function CustomBuilderScreen() {
     });
   }, []);
 
-  const renderWorkoutDay = ({ item: day }: { item: WorkoutDay }) => (
-    <Card style={styles.dayCard} theme={{ colors: { surface: colors.card } }}>
-      <Text style={styles.dayTitle}>{day.day}</Text>
-      {day.exercises.map((workoutExercise, index) => (
-        <View key={index} style={styles.exerciseItem}>
-          <Text style={styles.exerciseName}>{workoutExercise.exercise.name}</Text>
-          <Text style={styles.exerciseDetails}>
-            {workoutExercise.sets} sets × {workoutExercise.reps} ({workoutExercise.rest} rest)
-          </Text>
-        </View>
-      ))}
-    </Card>
-  );
 
   // Step 1: Plan Setup
   if (step === 1) {
@@ -613,7 +563,7 @@ export default function CustomBuilderScreen() {
             style={styles.nextButton}
             contentStyle={styles.nextButtonContent}
           >
-            Next: Day Selection
+            <Text>Next: Day Selection</Text>
           </Button>
         </View>
       </View>
@@ -622,6 +572,7 @@ export default function CustomBuilderScreen() {
 
   // Step 2: Day Selection & Add Exercises (Combined with fixed day selection)
   if (step === 2) {
+
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
@@ -637,196 +588,164 @@ export default function CustomBuilderScreen() {
         <View style={styles.content}>
           <Text style={styles.stepTitle}>Step 2 of 3: Choose Days & Add Exercises</Text>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.mainScrollView}
-            contentContainerStyle={styles.scrollViewContent}
-          >
-            {/* Fixed Day Selection Section */}
-            <View style={styles.fixedDaySection}>
-              <Card style={styles.compactSetupCard} theme={{ colors: { surface: colors.card } }}>
-              <View style={styles.compactSectionHeader}>
-                <View style={styles.compactSectionHeaderContent}>
-                  <Icon name="calendar-clock" size={20} color={colors.primary} />
-                  <Text style={[styles.sectionTitle, { fontSize: 18, marginBottom: 8 }]}>Choose Your Training Days</Text>
-                </View>
-                <Text style={[styles.setupDescription, { fontSize: 12, marginBottom: 12 }]}>
-                  Choose and customize your training days. You can rename days and see their progress as you build your plan.
-                </Text>
-              </View>
-
-              <View style={styles.daySelectionContainer}>
-                {dayData.map((dayInfo) => (
-                  <WorkoutDayCard
-                    key={dayInfo.dayName}
-                    dayName={dayInfo.dayName}
-                    day={dayInfo.day}
-                    isSelected={dayInfo.isSelected}
-                    isEditing={dayInfo.isEditing}
-                    exerciseCount={dayInfo.exerciseCount}
-                    editingDayName={editingDayName}
-                    onStartEditing={startEditingDay}
-                    onSaveEditing={saveDayName}
-                    onCancelEditing={cancelEditingDay}
-                    onChangeEditingName={setEditingDayName}
-                    onSelectDay={handleDaySelection}
-                  />
-                ))}
-              </View>
-
-              {/* Progress Summary */}
-              <View style={styles.progressSummary}>
-                <Text style={styles.progressSummaryText}>
-                  {progressInfo.configuredDays} of {progressInfo.totalDays} day{progressInfo.totalDays === 1 ? '' : 's'} configured
-                </Text>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${progressInfo.progressPercentage}%` }
-                    ]}
-                  />
-                </View>
-              </View>
-              </Card>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading exercises...</Text>
             </View>
-
-            {/* Exercise Search and Selection */}
-            {selectedDay && (
-              <Card style={styles.exerciseCard} theme={{ colors: { surface: colors.card } }}>
-                <Text style={styles.sectionTitle}>Add Exercises to {selectedDay}</Text>
-
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search exercises..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={searchText}
-                  onChangeText={setSearchText}
-                />
-
-                <View style={styles.muscleGroupContainer}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.muscleGroupScroll}
-                  >
-                    {muscleGroups.map(group => (
-                      <Chip
-                        key={group}
-                        selected={selectedMuscleGroup === group}
-                        onPress={() => setSelectedMuscleGroup(selectedMuscleGroup === group ? '' : group)}
-                        style={[
-                          styles.muscleGroupChip,
-                          selectedMuscleGroup === group && styles.selectedMuscleGroupChip
-                        ]}
-                        textStyle={[
-                          styles.muscleGroupText,
-                          selectedMuscleGroup === group && styles.selectedMuscleGroupText
-                        ]}
-                      >
-                        {group}
-                      </Chip>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {isLoading ? (
-                  <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-                ) : (
-                  <View style={styles.exerciseList}>
-                    {filteredExercises.map((exercise) => (
-                      <TouchableOpacity
-                        key={exercise.id}
-                        onPress={() => addExerciseToDay(selectedDay, exercise)}
-                        style={styles.exerciseItemCard}
-                      >
-                        <Text style={styles.exerciseName}>{exercise.name}</Text>
-                        <Text style={styles.exerciseDescription}>{exercise.description}</Text>
-                        <View style={styles.exerciseTags}>
-                          <Chip style={styles.chip} textStyle={styles.chipText}>
-                            {exercise.difficulty}
-                          </Chip>
-                          {exercise.muscle_groups.slice(0, 2).map(group => (
-                            <Chip key={group} style={styles.chip} textStyle={styles.chipText}>
-                              {group}
-                            </Chip>
-                          ))}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </Card>
-            )}
-
-            {/* Current Day Exercises */}
-            {selectedDay && workoutDays.find(d => d.day === selectedDay)?.exercises.length > 0 && (
-              <Card style={styles.currentDayCard} theme={{ colors: { surface: colors.card } }}>
-                <Text style={styles.sectionTitle}>Exercises in {selectedDay}</Text>
-                <View style={styles.currentDayExerciseList}>
-                  {workoutDays.find(d => d.day === selectedDay)?.exercises.map((workoutExercise, index) => (
-                    <View key={index} style={styles.exerciseInDayItem}>
-                      <View style={styles.exerciseInDayContent}>
-                        <View style={styles.exerciseInDayInfo}>
-                          <Text style={styles.exerciseName}>{workoutExercise.exercise.name}</Text>
-                          <Text style={styles.exerciseDescription}>{workoutExercise.exercise.description}</Text>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => removeExerciseFromDay(selectedDay, workoutExercise.exercise.id)}
-                          style={styles.removeButton}
-                        >
-                          <Icon name="delete" size={20} color={colors.error} />
-                        </TouchableOpacity>
+          ) : !selectedDay ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Setting up your workout days...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredExercises}
+              keyExtractor={keyExtractor}
+              renderItem={renderExerciseRow}
+              contentContainerStyle={styles.scrollViewContent}
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={10}
+              removeClippedSubviews
+              keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={(
+              <>
+                {/* Fixed Day Selection Section */}
+                <View style={styles.fixedDaySection}>
+                  <Card style={styles.compactSetupCard} theme={{ colors: { surface: colors.card } }}>
+                    <View style={styles.compactSectionHeader}>
+                      <View style={styles.compactSectionHeaderContent}>
+                        <Icon name="calendar-clock" size={20} color={colors.primary} />
+                        <Text style={[styles.sectionTitle, { fontSize: 18, marginBottom: 8 }]}>Choose Your Training Days</Text>
                       </View>
+                      <Text style={[styles.setupDescription, { fontSize: 12, marginBottom: 12 }]}>Choose and customize your training days. You can rename days and see their progress as you build your plan.</Text>
+                    </View>
 
-                      <View style={styles.exerciseDetailsContainer}>
-                        <PaperInput
-                          label="Sets"
-                          value={workoutExercise.sets.toString()}
-                          onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: parseInt(value) || 1 })}
-                          style={styles.detailInput}
-                          theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                          textColor={colors.text}
-                          keyboardType="numeric"
+                    <View style={styles.daySelectionContainer}>
+                      {dayData.map((dayInfo) => (
+                        <WorkoutDayCard
+                          key={dayInfo.dayName}
+                          dayName={dayInfo.dayName}
+                          day={dayInfo.day}
+                          isSelected={dayInfo.isSelected}
+                          isEditing={dayInfo.isEditing}
+                          exerciseCount={dayInfo.exerciseCount}
+                          editingDayName={editingDayName}
+                          onStartEditing={startEditingDay}
+                          onSaveEditing={saveDayName}
+                          onCancelEditing={cancelEditingDay}
+                          onChangeEditingName={setEditingDayName}
+                          onSelectDay={handleDaySelection}
                         />
-                        <PaperInput
-                          label="Reps"
-                          value={workoutExercise.reps}
-                          onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { reps: value })}
-                          style={styles.detailInput}
-                          theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                          textColor={colors.text}
-                        />
-                        <PaperInput
-                          label="Rest"
-                          value={workoutExercise.rest}
-                          onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { rest: value })}
-                          style={styles.detailInput}
-                          theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                          textColor={colors.text}
-                        />
+                      ))}
+                    </View>
+
+                    {/* Progress Summary */}
+                    <View style={styles.progressSummary}>
+                      <Text style={styles.progressSummaryText}>{progressInfo.configuredDays} of {progressInfo.totalDays} day{progressInfo.totalDays === 1 ? '' : 's'} configured</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${progressInfo.progressPercentage}%` }]} />
                       </View>
                     </View>
-                  ))}
+                  </Card>
                 </View>
-              </Card>
-            )}
 
-            {/* Step Progress */}
-            <View style={styles.progressSummary}>
-              <Text style={styles.progressSummaryText}>
-                Step {step} of {3}: Building your {planSetup.daysPerWeek}-day plan
-              </Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${(step / 3) * 100}%` }
-                  ]}
-                />
-              </View>
-            </View>
-          </ScrollView>
+                {/* Exercise Search and Filters */}
+                {selectedDay && (
+                  <Card style={styles.exerciseCard} theme={{ colors: { surface: colors.card } }}>
+                    <Text style={styles.sectionTitle}>Add Exercises to {selectedDay}</Text>
+
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Search exercises..."
+                      placeholderTextColor={colors.textSecondary}
+                      value={searchText}
+                      onChangeText={setSearchText}
+                    />
+
+                    <View style={styles.muscleGroupContainer}>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.muscleGroupScroll}>
+                        {muscleGroups.map(group => (
+                          <Chip
+                            key={group}
+                            selected={selectedMuscleGroup === group}
+                            onPress={() => setSelectedMuscleGroup(selectedMuscleGroup === group ? '' : group)}
+                            style={[styles.muscleGroupChip, selectedMuscleGroup === group && styles.selectedMuscleGroupChip]}
+                            textStyle={[styles.muscleGroupText, selectedMuscleGroup === group && styles.selectedMuscleGroupText]}
+                          >
+                            {group}
+                          </Chip>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {isLoading && (
+                      <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+                    )}
+                  </Card>
+                )}
+
+                {/* Current Day Exercises */}
+                {selectedDay && workoutDays.find(d => d.day === selectedDay)?.exercises.length > 0 && (
+                  <Card style={styles.currentDayCard} theme={{ colors: { surface: colors.card } }}>
+                    <Text style={styles.sectionTitle}>Exercises in {selectedDay}</Text>
+                    <View style={styles.currentDayExerciseList}>
+                      {workoutDays.find(d => d.day === selectedDay)?.exercises.map((workoutExercise, index) => (
+                        <View key={index} style={styles.exerciseInDayItem}>
+                          <View style={styles.exerciseInDayContent}>
+                            <View style={styles.exerciseInDayInfo}>
+                              <Text style={styles.exerciseName}>{workoutExercise.exercise.name}</Text>
+                              <Text style={styles.exerciseDescription}>{workoutExercise.exercise.description}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => removeExerciseFromDay(selectedDay, workoutExercise.exercise.id)} style={styles.removeButton}>
+                              <Icon name="delete" size={20} color={colors.error} />
+                            </TouchableOpacity>
+                          </View>
+
+                          <View style={styles.exerciseDetailsContainer}>
+                            <PaperInput
+                              label="Sets"
+                              value={workoutExercise.sets.toString()}
+                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: parseInt(value) || 1 })}
+                              style={styles.detailInput}
+                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
+                              textColor={colors.text}
+                              keyboardType="numeric"
+                            />
+                            <PaperInput
+                              label="Reps"
+                              value={workoutExercise.reps}
+                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { reps: value })}
+                              style={styles.detailInput}
+                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
+                              textColor={colors.text}
+                            />
+                            <PaperInput
+                              label="Rest"
+                              value={workoutExercise.rest}
+                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { rest: value })}
+                              style={styles.detailInput}
+                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
+                              textColor={colors.text}
+                            />
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+
+                {/* Step Progress */}
+                <View style={styles.progressSummary}>
+                  <Text style={styles.progressSummaryText}>Step {step} of {3}: Building your {planSetup.daysPerWeek}-day plan</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${(step / 3) * 100}%` }]} />
+                  </View>
+                </View>
+              </>
+            )}
+          />
+          )}
         </View>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
@@ -837,7 +756,7 @@ export default function CustomBuilderScreen() {
             style={styles.nextButton}
             contentStyle={styles.nextButtonContent}
           >
-            Next: Review & Create
+            <Text>Next: Review & Create</Text>
           </Button>
         </View>
       </View>
@@ -909,7 +828,7 @@ export default function CustomBuilderScreen() {
             ) : (
               <>
                 <Icon name="check" size={20} color="#FFFFFF" />
-                <Text style={styles.createButtonText}>Create "{planSetup.name}"</Text>
+                <Text style={styles.createButtonText}>Create &quot;{planSetup.name}&quot;</Text>
               </>
             )}
           </Button>
@@ -923,23 +842,42 @@ export default function CustomBuilderScreen() {
 }
 
 // Memoized WorkoutDayCard component moved outside main component for better performance
+const ExerciseListItem = React.memo(({ exercise, onPress }: { exercise: Exercise; onPress: () => void }) => {
+  // Component definition with display name
+  ExerciseListItem.displayName = 'ExerciseListItem';
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.exerciseItemCard}>
+      <Text style={styles.exerciseName}>{exercise.name}</Text>
+      <Text style={styles.exerciseDescription}>{exercise.description}</Text>
+      <View style={styles.exerciseTags}>
+        <Chip style={styles.chip} textStyle={styles.chipText}>
+          {exercise.difficulty}
+        </Chip>
+        {exercise.muscle_groups.slice(0, 2).map(group => (
+          <Chip key={group} style={styles.chip} textStyle={styles.chipText}>
+            {group}
+          </Chip>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 interface WorkoutDayCardProps {
   dayName: string;
-  day: WorkoutDay | undefined;
   isSelected: boolean;
   isEditing: boolean;
   exerciseCount: number;
   editingDayName: string;
-  onStartEditing: (dayName: string) => void;
+  onStartEditing: () => void;
   onSaveEditing: () => void;
   onCancelEditing: () => void;
-  onChangeEditingName: (name: string) => void;
-  onSelectDay: (dayName: string) => void;
+  onChangeEditingName: () => void;
+  onSelectDay: () => void;
 }
 
 const WorkoutDayCard = React.memo<WorkoutDayCardProps>(({
   dayName,
-  day,
   isSelected,
   isEditing,
   exerciseCount,
@@ -950,9 +888,12 @@ const WorkoutDayCard = React.memo<WorkoutDayCardProps>(({
   onChangeEditingName,
   onSelectDay
 }) => {
-  const handleStartEditing = useCallback(() => onStartEditing(dayName), [dayName, onStartEditing]);
+  const handleStartEditing = useCallback(() => onStartEditing(), [onStartEditing]);
   const handleSaveDay = useCallback(() => onSaveEditing(), [onSaveEditing]);
-  const handleSelectDay = useCallback(() => onSelectDay(dayName), [dayName, onSelectDay]);
+  const handleSelectDay = useCallback(() => onSelectDay(), [onSelectDay]);
+
+  // Component definition with display name
+  WorkoutDayCard.displayName = 'WorkoutDayCard';
 
   // Memoize expensive calculations
   const cardStyle = useMemo(() => [
@@ -1306,6 +1247,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  planDescription: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   planDetails: {
     color: colors.textSecondary,
@@ -1706,32 +1653,7 @@ const styles = StyleSheet.create({
   },
 
   // Review Styles
-  planSummary: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  planTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  planDescription: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  planDetails: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
+  
 
   footer: {
     padding: 20,
@@ -1799,28 +1721,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
-  daySelectionCard: {
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 90,
-    maxHeight: 100,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
-    marginBottom: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    minWidth: 140,
-  },
+  
   completedDayCard: {
     borderColor: colors.success,
     shadowColor: colors.success,
@@ -1841,15 +1742,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  cardGradient: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'flex-start',
-    paddingTop: 20,
-    alignItems: 'center',
-    padding: 12,
-    paddingHorizontal: 8,
-  },
+  
   exerciseCountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1934,5 +1827,17 @@ const styles = StyleSheet.create({
   },
   backButtonContent: {
     paddingVertical: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    color: colors.text,
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
   },
 });

@@ -1,16 +1,823 @@
-/Users/ngkwanho/Desktop/GoFitAI/server/index.js:287
-  let selectedPlan = defaultPlan;
-  ^^^
+--- SERVER RESTARTED ---
+--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[QUOTA] Monitor initialized
+[QUOTA] Daily quota: 50
+[QUOTA] Reset time: 2025-09-28T16:00:00.000Z
+[CACHE] Response cache initialized
+[CACHE] Max cache size: 100
+[CACHE] Default timeout: 30 minutes
+[RATE LIMITER] Rate limiter initialized
+[RATE LIMITER] Window: 60 seconds
+[RATE LIMITER] Max requests: 5
+[RATE LIMITER] Max AI requests per hour: 10
+[VISION SERVICE] Initializing Gemini Vision Service
+[GEMINI VISION] Service initialized with model: gemini-1.5-flash
+[GEMINI VISION] Temperature: 0.1 (low for consistency)
+[GEMINI VISION] API Key configured: ✅ Yes
+[AI SERVICE] Initializing Gemini Text Service with API key rotation
+[API KEY] Manager initialized
+[API KEY] Keys loaded: 1
+[API KEY] Key quota: 50
+[API KEY] Selected best key 1 with 50 requests remaining
+[GEMINI TEXT] Using key with best quota availability
+[GEMINI TEXT] Service initialized with model: gemini-1.5-flash
+[GEMINI TEXT] API Key rotation enabled: ✅ Yes
+=== AI CONFIGURATION ===
+Available AI Providers: [ 'gemini', 'fallback' ]
+GEMINI_API_KEY exists: true
+GEMINI_MODEL: gemini-1.5-flash
+Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+Gemini provider config: {
+  name: 'gemini',
+  apiKey: 'AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg',
+  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+  model: 'gemini-1.5-flash',
+  enabled: true
+}
+Default AI_PROVIDER: gemini
+Total providers available: 2
+- gemini: ENABLED (gemini-1.5-flash)
+- fallback: ENABLED (rule-based)
+========================
+GoFitAI Server v2.0 running on port 4000
+Local IP: 192.168.0.176
+Server URL: http://192.168.0.176:4000
+Test API with: curl http://192.168.0.176:4000/api/test
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"t","101":"\"","...
+[WORKOUT] Normalized profile data: {
+  "full_name": "Alice",
+  "gender": "female",
+  "age": 30,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: muscle_gain
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
 
-SyntaxError: Unexpected identifier 'let'
-    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
-    at Module._compile (node:internal/modules/cjs/loader:1528:20)
-    at Object..js (node:internal/modules/cjs/loader:1706:10)
-    at Module.load (node:internal/modules/cjs/loader:1289:32)
-    at Function._load (node:internal/modules/cjs/loader:1108:12)
-    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
-    at node:internal/main/run_main_module:36:49
+CLIENT PROFILE:
+- Full Name: Alice
+- Gender: female
+- Age: 30
+- Training Level: intermediate
+- Primary Goal: muscle_gain
+- Preferred Workout Frequency: 4-5 times per week
 
-Node.js v22.14.0
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive ...
+[WORKOUT] Prompt length: 6678
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'Alice',
+  fitnessLevel: 'intermediate',
+  primaryGoal: 'muscle_gain',
+  workoutFrequency: '4_5'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "Alice",
+  "gender": "female",
+  "age": 30,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Alice",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: intermediate
+[GEMINI TEXT] Goal: muscle_gain
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "Alice",
+  "gender": "female",
+  "age": 30,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Alice",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3018
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[WORKOUT] Using fallback rule-based generation
+[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
+[WORKOUT] User profile received: {
+  "full_name": "Alice",
+  "gender": "female",
+  "age": 30,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Personalization factors: {
+  goal: 'muscle_gain',
+  level: 'intermediate',
+  frequency: '4_5',
+  age: 30,
+  gender: 'female',
+  name: 'Alice'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
+  'plan_name',
+  'weekly_schedule',
+  'primary_goal',
+  'workout_frequency',
+  'training_level',
+  'personalization',
+  'created_at',
+  'source',
+  'notes'
+]
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
+  name: 'Alice',
+  age: 30,
+  gender: 'female',
+  fitness_level: 'intermediate',
+  customized_for: 'intermediate muscle gain training'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Alice, targeting muscle gain at intermediate level.
+{"level":30,"time":1759048659556,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"159"},"remoteAddress":"127.0.0.1","remotePort":61579},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052259,"content-type":"application/json; charset=utf-8","content-length":"2187","etag":"W/\"88b-9I+NonlOGBt7fFATdw0MszfIC3U\""}},"responseTime":255,"msg":"request completed"}
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"t","101":"\"","...
+[WORKOUT] Normalized profile data: {
+  "full_name": "Alice",
+  "gender": "female",
+  "age": 30,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: muscle_gain
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: Alice
+- Gender: female
+- Age: 30
+- Training Level: intermediate
+- Primary Goal: muscle_gain
+- Preferred Workout Frequency: 4-5 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive ...
+[WORKOUT] Prompt length: 6678
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'Alice',
+  fitnessLevel: 'intermediate',
+  primaryGoal: 'muscle_gain',
+  workoutFrequency: '4_5'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "Alice",
+  "gender": "female",
+  "age": 30,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Alice",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: intermediate
+[GEMINI TEXT] Goal: muscle_gain
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "Alice",
+  "gender": "female",
+  "age": 30,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Alice",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3018
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] ⚠️ Retryable error (attempt 1/3), retrying in 1305ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Backoff delay: 1305ms (exponential + jitter)
+[GEMINI TEXT] Attempt 2/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] Applying exponential backoff delay: 1000ms
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 2 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[WORKOUT] Using fallback rule-based generation
+[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
+[WORKOUT] User profile received: {
+  "full_name": "Alice",
+  "gender": "female",
+  "age": 30,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Personalization factors: {
+  goal: 'muscle_gain',
+  level: 'intermediate',
+  frequency: '4_5',
+  age: 30,
+  gender: 'female',
+  name: 'Alice'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
+  'plan_name',
+  'weekly_schedule',
+  'primary_goal',
+  'workout_frequency',
+  'training_level',
+  'personalization',
+  'created_at',
+  'source',
+  'notes'
+]
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
+  name: 'Alice',
+  age: 30,
+  gender: 'female',
+  fitness_level: 'intermediate',
+  customized_for: 'intermediate muscle gain training'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Alice, targeting muscle gain at intermediate level.
+{"level":30,"time":1759048682354,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"159"},"remoteAddress":"127.0.0.1","remotePort":61602},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":3,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052282,"content-type":"application/json; charset=utf-8","content-length":"2187","etag":"W/\"88b-yYXUS1qHdNFQSqhCKGYi6gl3fPc\""}},"responseTime":2577,"msg":"request completed"}
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","11":"f","12":"r","13"...
+[WORKOUT] Normalized profile data: {
+  "full_name": "John",
+  "gender": "male",
+  "age": 45,
+  "training_level": "beginner",
+  "primary_goal": "fat_loss",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: fat_loss
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: John
+- Gender: male
+- Age: 45
+- Training Level: beginner
+- Primary Goal: fat_loss
+- Preferred Workout Frequency: 4-5 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive overload g...
+[WORKOUT] Prompt length: 6668
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'John',
+  fitnessLevel: 'beginner',
+  primaryGoal: 'fat_loss',
+  workoutFrequency: '4_5'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "John",
+  "gender": "male",
+  "age": 45,
+  "fitnessLevel": "beginner",
+  "primaryGoal": "fat_loss",
+  "workoutFrequency": "4_5",
+  "full_name": "John",
+  "training_level": "beginner",
+  "primary_goal": "fat_loss",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: beginner
+[GEMINI TEXT] Goal: fat_loss
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "John",
+  "gender": "male",
+  "age": 45,
+  "fitnessLevel": "beginner",
+  "primaryGoal": "fat_loss",
+  "workoutFrequency": "4_5",
+  "full_name": "John",
+  "training_level": "beginner",
+  "primary_goal": "fat_loss",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 2970
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[WORKOUT] Using fallback rule-based generation
+[WORKOUT] Generating ENHANCED rule-based workout plan for: fat_loss
+[WORKOUT] User profile received: {
+  "full_name": "John",
+  "gender": "male",
+  "age": 45,
+  "training_level": "beginner",
+  "primary_goal": "fat_loss",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Personalization factors: {
+  goal: 'fat_loss',
+  level: 'beginner',
+  frequency: '4_5',
+  age: 45,
+  gender: 'male',
+  name: 'John'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
+  'plan_name',
+  'weekly_schedule',
+  'primary_goal',
+  'workout_frequency',
+  'training_level',
+  'personalization',
+  'created_at',
+  'source',
+  'notes'
+]
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
+  name: 'John',
+  age: 45,
+  gender: 'male',
+  fitness_level: 'beginner',
+  customized_for: 'beginner fat loss training'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for John, targeting fat loss at beginner level.
+{"level":30,"time":1759048697362,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"149"},"remoteAddress":"127.0.0.1","remotePort":61622},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":2,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052297,"content-type":"application/json; charset=utf-8","content-length":"2276","etag":"W/\"8e4-9y+BjDxLzzxcZRH1h6kiDQvQfFQ\""}},"responseTime":478,"msg":"request completed"}
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","11":"f","12":"r","13"...
+[WORKOUT] Normalized profile data: {
+  "full_name": "Sarah",
+  "gender": "female",
+  "age": 25,
+  "training_level": "advanced",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "6"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: muscle_gain
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: Sarah
+- Gender: female
+- Age: 25
+- Training Level: advanced
+- Primary Goal: muscle_gain
+- Preferred Workout Frequency: 6 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressive overlo...
+[WORKOUT] Prompt length: 6666
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'Sarah',
+  fitnessLevel: 'advanced',
+  primaryGoal: 'muscle_gain',
+  workoutFrequency: '6'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "Sarah",
+  "gender": "female",
+  "age": 25,
+  "fitnessLevel": "advanced",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "6",
+  "full_name": "Sarah",
+  "training_level": "advanced",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "6"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: advanced
+[GEMINI TEXT] Goal: muscle_gain
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "Sarah",
+  "gender": "female",
+  "age": 25,
+  "fitnessLevel": "advanced",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "6",
+  "full_name": "Sarah",
+  "training_level": "advanced",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "6"
+}
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 2982
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] ⚠️ Retryable error (attempt 1/3), retrying in 1491ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Backoff delay: 1491ms (exponential + jitter)
+[GEMINI TEXT] Attempt 2/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] Applying exponential backoff delay: 1000ms
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 2 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] ⚠️ Retryable error (attempt 2/3), retrying in 2107ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Network error detected: false
+[GEMINI TEXT] Backoff delay: 2107ms (exponential + jitter)
+[GEMINI TEXT] Attempt 3/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] Applying exponential backoff delay: 2000ms
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 3 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
+    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[WORKOUT] Using fallback rule-based generation
+[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
+[WORKOUT] User profile received: {
+  "full_name": "Sarah",
+  "gender": "female",
+  "age": 25,
+  "training_level": "advanced",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "6"
+}
+[WORKOUT] Personalization factors: {
+  goal: 'muscle_gain',
+  level: 'advanced',
+  frequency: '6',
+  age: 25,
+  gender: 'female',
+  name: 'Sarah'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
+  'plan_name',
+  'weekly_schedule',
+  'primary_goal',
+  'workout_frequency',
+  'training_level',
+  'personalization',
+  'created_at',
+  'source',
+  'notes'
+]
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
+  name: 'Sarah',
+  age: 25,
+  gender: 'female',
+  fitness_level: 'advanced',
+  customized_for: 'advanced muscle gain training'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Sarah, targeting muscle gain at advanced level.
+{"level":30,"time":1759048719480,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"153"},"remoteAddress":"127.0.0.1","remotePort":61631},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":5,"x-ratelimit-reset":1759048779,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052319,"content-type":"application/json; charset=utf-8","content-length":"2176","etag":"W/\"880-rlX8FMgYOhUFjD5TN9I2rXRuN3U\""}},"responseTime":10373,"msg":"request completed"}
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"}","11":"f","12...
+[WORKOUT] Normalized profile data: {
+  "full_name": "Test User",
+  "gender": "male",
+  "age": 28,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Primary goal from user profile: undefined
+[WORKOUT] Primary goal in normalized profile: muscle_gain
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: Test User
+- Gender: male
+- Age: 28
+- Training Level: intermediate
+- Primary Goal: muscle_gain
+- Preferred Workout Frequency: 4-5 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progressiv...
+[WORKOUT] Prompt length: 6680
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'Test User',
+  fitnessLevel: 'intermediate',
+  primaryGoal: 'muscle_gain',
+  workoutFrequency: '4_5'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "Test User",
+  "gender": "male",
+  "age": 28,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Test User",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: intermediate
+[GEMINI TEXT] Goal: muscle_gain
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "Test User",
+  "gender": "male",
+  "age": 28,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "muscle_gain",
+  "workoutFrequency": "4_5",
+  "full_name": "Test User",
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3016
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Complex request detected: false, timeout: 30s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
+[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
+[WORKOUT] Using fallback rule-based generation
+[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
+[WORKOUT] User profile received: {
+  "full_name": "Test User",
+  "gender": "male",
+  "age": 28,
+  "training_level": "intermediate",
+  "primary_goal": "muscle_gain",
+  "workout_frequency": "4_5"
+}
+[WORKOUT] Personalization factors: {
+  goal: 'muscle_gain',
+  level: 'intermediate',
+  frequency: '4_5',
+  age: 28,
+  gender: 'male',
+  name: 'Test User'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
+  'plan_name',
+  'weekly_schedule',
+  'primary_goal',
+  'workout_frequency',
+  'training_level',
+  'personalization',
+  'created_at',
+  'source',
+  'notes'
+]
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
+  name: 'Test User',
+  age: 28,
+  gender: 'male',
+  fitness_level: 'intermediate',
+  customized_for: 'intermediate muscle gain training'
+}
+[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Test User, targeting muscle gain at intermediate level.
+{"level":30,"time":1759049112808,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"161"},"remoteAddress":"127.0.0.1","remotePort":61938},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759049172,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052712,"content-type":"application/json; charset=utf-8","content-length":"2197","etag":"W/\"895-qx69Rkb2eKNnHSShKDvbVNsZk1w\""}},"responseTime":287,"msg":"request completed"}
+{"level":30,"time":1759049128185,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61948},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-uRZLqM+TWYh6J4W4AAvoaWo5TxI\""}},"responseTime":1,"msg":"request completed"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...

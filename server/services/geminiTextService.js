@@ -31,10 +31,21 @@ class GeminiTextService {
       const bestKey = this.apiKeyManager.getBestAvailableKey();
       this.currentKey = bestKey;
       this.genAI = new GoogleGenerativeAI(bestKey);
-      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
-      this.modelName = modelName;
+      
+      // Try models in order of preference (working models first!)
+      const modelPriority = [
+        process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'models/gemini-2.5-flash',
+        'models/gemini-2.5-flash',     // Gemini 2.5 Flash (LATEST MODEL)
+        'gemini-1.5-flash',            // Fallback to 1.5 Flash
+        'gemini-1.5-pro',              // Pro version fallback
+        'gemini-pro'                   // Original fallback
+      ].filter(Boolean); // Remove undefined values
+      
+      this.modelName = modelPriority[0];
+      this.modelFallbacks = modelPriority.slice(1);
+      
       this.model = this.genAI.getGenerativeModel({
-        model: modelName,
+        model: this.modelName,
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,
@@ -42,6 +53,8 @@ class GeminiTextService {
         }
       });
 
+      console.log('[GEMINI TEXT] Using primary model:', this.modelName);
+      console.log('[GEMINI TEXT] Fallback models available:', this.modelFallbacks);
       console.log('[GEMINI TEXT] Using key with best quota availability');
     } catch (error) {
       console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
@@ -799,6 +812,51 @@ IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. U
   }
 
   /**
+   * Try fallback models when primary model fails
+   */
+  async tryFallbackModel(content, currentError) {
+    if (!this.modelFallbacks || this.modelFallbacks.length === 0) {
+      console.log('[GEMINI TEXT] No fallback models available');
+      return null;
+    }
+
+    console.log('[GEMINI TEXT] 🔄 Trying fallback models due to:', currentError.message.slice(0, 100));
+    
+    for (const fallbackModel of this.modelFallbacks) {
+      try {
+        console.log('[GEMINI TEXT] 🧪 Testing fallback model:', fallbackModel);
+        
+        const fallbackModelInstance = this.genAI.getGenerativeModel({
+          model: fallbackModel,
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            maxOutputTokens: 8000
+          }
+        });
+
+        const result = await fallbackModelInstance.generateContent(content);
+        if (result && result.response) {
+          const response = await result.response;
+          const text = response.text();
+          if (text && text.trim().length > 0) {
+            console.log('[GEMINI TEXT] ✅ Fallback model success:', fallbackModel);
+            // Update current model to working one
+            this.model = fallbackModelInstance;
+            this.modelName = fallbackModel;
+            return result;
+          }
+        }
+      } catch (fallbackError) {
+        console.log('[GEMINI TEXT] ❌ Fallback model failed:', fallbackModel, '-', fallbackError.message.slice(0, 80));
+      }
+    }
+    
+    console.log('[GEMINI TEXT] 💥 All fallback models failed');
+    return null;
+  }
+
+  /**
    * Generates content with retry logic for 503 Service Unavailable errors
    */
   async generateContentWithRetry(content, maxRetries = 2) {
@@ -894,6 +952,19 @@ IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. U
         console.error('[GEMINI TEXT] Error in generateContentWithRetry attempt', attempt, ':', error.message);
         console.error('[GEMINI TEXT] Error stack:', error.stack);
         console.error('[GEMINI TEXT] Error constructor:', error.constructor.name);
+
+        // Try fallback models on first attempt if it's a model-specific error
+        if (attempt === 1 && (
+          error.message.includes('location is not supported') || 
+          error.message.includes('not found') ||
+          error.message.includes('not supported for generateContent')
+        )) {
+          console.log('[GEMINI TEXT] 🔄 Model-specific error detected, trying fallback models...');
+          const fallbackResult = await this.tryFallbackModel(content, error);
+          if (fallbackResult) {
+            return fallbackResult;
+          }
+        }
 
         const isServiceUnavailable = error.message.includes('503') ||
                                    error.message.includes('Service Unavailable') ||
@@ -1076,7 +1147,7 @@ IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. U
     return {
       service: 'GeminiTextService',
       status: 'healthy',
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'models/gemini-2.5-flash',
       apiKeyConfigured: !!this.apiKey,
       capabilities: ['recipe_generation', 'workout_plans'],
       timestamp: new Date().toISOString()

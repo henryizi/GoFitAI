@@ -560,6 +560,9 @@ export class RevenueCatService {
    */
   static async getCustomerInfo(): Promise<CustomerInfo | null> {
     try {
+      if (USE_MOCK_SERVICE) {
+        return await MockRevenueCatService.getCustomerInfo();
+      }
       await this.initialize();
       return await Purchases.getCustomerInfo();
     } catch (error) {
@@ -573,6 +576,10 @@ export class RevenueCatService {
    */
   static async logOut(): Promise<void> {
     try {
+      if (USE_MOCK_SERVICE) {
+        console.log('MockRevenueCatService: User logged out');
+        return;
+      }
       await this.initialize();
       await Purchases.logOut();
       console.log('[RevenueCat] User logged out successfully');

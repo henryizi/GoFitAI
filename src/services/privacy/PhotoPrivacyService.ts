@@ -1,6 +1,6 @@
 import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator';
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface PrivacyOptions {
   blurSensitiveAreas: boolean;

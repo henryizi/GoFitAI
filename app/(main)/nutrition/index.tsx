@@ -549,9 +549,7 @@ const PlansScreen = () => {
                       <TouchableOpacity
                         onPress={() => {
                           console.log('Log Food button pressed');
-                          router.push({
-                            pathname: '/nutrition/log-food'
-                          });
+                          router.push('/(main)/nutrition/log-food');
                         }}
                         style={styles.logFoodButton}
                         activeOpacity={0.8}
@@ -652,6 +650,86 @@ const PlansScreen = () => {
                         </View>
                       </View>
                       
+                      {/* Metabolic Calculation Breakdown */}
+                      {activePlan?.metabolic_calculations && (
+                        <View style={styles.calculationBreakdownContainer}>
+                          <View style={styles.calculationBreakdownHeader}>
+                            <Text style={styles.calculationBreakdownTitle}>📊 HOW YOUR TARGETS WERE CALCULATED</Text>
+                            <Text style={styles.calculationBreakdownSubtitle}>
+                              Based on {activePlan.metabolic_calculations.calculation_method || 'Henry/Oxford Equation'}
+                            </Text>
+                          </View>
+
+                          <View style={styles.metabolicBreakdown}>
+                            {/* BMR */}
+                            <View style={styles.metabolicRow}>
+                              <View style={styles.metabolicLabel}>
+                                <Text style={styles.metabolicEmoji}>⚡</Text>
+                                <View>
+                                  <Text style={styles.metabolicTitle}>Basal Metabolic Rate (BMR)</Text>
+                                  <Text style={styles.metabolicSubtitle}>Calories burned at rest</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.metabolicValue}>
+                                {activePlan.metabolic_calculations.bmr} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                              </Text>
+                            </View>
+
+                            {/* Activity Multiplier */}
+                            <View style={styles.metabolicRow}>
+                              <View style={styles.metabolicLabel}>
+                                <Text style={styles.metabolicEmoji}>🏃</Text>
+                                <View>
+                                  <Text style={styles.metabolicTitle}>Activity Level</Text>
+                                  <Text style={styles.metabolicSubtitle}>
+                                    {activePlan.metabolic_calculations.activity_level?.replace('_', ' ') || 'moderately active'} (×{activePlan.metabolic_calculations.activity_multiplier || '1.55'})
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.metabolicValue}>
+                                {activePlan.metabolic_calculations.tdee} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                              </Text>
+                            </View>
+
+                            {/* Goal Adjustment */}
+                            <View style={styles.metabolicRow}>
+                              <View style={styles.metabolicLabel}>
+                                <Text style={styles.metabolicEmoji}>🎯</Text>
+                                <View>
+                                  <Text style={styles.metabolicTitle}>Goal Adjustment</Text>
+                                  <Text style={styles.metabolicSubtitle}>
+                                    {activePlan.metabolic_calculations.goal_adjustment_reason || 
+                                     activePlan.metabolic_calculations.calorie_adjustment_reason || 
+                                     'Adjusted for your goals'}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.metabolicValue, { 
+                                color: (activePlan.metabolic_calculations.goal_adjustment || 0) > 0 ? colors.success : 
+                                       (activePlan.metabolic_calculations.goal_adjustment || 0) < 0 ? colors.warning : colors.white 
+                              }]}>
+                                {(activePlan.metabolic_calculations.goal_adjustment || 0) > 0 ? '+' : ''}
+                                {activePlan.metabolic_calculations.goal_adjustment || 0} <Text style={styles.metabolicUnit}>kcal/day</Text>
+                              </Text>
+                            </View>
+
+                            {/* Final Target */}
+                            <View style={[styles.metabolicRow, styles.finalTargetRow]}>
+                              <View style={styles.metabolicLabel}>
+                                <Text style={styles.metabolicEmoji}>🔥</Text>
+                                <View>
+                                  <Text style={styles.metabolicTitle}>Your Daily Target</Text>
+                                  <Text style={styles.metabolicSubtitle}>Final calorie goal</Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.metabolicValue, styles.finalTargetValue]}>
+                                {getCalorieTarget()} 
+                                <Text style={styles.metabolicUnit}> kcal/day</Text>
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      )}
 
                     </View>
                   ) : (
@@ -1311,6 +1389,82 @@ const styles = StyleSheet.create({
     color: colors.white,
     letterSpacing: 0.6,
     flexShrink: 1, // Allow text to shrink if needed
+  },
+  
+  // Metabolic calculation breakdown styles
+  calculationBreakdownContainer: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  calculationBreakdownHeader: {
+    marginBottom: 16,
+  },
+  calculationBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  calculationBreakdownSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  metabolicBreakdown: {
+    gap: 0,
+  },
+  metabolicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  finalTargetRow: {
+    borderBottomWidth: 0,
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  metabolicLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  metabolicEmoji: {
+    fontSize: 18,
+  },
+  metabolicTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: 2,
+  },
+  metabolicSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 14,
+  },
+  metabolicValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+    textAlign: 'right',
+  },
+  finalTargetValue: {
+    fontSize: 16,
+    color: colors.primary,
+  },
+  metabolicUnit: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textSecondary,
   },
 });
 

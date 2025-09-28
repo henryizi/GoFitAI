@@ -81,6 +81,9 @@ const upload = multer({
   }
 });
 
+// Set Gemini model to 2.5 Flash for all services
+process.env.GEMINI_MODEL = process.env.GEMINI_MODEL || 'models/gemini-2.5-flash';
+
 // Initialize Gemini Vision Service
 let geminiVisionService = null;
 let geminiTextService = null;
@@ -89,7 +92,13 @@ try {
     geminiVisionService = new GeminiVisionService(GEMINI_API_KEY);
     console.log('[RAILWAY] Gemini Vision Service initialized successfully');
     try {
-      geminiTextService = new GeminiTextService(GEMINI_API_KEY);
+      // Create a simple API key manager for the Railway deployment
+    const simpleApiKeyManager = {
+      getBestAvailableKey: () => GEMINI_API_KEY,
+      getNextKey: () => GEMINI_API_KEY,
+      recordUsage: () => ({ remaining: 100 })
+    };
+    geminiTextService = new GeminiTextService(simpleApiKeyManager);
       console.log('[RAILWAY] Gemini Text Service initialized successfully');
     } catch (e) {
       console.error('[RAILWAY] Failed to initialize Gemini Text Service:', e.message);

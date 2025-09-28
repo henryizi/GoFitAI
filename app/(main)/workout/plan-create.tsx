@@ -465,7 +465,38 @@ export default function PlanCreateScreen() {
         console.log('Plan created successfully, navigating with plan data:', plan);
         // Add a small delay to ensure plan is fully saved before navigation
         setTimeout(() => {
-          Alert.alert('Success', 'Workout plan generated successfully!', [
+          const isOfflinePlan = (plan as any)?.source === 'offline_fallback';
+          const systemMeta = (plan as any)?.system_metadata;
+          
+          let successMessage = 'Workout plan generated successfully!';
+          let successTitle = 'Success';
+          
+          // Enhanced messaging based on system metadata
+          if (systemMeta?.fallback_used) {
+            switch (systemMeta.fallback_reason) {
+              case 'regional_restriction':
+                successTitle = 'Plan Generated';
+                successMessage = '🌍 Your personalized workout plan is ready! We used our enhanced rule-based system to create a detailed plan tailored specifically for your goals and fitness level.';
+                break;
+              case 'quota_exceeded':
+                successTitle = 'Plan Generated';
+                successMessage = '📊 Your personalized workout plan is ready! We used our enhanced rule-based system to create a detailed plan while our AI services are at capacity.';
+                break;
+              case 'ai_unavailable':
+                successTitle = 'Plan Generated';
+                successMessage = '🔧 Your personalized workout plan is ready! We used our enhanced rule-based system to ensure you get a great workout plan right away.';
+                break;
+              default:
+                successMessage = '💪 Your personalized workout plan is ready! Created using our enhanced rule-based system for optimal results.';
+            }
+          } else if (systemMeta?.ai_available) {
+            successTitle = '🤖 AI Plan Ready';
+            successMessage = 'Your AI-powered workout plan has been generated! This plan is fully personalized using advanced AI technology.';
+          } else if (isOfflinePlan) {
+            successMessage = 'Offline workout plan generated successfully! This plan works great without internet connection.';
+          }
+            
+          Alert.alert(successTitle, successMessage, [
             {
               text: 'View Plan',
               onPress: () => router.replace({
@@ -494,7 +525,13 @@ export default function PlanCreateScreen() {
       setStatusMessage(null);
       const message = err instanceof Error ? err.message : String(err);
       const isTimeout = /timeout|ECONNABORTED|\[Timeout\]/i.test(message);
-      setError(isTimeout ? 'The AI request timed out. Please try again.' : (err instanceof Error ? err.message : 'An unexpected error occurred'));
+      const isNetworkError = /Network request failed|fetch/i.test(message);
+      
+      if (isNetworkError) {
+        setError('Network connection unavailable. Don\'t worry - we\'ll generate an offline workout plan for you! Tap "Try Again" to continue.');
+      } else {
+        setError(isTimeout ? 'The AI request timed out. Please try again.' : (err instanceof Error ? err.message : 'An unexpected error occurred'));
+      }
     } finally {
       console.log('Setting isSubmitting to false');
       if (slowTimerRef.current) {

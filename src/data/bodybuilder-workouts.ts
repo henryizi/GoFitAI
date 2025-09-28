@@ -1321,7 +1321,7 @@ export const bodybuilderWorkouts: Record<string, BodybuilderWorkout> = {
       }
     ]
   },
-  'coleman': {
+  'ronnie': {
     name: 'Ronnie Coleman',
     description: 'The King - 8x Mr. Olympia known for his legendary mass, incredible strength, and high-intensity training style',
     trainingPhilosophy: 'Train heavy, train hard, and push boundaries with high volume and intensity. Focus on compound movements with maximum weight and perfect form. Never skip leg day.',
@@ -1626,7 +1626,7 @@ export const bodybuilderWorkouts: Record<string, BodybuilderWorkout> = {
       }
     ]
   },
-  'dorian-yates': {
+  'dorian': {
     name: 'Dorian Yates - Shadow',
     description: '6x Mr. Olympia Dorian Yates blood & guts training with high-intensity techniques and slow negatives. Focus on perfect form, intensity, and mind-muscle connection.',
     trainingPhilosophy: 'High-intensity training with slow negatives, perfect form, and maximum muscle stimulation. Focus on quality over quantity with blood & guts mentality.',
@@ -1806,7 +1806,7 @@ export const bodybuilderWorkouts: Record<string, BodybuilderWorkout> = {
       }
     ]
   },
-  'jay-cutler': {
+  'jay': {
     name: 'Jay Cutler - Quadfather',
     description: '4x Mr. Olympia Jay Cutler - renowned for his incredible quad development and balanced physique. Known for his high-volume training and focus on proper nutrition and recovery.',
     trainingPhilosophy: 'Balance, symmetry, and quad development. High-volume training with proper rest and nutrition. Focus on form, recovery, and never overtraining. Quality over quantity approach.',
@@ -3956,6 +3956,319 @@ export const bodybuilderWorkouts: Record<string, BodybuilderWorkout> = {
         day: 'Day 7',
         bodyParts: [],
         specialNotes: 'Full rest day - focus on recovery, active stretching, and mental preparation for next week.',
+        exercises: []
+      }
+    ]
+  },
+  'frank': {
+    name: 'Frank Zane - Aesthetic Perfection',
+    description: '3x Mr. Olympia Frank Zane - known for his incredible aesthetics, symmetry, and precision training approach. The master of aesthetic bodybuilding.',
+    trainingPhilosophy: 'Precision, aesthetics, and symmetry over mass. Focus on perfect form, mind-muscle connection, and balanced proportions. Quality training with moderate volume.',
+    estimatedTimePerSession: '60-90 minutes',
+    specialFeatures: [
+      '3x Mr. Olympia champion (1977, 1978, 1979)',
+      'Aesthetic perfection and symmetry focus',
+      'Precision training with perfect form',
+      'Moderate volume, high quality approach',
+      'Mind-muscle connection emphasis',
+      'Balanced proportions development'
+    ],
+    restDays: ['Day 4', 'Day 7'],
+    weeklySchedule: [
+      {
+        day: 'Monday',
+        bodyParts: ['Chest', 'Back'],
+        sessionTime: 'Evening',
+        specialNotes: 'Upper body focus with precision movements and perfect form',
+        exercises: [
+          // CHEST
+          {
+            name: 'Incline Barbell Bench Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Upper chest development with controlled movement'
+          },
+          {
+            name: 'Flat Dumbbell Bench Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Full range of motion for complete chest development'
+          },
+          {
+            name: 'Dumbbell Pec Flyes',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Chest isolation with perfect form'
+          },
+          {
+            name: 'Cable Crossovers',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Chest definition and separation'
+          },
+          // BACK
+          {
+            name: 'Wide Grip Pull-ups',
+            sets: '4',
+            reps: '8-12',
+            notes: 'Lat width development'
+          },
+          {
+            name: 'Barbell Rows',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Back thickness and density'
+          },
+          {
+            name: 'Seated Cable Rows',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Middle back development'
+          },
+          {
+            name: 'Lat Pulldowns',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Lat development and V-taper'
+          }
+        ]
+      },
+      {
+        day: 'Tuesday',
+        bodyParts: ['Shoulders', 'Arms'],
+        sessionTime: 'Evening',
+        specialNotes: 'Shoulder and arm development with aesthetic focus',
+        exercises: [
+          // SHOULDERS
+          {
+            name: 'Seated Dumbbell Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Overall shoulder development'
+          },
+          {
+            name: 'Lateral Raises',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Side delt width for V-taper'
+          },
+          {
+            name: 'Rear Delt Flyes',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Rear delt development for balance'
+          },
+          {
+            name: 'Front Raises',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Front delt definition'
+          },
+          // BICEPS
+          {
+            name: 'Barbell Bicep Curls',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Bicep mass and peak'
+          },
+          {
+            name: 'Dumbbell Hammer Curls',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Brachialis and forearm development'
+          },
+          // TRICEPS
+          {
+            name: 'Close Grip Bench Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Tricep mass and strength'
+          },
+          {
+            name: 'Overhead Tricep Extensions',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Long head tricep development'
+          }
+        ]
+      },
+      {
+        day: 'Wednesday',
+        bodyParts: ['Legs', 'Abs'],
+        sessionTime: 'Evening',
+        specialNotes: 'Lower body development with aesthetic proportions',
+        exercises: [
+          // QUADRICEPS
+          {
+            name: 'Squats',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Overall leg development'
+          },
+          {
+            name: 'Leg Press',
+            sets: '4',
+            reps: '12-15',
+            notes: 'Quad mass and definition'
+          },
+          {
+            name: 'Leg Extensions',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Quad isolation and definition'
+          },
+          // HAMSTRINGS
+          {
+            name: 'Romanian Deadlifts',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Hamstring development'
+          },
+          {
+            name: 'Leg Curls',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Hamstring isolation'
+          },
+          // CALVES
+          {
+            name: 'Standing Calf Raises',
+            sets: '4',
+            reps: '15-20',
+            notes: 'Calf development for proportion'
+          },
+          // ABS
+          {
+            name: 'Crunches',
+            sets: '3',
+            reps: '20-25',
+            notes: 'Core definition'
+          },
+          {
+            name: 'Leg Raises',
+            sets: '3',
+            reps: '15-20',
+            notes: 'Lower ab development'
+          }
+        ]
+      },
+      {
+        day: 'Thursday',
+        bodyParts: ['Rest'],
+        sessionTime: 'Rest Day',
+        specialNotes: 'Complete rest for recovery and muscle growth',
+        exercises: []
+      },
+      {
+        day: 'Friday',
+        bodyParts: ['Chest', 'Back'],
+        sessionTime: 'Evening',
+        specialNotes: 'Second upper body session with different exercises',
+        exercises: [
+          // CHEST
+          {
+            name: 'Decline Barbell Bench Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Lower chest development'
+          },
+          {
+            name: 'Incline Dumbbell Bench Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Upper chest with dumbbells'
+          },
+          {
+            name: 'Dips',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Lower chest and tricep development'
+          },
+          // BACK
+          {
+            name: 'T-Bar Rows',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Back thickness'
+          },
+          {
+            name: 'Close Grip Pulldowns',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Lat development'
+          },
+          {
+            name: 'Cable Rows',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Middle back definition'
+          },
+          {
+            name: 'Hyperextensions',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Lower back and posture'
+          }
+        ]
+      },
+      {
+        day: 'Saturday',
+        bodyParts: ['Shoulders', 'Arms'],
+        sessionTime: 'Evening',
+        specialNotes: 'Second shoulder and arm session for complete development',
+        exercises: [
+          // SHOULDERS
+          {
+            name: 'Overhead Press',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Overall shoulder strength'
+          },
+          {
+            name: 'Cable Lateral Raises',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Side delt isolation'
+          },
+          {
+            name: 'Bent Over Lateral Raises',
+            sets: '3',
+            reps: '12-15',
+            notes: 'Rear delt development'
+          },
+          // BICEPS
+          {
+            name: 'Dumbbell Bicep Curls',
+            sets: '4',
+            reps: '8-10',
+            notes: 'Bicep peak development'
+          },
+          {
+            name: 'Preacher Curls',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Bicep isolation'
+          },
+          // TRICEPS
+          {
+            name: 'Tricep Dips',
+            sets: '4',
+            reps: '10-12',
+            notes: 'Tricep mass'
+          },
+          {
+            name: 'Cable Tricep Pushdowns',
+            sets: '3',
+            reps: '10-12',
+            notes: 'Tricep definition'
+          }
+        ]
+      },
+      {
+        day: 'Sunday',
+        bodyParts: ['Rest'],
+        sessionTime: 'Rest Day',
+        specialNotes: 'Complete rest for recovery and preparation for next week',
         exercises: []
       }
     ]
