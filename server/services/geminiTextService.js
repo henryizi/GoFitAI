@@ -686,7 +686,7 @@ RESPONSE FORMAT (copy this exact structure):
   "target_level": "${fitnessLevel}",
   "primary_goal": "${primaryGoal}",
   "workout_split": "${workoutSplit}",
-  "weekly_schedule": [
+  "weeklySchedule": [
     {
       "day": 1,
       "day_name": "Day 1",
@@ -700,7 +700,29 @@ RESPONSE FORMAT (copy this exact structure):
           "instructions": "Easy pace to elevate heart rate"
         }
       ],
-      "main_workout": ${JSON.stringify(exercises.slice(0, Math.ceil(exercises.length / daysPerWeek)), null, 2)},
+      "main_workout": [
+        {
+          "exercise": "Bench Press",
+          "sets": 4,
+          "reps": "8-10",
+          "rest": "90s",
+          "instructions": "Keep feet planted, arch back slightly, lower bar to chest with control, press up explosively. Focus on squeezing chest at the top."
+        },
+        {
+          "exercise": "Incline Dumbbell Press",
+          "sets": 3,
+          "reps": "10-12",
+          "rest": "60s",
+          "instructions": "Set bench to 30-45 degrees. Lower dumbbells to chest level, press up and slightly inward. Control the negative."
+        },
+        {
+          "exercise": "Cable Flyes",
+          "sets": 3,
+          "reps": "12-15",
+          "rest": "60s",
+          "instructions": "Stand with slight forward lean, bring cables together in arc motion. Focus on squeezing chest at peak contraction."
+        }
+      ],
       "cool_down": [
         {
           "exercise": "Stretching",
@@ -710,25 +732,11 @@ RESPONSE FORMAT (copy this exact structure):
       ]
     }
   ],
-  "progression_plan": {
-    "week_1": "Focus on form and technique",
-    "week_2": "Increase weight and intensity",
-    "week_3": "Add complexity and variations",
-    "week_4": "Peak performance and testing"
+  "progression": {
+    "mesocycleWeeks": 4,
+    "guidance": "Increase load 2.5-5% weekly if all reps achieved; optional deload in week 4 if fatigue accumulates."
   },
-  "nutrition_tips": [
-    "${goalConfig.nutrition}",
-    "Stay hydrated throughout the day",
-    "Eat balanced meals with adequate protein"
-  ],
-  "safety_guidelines": [
-    "Always warm up before exercising",
-    "Stop immediately if you feel pain",
-    "Maintain proper form during all exercises",
-    "Consult a doctor before starting new exercise program"
-  ],
-  "equipment_needed": ["${levelConfig.equipment}"],
-  "estimated_results": "Visible improvements in 2-4 weeks with consistent training"
+  "estimatedTimePerSession": "${sessionDuration} minutes"
 }
 
 IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.`;

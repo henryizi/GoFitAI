@@ -1294,25 +1294,89 @@ INSTRUCTIONS:
    - For '2_3' frequency: Create exactly 2-3 training days (4-5 rest days)
    - For '4_5' frequency: Create exactly 4-5 training days (2-3 rest days)
    - For '6' frequency: Create exactly 6 training days (1 rest day)
-3. For each workout day, specify:
+3. For each workout day, create a structured session with:
    - The focus area (e.g., "Upper Body", "Lower Body", "Push", "Pull", "Legs", "Full Body")
-   - 4-6 exercises appropriate for their training level
-   - For each exercise, specify sets, reps, and rest between sets
-4. Include an estimated time per session (e.g., "45 minutes")
-5. Ensure maximum exercise variety - never repeat exercises in consecutive workouts
-6. Return ONLY a valid JSON object with the following structure:
+   - Warm-up exercises (2-3 light movements, 5-10 minutes total)
+   - Main workout exercises (4-6 exercises appropriate for their training level)
+   - Cool-down exercises (2-3 stretches or light movements, 5-10 minutes total)
+4. For each exercise, include detailed information: name, sets, reps, rest time, and helpful instructions
+5. Include an estimated time per session (e.g., "45 minutes")
+6. Ensure maximum exercise variety - never repeat exercises in consecutive workouts
+7. Return ONLY a valid JSON object with the following structure:
 
 {
   "weeklySchedule": [
     {
-      "day": "Monday",
+      "day": 1,
+      "day_name": "Monday",
       "focus": "Chest and Triceps",
-      "exercises": [
-        { "name": "Bench Press", "sets": 4, "reps": "8-10", "restBetweenSets": "90s" },
-        { "name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "restBetweenSets": "60s" },
-        { "name": "Cable Flyes", "sets": 3, "reps": "12-15", "restBetweenSets": "60s" },
-        { "name": "Tricep Pushdown", "sets": 3, "reps": "12-15", "restBetweenSets": "60s" },
-        { "name": "Overhead Dumbbell Extension", "sets": 3, "reps": "10-12", "restBetweenSets": "60s" }
+      "workout_type": "Strength Training",
+      "duration_minutes": 60,
+      "warm_up": [
+        {
+          "exercise": "Arm Circles (forward & backward)",
+          "duration": "2 minutes",
+          "instructions": "Start with small circles and gradually increase size. Perform 30 seconds forward, 30 seconds backward, repeat."
+        },
+        {
+          "exercise": "Light Chest Stretch",
+          "duration": "2 minutes", 
+          "instructions": "Stand in doorway, place forearms on frame, step forward gently to stretch chest and shoulders."
+        },
+        {
+          "exercise": "Shoulder Blade Squeezes",
+          "duration": "1 minute",
+          "instructions": "Pull shoulder blades together, hold for 2 seconds, release. Repeat 15-20 times."
+        }
+      ],
+      "main_workout": [
+        {
+          "exercise": "Bench Press",
+          "sets": 4,
+          "reps": "8-10",
+          "rest": "90s",
+          "instructions": "Keep feet planted, arch back slightly, lower bar to chest with control, press up explosively. Focus on squeezing chest at the top."
+        },
+        {
+          "exercise": "Incline Dumbbell Press", 
+          "sets": 3,
+          "reps": "10-12",
+          "rest": "60s",
+          "instructions": "Set bench to 30-45 degrees. Lower dumbbells to chest level, press up and slightly inward. Control the negative."
+        },
+        {
+          "exercise": "Cable Flyes",
+          "sets": 3,
+          "reps": "12-15", 
+          "rest": "60s",
+          "instructions": "Stand with slight forward lean, bring cables together in arc motion. Focus on squeezing chest at peak contraction."
+        },
+        {
+          "exercise": "Tricep Pushdown",
+          "sets": 3,
+          "reps": "12-15",
+          "rest": "60s", 
+          "instructions": "Keep elbows tucked at sides, press down with control, squeeze triceps at bottom. Slow return to start."
+        },
+        {
+          "exercise": "Overhead Dumbbell Extension",
+          "sets": 3,
+          "reps": "10-12",
+          "rest": "60s",
+          "instructions": "Lower dumbbell behind head with control, keep elbows pointing forward. Press back to start position."
+        }
+      ],
+      "cool_down": [
+        {
+          "exercise": "Chest Doorway Stretch",
+          "duration": "3 minutes",
+          "instructions": "Place forearm against doorway, step forward to stretch chest and front deltoids. Hold 90 seconds each arm."
+        },
+        {
+          "exercise": "Tricep Overhead Stretch", 
+          "duration": "2 minutes",
+          "instructions": "Reach one arm overhead, bend elbow, use other hand to gently pull elbow. Hold 60 seconds each arm."
+        }
       ]
     }
   ],
