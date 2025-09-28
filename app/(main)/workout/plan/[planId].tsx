@@ -256,8 +256,8 @@ export default function PlanDetailScreen() {
               
               return {
                 id: daySchedule.id || `session-${index}`,
-                day: daySchedule.day || daySchedule.dayName || `Day ${index + 1}`,
-                focus: daySchedule.focus || 'Workout',
+                day: daySchedule.day_name || daySchedule.day || daySchedule.dayName || `Day ${index + 1}`,
+                focus: daySchedule.focus || daySchedule.workout_type || 'Workout',
                 exercises
               };
             })
@@ -876,21 +876,41 @@ export default function PlanDetailScreen() {
                 const processedSessions = weeklySchedule.map((day: any, index: number) => {
                   if (!day) return null;
                   
-                  const exercises = Array.isArray(day.exercises) 
-                    ? day.exercises.map((ex: any, exIndex: number) => ({
-                        id: ex.id || `ex-${index}-${exIndex}`,
-                        name: ex.name || 'Exercise',
-                        sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
-                        reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
-                        rest: ex.rest || ex.restBetweenSets || '60s',
-                        restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
-                      }))
-                    : [];
+                  // Handle both old and new exercise structures
+                  let exercises = [];
+                  if (Array.isArray(day.exercises)) {
+                    // Old structure: direct exercises array
+                    exercises = day.exercises.map((ex: any, exIndex: number) => ({
+                      id: ex.id || `ex-${index}-${exIndex}`,
+                      name: ex.name || 'Exercise',
+                      sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                      reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                      rest: ex.rest || ex.restBetweenSets || '60s',
+                      restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                    }));
+                  } else if (day.warm_up || day.main_workout || day.cool_down) {
+                    // New Gemini 2.5 Flash structure: separated warm_up, main_workout, cool_down arrays
+                    const allExercises = [
+                      ...(day.warm_up || []),
+                      ...(day.main_workout || []),
+                      ...(day.cool_down || [])
+                    ];
+                    
+                    exercises = allExercises.map((ex: any, exIndex: number) => ({
+                      id: ex.id || `ex-${index}-${exIndex}`,
+                      name: ex.name || ex.exercise || 'Exercise',
+                      sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
+                      reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
+                      rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
+                      restBetweenSets: ex.restBetweenSets || ex.rest || '60s',
+                      type: ex.type || 'main_workout'
+                    }));
+                  }
                   
                   return {
                     id: day.id || `session-${index + 1}`,
-                    day: day.day || day.dayName || `Day ${index + 1}`,
-                    focus: day.focus || day.dayName || 'Workout',
+                    day: day.day_name || day.day || day.dayName || `Day ${index + 1}`,
+                    focus: day.focus || day.dayName || day.workout_type || 'Workout',
                     exercises
                   };
                 }).filter((session): session is WorkoutSession => session !== null);
