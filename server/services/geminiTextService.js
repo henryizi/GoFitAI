@@ -342,8 +342,8 @@ class GeminiTextService {
       console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
       console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
 
-      // Use longer timeout and more retries for workout plan generation
-      const maxRetries = 3; // Workout plans need more retries due to complexity
+      // Use shorter timeout and fewer retries for workout plan generation to fit Railway's 60s limit
+      const maxRetries = 2; // Reduced retries to fail faster and avoid Railway timeout
       const result = await this.generateContentWithRetry([prompt], maxRetries);
       console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
 
@@ -704,137 +704,48 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     if (goalFatReduction) goals.push(`Fat Loss Goal: ${goalFatReduction}%`);
     if (goalMuscleGain) goals.push(`Muscle Gain Goal: ${goalMuscleGain}%`);
 
-    return `You are a world-class personal trainer and exercise physiologist creating a HIGHLY PERSONALIZED workout plan for ${fullName}. Analyze their complete profile and create a scientifically-backed, individualized training program as valid JSON ONLY.
+    return `Create a personalized ${daysPerWeek}-day workout plan for ${fullName} as valid JSON.
 
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all numbers are complete (e.g., 4.0, not 4.)
-5. All arrays and objects must be properly closed
-6. No trailing commas
-7. Escape any quotes within strings
-8. Keep instruction texts SHORT (max 50 characters) to avoid truncation
+CRITICAL: Return ONLY valid JSON starting with { and ending with }. Use double quotes. Keep all instruction texts under 50 characters.
 
-COMPREHENSIVE CLIENT PROFILE - PERSONALIZE EVERYTHING FOR THIS SPECIFIC USER:
-=== BASIC INFORMATION ===
-- Name: ${fullName}
-- Training Level: ${fitnessLevel}
-- Primary Goal: ${primaryGoal}
-- Preferred Workout Frequency: ${daysPerWeek} days per week
-- Session Duration: ${sessionDuration} minutes
+USER PROFILE:
+- Level: ${fitnessLevel}, Goal: ${primaryGoal}, Frequency: ${daysPerWeek} days/week
+- Age: ${age}, Gender: ${gender}${height ? `, Height: ${height}cm` : ''}${weight ? `, Weight: ${weight}kg` : ''}
+- Equipment: ${Array.isArray(equipment) ? equipment.join(', ') : 'basic equipment'}
+- Rep Range: ${goalConfig.repRange}, Rest: ${goalConfig.restTime}, Focus: ${goalConfig.focus}
 
-=== PHYSICAL CHARACTERISTICS ===
-${physicalStats.length > 0 ? physicalStats.join('\n') : 'Physical stats not provided'}
-
-=== SPECIFIC GOALS ===
-${goals.length > 0 ? goals.join('\n') : 'Using primary goal for guidance'}
-
-=== PERSONALIZATION REQUIREMENTS ===
-${equipmentConstraints}
-${workoutTypeFocus}
-${ageConsiderations}
-${genderConsiderations}
-
-=== TRAINING SPECIFICATIONS FOR THIS USER ===
-- Rep Range: ${goalConfig.repRange}
-- Rest Periods: ${goalConfig.restTime}
-- Intensity: ${levelConfig.intensity}
-- Focus: ${goalConfig.focus}
-- Training Volume: ${goalConfig.volume}
-
-ADVANCED PERSONALIZATION INSTRUCTIONS:
-1. Consider their BMI (${bmi || 'unknown'}) for exercise selection and intensity
-2. Factor in their activity level (${activityLevel || 'not specified'}) for recovery needs
-3. Align with their fitness strategy (${fitnessStrategy || 'general approach'})
-4. Target specific fat loss (${goalFatReduction || 0}%) and muscle gain (${goalMuscleGain || 0}%) goals
-5. Adapt exercises for their training level and physical characteristics
-6. Create progressive overload suitable for their experience level
-
-IMPORTANT: Generate UNIQUE exercises specifically tailored to this user's complete profile, physical characteristics, goals, equipment, and preferences. DO NOT use generic templates.
-
-RESPONSE FORMAT - CUSTOMIZE FOR THIS SPECIFIC USER:
+JSON FORMAT:
 {
-  "plan_name": "Personalized ${fitnessLevel} ${primaryGoal} Plan for ${fullName}",
+  "plan_name": "${fitnessLevel} ${primaryGoal} Plan",
   "duration_weeks": 4,
   "sessions_per_week": ${daysPerWeek},
   "target_level": "${fitnessLevel}",
   "primary_goal": "${primaryGoal}",
-  "workout_split": "${workoutSplit}",
-  "user_profile_summary": {
-    "name": "${fullName}",
-    "training_level": "${fitnessLevel}",
-    "primary_goal": "${primaryGoal}",
-    "bmi": ${bmi || 'null'},
-    "activity_level": "${activityLevel || 'not_specified'}",
-    "fitness_strategy": "${fitnessStrategy || 'general'}"
-  },
   "weeklySchedule": [
     {
       "day": 1,
       "day_name": "Monday",
-      "focus": "CUSTOMIZE based on user's goals and split (e.g., Upper Body, Lower Body, Push, Pull, Legs, Full Body)",
-      "workout_type": "CUSTOMIZE based on preferred workout types (e.g., Strength Training, HIIT, Circuit)",
+      "focus": "Upper Body / Lower Body / Full Body / Push / Pull / Legs",
+      "workout_type": "Strength",
       "duration_minutes": ${sessionDuration},
-      "warm_up": [
-        {
-          "exercise": "GENERATE appropriate warm-up exercise",
-          "duration": "2-3 minutes",
-          "instructions": "Brief warm-up instructions"
-        }
-      ],
+      "warm_up": [{"exercise": "Light cardio", "duration": "5 min", "instructions": "Warm up"}],
       "main_workout": [
-        {
-          "exercise": "GENERATE exercise appropriate for user's equipment and level",
-          "sets": "CUSTOMIZE based on fitness level (2-3 for beginners, 3-4 for intermediate, 4-5 for advanced)",
-          "reps": "CUSTOMIZE based on goal and level (${goalConfig.repRange})",
-          "rest": "CUSTOMIZE based on goal and intensity (${goalConfig.restTime})",
-          "instructions": "BRIEF form cues and safety tips (max 50 chars)"
-        }
+        {"exercise": "Exercise name", "sets": "${levelConfig.sets}", "reps": "${goalConfig.repRange}", "rest": "${goalConfig.restTime}", "instructions": "Brief tip"}
       ],
-      "cool_down": [
-        {
-          "exercise": "GENERATE appropriate cool-down/stretch",
-          "duration": "2-3 minutes",
-          "instructions": "Brief stretching instructions"
-        }
-      ]
+      "cool_down": [{"exercise": "Stretch", "duration": "5 min", "instructions": "Cool down"}]
     }
   ],
-  "progression": {
-    "mesocycleWeeks": 4,
-    "guidance": "CUSTOMIZE progression advice for this user's level and goals"
-  },
-  "estimatedTimePerSession": "${sessionDuration} minutes",
-  "nutrition_tips": "BRIEF nutrition advice aligned with their goals (${goalConfig.nutrition})"
+  "progression": {"mesocycleWeeks": 4, "guidance": "Progress weekly"},
+  "estimatedTimePerSession": "${sessionDuration} min"
 }
 
-CRITICAL PERSONALIZATION INSTRUCTIONS:
-1. Create EXACTLY ${daysPerWeek} training days in the weeklySchedule array (NO MORE, NO LESS)
-2. Use day names: "Monday", "Tuesday", "Wednesday", etc.
-3. For rest days, use: {"day": "Tuesday", "focus": "Rest Day", "exercises": []}
-4. PERSONALIZE exercises based on:
-   - Available equipment: ${Array.isArray(equipment) ? equipment.join(', ') : 'basic equipment'}
-   - Fitness level: ${fitnessLevel}
-   - Primary goal: ${primaryGoal}
-   - Preferred workout types: ${Array.isArray(workoutTypes) ? workoutTypes.join(', ') : 'strength training'}
-   - Age considerations: ${age} years old
-   - Gender considerations: ${gender}
-5. Generate 4-6 exercises per training day
-6. Ensure exercises match the user's equipment constraints
-7. Vary exercises between days to prevent boredom
-8. Keep ALL instruction texts under 50 characters
-9. Make each workout day focus on different muscle groups or movement patterns
-10. CRITICAL: Generate EXACTLY ${daysPerWeek} workout sessions, not ${daysPerWeek - 1} or any other number
-
-PERSONALIZATION EXAMPLES:
-- If equipment includes "dumbbells": Use dumbbell exercises
-- If goal is "weight_loss": Include high-intensity, calorie-burning exercises
-- If level is "beginner": Use simpler, foundational movements
-- If age > 50: Include mobility and joint-friendly exercises
-- If workout types include "cardio": Incorporate cardio intervals
-
-IMPORTANT: Generate a UNIQUE workout plan specifically for ${fullName}. No two users should get identical plans.`;
+REQUIREMENTS:
+- Generate EXACTLY ${daysPerWeek} days in weeklySchedule
+- Use day names: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+- 4-6 main exercises per day, vary muscle groups between days
+- Match exercises to equipment: ${Array.isArray(equipment) ? equipment.join(', ') : 'basic'}
+- Instructions must be under 50 characters
+- Adapt for ${age}yo ${gender}, ${fitnessLevel} level`;
   }
 
   /**
@@ -988,7 +899,7 @@ IMPORTANT: Generate a UNIQUE workout plan specifically for ${fullName}. No two u
                                 hasWorkoutPlan || hasExercise || contentString.includes('nutrition') || 
                                 hasFitness || contentString.includes('personalized workout') || 
                                 hasClientProfile || isLongContent;
-        const timeoutDuration = isComplexRequest ? 90000 : 30000; // 90s for complex, 30s for simple - allows AI generation
+        const timeoutDuration = isComplexRequest ? 45000 : 25000; // 45s for complex, 25s for simple - reduced to fit Railway's 60s timeout
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
         // Add exponential backoff delay for retries
