@@ -522,7 +522,14 @@ const WorkoutPlansScreen = () => {
 
   const onPressPlan = useCallback((plan: Plan) => {
     analyticsTrack('workout_plan_open', { plan_id: plan.id });
-    router.push({ pathname: '/(main)/workout/plan/[planId]', params: { planId: String(plan.id), name: plan.name } as any });
+    router.push({ 
+      pathname: '/(main)/workout/plan/[planId]', 
+      params: { 
+        planId: String(plan.id), 
+        name: plan.name,
+        planObject: JSON.stringify(plan)
+      } as any 
+    });
   }, [router]);
 
   // Add direct delete function
@@ -816,79 +823,67 @@ const WorkoutPlansScreen = () => {
         <HealthDisclaimer variant="compact" />
       </View>
 
-                {/* Enhanced Track Progress Button */}
-      <View style={styles.historyButtonContainer}>
-        <TouchableOpacity
-          style={styles.historyButton}
+                {/* Track Progress Button - Completely Redesigned */}
+      <View style={styles.trackProgressContainer}>
+        <TouchableOpacity 
           onPress={() => router.push('/(main)/workout/history')}
-          activeOpacity={0.88}
+          style={styles.trackProgressButton}
+          activeOpacity={0.8}
         >
-          {/* Background blur layer */}
-          <BlurView intensity={30} style={styles.historyButtonBlur}>
-            {/* Main gradient with app theme colors */}
-            <LinearGradient
-              colors={[
-                colors.primary,
-                colors.primaryLight,
-                colors.primaryDark,
-                colors.primaryLight
-              ]}
-              style={styles.historyButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              locations={[0, 0.25, 0.75, 1]}
-            >
-              {/* Content container */}
-              <View style={styles.historyButtonContent}>
-                {/* Left icon with enhanced background */}
-                <View style={styles.historyIconContainer}>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0.2)']}
-                    style={styles.historyIconBackground}
-                  >
-                    <Icon name="chart-line-variant" size={20} color={colors.white} />
-                  </LinearGradient>
-                </View>
-
-                {/* Text content with cleaner layout */}
-                <View style={styles.historyButtonTextContainer}>
-                  <Text style={styles.historyButtonTitle}>Track Progress</Text>
-                  <Text style={styles.historyButtonSubtitle}>View workout history & growth</Text>
-                </View>
-
-                {/* Right arrow with enhanced background */}
-                <View style={styles.historyArrowContainer}>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                    style={styles.arrowBackground}
-                  >
-                    <Icon name="arrow-right" size={18} color="rgba(255,255,255,0.98)" />
-                  </LinearGradient>
-                </View>
+          {/* Animated Background Layers */}
+          <View style={styles.trackProgressBgLayer1} />
+          <View style={styles.trackProgressBgLayer2} />
+          
+          {/* Main Card */}
+          <LinearGradient
+            colors={[
+              '#FF6B35',
+              '#FF8C42',
+              '#FF6B35'
+            ]}
+            style={styles.trackProgressCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {/* Top Section with Icon */}
+            <View style={styles.trackProgressHeader}>
+              <View style={styles.trackProgressIconWrapper}>
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                  style={styles.trackProgressIconBg}
+                >
+                  <Icon name="trending-up" size={24} color="#FFFFFF" />
+                </LinearGradient>
               </View>
+              
+            </View>
 
-              {/* Enhanced shine overlay */}
-              <LinearGradient
-                colors={[
-                  'rgba(255,255,255,0.6)',
-                  'rgba(255,255,255,0.3)',
-                  'rgba(255,255,255,0.1)',
-                  'transparent'
-                ]}
-                style={styles.historyButtonShine}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1.3, y: 1.3 }}
-              />
+            {/* Content Section */}
+            <View style={styles.trackProgressContent}>
+              <Text style={styles.trackProgressTitle}>Track Progress</Text>
+              <Text style={styles.trackProgressSubtitle}>
+                Monitor your fitness journey & celebrate milestones
+              </Text>
+              
+              {/* Progress Indicator */}
+              <View style={styles.progressIndicatorWrapper}>
+                <View style={styles.progressTrack}>
+                  <LinearGradient
+                    colors={['#ffffff50', '#ffffff70']}
+                    style={styles.progressFill}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                </View>
+                <Text style={styles.progressText}>View History</Text>
+              </View>
+            </View>
 
-              {/* Accent lines */}
-              <View style={styles.accentLine} />
-              <View style={styles.accentLineSecondary} />
-            </LinearGradient>
-          </BlurView>
 
-          {/* Enhanced glow effects */}
-          <View style={styles.historyButtonGlow} />
-          <View style={styles.historyButtonGlowSecondary} />
+            {/* Decorative Elements */}
+            <View style={styles.decorativeCircle1} />
+            <View style={styles.decorativeCircle2} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -1533,149 +1528,138 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   
-  // Enhanced Track Progress Button Styles
-  historyButtonContainer: {
+  // Completely Redesigned Track Progress Button Styles
+  trackProgressContainer: {
     paddingHorizontal: 20,
     marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  historyButton: {
+  trackProgressButton: {
+    position: 'relative',
     borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 15,
-    position: 'relative',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  historyButtonBlur: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  historyButtonGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    position: 'relative',
-    minHeight: 64,
-    justifyContent: 'center',
-  },
-  historyButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 3,
-  },
-  historyIconContainer: {
-    marginRight: 18,
-  },
-  historyIconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  historyButtonTextContainer: {
-    flex: 1,
-    marginRight: 14,
-  },
-  historyButtonTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
-    letterSpacing: 0.5,
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-  progressBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  historyButtonSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.92)',
-    marginTop: 2,
-    letterSpacing: 0.3,
-    lineHeight: 16,
-    fontWeight: '500',
-  },
-  historyArrowContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowBackground: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  historyButtonShine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '55%',
-    borderRadius: 22,
-    zIndex: 2,
-  },
-  accentLine: {
-    position: 'absolute',
-    bottom: 0,
-    left: 26,
-    right: 26,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1,
-    zIndex: 2,
-  },
-  accentLineSecondary: {
-    position: 'absolute',
-    bottom: 2,
-    left: 30,
-    right: 30,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 0.5,
-    zIndex: 2,
-  },
-  historyButtonGlow: {
+  trackProgressBgLayer1: {
     position: 'absolute',
     top: -4,
     left: -4,
     right: -4,
     bottom: -4,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    opacity: 0.12,
-    zIndex: -1,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    zIndex: -2,
   },
-  historyButtonGlowSecondary: {
+  trackProgressBgLayer2: {
     position: 'absolute',
     top: -8,
     left: -8,
     right: -8,
     bottom: -8,
-    borderRadius: 28,
-    backgroundColor: colors.primaryLight,
-    opacity: 0.06,
-    zIndex: -2,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255, 140, 66, 0.06)',
+    zIndex: -3,
+  },
+  trackProgressCard: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    minHeight: 80,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  trackProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  trackProgressIconWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  trackProgressIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  trackProgressContent: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  trackProgressTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.98)',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  trackProgressSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.2,
+    lineHeight: 18,
+    fontWeight: '500',
+    marginBottom: 16,
+  },
+  progressIndicatorWrapper: {
+    alignItems: 'flex-start',
+  },
+  progressTrack: {
+    width: 120,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    width: '75%',
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.75)',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    zIndex: -1,
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    zIndex: -1,
   },
 
   // Select Button Styles

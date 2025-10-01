@@ -2152,13 +2152,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '500',
   },
-  sessionUnitIndicator: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '500',
-    marginTop: 8,
-    textAlign: 'center',
-  },
   bodyweightInfo: {
     flexDirection: 'row',
     alignItems: 'center',

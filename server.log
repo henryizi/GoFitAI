@@ -1,0 +1,223 @@
+
+> gofitai@1.0.0 start
+> node server/index.js
+
+--- SERVER RESTARTED ---
+--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[QUOTA] Loaded usage data: 9 requests
+[QUOTA] Monitor initialized
+[QUOTA] Daily quota: 50
+[QUOTA] Reset time: 2025-10-01T16:00:00.000Z
+[CACHE] Response cache initialized
+[CACHE] Max cache size: 100
+[CACHE] Default timeout: 30 minutes
+[RATE LIMITER] Rate limiter initialized
+[RATE LIMITER] Window: 60 seconds
+[RATE LIMITER] Max requests: 5
+[RATE LIMITER] Max AI requests per hour: 10
+[VISION SERVICE] Initializing Gemini Vision Service
+[GEMINI VISION] Service initialized with model: gemini-1.5-flash
+[GEMINI VISION] Temperature: 0.1 (low for consistency)
+[GEMINI VISION] API Key configured: ✅ Yes
+[AI SERVICE] Initializing Gemini Text Service with API key rotation
+[API KEY] Manager initialized
+[API KEY] Keys loaded: 1
+[API KEY] Key quota: 50
+[API KEY] Selected best key 1 with 50 requests remaining
+[GEMINI TEXT] Using primary model: gemini-2.5-flash
+[GEMINI TEXT] Fallback models available: [ 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro' ]
+[GEMINI TEXT] Using key with best quota availability
+[GEMINI TEXT] Service initialized with model: gemini-2.5-flash
+[GEMINI TEXT] API Key rotation enabled: ✅ Yes
+=== AI CONFIGURATION ===
+Available AI Providers: [ 'gemini', 'fallback' ]
+GEMINI_API_KEY exists: true
+GEMINI_MODEL: gemini-2.5-flash
+Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+Gemini provider config: {
+  name: 'gemini',
+  apiKey: 'AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg',
+  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  model: 'gemini-2.5-flash',
+  enabled: true
+}
+Default AI_PROVIDER: gemini
+Total providers available: 2
+- gemini: ENABLED (gemini-2.5-flash)
+- fallback: ENABLED (rule-based)
+========================
+GoFitAI Server v2.0 running on port 4000
+Local IP: 192.168.0.176
+Server URL: http://192.168.0.176:4000
+Test API with: curl http://192.168.0.176:4000/api/test
+[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] Normalized profile data: {
+  "full_name": "Debug User",
+  "gender": "male",
+  "age": 25,
+  "training_level": "intermediate",
+  "primary_goal": "general_fitness",
+  "workout_frequency": "3_4"
+}
+[WORKOUT] Primary goal from user profile: general_fitness
+[WORKOUT] Primary goal in normalized profile: general_fitness
+[WORKOUT] Generated prompt (first 500 chars): 
+You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
+
+CLIENT PROFILE:
+- Full Name: Debug User
+- Gender: male
+- Age: 25
+- Training Level: intermediate
+- Primary Goal: general_fitness
+- Preferred Workout Frequency: 3-4 times per week
+
+PROGRAMMING & PROGRESSION:
+1. Provide a sensible 4-week mesocycle with progr...
+[WORKOUT] Prompt length: 9149
+[WORKOUT] Starting AI workout plan generation with systematic fallback
+[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
+[WORKOUT] Current GEMINI_MODEL: gemini-2.5-flash
+[WORKOUT] geminiTextService available: true
+[WORKOUT] Calling generateWorkoutPlan with mapped user profile
+[WORKOUT] User profile for Gemini: {
+  fullName: 'Debug User',
+  fitnessLevel: 'intermediate',
+  primaryGoal: 'general_fitness',
+  workoutFrequency: '3_4'
+}
+[WORKOUT] Full user profile for Gemini: {
+  "fullName": "Debug User",
+  "gender": "male",
+  "age": 25,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "general_fitness",
+  "workoutFrequency": "3_4",
+  "full_name": "Debug User",
+  "training_level": "intermediate",
+  "primary_goal": "general_fitness",
+  "workout_frequency": "3_4"
+}
+[GEMINI TEXT] Generating workout plan
+[GEMINI TEXT] User level: intermediate
+[GEMINI TEXT] Goal: general_fitness
+[GEMINI TEXT] User profile keys: [
+  'fullName',
+  'gender',
+  'age',
+  'fitnessLevel',
+  'primaryGoal',
+  'workoutFrequency',
+  'full_name',
+  'training_level',
+  'primary_goal',
+  'workout_frequency'
+]
+[GEMINI TEXT] Full user profile: {
+  "fullName": "Debug User",
+  "gender": "male",
+  "age": 25,
+  "fitnessLevel": "intermediate",
+  "primaryGoal": "general_fitness",
+  "workoutFrequency": "3_4",
+  "full_name": "Debug User",
+  "training_level": "intermediate",
+  "primary_goal": "general_fitness",
+  "workout_frequency": "3_4"
+}
+[GEMINI TEXT] Profile data: {
+  fitnessLevel: 'intermediate',
+  primaryGoal: 'general_fitness',
+  age: 25,
+  gender: 'male'
+}
+[GEMINI TEXT] Workout frequency from profile: 3_4
+[GEMINI TEXT] Calculated daysPerWeek: 3
+[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3548
+[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all ...
+[GEMINI TEXT] Attempt 1/3
+[GEMINI TEXT] Content string preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response imme
+[GEMINI TEXT] Content string length: 3548
+[GEMINI TEXT] Detection checks: workout_plan=true, exercise=true, fitness=true, client_profile=false, long_content=true
+[GEMINI TEXT] Complex request detected: true, timeout: 90s
+[GEMINI TEXT] About to call this.model.generateContent
+[GEMINI TEXT] Model object: true
+[GEMINI TEXT] Content type: array
+[GEMINI TEXT] Content length: 1
+[GEMINI TEXT] Model.generateContent completed successfully
+[GEMINI TEXT] Response validation: {
+  textExists: true,
+  textType: 'string',
+  textLength: 4371,
+  textTrimmedLength: 4371,
+  textPreview: '{\n' +
+    '  "plan_name": "Personalized intermediate general_fitness Plan",\n' +
+    '  "duration_weeks": 4,\n' +
+    '  "session...'
+}
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response length: 4371 characters
+[GEMINI TEXT] generateContentWithRetry returned: true
+[GEMINI TEXT] Response object: true
+[GEMINI TEXT] Response text: true length: 4371
+[GEMINI TEXT] Workout plan generated in 28607ms
+[GEMINI TEXT] Attempting to parse JSON for workout
+[GEMINI TEXT] Raw text length: 4371
+[GEMINI TEXT] Enhanced cleaned JSON preview: { "plan_name": "Personalized intermediate general_fitness Plan", "duration_weeks": 4, "sessions_per_week": 3, "target_level": "intermediate", "primary_goal": "general_fitness", "workout_split": "Full Body Fitness (3x per week)", "weeklySchedule": [ { "day": 1, "day_name": "Workout Day 1", "focus": "Full Body Strength", "workout_type": "Strength Training", "duration_minutes": 45, "warm_up": [ { "exercise": "Light Cardio", "duration": "5 minutes", "instructions": "Elevate heart rate" } ], "main_wo...
+[GEMINI TEXT] Characters around position 334:  "workout_type": "Strength Tra
+[GEMINI TEXT] ✅ JSON structure validation passed for workout
+[GEMINI TEXT] ✅ Direct JSON parsing successful for workout
+[GEMINI TEXT] Successfully parsed workout data
+[GEMINI TEXT] Plan name: Personalized intermediate general_fitness Plan
+[WORKOUT] ✅ Successfully generated workout plan using Gemini TextService
+[WORKOUT] Plan name: Personalized intermediate general_fitness Plan
+[WORKOUT] Weekly schedule length: 3
+[WORKOUT] Saving final plan to database for user: debug456
+[WORKOUT] Error saving final plan to database: {
+  code: '22P02',
+  details: null,
+  hint: null,
+  message: 'invalid input syntax for type uuid: "debug456"'
+}
+[WORKOUT] Applying strategic weekly distribution to AI plan
+[WORKOUT] AI provided 3 workout sessions
+[WORKOUT] Distributed 3 workouts across 7 days with strategic rest placement
+[WORKOUT] Weekly distribution: [
+  'Monday: Upper Body',
+  'Tuesday: Rest Day',
+  'Wednesday: Lower Body',
+  'Thursday: Rest Day',
+  'Friday: Full Body',
+  'Saturday: Rest Day',
+  'Sunday: Rest Day'
+]
+[QUOTA] Usage recorded: 10/50 (20%)
+[CACHE] ✅ Set for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[CACHE] Current size: 1/100
+{"level":30,"time":1759293483850,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"429"},"remoteAddress":"127.0.0.1","remotePort":56019},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759293513,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297083,"content-type":"application/json; charset=utf-8","content-length":"8322","etag":"W/\"2082-FuOG1tBARaoaLLVlUw4/v6lVc5Q\""}},"responseTime":30600,"msg":"request completed"}
+[CACHE] ✅ Hit for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] ✅ Using cached workout plan
+{"level":30,"time":1759293505727,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"429"},"remoteAddress":"127.0.0.1","remotePort":56104},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":3,"x-ratelimit-reset":1759293513,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297105,"content-type":"application/json; charset=utf-8","content-length":"8231","etag":"W/\"2027-USa8lYwyHRKIogQD258Rxx+Nf/E\""}},"responseTime":1,"msg":"request completed"}
+[CACHE] ✅ Hit for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] ✅ Using cached workout plan
+{"level":30,"time":1759293625523,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"429"},"remoteAddress":"127.0.0.1","remotePort":56316},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759293685,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297225,"content-type":"application/json; charset=utf-8","content-length":"8231","etag":"W/\"2027-USa8lYwyHRKIogQD258Rxx+Nf/E\""}},"responseTime":0,"msg":"request completed"}
+[CACHE] ✅ Hit for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] ✅ Using cached workout plan
+{"level":30,"time":1759293633632,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"429"},"remoteAddress":"127.0.0.1","remotePort":56327},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":3,"x-ratelimit-reset":1759293685,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297233,"content-type":"application/json; charset=utf-8","content-length":"8231","etag":"W/\"2027-USa8lYwyHRKIogQD258Rxx+Nf/E\""}},"responseTime":1,"msg":"request completed"}
+[CACHE] ✅ Hit for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] ✅ Using cached workout plan
+{"level":30,"time":1759293670450,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"441"},"remoteAddress":"127.0.0.1","remotePort":56388},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":2,"x-ratelimit-reset":1759293685,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297270,"content-type":"application/json; charset=utf-8","content-length":"8231","etag":"W/\"2027-USa8lYwyHRKIogQD258Rxx+Nf/E\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759293727572,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","if-none-match":"W/\"b5-hN8udP1YY+cXq5Xw7t+2sP6VZLQ\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.176","remotePort":56492},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-u1NuXJxgWIiKUQbP+4Bpytf//YA\""}},"responseTime":2,"msg":"request completed"}
+[CACHE] ✅ Hit for workout: {"0":"{","1":"\"","10":"\"","100":"o","101":"u","1...
+[WORKOUT] ✅ Using cached workout plan
+{"level":30,"time":1759293727585,"pid":81089,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","content-type":"application/json","connection":"keep-alive","accept":"application/json","user-agent":"GoFitAI-Mobile/1.0","content-length":"149","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.176","remotePort":56492},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759293787,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759297327,"content-type":"application/json; charset=utf-8","content-length":"8231","etag":"W/\"2027-USa8lYwyHRKIogQD258Rxx+Nf/E\""}},"responseTime":4,"msg":"request completed"}

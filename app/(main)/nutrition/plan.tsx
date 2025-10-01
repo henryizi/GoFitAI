@@ -642,8 +642,8 @@ const NutritionPlanScreen = () => {
           </LinearGradient>
         </View>
 
-        {/* Metabolic Breakdown Explanation */}
-        {plan?.metabolic_calculations && (
+        {/* Metabolic Breakdown Explanation - Only show for mathematical calculations */}
+        {plan?.metabolic_calculations && plan.metabolic_calculations.calculation_method !== 'Manual Input' && (
           <View style={styles.sectionContainer}>
             <LinearGradient
               colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
@@ -700,7 +700,7 @@ const NutritionPlanScreen = () => {
                   </View>
                   <Text style={[styles.metabolicValue, { 
                     color: plan.metabolic_calculations.goal_adjustment > 0 ? colors.success : 
-                           plan.metabolic_calculations.goal_adjustment < 0 ? colors.warning : colors.text 
+                           plan.metabolic_calculations.goal_adjustment < 0 ? colors.warning : colors.white 
                   }]}>
                     {plan.metabolic_calculations.goal_adjustment > 0 ? '+' : ''}
                     {plan.metabolic_calculations.goal_adjustment} <Text style={styles.metabolicUnit}>kcal/day</Text>
@@ -986,18 +986,18 @@ const styles = StyleSheet.create({
   metabolicTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.white,
     marginBottom: 2,
   },
   metabolicSubtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.gray,
     lineHeight: 16,
   },
   metabolicValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.white,
     textAlign: 'right',
   },
   finalTargetValue: {
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
   metabolicUnit: {
     fontSize: 14,
     fontWeight: '400',
-    color: colors.textSecondary,
+    color: colors.gray,
   },
 });
 

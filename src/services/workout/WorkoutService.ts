@@ -109,18 +109,6 @@ export class WorkoutService {
   }
 
   /**
-   * Get all workout plans for a specific user
-   */
-  static async getPlansForUser(userId: string): Promise<StoredWorkoutPlan[]> {
-    try {
-      return await WorkoutLocalStore.getPlans(userId);
-    } catch (error) {
-      console.error('[WorkoutService] Error getting plans for user:', error);
-      return [];
-    }
-  }
-
-  /**
    * Get the count of workout plans for a specific user
    */
   static async getPlanCountForUser(userId: string): Promise<number> {
@@ -219,6 +207,7 @@ export class WorkoutService {
         fatLossGoal: params.fatLossGoal,
         muscleGainGoal: params.muscleGainGoal,
         trainingLevel: params.trainingLevel,
+        primaryGoal: params.primaryGoal || profile.primary_goal || 'general_fitness',
         emulateBodybuilder: params.emulateBodybuilder,
         workoutFrequency: params.workoutFrequency || profile.workout_frequency || '4_5',
         exerciseFrequency: profile.exercise_frequency,
@@ -463,6 +452,120 @@ export class WorkoutService {
       return true;
     } catch (error) {
       console.error('[WorkoutService] Error clearing workout plans:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Find or create an exercise by name
+   */
+  static async findOrCreateExercise(planId: string, exerciseName: string): Promise<any> {
+    try {
+      // First, try to find existing exercise
+      const { data: existingExercise, error: findError } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('name', exerciseName)
+        .single();
+
+      if (existingExercise && !findError) {
+        return existingExercise;
+      }
+
+      // If not found, create a new custom exercise
+      const { data: newExercise, error: createError } = await supabase
+        .from('exercises')
+        .insert({
+          name: exerciseName,
+          is_custom: true,
+          plan_id: planId || null,
+          category: 'compound',
+          muscle_groups: [],
+          difficulty: 'intermediate',
+          equipment_needed: [],
+          description: `Custom exercise: ${exerciseName}`,
+          form_tips: [],
+          rpe_recommendation: null,
+          animation_url: null
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      return newExercise;
+    } catch (error) {
+      console.error('[WorkoutService] Error finding/creating exercise:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Batch update exercise sets
+   */
+  static async batchUpdateExerciseSets(updates: any[]): Promise<boolean> {
+    try {
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('exercise_sets')
+          .update({
+            exercise_id: update.exerciseId,
+            target_reps: update.targetReps,
+            target_weight: update.targetWeight,
+            rest_seconds: update.restSeconds
+          })
+          .eq('id', update.setId);
+
+        if (error) {
+          console.error('[WorkoutService] Error updating set:', error);
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('[WorkoutService] Error batch updating exercise sets:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Add exercise to workout session
+   */
+  static async addExerciseToSession(
+    sessionId: string,
+    exerciseName: string,
+    sets: number = 3,
+    reps: number = 10,
+    weight: number = 0
+  ): Promise<boolean> {
+    try {
+      // Find or create the exercise
+      const exercise = await this.findOrCreateExercise('', exerciseName);
+      if (!exercise) {
+        throw new Error('Could not find or create exercise');
+      }
+
+      // Add exercise sets to the session
+      const exerciseSets = [];
+      for (let i = 1; i <= sets; i++) {
+        exerciseSets.push({
+          session_id: sessionId,
+          exercise_id: exercise.id,
+          set_number: i,
+          target_reps: reps,
+          target_weight: weight,
+          rest_seconds: 60,
+          completed: false
+        });
+      }
+
+      const { error } = await supabase
+        .from('exercise_sets')
+        .insert(exerciseSets);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('[WorkoutService] Error adding exercise to session:', error);
       return false;
     }
   }

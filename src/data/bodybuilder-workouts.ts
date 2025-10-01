@@ -3044,7 +3044,7 @@ export const bodybuilderWorkouts: Record<string, BodybuilderWorkout> = {
       }
     ]
   },
-  frank: {
+  frank_chemist: {
     name: 'Frank Zane - The Chemist',
     description: 'Aesthetic Perfection with Technical Precision - High-rep training focusing on muscle separation, symmetry, and detailed execution',
     trainingPhilosophy: 'High-rep, technical training with focus on muscle isolation, stretching between sets, and mind-muscle connection. Emphasizes slow negatives, full range of motion, and mind-muscle connection.',

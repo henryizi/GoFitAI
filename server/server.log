@@ -1,8 +1,9 @@
 --- SERVER RESTARTED ---
 --- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[QUOTA] Loaded usage data: 17 requests
 [QUOTA] Monitor initialized
 [QUOTA] Daily quota: 50
-[QUOTA] Reset time: 2025-09-28T16:00:00.000Z
+[QUOTA] Reset time: 2025-10-01T16:00:00.000Z
 [CACHE] Response cache initialized
 [CACHE] Max cache size: 100
 [CACHE] Default timeout: 30 minutes
@@ -19,805 +20,204 @@
 [API KEY] Keys loaded: 1
 [API KEY] Key quota: 50
 [API KEY] Selected best key 1 with 50 requests remaining
+[GEMINI TEXT] Using primary model: gemini-2.5-flash
+[GEMINI TEXT] Fallback models available: [ 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro' ]
 [GEMINI TEXT] Using key with best quota availability
-[GEMINI TEXT] Service initialized with model: gemini-1.5-flash
+[GEMINI TEXT] Service initialized with model: gemini-2.5-flash
 [GEMINI TEXT] API Key rotation enabled: ✅ Yes
 === AI CONFIGURATION ===
 Available AI Providers: [ 'gemini', 'fallback' ]
 GEMINI_API_KEY exists: true
-GEMINI_MODEL: gemini-1.5-flash
-Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+GEMINI_MODEL: gemini-2.5-flash
+Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 Gemini provider config: {
   name: 'gemini',
   apiKey: 'AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg',
-  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-  model: 'gemini-1.5-flash',
+  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  model: 'gemini-2.5-flash',
   enabled: true
 }
 Default AI_PROVIDER: gemini
 Total providers available: 2
-- gemini: ENABLED (gemini-1.5-flash)
+- gemini: ENABLED (gemini-2.5-flash)
 - fallback: ENABLED (rule-based)
 ========================
 GoFitAI Server v2.0 running on port 4000
 Local IP: 192.168.0.176
 Server URL: http://192.168.0.176:4000
 Test API with: curl http://192.168.0.176:4000/api/test
-[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"t","101":"\"","...
-[WORKOUT] Normalized profile data: {
-  "full_name": "Alice",
-  "gender": "female",
-  "age": 30,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Primary goal from user profile: undefined
-[WORKOUT] Primary goal in normalized profile: muscle_gain
-[WORKOUT] Generated prompt (first 500 chars): 
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: Alice
-- Gender: female
-- Age: 30
-- Training Level: intermediate
-- Primary Goal: muscle_gain
-- Preferred Workout Frequency: 4-5 times per week
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressive ...
-[WORKOUT] Prompt length: 6678
-[WORKOUT] Starting AI workout plan generation with systematic fallback
-[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
-[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
-[WORKOUT] geminiTextService available: true
-[WORKOUT] Calling generateWorkoutPlan with mapped user profile
-[WORKOUT] User profile for Gemini: {
-  fullName: 'Alice',
-  fitnessLevel: 'intermediate',
-  primaryGoal: 'muscle_gain',
-  workoutFrequency: '4_5'
-}
-[WORKOUT] Full user profile for Gemini: {
-  "fullName": "Alice",
-  "gender": "female",
-  "age": 30,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Alice",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] Generating workout plan
-[GEMINI TEXT] User level: intermediate
-[GEMINI TEXT] Goal: muscle_gain
-[GEMINI TEXT] User profile keys: [
-  'fullName',
-  'gender',
-  'age',
-  'fitnessLevel',
-  'primaryGoal',
-  'workoutFrequency',
-  'full_name',
-  'training_level',
-  'primary_goal',
-  'workout_frequency'
-]
-[GEMINI TEXT] Full user profile: {
-  "fullName": "Alice",
-  "gender": "female",
-  "age": 30,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Alice",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3018
-[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all ...
-[GEMINI TEXT] Attempt 1/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[WORKOUT] Using fallback rule-based generation
-[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
-[WORKOUT] User profile received: {
-  "full_name": "Alice",
-  "gender": "female",
-  "age": 30,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Personalization factors: {
-  goal: 'muscle_gain',
-  level: 'intermediate',
-  frequency: '4_5',
-  age: 30,
-  gender: 'female',
-  name: 'Alice'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
-  'plan_name',
-  'weekly_schedule',
-  'primary_goal',
-  'workout_frequency',
-  'training_level',
-  'personalization',
-  'created_at',
-  'source',
-  'notes'
-]
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
-  name: 'Alice',
-  age: 30,
-  gender: 'female',
-  fitness_level: 'intermediate',
-  customized_for: 'intermediate muscle gain training'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Alice, targeting muscle gain at intermediate level.
-{"level":30,"time":1759048659556,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"159"},"remoteAddress":"127.0.0.1","remotePort":61579},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052259,"content-type":"application/json; charset=utf-8","content-length":"2187","etag":"W/\"88b-9I+NonlOGBt7fFATdw0MszfIC3U\""}},"responseTime":255,"msg":"request completed"}
-[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"t","101":"\"","...
-[WORKOUT] Normalized profile data: {
-  "full_name": "Alice",
-  "gender": "female",
-  "age": 30,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Primary goal from user profile: undefined
-[WORKOUT] Primary goal in normalized profile: muscle_gain
-[WORKOUT] Generated prompt (first 500 chars): 
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: Alice
-- Gender: female
-- Age: 30
-- Training Level: intermediate
-- Primary Goal: muscle_gain
-- Preferred Workout Frequency: 4-5 times per week
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressive ...
-[WORKOUT] Prompt length: 6678
-[WORKOUT] Starting AI workout plan generation with systematic fallback
-[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
-[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
-[WORKOUT] geminiTextService available: true
-[WORKOUT] Calling generateWorkoutPlan with mapped user profile
-[WORKOUT] User profile for Gemini: {
-  fullName: 'Alice',
-  fitnessLevel: 'intermediate',
-  primaryGoal: 'muscle_gain',
-  workoutFrequency: '4_5'
-}
-[WORKOUT] Full user profile for Gemini: {
-  "fullName": "Alice",
-  "gender": "female",
-  "age": 30,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Alice",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] Generating workout plan
-[GEMINI TEXT] User level: intermediate
-[GEMINI TEXT] Goal: muscle_gain
-[GEMINI TEXT] User profile keys: [
-  'fullName',
-  'gender',
-  'age',
-  'fitnessLevel',
-  'primaryGoal',
-  'workoutFrequency',
-  'full_name',
-  'training_level',
-  'primary_goal',
-  'workout_frequency'
-]
-[GEMINI TEXT] Full user profile: {
-  "fullName": "Alice",
-  "gender": "female",
-  "age": 30,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Alice",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3018
-[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all ...
-[GEMINI TEXT] Attempt 1/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] ⚠️ Retryable error (attempt 1/3), retrying in 1305ms...
-[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Network error detected: false
-[GEMINI TEXT] Backoff delay: 1305ms (exponential + jitter)
-[GEMINI TEXT] Attempt 2/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] Applying exponential backoff delay: 1000ms
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 2 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[WORKOUT] Using fallback rule-based generation
-[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
-[WORKOUT] User profile received: {
-  "full_name": "Alice",
-  "gender": "female",
-  "age": 30,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Personalization factors: {
-  goal: 'muscle_gain',
-  level: 'intermediate',
-  frequency: '4_5',
-  age: 30,
-  gender: 'female',
-  name: 'Alice'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
-  'plan_name',
-  'weekly_schedule',
-  'primary_goal',
-  'workout_frequency',
-  'training_level',
-  'personalization',
-  'created_at',
-  'source',
-  'notes'
-]
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
-  name: 'Alice',
-  age: 30,
-  gender: 'female',
-  fitness_level: 'intermediate',
-  customized_for: 'intermediate muscle gain training'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Alice, targeting muscle gain at intermediate level.
-{"level":30,"time":1759048682354,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"159"},"remoteAddress":"127.0.0.1","remotePort":61602},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":3,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052282,"content-type":"application/json; charset=utf-8","content-length":"2187","etag":"W/\"88b-yYXUS1qHdNFQSqhCKGYi6gl3fPc\""}},"responseTime":2577,"msg":"request completed"}
-[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","11":"f","12":"r","13"...
-[WORKOUT] Normalized profile data: {
-  "full_name": "John",
-  "gender": "male",
-  "age": 45,
-  "training_level": "beginner",
-  "primary_goal": "fat_loss",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Primary goal from user profile: undefined
-[WORKOUT] Primary goal in normalized profile: fat_loss
-[WORKOUT] Generated prompt (first 500 chars): 
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: John
-- Gender: male
-- Age: 45
-- Training Level: beginner
-- Primary Goal: fat_loss
-- Preferred Workout Frequency: 4-5 times per week
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressive overload g...
-[WORKOUT] Prompt length: 6668
-[WORKOUT] Starting AI workout plan generation with systematic fallback
-[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
-[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
-[WORKOUT] geminiTextService available: true
-[WORKOUT] Calling generateWorkoutPlan with mapped user profile
-[WORKOUT] User profile for Gemini: {
-  fullName: 'John',
-  fitnessLevel: 'beginner',
-  primaryGoal: 'fat_loss',
-  workoutFrequency: '4_5'
-}
-[WORKOUT] Full user profile for Gemini: {
-  "fullName": "John",
-  "gender": "male",
-  "age": 45,
-  "fitnessLevel": "beginner",
-  "primaryGoal": "fat_loss",
-  "workoutFrequency": "4_5",
-  "full_name": "John",
-  "training_level": "beginner",
-  "primary_goal": "fat_loss",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] Generating workout plan
-[GEMINI TEXT] User level: beginner
-[GEMINI TEXT] Goal: fat_loss
-[GEMINI TEXT] User profile keys: [
-  'fullName',
-  'gender',
-  'age',
-  'fitnessLevel',
-  'primaryGoal',
-  'workoutFrequency',
-  'full_name',
-  'training_level',
-  'primary_goal',
-  'workout_frequency'
-]
-[GEMINI TEXT] Full user profile: {
-  "fullName": "John",
-  "gender": "male",
-  "age": 45,
-  "fitnessLevel": "beginner",
-  "primaryGoal": "fat_loss",
-  "workoutFrequency": "4_5",
-  "full_name": "John",
-  "training_level": "beginner",
-  "primary_goal": "fat_loss",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 2970
-[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all ...
-[GEMINI TEXT] Attempt 1/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[WORKOUT] Using fallback rule-based generation
-[WORKOUT] Generating ENHANCED rule-based workout plan for: fat_loss
-[WORKOUT] User profile received: {
-  "full_name": "John",
-  "gender": "male",
-  "age": 45,
-  "training_level": "beginner",
-  "primary_goal": "fat_loss",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Personalization factors: {
-  goal: 'fat_loss',
-  level: 'beginner',
-  frequency: '4_5',
-  age: 45,
-  gender: 'male',
-  name: 'John'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
-  'plan_name',
-  'weekly_schedule',
-  'primary_goal',
-  'workout_frequency',
-  'training_level',
-  'personalization',
-  'created_at',
-  'source',
-  'notes'
-]
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
-  name: 'John',
-  age: 45,
-  gender: 'male',
-  fitness_level: 'beginner',
-  customized_for: 'beginner fat loss training'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for John, targeting fat loss at beginner level.
-{"level":30,"time":1759048697362,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"149"},"remoteAddress":"127.0.0.1","remotePort":61622},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":2,"x-ratelimit-reset":1759048719,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052297,"content-type":"application/json; charset=utf-8","content-length":"2276","etag":"W/\"8e4-9y+BjDxLzzxcZRH1h6kiDQvQfFQ\""}},"responseTime":478,"msg":"request completed"}
-[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","11":"f","12":"r","13"...
-[WORKOUT] Normalized profile data: {
-  "full_name": "Sarah",
-  "gender": "female",
-  "age": 25,
-  "training_level": "advanced",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "6"
-}
-[WORKOUT] Primary goal from user profile: undefined
-[WORKOUT] Primary goal in normalized profile: muscle_gain
-[WORKOUT] Generated prompt (first 500 chars): 
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: Sarah
-- Gender: female
-- Age: 25
-- Training Level: advanced
-- Primary Goal: muscle_gain
-- Preferred Workout Frequency: 6 times per week
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressive overlo...
-[WORKOUT] Prompt length: 6666
-[WORKOUT] Starting AI workout plan generation with systematic fallback
-[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
-[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
-[WORKOUT] geminiTextService available: true
-[WORKOUT] Calling generateWorkoutPlan with mapped user profile
-[WORKOUT] User profile for Gemini: {
-  fullName: 'Sarah',
-  fitnessLevel: 'advanced',
-  primaryGoal: 'muscle_gain',
-  workoutFrequency: '6'
-}
-[WORKOUT] Full user profile for Gemini: {
-  "fullName": "Sarah",
-  "gender": "female",
-  "age": 25,
-  "fitnessLevel": "advanced",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "6",
-  "full_name": "Sarah",
-  "training_level": "advanced",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "6"
-}
-[GEMINI TEXT] Generating workout plan
-[GEMINI TEXT] User level: advanced
-[GEMINI TEXT] Goal: muscle_gain
-[GEMINI TEXT] User profile keys: [
-  'fullName',
-  'gender',
-  'age',
-  'fitnessLevel',
-  'primaryGoal',
-  'workoutFrequency',
-  'full_name',
-  'training_level',
-  'primary_goal',
-  'workout_frequency'
-]
-[GEMINI TEXT] Full user profile: {
-  "fullName": "Sarah",
-  "gender": "female",
-  "age": 25,
-  "fitnessLevel": "advanced",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "6",
-  "full_name": "Sarah",
-  "training_level": "advanced",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "6"
-}
-[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 2982
-[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all ...
-[GEMINI TEXT] Attempt 1/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] ⚠️ Retryable error (attempt 1/3), retrying in 1491ms...
-[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Network error detected: false
-[GEMINI TEXT] Backoff delay: 1491ms (exponential + jitter)
-[GEMINI TEXT] Attempt 2/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] Applying exponential backoff delay: 1000ms
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 2 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] ⚠️ Retryable error (attempt 2/3), retrying in 2107ms...
-[GEMINI TEXT] Error type: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Network error detected: false
-[GEMINI TEXT] Backoff delay: 2107ms (exponential + jitter)
-[GEMINI TEXT] Attempt 3/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] Applying exponential backoff delay: 2000ms
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 3 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The service is currently unavailable.
-    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[WORKOUT] Using fallback rule-based generation
-[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
-[WORKOUT] User profile received: {
-  "full_name": "Sarah",
-  "gender": "female",
-  "age": 25,
-  "training_level": "advanced",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "6"
-}
-[WORKOUT] Personalization factors: {
-  goal: 'muscle_gain',
-  level: 'advanced',
-  frequency: '6',
-  age: 25,
-  gender: 'female',
-  name: 'Sarah'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
-  'plan_name',
-  'weekly_schedule',
-  'primary_goal',
-  'workout_frequency',
-  'training_level',
-  'personalization',
-  'created_at',
-  'source',
-  'notes'
-]
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
-  name: 'Sarah',
-  age: 25,
-  gender: 'female',
-  fitness_level: 'advanced',
-  customized_for: 'advanced muscle gain training'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Sarah, targeting muscle gain at advanced level.
-{"level":30,"time":1759048719480,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"153"},"remoteAddress":"127.0.0.1","remotePort":61631},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":5,"x-ratelimit-reset":1759048779,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052319,"content-type":"application/json; charset=utf-8","content-length":"2176","etag":"W/\"880-rlX8FMgYOhUFjD5TN9I2rXRuN3U\""}},"responseTime":10373,"msg":"request completed"}
-[CACHE] ⭕ Miss for workout: {"0":"{","1":"\"","10":"\"","100":"}","11":"f","12...
-[WORKOUT] Normalized profile data: {
-  "full_name": "Test User",
-  "gender": "male",
-  "age": 28,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Primary goal from user profile: undefined
-[WORKOUT] Primary goal in normalized profile: muscle_gain
-[WORKOUT] Generated prompt (first 500 chars): 
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: Test User
-- Gender: male
-- Age: 28
-- Training Level: intermediate
-- Primary Goal: muscle_gain
-- Preferred Workout Frequency: 4-5 times per week
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressiv...
-[WORKOUT] Prompt length: 6680
-[WORKOUT] Starting AI workout plan generation with systematic fallback
-[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService
-[WORKOUT] Current GEMINI_MODEL: gemini-1.5-flash
-[WORKOUT] geminiTextService available: true
-[WORKOUT] Calling generateWorkoutPlan with mapped user profile
-[WORKOUT] User profile for Gemini: {
-  fullName: 'Test User',
-  fitnessLevel: 'intermediate',
-  primaryGoal: 'muscle_gain',
-  workoutFrequency: '4_5'
-}
-[WORKOUT] Full user profile for Gemini: {
-  "fullName": "Test User",
-  "gender": "male",
-  "age": 28,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Test User",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] Generating workout plan
-[GEMINI TEXT] User level: intermediate
-[GEMINI TEXT] Goal: muscle_gain
-[GEMINI TEXT] User profile keys: [
-  'fullName',
-  'gender',
-  'age',
-  'fitnessLevel',
-  'primaryGoal',
-  'workoutFrequency',
-  'full_name',
-  'training_level',
-  'primary_goal',
-  'workout_frequency'
-]
-[GEMINI TEXT] Full user profile: {
-  "fullName": "Test User",
-  "gender": "male",
-  "age": 28,
-  "fitnessLevel": "intermediate",
-  "primaryGoal": "muscle_gain",
-  "workoutFrequency": "4_5",
-  "full_name": "Test User",
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[GEMINI TEXT] About to call generateContentWithRetry with prompt length: 3016
-[GEMINI TEXT] Prompt preview: You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all ...
-[GEMINI TEXT] Attempt 1/3
-[GEMINI TEXT] Complex request detected: false, timeout: 30s
-[GEMINI TEXT] About to call this.model.generateContent
-[GEMINI TEXT] Model object: true
-[GEMINI TEXT] Content type: array
-[GEMINI TEXT] Content length: 1
-[GEMINI TEXT] Error in generateContentWithRetry attempt 1 : [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[GEMINI TEXT] Error stack: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at handleResponseNotOk (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:434:11)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:403:9)
-    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
-    at async GeminiTextService.generateContentWithRetry (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:835:24)
-    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:335:22)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[GEMINI TEXT] Error constructor: GoogleGenerativeAIFetchError
-[GEMINI TEXT] Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-[WORKOUT] AI generation failed: Error: Workout plan generation failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-    at GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:370:13)
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:6364:31
-[WORKOUT] Using fallback rule-based generation
-[WORKOUT] Generating ENHANCED rule-based workout plan for: muscle_gain
-[WORKOUT] User profile received: {
-  "full_name": "Test User",
-  "gender": "male",
-  "age": 28,
-  "training_level": "intermediate",
-  "primary_goal": "muscle_gain",
-  "workout_frequency": "4_5"
-}
-[WORKOUT] Personalization factors: {
-  goal: 'muscle_gain',
-  level: 'intermediate',
-  frequency: '4_5',
-  age: 28,
-  gender: 'male',
-  name: 'Test User'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Final plan keys: [
-  'plan_name',
-  'weekly_schedule',
-  'primary_goal',
-  'workout_frequency',
-  'training_level',
-  'personalization',
-  'created_at',
-  'source',
-  'notes'
-]
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Personalization: {
-  name: 'Test User',
-  age: 28,
-  gender: 'male',
-  fitness_level: 'intermediate',
-  customized_for: 'intermediate muscle gain training'
-}
-[WORKOUT] ENHANCED FALLBACK COMPLETE - Notes: This personalized plan is designed specifically for Test User, targeting muscle gain at intermediate level.
-{"level":30,"time":1759049112808,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"161"},"remoteAddress":"127.0.0.1","remotePort":61938},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","x-ratelimit-limit":5,"x-ratelimit-remaining":4,"x-ratelimit-reset":1759049172,"x-ratelimit-ai-limit":10,"x-ratelimit-ai-remaining":10,"x-ratelimit-ai-reset":1759052712,"content-type":"application/json; charset=utf-8","content-length":"2197","etag":"W/\"895-qx69Rkb2eKNnHSShKDvbVNsZk1w\""}},"responseTime":287,"msg":"request completed"}
-{"level":30,"time":1759049128185,"pid":95896,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":61948},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-uRZLqM+TWYh6J4W4AAvoaWo5TxI\""}},"responseTime":1,"msg":"request completed"}
+[EXERCISES API] Fetching exercises from database
+[EXERCISES API] Successfully fetched 801 exercises from database
+{"level":30,"time":1759297853119,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/exercises","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":58611},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"193438","etag":"W/\"2f39e-zem4ocu8Jko+P5kkRQorCslb3HE\""}},"responseTime":1623,"msg":"request completed"}
+[EXERCISES API] Fetching exercises from database
+[EXERCISES API] Successfully fetched 801 exercises from database
+{"level":30,"time":1759297907894,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/exercises","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"application/json"},"remoteAddress":"127.0.0.1","remotePort":58624},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"193438","etag":"W/\"2f39e-zem4ocu8Jko+P5kkRQorCslb3HE\""}},"responseTime":1440,"msg":"request completed"}
+{"level":30,"time":1759298448945,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-0PYY03+ZAupsg3bzKua0BpTi/h4\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59040},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-wpHxW5C9hIwQWhR3OVV8Lq10Q5w\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759298449022,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-wpHxW5C9hIwQWhR3OVV8Lq10Q5w\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59040},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-dc9QNktEr0JaoiWofMwT11WPk80\""}},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1759298732136,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-dc9QNktEr0JaoiWofMwT11WPk80\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59271},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-B/EB7fpHrO9haaO9GoRH3snnYFg\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759298732217,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-B/EB7fpHrO9haaO9GoRH3snnYFg\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59271},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-IJC4QR0+KrQt4/FTrDEL1SSLdK4\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759298764824,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","if-none-match":"W/\"b5-u1NuXJxgWIiKUQbP+4Bpytf//YA\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.176","remotePort":59296},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-gnWVMg/SlD63Btp4dAyidRN07+A\""}},"responseTime":1,"msg":"request completed"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759298764845,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":8,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","content-type":"application/json","connection":"keep-alive","accept":"application/json","user-agent":"GoFitAI-Mobile/1.0","content-length":"149","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.176","remotePort":59296},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":12,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759298764881,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":9,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","connection":"keep-alive","accept":"application/json","user-agent":"GoFitAI-Mobile/1.0","content-length":"149","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"127.0.0.1","remotePort":59300},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":2,"msg":"request errored"}
+{"level":30,"time":1759298944960,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":10,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-IJC4QR0+KrQt4/FTrDEL1SSLdK4\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59459},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-rMQcg6KrL5udooVE5zflr4+fWmg\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759298945039,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":11,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-rMQcg6KrL5udooVE5zflr4+fWmg\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59459},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-wpRK/f2kEq63kZ21HqWoZtauLOI\""}},"responseTime":1,"msg":"request completed"}
+[EXPRESS] 404 - Route not found: GET /health
+{"level":30,"time":1759299095319,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":12,"method":"GET","url":"/health","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":59579},"res":{"statusCode":404,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"78","etag":"W/\"4e-vi3xBwmXV7GeMYsszJb9q3wAZgs\""}},"responseTime":0,"msg":"request completed"}
+[2025-10-01T06:11:55.933Z] Test endpoint called
+{"level":30,"time":1759299115934,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":13,"method":"GET","url":"/api/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":59602},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"283","etag":"W/\"11b-uJg3BXXyhY7tr+uQ5kfhwt5efk4\""}},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1759300456513,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":14,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","if-none-match":"W/\"b5-gnWVMg/SlD63Btp4dAyidRN07+A\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.176","remotePort":60531},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-Co+ZtjVSUtBrLN5RE04kjuWBdfw\""}},"responseTime":2,"msg":"request completed"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759300456532,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":15,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","content-type":"application/json","connection":"keep-alive","accept":"application/json","user-agent":"GoFitAI-Mobile/1.0","content-length":"149","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.176","remotePort":60531},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":3,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759300456556,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":16,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","connection":"keep-alive","accept":"application/json","user-agent":"GoFitAI-Mobile/1.0","content-length":"149","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"127.0.0.1","remotePort":60535},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301005529,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":17,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":60941},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301057681,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":18,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":60973},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":0,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301070323,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":19,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":60985},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301214184,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":20,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61096},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":0,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301244054,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":21,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61122},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":2,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301340288,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":22,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61179},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301368799,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":23,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61200},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":0,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301461034,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":24,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61270},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
+[WORKOUT] Error generating workout plan: TypeError: Cannot read properties of undefined (reading 'workoutTypes')
+    at /Users/ngkwanho/Desktop/GoFitAI/server/index.js:7416:33
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/body-parser/lib/types/urlencoded.js:85:7)
+    at Layer.handle [as handle_request] (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/express/lib/router/layer.js:95:5)
+{"level":30,"time":1759301485472,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":25,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"327"},"remoteAddress":"127.0.0.1","remotePort":61286},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"88","etag":"W/\"58-1XnoWbxsgh4i2X4AefleoQy8aLk\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1,"msg":"request errored"}
 [SHUTDOWN] Received SIGTERM. Shutting down gracefully...

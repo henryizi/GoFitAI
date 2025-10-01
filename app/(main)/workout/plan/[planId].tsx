@@ -58,6 +58,36 @@ type TrainingSplit = { name: string };
 type WorkoutSession = { id: string; day: string; focus: string; exercises: ExerciseSet[] };
 type ExerciseSet = { id: string, name: string, sets: number, reps: string, rest: string };
 
+// Helper function to check if an exercise is cardio-based
+const isCardioExercise = (exercise: any): boolean => {
+  const cardioCategories = ['cardio', 'cardiovascular'];
+  const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
+  const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
+                          'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
+                          'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];
+  
+  // Check category
+  if (exercise.category && cardioCategories.some(cat => exercise.category.toLowerCase().includes(cat))) {
+    return true;
+  }
+  
+  // Check muscle groups
+  if (exercise.muscle_groups?.some(mg => 
+    cardioMuscleGroups.some(cardio => mg.toLowerCase().includes(cardio))
+  )) {
+    return true;
+  }
+  
+  // Check exercise name for cardio keywords
+  if (exercise.name && cardioKeywords.some(keyword => 
+    exercise.name.toLowerCase().includes(keyword)
+  )) {
+    return true;
+  }
+  
+  return false;
+};
+
 export default function PlanDetailScreen() {
   const { planId, planObject, refresh } = useLocalSearchParams<{ planId: string, planObject?: string, refresh?: string }>();
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
@@ -233,7 +263,7 @@ export default function PlanDetailScreen() {
                   sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
                   reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
                   rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
-                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s'
+                  restBetweenSets: ex.restBetweenSets || ex.rest || ex.rest_period || '60s'
                 }));
               } else if (daySchedule.warm_up || daySchedule.main_workout || daySchedule.cool_down) {
                 // New structure: separated warm_up, main_workout, cool_down arrays
@@ -249,7 +279,7 @@ export default function PlanDetailScreen() {
                   sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
                   reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
                   rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
-                  restBetweenSets: ex.restBetweenSets || ex.rest || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || ex.rest_period || '60s',
                   type: ex.type || 'main_workout'
                 }));
               }
@@ -1649,18 +1679,39 @@ export default function PlanDetailScreen() {
                               </View>
                             ) : (
                               <View style={styles.exerciseMetrics}>
-                                <View style={styles.metric}>
-                                  <Icon name="repeat" size={14} color={colors.primary} />
-                                  <Text style={styles.metricText}>{exercise.sets} sets</Text>
-                                </View>
-                                <View style={styles.metric}>
-                                  <Icon name="sync" size={14} color={colors.primary} />
-                                  <Text style={styles.metricText}>{exercise.reps} reps</Text>
-                                </View>
-                                <View style={styles.metric}>
-                                  <Icon name="timer-outline" size={14} color={colors.primary} />
-                                  <Text style={styles.metricText}>{exercise.rest} rest</Text>
-                                </View>
+                                {isCardioExercise(exercise) ? (
+                                  // Cardio exercises: show timing-based parameters
+                                  <>
+                                    <View style={styles.metric}>
+                                      <Icon name="timer" size={14} color={colors.primary} />
+                                      <Text style={styles.metricText}>
+                                        {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'} duration
+                                      </Text>
+                                    </View>
+                                    <View style={styles.metric}>
+                                      <Icon name="timer-outline" size={14} color={colors.primary} />
+                                      <Text style={styles.metricText}>
+                                        {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'} rest
+                                      </Text>
+                                    </View>
+                                  </>
+                                ) : (
+                                  // Strength exercises: show traditional sets/reps parameters
+                                  <>
+                                    <View style={styles.metric}>
+                                      <Icon name="repeat" size={14} color={colors.primary} />
+                                      <Text style={styles.metricText}>{exercise.sets} sets</Text>
+                                    </View>
+                                    <View style={styles.metric}>
+                                      <Icon name="sync" size={14} color={colors.primary} />
+                                      <Text style={styles.metricText}>{exercise.reps} reps</Text>
+                                    </View>
+                                    <View style={styles.metric}>
+                                      <Icon name="timer-outline" size={14} color={colors.primary} />
+                                      <Text style={styles.metricText}>{exercise.rest} rest</Text>
+                                    </View>
+                                  </>
+                                )}
                               </View>
                             )}
                           </View>

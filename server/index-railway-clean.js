@@ -247,48 +247,90 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
  * Transforms GeminiTextService plan format to app's expected format
  */
 function transformGeminiPlanToAppFormat(plan, profileData) {
-  console.log('[WORKOUT] Transforming plan format for app compatibility');
+  console.log('[WORKOUT] Transforming enhanced plan format for app compatibility');
+  console.log('[WORKOUT] Plan structure:', {
+    hasWeeklySchedule: !!(plan.weeklySchedule || plan.weekly_schedule),
+    scheduleLength: (plan.weeklySchedule || plan.weekly_schedule || []).length,
+    hasUserProfile: !!plan.user_profile_summary,
+    planName: plan.plan_name
+  });
   
-  // Convert snake_case weekly_schedule to camelCase weeklySchedule
-  const weeklySchedule = (plan.weekly_schedule || []).map(day => {
-    // Combine all exercises from warm_up, main_workout, and cool_down
-    const allExercises = [
-      ...(day.warm_up || []),
-      ...(day.main_workout || []),
-      ...(day.cool_down || [])
-    ];
+  // Handle both weeklySchedule (new format) and weekly_schedule (old format)
+  const schedule = plan.weeklySchedule || plan.weekly_schedule || [];
+  
+  const weeklySchedule = schedule.map(day => {
+    // Handle the enhanced format with warm_up, main_workout, cool_down
+    let allExercises = [];
+    
+    if (day.warm_up || day.main_workout || day.cool_down) {
+      // New enhanced format
+      const warmUpExercises = (day.warm_up || []).map(ex => ({
+        ...ex,
+        category: 'warm_up',
+        name: ex.exercise || ex.name || 'Warm-up Exercise'
+      }));
+      
+      const mainExercises = (day.main_workout || []).map(ex => ({
+        ...ex,
+        category: 'main_workout',
+        name: ex.exercise || ex.name || 'Main Exercise'
+      }));
+      
+      const coolDownExercises = (day.cool_down || []).map(ex => ({
+        ...ex,
+        category: 'cool_down',
+        name: ex.exercise || ex.name || 'Cool-down Exercise'
+      }));
+      
+      allExercises = [...warmUpExercises, ...mainExercises, ...coolDownExercises];
+    } else if (day.exercises) {
+      // Legacy format
+      allExercises = day.exercises.map(ex => ({
+        ...ex,
+        category: 'main_workout',
+        name: ex.name || ex.exercise || 'Exercise'
+      }));
+    }
 
     // Transform exercises to app format
     const exercises = allExercises.map(exercise => ({
-      name: exercise.name || exercise.exercise || 'Unknown Exercise',
+      name: exercise.name || 'Unknown Exercise',
       sets: exercise.sets || 3,
       reps: exercise.reps || '8-12',
       restBetweenSets: exercise.rest || exercise.rest_seconds || '60-90s',
       instructions: exercise.instructions || '',
-      muscleGroups: exercise.muscle_groups || []
+      muscleGroups: exercise.muscle_groups || [],
+      category: exercise.category || 'main_workout',
+      duration: exercise.duration || null // For warm-up and cool-down exercises
     }));
 
     return {
-      day: day.day_name || `Day ${day.day}`,
-      focus: day.workout_type || 'Training',
-      exercises: exercises
+      day: day.day_name || day.day || `Day ${day.day || 1}`,
+      focus: day.focus || day.workout_type || 'Training',
+      exercises: exercises,
+      duration_minutes: day.duration_minutes || 60
     };
   });
 
-  // Return in app's expected format
+  // Return in app's expected format with enhanced data
   return {
-    name: plan.plan_name || `${profileData.primaryGoal || 'Custom'} Workout Plan`,
-    training_level: plan.target_level || profileData.fitnessLevel || 'intermediate',
-    goal_fat_loss: profileData.fatLossGoal || 2,
-    goal_muscle_gain: profileData.muscleGainGoal || 3,
+    name: plan.plan_name || `${profileData.primaryGoal || profileData.primary_goal || 'Custom'} Workout Plan`,
+    training_level: plan.target_level || profileData.fitnessLevel || profileData.training_level || 'intermediate',
+    goal_fat_loss: profileData.fatLossGoal || profileData.goal_fat_reduction || 2,
+    goal_muscle_gain: profileData.muscleGainGoal || profileData.goal_muscle_gain || 3,
     mesocycle_length_weeks: plan.duration_weeks || 4,
     weeklySchedule: weeklySchedule,
-    recommendations: {
-      nutrition: plan.nutrition_tips || [],
-      safety: plan.safety_guidelines || [],
-      progression: plan.progression_plan || {}
+    user_profile_summary: plan.user_profile_summary || {
+      name: profileData.fullName || profileData.full_name || 'User',
+      training_level: profileData.fitnessLevel || profileData.training_level || 'intermediate',
+      primary_goal: profileData.primaryGoal || profileData.primary_goal || 'general_fitness'
     },
-    estimatedTimePerSession: `${plan.sessions_per_week ? Math.round(60 * plan.sessions_per_week / 7) : 60}-90 minutes`
+    recommendations: {
+      nutrition: typeof plan.nutrition_tips === 'string' ? [plan.nutrition_tips] : (plan.nutrition_tips || []),
+      safety: plan.safety_guidelines || [],
+      progression: plan.progression || plan.progression_plan || {}
+    },
+    estimatedTimePerSession: plan.estimatedTimePerSession || `${plan.sessions_per_week ? Math.round(60 * plan.sessions_per_week / 7) : 60} minutes`
   };
 }
 

@@ -32,6 +32,10 @@ export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const { isPremium, isLoading } = useSubscription();
 
+  // Development bypass: allow access in development mode
+  const isDevelopment = __DEV__;
+  const bypassPaywall = isDevelopment;
+
   // 如果订阅状态正在加载，显示加载界面
   if (isLoading) {
     return (
@@ -42,9 +46,14 @@ export default function MainLayout() {
     );
   }
 
-  // 如果用户没有付费，重定向到付费墙
-  if (!isPremium) {
+  // 如果用户没有付费，重定向到付费墙 (除非在开发模式)
+  if (!isPremium && !bypassPaywall) {
     return <Redirect href="/paywall" />;
+  }
+
+  // Development bypass message
+  if (bypassPaywall && !isPremium) {
+    console.log('🚀 MAIN LAYOUT: Development mode bypass - user can access full app without premium');
   }
   
   return (

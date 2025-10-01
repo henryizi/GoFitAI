@@ -1036,6 +1036,252 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Intermediate",
     equipment: "Plate"
   },
+  
+  // Running and Cardio Machine Exercises
+  {
+    name: "Treadmill Running",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Outdoor Running",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Treadmill Walking Incline",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Glutes"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Treadmill Intervals",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Track Running",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Hill Running",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Glutes"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Sprint Intervals",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Fartlek Training",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  
+  // Swimming Exercises
+  {
+    name: "Swimming",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Other"
+  },
+  {
+    name: "Freestyle Swimming",
+    category: "Cardio",
+    muscleGroups: ["Shoulders", "Back", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Other"
+  },
+  {
+    name: "Swimming Laps Mixed Strokes",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Other"
+  },
+  {
+    name: "Pool Running",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Other"
+  },
+  {
+    name: "Water Aerobics",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Other"
+  },
+  
+  // Cardio Machines
+  {
+    name: "Stationary Bike",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Spin Bike",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Recumbent Bike",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Bike Sprints",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Advanced",
+    equipment: "Machine"
+  },
+  {
+    name: "Elliptical Machine",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Arms"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Cross Trainer",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Arms"],
+    difficulty: "Beginner",
+    equipment: "Machine"
+  },
+  {
+    name: "Rowing Machine",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Back"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "StairMaster",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Glutes"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  {
+    name: "Arc Trainer",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Glutes", "Arms"],
+    difficulty: "Intermediate",
+    equipment: "Machine"
+  },
+  
+  // Additional Cardio Exercises
+  {
+    name: "Jumping Jacks",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Battle Ropes",
+    category: "Cardio",
+    muscleGroups: ["Arms", "Core"],
+    difficulty: "Advanced",
+    equipment: "Other"
+  },
+  {
+    name: "Step-Ups",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Bear Crawls",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Plank Jacks",
+    category: "Cardio",
+    muscleGroups: ["Core", "Arms"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Squat Jumps",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Lateral Shuffles",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Stair Climbing",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Dancing",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "HIIT Circuit",
+    category: "Cardio",
+    muscleGroups: ["Full Body", "Cardiovascular"],
+    difficulty: "Advanced",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Jogging in Place",
+    category: "Cardio",
+    muscleGroups: ["Legs", "Cardiovascular"],
+    difficulty: "Beginner",
+    equipment: "Bodyweight"
+  },
+  {
+    name: "Shadowboxing",
+    category: "Cardio",
+    muscleGroups: ["Arms", "Core"],
+    difficulty: "Intermediate",
+    equipment: "Bodyweight"
+  },
 
   // Additional Hamstring Exercises (to balance muscle group distribution)
   {

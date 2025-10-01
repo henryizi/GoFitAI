@@ -209,7 +209,7 @@ export default function WorkoutHistoryDetailScreen() {
       const filename = generateWorkoutFilename();
       
       // Create a copy with the proper filename in the document directory
-      const documentDirectory = FileSystem.documentDirectory;
+      const documentDirectory = FileSystem.documentDirectory || '';
       const newUri = `${documentDirectory}${filename}`;
       
       // Copy the file with the new name

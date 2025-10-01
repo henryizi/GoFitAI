@@ -223,4 +223,300 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
    'Maintain tension throughout'
  ],
  8,
- false); 
+ false);
+
+-- Cardio Exercises
+INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_needed, description, form_tips, rpe_recommendation, is_custom) VALUES
+-- Bodyweight Cardio
+('Burpees', 'cardio', ARRAY['full body', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'Full-body explosive movement combining squat, plank, push-up, and jump.',
+ ARRAY[
+   'Start standing, drop to squat position',
+   'Jump feet back to plank',
+   'Perform push-up (optional)',
+   'Jump feet back to squat',
+   'Explosive jump up with arms overhead'
+ ],
+ 8,
+ false),
+
+('Mountain Climbers', 'cardio', ARRAY['core', 'shoulders', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'High-intensity bodyweight exercise targeting core and cardiovascular system.',
+ ARRAY[
+   'Start in plank position',
+   'Drive knees alternately to chest',
+   'Keep hips level',
+   'Maintain plank form throughout',
+   'Quick tempo with control'
+ ],
+ 7,
+ false),
+
+('Box Jumps', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+ ARRAY['box', 'platform'],
+ 'Explosive plyometric exercise for power and cardio conditioning.',
+ ARRAY[
+   'Start arm''s length from box',
+   'Bend knees and swing arms back',
+   'Jump explosively onto box',
+   'Land softly with bent knees',
+   'Step down with control'
+ ],
+ 7,
+ false),
+
+('Jumping Jacks', 'cardio', ARRAY['full body', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Classic full-body cardiovascular exercise.',
+ ARRAY[
+   'Start with feet together, arms at sides',
+   'Jump feet apart while raising arms overhead',
+   'Jump back to starting position',
+   'Keep knees slightly bent',
+   'Maintain steady rhythm'
+ ],
+ 5,
+ false),
+
+('High Knees', 'cardio', ARRAY['legs', 'core', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'In-place running with exaggerated knee lift for cardio and coordination.',
+ ARRAY[
+   'Run in place lifting knees high',
+   'Aim to bring knees to waist level',
+   'Keep torso upright',
+   'Land on balls of feet',
+   'Quick tempo with arm swing'
+ ],
+ 6,
+ false),
+
+('Butt Kickers', 'cardio', ARRAY['legs', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Running movement focusing on hamstring activation and cardio.',
+ ARRAY[
+   'Run in place kicking heels to glutes',
+   'Keep knees pointing down',
+   'Quick tempo',
+   'Stay light on feet',
+   'Swing arms naturally'
+ ],
+ 5,
+ false),
+
+-- Jump Training
+('Jump Squats', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'Explosive squat variation for power and conditioning.',
+ ARRAY[
+   'Start in squat position',
+   'Jump explosively upward',
+   'Land softly in squat position',
+   'Absorb impact with bent knees',
+   'Chain movements smoothly'
+ ],
+ 7,
+ false),
+
+('Broad Jumps', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'Horizontal jumping exercise for power and distance.',
+ ARRAY[
+   'Start with feet hip-width apart',
+   'Swing arms back and bend knees',
+   'Jump forward as far as possible',
+   'Land with bent knees',
+   'Walk back to starting position'
+ ],
+ 7,
+ false),
+
+('Lateral Bounds', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'Side-to-side jumping for lateral power and stability.',
+ ARRAY[
+   'Start on one leg',
+   'Jump laterally to opposite leg',
+   'Land softly on outside leg',
+   'Absorb impact and stabilize',
+   'Continue bouncing side to side'
+ ],
+ 7,
+ false),
+
+-- HIIT Movements
+('Bear Crawls', 'cardio', ARRAY['full body', 'core', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'All-fours crawling movement for strength and cardio.',
+ ARRAY[
+   'Start on hands and feet, knees off ground',
+   'Keep knees 1-2 inches off floor',
+   'Crawl forward with opposite hand/foot',
+   'Keep core tight and hips low',
+   'Move with control'
+ ],
+ 7,
+ false),
+
+('Crab Walks', 'cardio', ARRAY['shoulders', 'core', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Reverse crawling movement targeting posterior chain.',
+ ARRAY[
+   'Sit with hands behind you, fingers facing forward',
+   'Lift hips off ground',
+   'Walk on hands and feet',
+   'Keep hips elevated',
+   'Move with opposite hand/foot'
+ ],
+ 6,
+ false),
+
+('Star Jumps', 'cardio', ARRAY['full body', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Explosive jumping movement in star formation.',
+ ARRAY[
+   'Start in squat position',
+   'Jump up spreading arms and legs wide',
+   'Form star shape at peak',
+   'Land softly in squat position',
+   'Chain movements smoothly'
+ ],
+ 6,
+ false),
+
+-- Equipment-Based Cardio
+('Battle Ropes', 'cardio', ARRAY['arms', 'shoulders', 'core', 'cardiovascular'], 'intermediate',
+ ARRAY['battle ropes'],
+ 'High-intensity rope training for upper body and cardio.',
+ ARRAY[
+   'Hold rope ends with both hands',
+   'Keep feet hip-width apart',
+   'Create waves by alternating arms',
+   'Keep core engaged',
+   'Maintain steady rhythm'
+ ],
+ 8,
+ false),
+
+('Kettlebell Swings', 'cardio', ARRAY['glutes', 'core', 'cardiovascular'], 'intermediate',
+ ARRAY['kettlebell'],
+ 'Ballistic hip-hinge movement for power and conditioning.',
+ ARRAY[
+   'Start with kettlebell between legs',
+   'Hinge at hips, swing kettlebell up',
+   'Drive with hips, not arms',
+   'Kettlebell reaches chest height',
+   'Control descent between legs'
+ ],
+ 7,
+ false),
+
+('Medicine Ball Slams', 'cardio', ARRAY['core', 'shoulders', 'cardiovascular'], 'intermediate',
+ ARRAY['medicine ball'],
+ 'Explosive full-body movement for power and stress relief.',
+ ARRAY[
+   'Hold medicine ball overhead',
+   'Engage core and slam ball down',
+   'Use full body force',
+   'Pick up ball and repeat',
+   'Control the movement'
+ ],
+ 7,
+ false),
+
+('Jump Rope', 'cardio', ARRAY['calves', 'cardiovascular'], 'beginner',
+ ARRAY['jump rope'],
+ 'Classic cardio exercise for coordination and conditioning.',
+ ARRAY[
+   'Hold rope handles at hip level',
+   'Jump with balls of feet',
+   'Keep jumps small and controlled',
+   'Turn rope with wrists, not arms',
+   'Maintain steady rhythm'
+ ],
+ 6,
+ false),
+
+-- Running Variations
+('Shuttle Runs', 'cardio', ARRAY['legs', 'cardiovascular'], 'intermediate',
+ ARRAY['cones', 'markers'],
+ 'Back-and-forth sprinting for agility and conditioning.',
+ ARRAY[
+   'Set markers 10-20 yards apart',
+   'Sprint to marker and back',
+   'Touch each marker',
+   'Focus on quick direction changes',
+   'Maintain speed throughout'
+ ],
+ 7,
+ false),
+
+('Fartlek Training', 'cardio', ARRAY['full body', 'cardiovascular'], 'intermediate',
+ ARRAY[],
+ 'Varied pace running combining speed and endurance.',
+ ARRAY[
+   'Alternate between jogging and sprinting',
+   'Vary intervals based on feel',
+   'Use landmarks as markers',
+   'Keep overall effort moderate to high',
+   'Focus on pace changes'
+ ],
+ 7,
+ false),
+
+-- Swimming Movements (Dry Land)
+('Swimming Strokes', 'cardio', ARRAY['shoulders', 'core', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Dry land swimming movements for cardio and shoulder mobility.',
+ ARRAY[
+   'Simulate freestyle stroke motion',
+   'Keep core engaged',
+   'Alternate arms in smooth motion',
+   'Add small hop for cardio boost',
+   'Maintain rhythm and form'
+ ],
+ 5,
+ false),
+
+-- Dance Cardio
+('Dancing', 'cardio', ARRAY['full body', 'cardiovascular'], 'beginner',
+ ARRAY[],
+ 'Rhythmic full-body movement for fun cardio workout.',
+ ARRAY[
+   'Move to the beat of music',
+   'Engage whole body',
+   'Keep moving continuously',
+   'Have fun with movement',
+   'Focus on enjoyment over perfection'
+ ],
+ 5,
+ false),
+
+-- Stair/Step Exercises
+('Step Ups', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'beginner',
+ ARRAY['box', 'step', 'platform'],
+ 'Simple step exercise for lower body and cardio.',
+ ARRAY[
+   'Step up onto platform with full foot',
+   'Drive through heel',
+   'Step down with control',
+   'Alternate leading leg',
+   'Keep torso upright'
+ ],
+ 6,
+ false),
+
+('Stair Climbing', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'beginner',
+ ARRAY['stairs'],
+ 'Functional cardio exercise using stairs.',
+ ARRAY[
+   'Take stairs two at a time for intensity',
+   'Use handrail for safety only',
+   'Drive through legs',
+   'Maintain steady pace',
+   'Walk down for recovery'
+ ],
+ 6,
+ false);

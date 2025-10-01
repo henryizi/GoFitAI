@@ -50,11 +50,10 @@ export interface Database {
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
           primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
-?: '1' | '2-3' | '4-5' | '6-7' | null;
+          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
-          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           activity_level?: 'sedentary' | 'moderately_active' | 'very_active' | null;
           fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender?: 'male' | 'female' | null;
@@ -78,11 +77,10 @@ export interface Database {
           training_level?: 'beginner' | 'intermediate' | 'advanced' | null;
           primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency?: '2_3' | '4_5' | '6' | null;
-?: '1' | '2-3' | '4-5' | '6-7' | null;
+          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
-          exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender?: 'male' | 'female' | null;
           height_unit_preference?: 'cm' | 'ft' | null;
@@ -95,114 +93,114 @@ export interface Database {
       };
       body_photos: {
         Row: {
-          id: string
-          user_id: string
-          photo_type: string
-          photo_url: string
-          storage_path: string
-          uploaded_at: string
-          is_analyzed: boolean
-          analysis_status: string
-        }
+          id: string;
+          user_id: string;
+          photo_type: string;
+          photo_url: string;
+          storage_path: string;
+          uploaded_at: string;
+          is_analyzed: boolean;
+          analysis_status: string;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          photo_type: string
-          photo_url: string
-          storage_path: string
-          uploaded_at?: string
-          is_analyzed?: boolean
-          analysis_status?: string
-        }
+          id?: string;
+          user_id: string;
+          photo_type: string;
+          photo_url: string;
+          storage_path: string;
+          uploaded_at?: string;
+          is_analyzed?: boolean;
+          analysis_status?: string;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          photo_type?: string
-          photo_url?: string
-          storage_path?: string
-          uploaded_at?: string
-          is_analyzed?: boolean
-          analysis_status?: string
-        }
+          id?: string;
+          user_id?: string;
+          photo_type?: string;
+          photo_url?: string;
+          storage_path?: string;
+          uploaded_at?: string;
+          is_analyzed?: boolean;
+          analysis_status?: string;
+        };
       }
       body_analysis: {
         Row: {
-          id: string
-          user_id: string
-          photo_session_id: string | null
-          chest_rating: number | null
-          arms_rating: number | null
-          back_rating: number | null
-          legs_rating: number | null
-          waist_rating: number | null
-          overall_rating: number | null
-          strongest_body_part: string | null
-          weakest_body_part: string | null
-          ai_feedback: string | null
-          analysis_data: Json | null
-          created_at: string
-        }
+          id: string;
+          user_id: string;
+          photo_session_id: string | null;
+          chest_rating: number | null;
+          arms_rating: number | null;
+          back_rating: number | null;
+          legs_rating: number | null;
+          waist_rating: number | null;
+          overall_rating: number | null;
+          strongest_body_part: string | null;
+          weakest_body_part: string | null;
+          ai_feedback: string | null;
+          analysis_data: Json | null;
+          created_at: string;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          photo_session_id?: string | null
-          chest_rating?: number | null
-          arms_rating?: number | null
-          back_rating?: number | null
-          legs_rating?: number | null
-          waist_rating?: number | null
-          overall_rating?: number | null
-          strongest_body_part?: string | null
-          weakest_body_part?: string | null
-          ai_feedback?: string | null
-          analysis_data?: Json | null
-          created_at?: string
-        }
+          id?: string;
+          user_id: string;
+          photo_session_id?: string | null;
+          chest_rating?: number | null;
+          arms_rating?: number | null;
+          back_rating?: number | null;
+          legs_rating?: number | null;
+          waist_rating?: number | null;
+          overall_rating?: number | null;
+          strongest_body_part?: string | null;
+          weakest_body_part?: string | null;
+          ai_feedback?: string | null;
+          analysis_data?: Json | null;
+          created_at?: string;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          photo_session_id?: string | null
-          chest_rating?: number | null
-          arms_rating?: number | null
-          back_rating?: number | null
-          legs_rating?: number | null
-          waist_rating?: number | null
-          overall_rating?: number | null
-          strongest_body_part?: string | null
-          weakest_body_part?: string | null
-          ai_feedback?: string | null
-          analysis_data?: Json | null
-          created_at?: string
-        }
+          id?: string;
+          user_id?: string;
+          photo_session_id?: string | null;
+          chest_rating?: number | null;
+          arms_rating?: number | null;
+          back_rating?: number | null;
+          legs_rating?: number | null;
+          waist_rating?: number | null;
+          overall_rating?: number | null;
+          strongest_body_part?: string | null;
+          weakest_body_part?: string | null;
+          ai_feedback?: string | null;
+          analysis_data?: Json | null;
+          created_at?: string;
+        };
       }
       progress_entries: {
         Row: {
-          id: string
-          user_id: string
-          date: string
-          weight_kg: number | null
-          front_photo_id: string | null
-          back_photo_id: string | null
-          created_at: string
-        }
+          id: string;
+          user_id: string;
+          date: string;
+          weight_kg: number | null;
+          front_photo_id: string | null;
+          back_photo_id: string | null;
+          created_at: string;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          date: string
-          weight_kg?: number | null
-          front_photo_id?: string | null
-          back_photo_id?: string | null
-          created_at?: string
-        }
+          id?: string;
+          user_id: string;
+          date: string;
+          weight_kg?: number | null;
+          front_photo_id?: string | null;
+          back_photo_id?: string | null;
+          created_at?: string;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          date?: string
-          weight_kg?: number | null
-          front_photo_id?: string | null
-          back_photo_id?: string | null
-          created_at?: string
-        }
+          id?: string;
+          user_id?: string;
+          date?: string;
+          weight_kg?: number | null;
+          front_photo_id?: string | null;
+          back_photo_id?: string | null;
+          created_at?: string;
+        };
       }
 
       workout_plans: {
@@ -572,8 +570,8 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       upsert_ai_workout_plan: {
         Args: {
@@ -602,9 +600,9 @@ export interface Database {
         };
         Returns: any;
       };
-    }
+    };
     Enums: {
-      [_ in never]: never
-    }
-  }
+      [_ in never]: never;
+    };
+  };
 }

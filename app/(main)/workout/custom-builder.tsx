@@ -34,7 +34,7 @@ const colors = {
 };
 
 const muscleGroups = [
-  'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body'
+  'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Cardio', 'Full Body'
 ];
 
 const trainingLevels = [
@@ -53,12 +53,6 @@ const daysPerWeekOptions = [
   { value: 7, label: '7 Days', description: 'Everyday training' }
 ];
 
-const sessionTimeOptions = [
-  { value: 30, label: '30 min', description: 'Quick sessions' },
-  { value: 45, label: '45 min', description: 'Standard sessions' },
-  { value: 60, label: '60 min', description: 'Full workouts' },
-  { value: 90, label: '90 min', description: 'Extended sessions' }
-];
 
 interface Exercise {
   id: string;
@@ -75,6 +69,9 @@ interface WorkoutExercise {
   sets: number;
   reps: string;
   rest: string;
+  // Timing-based parameters for cardio exercises
+  duration?: number; // in seconds
+  restSeconds?: number; // in seconds
 }
 
 interface WorkoutDay {
@@ -90,6 +87,36 @@ interface PlanSetup {
   daysPerWeek: number;
   sessionTime: number;
 }
+
+// Helper function to check if an exercise is cardio-based
+const isCardioExercise = (exercise: Exercise): boolean => {
+  const cardioCategories = ['cardio', 'cardiovascular'];
+  const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
+  const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
+                          'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
+                          'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];
+  
+  // Check category
+  if (cardioCategories.some(cat => exercise.category?.toLowerCase().includes(cat))) {
+    return true;
+  }
+  
+  // Check muscle groups
+  if (exercise.muscle_groups?.some(mg => 
+    cardioMuscleGroups.some(cardio => mg.toLowerCase().includes(cardio))
+  )) {
+    return true;
+  }
+  
+  // Check exercise name for cardio keywords
+  if (cardioKeywords.some(keyword => 
+    exercise.name?.toLowerCase().includes(keyword)
+  )) {
+    return true;
+  }
+  
+  return false;
+};
 
 export default function CustomBuilderScreen() {
   const { user, profile } = useAuth();
@@ -113,7 +140,9 @@ export default function CustomBuilderScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState<string>('');
-  const [step, setStep] = useState(1); // 1: Plan Setup, 2: Day Selection, 3: Exercise Assignment, 4: Review
+  const [step, setStep] = useState(1);
+  
+ // 1: Plan Setup, 2: Day Selection, 3: Exercise Assignment, 4: Review
 
   // Optimized day data computation - remove console.logs and simplify
   const dayData = useMemo(() => {
@@ -247,7 +276,8 @@ export default function CustomBuilderScreen() {
 
     return exercises.filter(exercise => {
       const matchesMuscleGroup = !selectedMuscleGroup ||
-        (exercise.muscle_groups?.some(group => (group || '').toLowerCase().includes(lowerMuscleGroup)) ?? false);
+        (exercise.muscle_groups?.some(group => (group || '').toLowerCase().includes(lowerMuscleGroup)) ?? false) ||
+        (selectedMuscleGroup.toLowerCase() === 'cardio' && isCardioExercise(exercise));
       const nameText = (exercise.name ?? '').toLowerCase();
       const descText = (exercise.description ?? '').toLowerCase();
       const matchesSearch = !debouncedSearchText ||
@@ -270,7 +300,15 @@ export default function CustomBuilderScreen() {
 
       if (existingDay) {
         // Day exists, just add exercise to it
-        const newExercise: WorkoutExercise = {
+        const isCardio = isCardioExercise(exercise);
+        const newExercise: WorkoutExercise = isCardio ? {
+          exercise,
+          sets: 1, // Default to 1 for cardio (not really used)
+          reps: '30s', // Display duration as reps for compatibility
+          rest: '30s',
+          duration: 30, // 30 seconds default
+          restSeconds: 30 // 30 seconds rest default
+        } : {
           exercise,
           sets: 3,
           reps: '10-12',
@@ -284,7 +322,15 @@ export default function CustomBuilderScreen() {
         );
       } else {
         // Day doesn't exist, create it
-        const newExercise: WorkoutExercise = {
+        const isCardio = isCardioExercise(exercise);
+        const newExercise: WorkoutExercise = isCardio ? {
+          exercise,
+          sets: 1, // Default to 1 for cardio (not really used)
+          reps: '30s', // Display duration as reps for compatibility
+          rest: '30s',
+          duration: 30, // 30 seconds default
+          restSeconds: 30 // 30 seconds rest default
+        } : {
           exercise,
           sets: 3,
           reps: '10-12',
@@ -448,25 +494,37 @@ export default function CustomBuilderScreen() {
   }, []);
 
 
+
   // Step 1: Plan Setup
   if (step === 1) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
 
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => router.back()}>
+        {/* Modern Header with Gradient */}
+        <View style={[styles.modernHeader, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.modernBackButton}>
             <Icon name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Custom Workout Builder</Text>
-          <View style={styles.headerSpacer} />
+          <View style={styles.modernHeaderContent}>
+            <Text style={styles.modernHeaderTitle}>Workout Builder</Text>
+            <Text style={styles.modernHeaderSubtitle}>Step 1 of 3 • Plan Setup</Text>
+          </View>
+          <View style={styles.modernHeaderProgress}>
+            <Text style={styles.progressText}>33%</Text>
+          </View>
         </View>
 
-        <ScrollView style={[styles.content, { paddingBottom: tabBarHeight }]}>
-          <Text style={styles.stepTitle}>Step 1: Plan Setup</Text>
-
+        <ScrollView 
+          style={styles.modernContent} 
+          contentContainerStyle={styles.modernScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <Card style={styles.setupCard} theme={{ colors: { surface: colors.card } }}>
-            <Text style={styles.sectionTitle}>Basic Information</Text>
+            <View style={styles.modernSectionHeader}>
+              <Icon name="information-outline" size={24} color={colors.primary} />
+              <Text style={styles.sectionHeaderTitle}>Basic Information</Text>
+            </View>
 
             <PaperInput
               label="Plan Name"
@@ -490,9 +548,12 @@ export default function CustomBuilderScreen() {
           </Card>
 
           <Card style={styles.setupCard} theme={{ colors: { surface: colors.card } }}>
-            <Text style={styles.sectionTitle}>Training Configuration</Text>
+            <View style={styles.modernSectionHeader}>
+              <Icon name="dumbbell" size={24} color={colors.primary} />
+              <Text style={styles.sectionHeaderTitle}>Training Configuration</Text>
+            </View>
 
-            <Text style={styles.label}>Training Level</Text>
+            <Text style={styles.modernLabel}>Training Level</Text>
             <SegmentedButtons
               value={planSetup.trainingLevel}
               onValueChange={(value) => updatePlanSetup('trainingLevel', value)}
@@ -507,7 +568,7 @@ export default function CustomBuilderScreen() {
               style={styles.segmentedButtons}
             />
 
-            <Text style={styles.label}>Days Per Week</Text>
+            <Text style={styles.modernLabel}>Days Per Week</Text>
             <View style={styles.optionGrid}>
               {daysPerWeekOptions.map(option => (
                 <TouchableOpacity
@@ -529,29 +590,6 @@ export default function CustomBuilderScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-
-            <Text style={styles.label}>Session Duration</Text>
-            <View style={styles.optionGrid}>
-              {sessionTimeOptions.map(option => (
-                <TouchableOpacity
-                  key={option.value}
-                  onPress={() => updatePlanSetup('sessionTime', option.value)}
-                  style={[
-                    styles.optionCard,
-                    planSetup.sessionTime === option.value && styles.selectedOptionCard
-                  ]}
-                >
-                  <Text style={[
-                    styles.optionLabel,
-                    planSetup.sessionTime === option.value && styles.selectedOptionLabel
-                  ]}>{option.label}</Text>
-                  <Text style={[
-                    styles.optionDescription,
-                    planSetup.sessionTime === option.value && styles.selectedOptionDescription
-                  ]}>{option.description}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </Card>
         </ScrollView>
 
@@ -563,201 +601,390 @@ export default function CustomBuilderScreen() {
             style={styles.nextButton}
             contentStyle={styles.nextButtonContent}
           >
-            <Text>Next: Day Selection</Text>
+            <Text style={styles.nextButtonText}>Next: Day Selection</Text>
           </Button>
         </View>
       </View>
     );
   }
 
-  // Step 2: Day Selection & Add Exercises (Combined with fixed day selection)
+  // Step 2: Modern Day Builder with New Layout
   if (step === 2) {
 
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
 
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => setStep(1)}>
+        {/* Modern Header with Gradient */}
+        <View style={[styles.modernHeader, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => setStep(1)} style={styles.modernBackButton}>
             <Icon name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Build Your Workout</Text>
-          <View style={styles.headerSpacer} />
+          <View style={styles.modernHeaderContent}>
+            <Text style={styles.modernHeaderTitle}>Workout Builder</Text>
+            <Text style={styles.modernHeaderSubtitle}>Step 2 of 3 • Configure Days & Exercises</Text>
+          </View>
+          <View style={styles.modernHeaderProgress}>
+            <Text style={styles.progressText}>67%</Text>
+          </View>
         </View>
 
-        <View style={styles.content}>
-          <Text style={styles.stepTitle}>Step 2 of 3: Choose Days & Add Exercises</Text>
-
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading exercises...</Text>
+        <ScrollView 
+          style={styles.modernContent} 
+          contentContainerStyle={styles.modernScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Progress Banner */}
+          <View style={styles.progressBanner}>
+            <View style={styles.progressBannerContent}>
+              <View style={styles.progressCircle}>
+                <Text style={styles.progressCircleText}>2</Text>
+              </View>
+              <View style={styles.progressBannerText}>
+                <Text style={styles.progressBannerTitle}>Configure Your Training Days</Text>
+                <Text style={styles.progressBannerSubtitle}>
+                  {progressInfo.configuredDays} of {progressInfo.totalDays} days ready • {progressInfo.totalExercises} exercises added
+                </Text>
+              </View>
             </View>
-          ) : !selectedDay ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Setting up your workout days...</Text>
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: `${progressInfo.progressPercentage}%` }]} />
+              </View>
             </View>
-          ) : (
-            <FlatList
-              data={filteredExercises}
-              keyExtractor={keyExtractor}
-              renderItem={renderExerciseRow}
-              contentContainerStyle={styles.scrollViewContent}
-              initialNumToRender={12}
-              maxToRenderPerBatch={12}
-              windowSize={10}
-              removeClippedSubviews
-              keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={(
-              <>
-                {/* Fixed Day Selection Section */}
-                <View style={styles.fixedDaySection}>
-                  <Card style={styles.compactSetupCard} theme={{ colors: { surface: colors.card } }}>
-                    <View style={styles.compactSectionHeader}>
-                      <View style={styles.compactSectionHeaderContent}>
-                        <Icon name="calendar-clock" size={20} color={colors.primary} />
-                        <Text style={[styles.sectionTitle, { fontSize: 18, marginBottom: 8 }]}>Choose Your Training Days</Text>
-                      </View>
-                      <Text style={[styles.setupDescription, { fontSize: 12, marginBottom: 12 }]}>Choose and customize your training days. You can rename days and see their progress as you build your plan.</Text>
-                    </View>
+          </View>
 
-                    <View style={styles.daySelectionContainer}>
-                      {dayData.map((dayInfo) => (
-                        <WorkoutDayCard
-                          key={dayInfo.dayName}
-                          dayName={dayInfo.dayName}
-                          day={dayInfo.day}
-                          isSelected={dayInfo.isSelected}
-                          isEditing={dayInfo.isEditing}
-                          exerciseCount={dayInfo.exerciseCount}
-                          editingDayName={editingDayName}
-                          onStartEditing={startEditingDay}
-                          onSaveEditing={saveDayName}
-                          onCancelEditing={cancelEditingDay}
-                          onChangeEditingName={setEditingDayName}
-                          onSelectDay={handleDaySelection}
-                        />
-                      ))}
+          {/* Day Selection Grid */}
+          <View style={styles.dayGridSection}>
+            <View style={styles.modernSectionHeader}>
+              <Icon name="calendar-multiple" size={24} color={colors.primary} />
+              <Text style={styles.sectionHeaderTitle}>Training Days</Text>
+            </View>
+            
+            <View style={styles.dayGrid}>
+              {dayData.map((dayInfo) => (
+                <TouchableOpacity
+                  key={dayInfo.dayName}
+                  onPress={() => handleDaySelection(dayInfo.dayName)}
+                  style={[
+                    styles.modernDayCard,
+                    dayInfo.isSelected && styles.modernDayCardSelected,
+                    selectedDay === dayInfo.dayName && styles.modernDayCardActive
+                  ]}
+                >
+                  <View style={styles.modernDayCardHeader}>
+                    <View style={[
+                      styles.modernDayIndicator,
+                      dayInfo.isSelected && styles.modernDayIndicatorSelected
+                    ]}>
+                      {dayInfo.isSelected ? (
+                        <Icon name="check" size={16} color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.modernDayIndicatorText}>
+                          {dayInfo.dayName.charAt(0)}
+                        </Text>
+                      )}
                     </View>
-
-                    {/* Progress Summary */}
-                    <View style={styles.progressSummary}>
-                      <Text style={styles.progressSummaryText}>{progressInfo.configuredDays} of {progressInfo.totalDays} day{progressInfo.totalDays === 1 ? '' : 's'} configured</Text>
-                      <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${progressInfo.progressPercentage}%` }]} />
+                    <TouchableOpacity 
+                      onPress={() => startEditingDay(dayInfo.dayName)}
+                      style={styles.modernDayEditButton}
+                    >
+                      <Icon name="pencil" size={14} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {dayInfo.isEditing ? (
+                    <View style={styles.modernDayEditContainer}>
+                      <TextInput
+                        style={styles.modernDayEditInput}
+                        value={editingDayName}
+                        onChangeText={setEditingDayName}
+                        autoFocus
+                        selectTextOnFocus
+                      />
+                      <View style={styles.modernDayEditActions}>
+                        <TouchableOpacity onPress={saveDayName} style={styles.modernDayEditSave}>
+                          <Icon name="check" size={12} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={cancelEditingDay} style={styles.modernDayEditCancel}>
+                          <Icon name="close" size={12} color={colors.textSecondary} />
+                        </TouchableOpacity>
                       </View>
                     </View>
-                  </Card>
+                  ) : (
+                    <>
+                      <Text style={[
+                        styles.modernDayName,
+                        dayInfo.isSelected && styles.modernDayNameSelected
+                      ]}>
+                        {dayInfo.dayName}
+                      </Text>
+                      <Text style={styles.modernDayExerciseCount}>
+                        {dayInfo.exerciseCount} exercise{dayInfo.exerciseCount !== 1 ? 's' : ''}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Selected Day Content */}
+          {selectedDay && (
+            <View style={styles.selectedDaySection}>
+              <View style={styles.selectedDayHeader}>
+                <View style={styles.selectedDayTitleContainer}>
+                  <Icon name="dumbbell" size={24} color={colors.primary} />
+                  <Text style={styles.modernSelectedDayTitle}>Building {selectedDay}</Text>
                 </View>
-
-                {/* Exercise Search and Filters */}
-                {selectedDay && (
-                  <Card style={styles.exerciseCard} theme={{ colors: { surface: colors.card } }}>
-                    <Text style={styles.sectionTitle}>Add Exercises to {selectedDay}</Text>
-
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search exercises..."
-                      placeholderTextColor={colors.textSecondary}
-                      value={searchText}
-                      onChangeText={setSearchText}
-                    />
-
-                    <View style={styles.muscleGroupContainer}>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.muscleGroupScroll}>
-                        {muscleGroups.map(group => (
-                          <Chip
-                            key={group}
-                            selected={selectedMuscleGroup === group}
-                            onPress={() => setSelectedMuscleGroup(selectedMuscleGroup === group ? '' : group)}
-                            style={[styles.muscleGroupChip, selectedMuscleGroup === group && styles.selectedMuscleGroupChip]}
-                            textStyle={[styles.muscleGroupText, selectedMuscleGroup === group && styles.selectedMuscleGroupText]}
-                          >
-                            {group}
-                          </Chip>
-                        ))}
-                      </ScrollView>
-                    </View>
-
-                    {isLoading && (
-                      <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-                    )}
-                  </Card>
-                )}
-
-                {/* Current Day Exercises */}
-                {selectedDay && workoutDays.find(d => d.day === selectedDay)?.exercises.length > 0 && (
-                  <Card style={styles.currentDayCard} theme={{ colors: { surface: colors.card } }}>
-                    <Text style={styles.sectionTitle}>Exercises in {selectedDay}</Text>
-                    <View style={styles.currentDayExerciseList}>
-                      {workoutDays.find(d => d.day === selectedDay)?.exercises.map((workoutExercise, index) => (
-                        <View key={index} style={styles.exerciseInDayItem}>
-                          <View style={styles.exerciseInDayContent}>
-                            <View style={styles.exerciseInDayInfo}>
-                              <Text style={styles.exerciseName}>{workoutExercise.exercise.name}</Text>
-                              <Text style={styles.exerciseDescription}>{workoutExercise.exercise.description}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => removeExerciseFromDay(selectedDay, workoutExercise.exercise.id)} style={styles.removeButton}>
-                              <Icon name="delete" size={20} color={colors.error} />
-                            </TouchableOpacity>
-                          </View>
-
-                          <View style={styles.exerciseDetailsContainer}>
-                            <PaperInput
-                              label="Sets"
-                              value={workoutExercise.sets.toString()}
-                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: parseInt(value) || 1 })}
-                              style={styles.detailInput}
-                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                              textColor={colors.text}
-                              keyboardType="numeric"
-                            />
-                            <PaperInput
-                              label="Reps"
-                              value={workoutExercise.reps}
-                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { reps: value })}
-                              style={styles.detailInput}
-                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                              textColor={colors.text}
-                            />
-                            <PaperInput
-                              label="Rest"
-                              value={workoutExercise.rest}
-                              onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { rest: value })}
-                              style={styles.detailInput}
-                              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-                              textColor={colors.text}
-                            />
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </Card>
-                )}
-
-                {/* Step Progress */}
-                <View style={styles.progressSummary}>
-                  <Text style={styles.progressSummaryText}>Step {step} of {3}: Building your {planSetup.daysPerWeek}-day plan</Text>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${(step / 3) * 100}%` }]} />
+                <View style={styles.selectedDayStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>
+                      {workoutDays.find(d => d.day === selectedDay)?.exercises.length || 0}
+                    </Text>
+                    <Text style={styles.statLabel}>Exercises</Text>
                   </View>
                 </View>
-              </>
-            )}
-          />
-          )}
-        </View>
+              </View>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
-          <Button
-            mode="contained"
-            onPress={() => setStep(3)}
-            disabled={workoutDays.length !== planSetup.daysPerWeek}
-            style={styles.nextButton}
-            contentStyle={styles.nextButtonContent}
-          >
-            <Text>Next: Review & Create</Text>
-          </Button>
+              {/* Exercise Search */}
+              <View style={styles.exerciseSearchContainer}>
+                <View style={styles.searchInputContainer}>
+                  <Icon name="magnify" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.modernSearchInput}
+                    placeholder="Search exercises by name or muscle..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={searchText}
+                    onChangeText={setSearchText}
+                  />
+                  {searchText.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchText('')} style={styles.clearSearchButton}>
+                      <Icon name="close-circle" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Muscle Group Filter Pills */}
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.muscleGroupScrollContainer}
+                  contentContainerStyle={styles.muscleGroupScrollContent}
+                >
+                  <TouchableOpacity 
+                    onPress={() => setSelectedMuscleGroup('')}
+                    style={[
+                      styles.modernMuscleGroupPill,
+                      selectedMuscleGroup === '' && styles.modernMuscleGroupPillSelected
+                    ]}
+                  >
+                    <Text style={[
+                      styles.modernMuscleGroupText,
+                      selectedMuscleGroup === '' && styles.modernMuscleGroupTextSelected
+                    ]}>
+                      All
+                    </Text>
+                  </TouchableOpacity>
+                  {muscleGroups.map(group => (
+                    <TouchableOpacity
+                      key={group}
+                      onPress={() => setSelectedMuscleGroup(selectedMuscleGroup === group ? '' : group)}
+                      style={[
+                        styles.modernMuscleGroupPill,
+                        selectedMuscleGroup === group && styles.modernMuscleGroupPillSelected
+                      ]}
+                    >
+                      <Text style={[
+                        styles.modernMuscleGroupText,
+                        selectedMuscleGroup === group && styles.modernMuscleGroupTextSelected
+                      ]}>
+                        {group}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Current Exercises in Day */}
+              {workoutDays.find(d => d.day === selectedDay)?.exercises.length > 0 && (
+                <View style={styles.currentExercisesSection}>
+                  <Text style={styles.currentExercisesTitle}>Current Exercises</Text>
+                  <View style={styles.currentExercisesList}>
+                    {workoutDays.find(d => d.day === selectedDay)?.exercises.map((workoutExercise, index) => (
+                      <View key={index} style={styles.modernCurrentExerciseCard}>
+                        <View style={styles.modernCurrentExerciseHeader}>
+                          <View style={styles.modernCurrentExerciseInfo}>
+                            <Text style={styles.modernCurrentExerciseName}>
+                              {workoutExercise.exercise.name}
+                            </Text>
+                            <Text style={styles.modernCurrentExerciseMuscle}>
+                              {workoutExercise.exercise.muscle_groups?.join(', ')}
+                            </Text>
+                          </View>
+                          <TouchableOpacity 
+                            onPress={() => removeExerciseFromDay(selectedDay, workoutExercise.exercise.id)}
+                            style={styles.modernRemoveButton}
+                          >
+                            <Icon name="trash-can" size={16} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <View style={styles.modernExerciseDetails}>
+                          {isCardioExercise(workoutExercise.exercise) ? (
+                            // Cardio exercises: show timing-based parameters
+                            <>
+                              <View style={styles.modernDetailInput}>
+                                <Text style={styles.modernDetailLabel}>Duration</Text>
+                                <TextInput
+                                  style={styles.modernDetailTextInput}
+                                  value={workoutExercise.duration?.toString() || '30'}
+                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
+                                    duration: parseInt(value) || 30,
+                                    reps: `${parseInt(value) || 30}s` // Keep reps in sync for compatibility
+                                  })}
+                                  keyboardType="numeric"
+                                  placeholder="seconds"
+                                />
+                              </View>
+                              <View style={styles.modernDetailInput}>
+                                <Text style={styles.modernDetailLabel}>Rest</Text>
+                                <TextInput
+                                  style={styles.modernDetailTextInput}
+                                  value={workoutExercise.restSeconds?.toString() || '30'}
+                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
+                                    restSeconds: parseInt(value) || 30,
+                                    rest: `${parseInt(value) || 30}s` // Keep rest in sync for compatibility
+                                  })}
+                                  keyboardType="numeric"
+                                  placeholder="seconds"
+                                />
+                              </View>
+                            </>
+                          ) : (
+                            // Strength exercises: show traditional sets/reps parameters
+                            <>
+                              <View style={styles.modernDetailInput}>
+                                <Text style={styles.modernDetailLabel}>Sets</Text>
+                                <TextInput
+                                  style={styles.modernDetailTextInput}
+                                  value={workoutExercise.sets.toString()}
+                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: parseInt(value) || 1 })}
+                                  keyboardType="numeric"
+                                />
+                              </View>
+                              <View style={styles.modernDetailInput}>
+                                <Text style={styles.modernDetailLabel}>Reps</Text>
+                                <TextInput
+                                  style={styles.modernDetailTextInput}
+                                  value={workoutExercise.reps}
+                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { reps: value })}
+                                />
+                              </View>
+                              <View style={styles.modernDetailInput}>
+                                <Text style={styles.modernDetailLabel}>Rest</Text>
+                                <TextInput
+                                  style={styles.modernDetailTextInput}
+                                  value={workoutExercise.rest}
+                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { rest: value })}
+                                />
+                              </View>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Available Exercises */}
+              {isLoading ? (
+                <View style={styles.modernLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.modernLoadingText}>Loading exercises...</Text>
+                </View>
+              ) : (
+                filteredExercises.length > 0 && (
+                  <View style={styles.availableExercisesSection}>
+                    <Text style={styles.availableExercisesTitle}>
+                      Available Exercises ({filteredExercises.length})
+                    </Text>
+                    <View style={styles.availableExercisesList}>
+                      {filteredExercises.map((exercise) => (
+                        <TouchableOpacity
+                          key={exercise.id}
+                          onPress={() => addExerciseToDay(selectedDay, exercise)}
+                          style={styles.modernAvailableExerciseCard}
+                        >
+                          <View style={styles.modernAvailableExerciseContent}>
+                            <View style={styles.modernAvailableExerciseInfo}>
+                              <Text style={styles.modernAvailableExerciseName}>
+                                {exercise.name}
+                              </Text>
+                              <Text style={styles.modernAvailableExerciseMuscle}>
+                                {exercise.muscle_groups?.join(', ')}
+                              </Text>
+                              {exercise.description && (
+                                <Text style={styles.modernAvailableExerciseDescription} numberOfLines={2}>
+                                  {exercise.description}
+                                </Text>
+                              )}
+                            </View>
+                            <View style={styles.modernAddButton}>
+                              <Icon name="plus" size={20} color={colors.primary} />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )
+              )}
+            </View>
+          )}
+
+          {/* Empty State */}
+          {!selectedDay && (
+            <View style={styles.emptyStateContainer}>
+              <Icon name="calendar-plus" size={64} color={colors.textSecondary} />
+              <Text style={styles.emptyStateTitle}>Select a Training Day</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Choose a day above to start adding exercises and building your workout plan.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Modern Footer */}
+        <View style={[styles.modernFooter, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
+          <View style={styles.modernFooterContent}>
+            <View style={styles.modernFooterStats}>
+              <Text style={styles.modernFooterStatsText}>
+                {progressInfo.configuredDays}/{progressInfo.totalDays} days configured
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setStep(3)}
+              disabled={workoutDays.length !== planSetup.daysPerWeek}
+              style={[
+                styles.modernNextButton,
+                workoutDays.length !== planSetup.daysPerWeek && styles.modernNextButtonDisabled
+              ]}
+            >
+              <Text style={[
+                styles.modernNextButtonText,
+                workoutDays.length !== planSetup.daysPerWeek && styles.modernNextButtonTextDisabled
+              ]}>
+                Continue to Review
+              </Text>
+              <Icon 
+                name="arrow-right" 
+                size={20} 
+                color={workoutDays.length === planSetup.daysPerWeek ? "#FFFFFF" : colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -771,15 +998,25 @@ export default function CustomBuilderScreen() {
       <View style={styles.container}>
         <StatusBar style="light" />
 
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => setStep(2)}>
+        {/* Modern Header with Gradient */}
+        <View style={[styles.modernHeader, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => setStep(2)} style={styles.modernBackButton}>
             <Icon name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Review & Create</Text>
-          <View style={styles.headerSpacer} />
+          <View style={styles.modernHeaderContent}>
+            <Text style={styles.modernHeaderTitle}>Workout Builder</Text>
+            <Text style={styles.modernHeaderSubtitle}>Step 3 of 3 • Review & Create</Text>
+          </View>
+          <View style={styles.modernHeaderProgress}>
+            <Text style={styles.progressText}>100%</Text>
+          </View>
         </View>
 
-        <View style={[styles.content, { paddingBottom: tabBarHeight }]}>
+        <ScrollView 
+          style={styles.modernContent} 
+          contentContainerStyle={styles.modernScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.stepTitle}>Step 3: Review Your Custom Plan</Text>
 
           <Card style={styles.planSummary} theme={{ colors: { surface: colors.surface } }}>
@@ -791,14 +1028,11 @@ export default function CustomBuilderScreen() {
               {progressInfo.totalDays} training days • {planSetup.trainingLevel} level
             </Text>
             <Text style={styles.planDetails}>
-              {planSetup.sessionTime} minutes per session
-            </Text>
-            <Text style={styles.planDetails}>
               {progressInfo.totalExercises} total exercises
             </Text>
           </Card>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.finalWorkoutList}>
+          <View style={styles.finalWorkoutList}>
             {workoutDays.map((day) => (
               <Card key={day.day} style={styles.dayCard} theme={{ colors: { surface: colors.card } }}>
                 <Text style={styles.dayTitle}>{day.day}</Text>
@@ -812,9 +1046,9 @@ export default function CustomBuilderScreen() {
                 ))}
               </Card>
             ))}
-          </ScrollView>
-        </View>
-
+          </View>
+        </ScrollView>
+        
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
           <Button
             mode="contained"
@@ -838,7 +1072,43 @@ export default function CustomBuilderScreen() {
   }
 
 
-  return null;
+  // Fallback: if no step matches, show step 1
+  // Fallback for unexpected step values
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style="light" />
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Icon name="arrow-left" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Custom Workout Builder</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      <View style={[styles.content, { paddingBottom: tabBarHeight }]}>
+        <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 50 }]}>
+          Something went wrong
+        </Text>
+        <Text style={[styles.sectionTitle, { textAlign: 'center', marginBottom: 30 }]}>
+          Please try again
+        </Text>
+        <Button 
+          mode="contained" 
+          onPress={() => setStep(1)}
+          style={[styles.modernNextButton, { marginBottom: 10 }]}
+        >
+          Start Over
+        </Button>
+        <Button 
+          mode="outlined" 
+          onPress={() => router.back()}
+          style={styles.modernBackButton}
+          labelStyle={{ color: colors.text }}
+        >
+          Go Back
+        </Button>
+      </View>
+    </View>
+  );
 }
 
 // Memoized WorkoutDayCard component moved outside main component for better performance
@@ -872,7 +1142,7 @@ interface WorkoutDayCardProps {
   onStartEditing: () => void;
   onSaveEditing: () => void;
   onCancelEditing: () => void;
-  onChangeEditingName: () => void;
+  onChangeEditingName: (text: string) => void;
   onSelectDay: () => void;
 }
 
@@ -1293,6 +1563,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
+  modernLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    marginTop: 20,
+  },
   textInput: {
     marginBottom: 16,
   },
@@ -1665,6 +1942,10 @@ const styles = StyleSheet.create({
   nextButtonContent: {
     paddingVertical: 12,
   },
+  nextButtonText: {
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
   createButton: {
     backgroundColor: colors.success,
   },
@@ -1834,10 +2115,545 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 60,
   },
+  exerciseLoadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
   loadingText: {
     color: colors.text,
     fontSize: 16,
     marginTop: 16,
     textAlign: 'center',
+  },
+
+  // Modern Step 2 Styles
+  modernHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modernBackButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modernHeaderContent: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  modernHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modernHeaderSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  modernHeaderProgress: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  modernContent: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modernScrollContent: {
+    paddingBottom: 100,
+  },
+  progressBanner: {
+    backgroundColor: colors.surface,
+    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  progressBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  progressCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  progressCircleText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  progressBannerText: {
+    flex: 1,
+  },
+  progressBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  progressBannerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+  },
+  progressBarContainer: {
+    width: '100%',
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+  },
+  dayGridSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+  },
+  modernSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionHeaderTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  dayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  modernDayCard: {
+    width: '48%',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  modernDayCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}10`,
+  },
+  modernDayCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}20`,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.2,
+  },
+  modernDayCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modernDayIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modernDayIndicatorSelected: {
+    backgroundColor: colors.primary,
+  },
+  modernDayIndicatorText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modernDayEditButton: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modernDayEditContainer: {
+    width: '100%',
+  },
+  modernDayEditInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  modernDayEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modernDayEditSave: {
+    flex: 1,
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  modernDayEditCancel: {
+    flex: 1,
+    backgroundColor: `${colors.textSecondary}20`,
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  modernDayName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modernDayNameSelected: {
+    color: colors.primary,
+  },
+  modernDayExerciseCount: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  selectedDaySection: {
+    marginHorizontal: 16,
+  },
+  selectedDayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  selectedDayTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  modernSelectedDayTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  selectedDayStats: {
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  statLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  exerciseSearchContainer: {
+    marginBottom: 24,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  modernSearchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 16,
+    padding: 0,
+  },
+  clearSearchButton: {
+    padding: 4,
+  },
+  muscleGroupScrollContainer: {
+    height: 50,
+  },
+  muscleGroupScrollContent: {
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  modernMuscleGroupPill: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modernMuscleGroupPillSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modernMuscleGroupText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modernMuscleGroupTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  currentExercisesSection: {
+    marginBottom: 24,
+  },
+  currentExercisesTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  currentExercisesList: {
+    gap: 12,
+  },
+  modernCurrentExerciseCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  modernCurrentExerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modernCurrentExerciseInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  modernCurrentExerciseName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modernCurrentExerciseMuscle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  modernRemoveButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: `${colors.error}20`,
+  },
+  modernExerciseDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modernDetailInput: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  modernDetailLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  modernDetailTextInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    minWidth: 60,
+  },
+  modernLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  modernLoadingText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    marginTop: 12,
+  },
+  availableExercisesSection: {
+    marginBottom: 24,
+  },
+  availableExercisesTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  availableExercisesList: {
+    gap: 8,
+  },
+  modernAvailableExerciseCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modernAvailableExerciseContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modernAvailableExerciseInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  modernAvailableExerciseName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modernAvailableExerciseMuscle: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  modernAvailableExerciseDescription: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  modernAddButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${colors.primary}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  emptyStateTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modernFooter: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  modernFooterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modernFooterStats: {
+    flex: 1,
+  },
+  modernFooterStatsText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  modernNextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modernNextButtonDisabled: {
+    backgroundColor: colors.border,
+    shadowOpacity: 0.1,
+  },
+  modernNextButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  modernNextButtonTextDisabled: {
+    color: colors.textSecondary,
   },
 });

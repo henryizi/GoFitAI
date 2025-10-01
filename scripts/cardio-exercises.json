@@ -1,0 +1,801 @@
+[
+  {
+    "name": "Jumping Jacks",
+    "description": "A classic full-body cardio exercise. Jump while spreading legs shoulder-width apart and raising arms overhead, then return to starting position.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "instructions": [
+      "Stand upright with legs together and arms at your sides",
+      "Jump while spreading legs shoulder-width apart",
+      "Simultaneously raise arms overhead",
+      "Jump back to starting position",
+      "Maintain a steady rhythm throughout"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "High Knees",
+    "description": "Run in place while lifting knees as high as possible toward your chest. Great for building cardiovascular endurance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "instructions": [
+      "Stand tall with feet hip-width apart",
+      "Run in place, lifting knees toward chest",
+      "Aim to bring knees to hip level or higher",
+      "Pump arms naturally as you run",
+      "Keep core engaged throughout"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Burpees",
+    "description": "A full-body explosive movement combining a squat, plank, push-up, and jump. Excellent for building strength and cardio endurance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start in standing position",
+      "Drop into squat and place hands on floor",
+      "Jump feet back into plank position",
+      "Perform a push-up (optional)",
+      "Jump feet back to squat position",
+      "Explode up into a jump with arms overhead"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Mountain Climbers",
+    "description": "Start in plank position and alternate bringing knees toward chest in a running motion. Great core and cardio exercise.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "core", "arms"],
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start in plank position with hands under shoulders",
+      "Bring right knee toward chest",
+      "Quickly switch legs, bringing left knee toward chest",
+      "Continue alternating in a running motion",
+      "Keep hips level and core engaged"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Sprint Intervals",
+    "description": "High-intensity running intervals. Run at maximum effort for short bursts followed by recovery periods.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "none",
+    "difficulty": "advanced",
+    "instructions": [
+      "Warm up with light jogging for 5 minutes",
+      "Sprint at 90-95% maximum effort",
+      "Focus on proper running form",
+      "Use arms to drive momentum",
+      "Cool down with walking between intervals"
+    ],
+    "duration_seconds": 60,
+    "rest_seconds": 120,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Jump Rope",
+    "description": "Classic cardio exercise using a jump rope. Great for coordination, footwork, and cardiovascular fitness.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "arms"],
+    "equipment": "jump rope",
+    "difficulty": "beginner",
+    "instructions": [
+      "Hold rope handles at hip level",
+      "Rotate rope with wrists, not arms",
+      "Jump on balls of feet",
+      "Keep jumps small and controlled",
+      "Maintain steady rhythm"
+    ],
+    "duration_seconds": 60,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Box Jumps",
+    "description": "Jump onto a sturdy box or platform, then step back down. Builds explosive power and cardiovascular fitness.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "box/platform",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Stand facing a sturdy box or platform",
+      "Squat slightly and swing arms back",
+      "Jump explosively onto the box",
+      "Land softly with both feet",
+      "Step back down carefully"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Treadmill Running",
+    "description": "Steady-state or interval running on a treadmill. Adjust speed and incline for varying intensity.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "treadmill",
+    "difficulty": "beginner",
+    "instructions": [
+      "Start with 5-minute warm-up walk",
+      "Gradually increase to comfortable running pace",
+      "Maintain proper running posture",
+      "Use arms for momentum",
+      "Cool down with walking"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Rowing Machine",
+    "description": "Full-body cardio exercise using a rowing machine. Great for building endurance and strength simultaneously.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body", "back", "arms"],
+    "equipment": "rowing machine",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Sit on rowing machine with feet secured",
+      "Grab handle with overhand grip",
+      "Start with legs, then lean back, then pull arms",
+      "Reverse the motion: arms, lean forward, legs",
+      "Maintain steady stroke rate"
+    ],
+    "duration_seconds": 900,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Stationary Bike",
+    "description": "Cycling exercise on a stationary bike. Low-impact cardio that's easy on joints.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "stationary bike",
+    "difficulty": "beginner",
+    "instructions": [
+      "Adjust seat height to proper position",
+      "Start with light resistance",
+      "Maintain steady pedaling rhythm",
+      "Keep upper body relaxed",
+      "Gradually increase intensity as needed"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Battle Ropes",
+    "description": "High-intensity exercise using heavy ropes. Create waves with alternating or simultaneous arm movements.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "arms", "core"],
+    "equipment": "battle ropes",
+    "difficulty": "advanced",
+    "instructions": [
+      "Stand with feet shoulder-width apart",
+      "Hold one rope end in each hand",
+      "Create waves by moving arms up and down",
+      "Keep core engaged throughout",
+      "Maintain consistent wave pattern"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 60,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Kettlebell Swings",
+    "description": "Dynamic exercise swinging a kettlebell from between legs to chest height. Great for posterior chain and cardio.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "core", "back"],
+    "equipment": "kettlebell",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Stand with feet wider than shoulders",
+      "Hold kettlebell with both hands",
+      "Hinge at hips and swing kettlebell between legs",
+      "Drive hips forward to swing kettlebell to chest height",
+      "Let gravity bring kettlebell back down"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Step-Ups",
+    "description": "Step up onto a platform or bench, then step back down. Great for building leg strength and cardio endurance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "bench/platform",
+    "difficulty": "beginner",
+    "instructions": [
+      "Stand facing a sturdy bench or platform",
+      "Step up with right foot, bringing left foot up",
+      "Step back down with the same foot",
+      "Alternate leading foot each set",
+      "Keep chest up and core engaged"
+    ],
+    "duration_seconds": 60,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Bear Crawls",
+    "description": "Crawl forward on hands and feet with knees hovering just above ground. Excellent full-body cardio exercise.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body", "core"],
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start on hands and knees",
+      "Lift knees 2 inches off ground",
+      "Crawl forward moving opposite hand and foot",
+      "Keep core tight and hips level",
+      "Maintain the knee hover throughout"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Elliptical Machine",
+    "description": "Low-impact cardio exercise on an elliptical trainer. Great for those with joint issues.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "arms"],
+    "equipment": "elliptical",
+    "difficulty": "beginner",
+    "instructions": [
+      "Step onto elliptical with feet on pedals",
+      "Grab handles and start slow movement",
+      "Gradually increase pace and resistance",
+      "Keep back straight and core engaged",
+      "Use both arms and legs for full-body workout"
+    ],
+    "duration_seconds": 1500,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Plank Jacks",
+    "description": "Combine plank hold with jumping jack leg movement. Great for core strength and cardio conditioning.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "core", "arms"],
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start in plank position",
+      "Jump feet wide apart while maintaining plank",
+      "Jump feet back together",
+      "Keep core engaged and hips stable",
+      "Maintain plank form throughout"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Squat Jumps",
+    "description": "Explosive jumping movement from squat position. Builds lower body power and cardiovascular fitness.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "bodyweight",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start in squat position",
+      "Explode up into a jump",
+      "Land softly back in squat position",
+      "Keep chest up and core engaged",
+      "Use arms for momentum and balance"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Stair Climbing",
+    "description": "Running or walking up stairs for cardiovascular conditioning. Use actual stairs or stair climbing machine.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "stairs",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start at bottom of stairs",
+      "Run or walk up at steady pace",
+      "Use handrail for balance if needed",
+      "Take two steps at a time for intensity",
+      "Walk down for recovery"
+    ],
+    "duration_seconds": 300,
+    "rest_seconds": 120,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Dancing",
+    "description": "Fun cardio workout through dance movements. Follow along with dance videos or freestyle.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "none",
+    "difficulty": "beginner",
+    "instructions": [
+      "Put on upbeat music",
+      "Start with simple movements",
+      "Add arm movements and footwork",
+      "Keep moving continuously",
+      "Have fun and express yourself"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Wall Balls",
+    "description": "Throw a medicine ball against a wall from squat position. Combines strength training with cardio conditioning.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "arms", "core"],
+    "equipment": "medicine ball",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Hold medicine ball at chest level",
+      "Squat down keeping ball close to chest",
+      "Explode up and throw ball to wall target",
+      "Catch ball on the way down",
+      "Immediately go into next squat"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Swimming",
+    "description": "Full-body, low-impact cardio exercise in water. Excellent for cardiovascular fitness and muscle endurance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "pool",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start with warm-up laps at easy pace",
+      "Choose your preferred stroke",
+      "Maintain steady breathing rhythm",
+      "Focus on proper technique",
+      "Cool down with easy swimming"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "HIIT Circuit",
+    "description": "High-Intensity Interval Training combining multiple exercises. Alternate between high-intensity work and rest periods.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "bodyweight",
+    "difficulty": "advanced",
+    "instructions": [
+      "Choose 4-6 different exercises",
+      "Work at maximum effort for work period",
+      "Rest completely during rest periods",
+      "Repeat circuit 3-5 times",
+      "Cool down with light movement"
+    ],
+    "duration_seconds": 20,
+    "rest_seconds": 10,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Thrusters",
+    "description": "Combine front squat with overhead press using dumbbells or barbell. Full-body explosive movement.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "arms", "core"],
+    "equipment": "dumbbells",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Hold dumbbells at shoulder level",
+      "Squat down keeping chest up",
+      "Drive up explosively through heels",
+      "Press weights overhead as you stand",
+      "Lower weights back to shoulders"
+    ],
+    "duration_seconds": 45,
+    "rest_seconds": 45,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Lateral Shuffles",
+    "description": "Side-to-side shuffling movement staying low in athletic position. Great for agility and cardio.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "bodyweight",
+    "difficulty": "beginner",
+    "instructions": [
+      "Start in athletic stance",
+      "Shuffle to the right staying low",
+      "Keep feet wide and chest up",
+      "Shuffle back to the left",
+      "Maintain low position throughout"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 30,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Bike Sprints",
+    "description": "High-intensity cycling intervals on stationary bike. Alternate between all-out sprints and recovery.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "stationary bike",
+    "difficulty": "advanced",
+    "instructions": [
+      "Warm up with 5 minutes easy cycling",
+      "Sprint at maximum effort",
+      "Maintain high cadence and resistance",
+      "Recover with easy pedaling",
+      "Cool down with light cycling"
+    ],
+    "duration_seconds": 30,
+    "rest_seconds": 90,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Outdoor Running",
+    "description": "Running outdoors on various terrains. Great for cardiovascular fitness and mental health benefits of fresh air.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "core"],
+    "equipment": "none",
+    "difficulty": "beginner",
+    "instructions": [
+      "Start with a 5-minute walking warm-up",
+      "Begin at comfortable jogging pace",
+      "Maintain good posture with relaxed shoulders",
+      "Land on midfoot, not heel",
+      "Cool down with 5-minute walk"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Treadmill Walking Incline",
+    "description": "Walking on treadmill with incline for low-impact cardio that's easier on joints than running.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "glutes"],
+    "equipment": "treadmill",
+    "difficulty": "beginner",
+    "instructions": [
+      "Set treadmill to 3-8% incline",
+      "Walk at brisk but comfortable pace",
+      "Keep shoulders back and core engaged",
+      "Use handrails only for balance",
+      "Gradually increase incline as fitness improves"
+    ],
+    "duration_seconds": 2400,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Treadmill Intervals",
+    "description": "Alternating between high-intensity running and recovery periods on treadmill.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "treadmill",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Warm up with 5-minute easy walk/jog",
+      "Run at high intensity for work interval",
+      "Recover with walking or light jogging",
+      "Repeat interval pattern 5-8 times",
+      "Cool down with 5-minute walk"
+    ],
+    "duration_seconds": 120,
+    "rest_seconds": 120,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Pool Running",
+    "description": "Running in deep water while wearing a flotation belt. Excellent low-impact cardio for injury recovery.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "pool",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Wear a flotation belt in deep water",
+      "Maintain running motion without touching bottom",
+      "Keep upright posture and pump arms",
+      "Lean slightly forward and drive knees up",
+      "Maintain steady breathing rhythm"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Freestyle Swimming",
+    "description": "Front crawl swimming stroke focusing on technique and endurance. Most popular and efficient swimming stroke.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "shoulders", "back", "core"],
+    "equipment": "pool",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start with streamlined push off from wall",
+      "Rotate body with each stroke",
+      "Keep head in neutral position",
+      "Breathe every 2-3 strokes to one side",
+      "Maintain steady kick throughout"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Swimming Laps Mixed Strokes",
+    "description": "Swimming different strokes (freestyle, backstroke, breaststroke) for varied muscle engagement.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "pool",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Swim 1-2 laps of freestyle",
+      "Switch to backstroke for 1-2 laps",
+      "Try breaststroke for variety",
+      "Rest briefly at wall between stroke changes",
+      "Focus on proper technique over speed"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Water Aerobics",
+    "description": "Low-impact aerobic exercises performed in shallow water. Great for all fitness levels and joint-friendly.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "full body"],
+    "equipment": "pool",
+    "difficulty": "beginner",
+    "instructions": [
+      "Stand in chest-deep water",
+      "Perform marching, jumping jacks, or leg lifts",
+      "Use water resistance for arm movements",
+      "Keep movements controlled and steady",
+      "Follow along with instructor or routine"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Cross Trainer",
+    "description": "Full-body cardio workout on cross trainer/elliptical with adjustable resistance and incline.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "arms"],
+    "equipment": "cross trainer",
+    "difficulty": "beginner",
+    "instructions": [
+      "Step onto machine and grab moving handles",
+      "Start with slow, controlled movements",
+      "Gradually increase pace and resistance",
+      "Keep back straight and core engaged",
+      "Coordinate arms and legs smoothly"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "StairMaster",
+    "description": "Climbing machine that simulates stair climbing for intense lower body and cardio workout.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "glutes"],
+    "equipment": "stairmaster",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Step onto machine and set comfortable pace",
+      "Keep full foot contact on each step",
+      "Stand upright, avoid leaning on handrails",
+      "Take full steps, don't just tap toes",
+      "Maintain steady rhythm throughout"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Spin Bike",
+    "description": "High-intensity indoor cycling on specialized stationary bike with adjustable resistance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "core"],
+    "equipment": "spin bike",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Adjust seat height and handlebar position",
+      "Start with moderate resistance",
+      "Maintain proper cycling posture",
+      "Vary between seated and standing positions",
+      "Follow instructor cues or personal interval plan"
+    ],
+    "duration_seconds": 2700,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Recumbent Bike",
+    "description": "Low-impact cycling exercise on recumbent bike with back support. Great for those with back issues.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "recumbent bike",
+    "difficulty": "beginner",
+    "instructions": [
+      "Adjust seat so knees are slightly bent at full extension",
+      "Sit back comfortably against backrest",
+      "Start pedaling at easy resistance",
+      "Maintain steady rhythm without bouncing",
+      "Gradually increase resistance as needed"
+    ],
+    "duration_seconds": 2400,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Arc Trainer",
+    "description": "Low-impact cardio machine combining elements of elliptical and stair climber for total body workout.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "glutes", "arms"],
+    "equipment": "arc trainer",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Step onto foot plates and grab handles",
+      "Start with slow arc motion",
+      "Adjust incline for desired intensity",
+      "Keep core engaged throughout movement",
+      "Coordinate upper and lower body smoothly"
+    ],
+    "duration_seconds": 1500,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Jogging in Place",
+    "description": "Simple cardio exercise that can be done anywhere. Great for warming up or quick cardio bursts.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "none",
+    "difficulty": "beginner",
+    "instructions": [
+      "Stand with feet hip-width apart",
+      "Begin jogging motion staying in place",
+      "Lift knees to comfortable height",
+      "Land softly on balls of feet",
+      "Pump arms naturally for balance"
+    ],
+    "duration_seconds": 300,
+    "rest_seconds": 60,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Shadowboxing",
+    "description": "Boxing movements performed without equipment. Great cardio workout that improves coordination.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "arms", "core"],
+    "equipment": "none",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Stand in boxing stance with guard up",
+      "Throw combinations of punches",
+      "Keep moving and bouncing on feet",
+      "Add defensive movements like slips and ducks",
+      "Maintain high intensity throughout"
+    ],
+    "duration_seconds": 180,
+    "rest_seconds": 60,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Track Running",
+    "description": "Running on a track for precise distance and pace control. Ideal for speed work and interval training.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "track",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Warm up with easy jogging",
+      "Run in lane 1 for accurate distance",
+      "Maintain steady pace for distance runs",
+      "Use inner lanes for speed work",
+      "Cool down with walking or light jogging"
+    ],
+    "duration_seconds": 1200,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Hill Running",
+    "description": "Running uphill for increased intensity and strength building. Excellent for building power and endurance.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs", "glutes"],
+    "equipment": "none",
+    "difficulty": "advanced",
+    "instructions": [
+      "Find a hill with 4-8% grade",
+      "Run up at steady, controlled effort",
+      "Shorten stride and increase cadence",
+      "Pump arms more vigorously uphill",
+      "Walk or jog down for recovery"
+    ],
+    "duration_seconds": 120,
+    "rest_seconds": 180,
+    "sets": null,
+    "reps": null
+  },
+  {
+    "name": "Fartlek Training",
+    "description": "Swedish speed play combining continuous running with interval training. Mix fast and slow segments.",
+    "category": "cardio",
+    "muscle_groups": ["cardio", "legs"],
+    "equipment": "none",
+    "difficulty": "intermediate",
+    "instructions": [
+      "Start with 10-minute easy run",
+      "Add random speed bursts during run",
+      "Sprint to landmarks or for set times",
+      "Recover with easy jogging between efforts",
+      "Keep total session playful and unstructured"
+    ],
+    "duration_seconds": 1800,
+    "rest_seconds": 0,
+    "sets": null,
+    "reps": null
+  }
+]

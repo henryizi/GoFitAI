@@ -37,15 +37,15 @@ const quickActions: QuickAction[] = [
     subtitle: 'Begin your training session',
     icon: 'dumbbell',
     route: '/(main)/workout',
-    gradient: ['#FF6B35', '#E55A2B'],
+    gradient: ['#667eea', '#764ba2'],
   },
   {
     id: 'nutrition',
     title: 'Nutrition Plan',
     subtitle: 'Track your daily nutrition',
-    icon: 'nutrition',
+    icon: 'food-apple-outline',
     route: '/(main)/nutrition',
-    gradient: ['#4CAF50', '#388E3C'],
+    gradient: ['#f093fb', '#f5576c'],
   },
   {
     id: 'progress',
@@ -53,15 +53,15 @@ const quickActions: QuickAction[] = [
     subtitle: 'Log your body metrics',
     icon: 'chart-line',
     route: '/(main)/progress',
-    gradient: ['#2196F3', '#1976D2'],
+    gradient: ['#4facfe', '#00f2fe'],
   },
   {
     id: 'settings',
     title: 'Settings',
     subtitle: 'Customize your experience',
-    icon: 'cog-outline',
+    icon: 'cog',
     route: '/(main)/settings',
-    gradient: ['#9C27B0', '#7B1FA2'],
+    gradient: ['#43e97b', '#38f9d7'],
   },
 ];
 
@@ -183,7 +183,7 @@ export default function Dashboard() {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            {quickActions.map((action) => (
+            {quickActions.map((action, index) => (
               <TouchableOpacity
                 key={action.id}
                 style={styles.actionCard}
@@ -191,23 +191,35 @@ export default function Dashboard() {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={action.gradient as any}
+                  colors={[action.gradient[0] + 'E8', action.gradient[1] + 'F2']}
                   style={styles.actionGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <BlurView intensity={20} tint="light" style={styles.actionBlur}>
-                    <View style={styles.actionContent}>
+                  <View style={styles.actionContent}>
+                    <View style={[styles.actionIconContainer, {
+                      backgroundColor: 'rgba(255,255,255,0.25)',
+                      borderColor: 'rgba(255,255,255,0.35)',
+                      borderWidth: 1,
+                      shadowColor: action.gradient[0],
+                    }]}>
                       <Icon 
                         name={action.icon as any} 
-                        size={32} 
+                        size={28} 
                         color={colors.white} 
-                        style={styles.actionIcon}
                       />
+                    </View>
+                    
+                    <View style={styles.actionTextContainer}>
                       <Text style={styles.actionTitle}>{action.title}</Text>
                       <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                     </View>
-                  </BlurView>
+                  </View>
+                  
+                  {/* Subtle highlight overlay */}
+                  <View style={[styles.actionHighlight, {
+                    backgroundColor: action.gradient[0] + '08'
+                  }]} />
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -363,41 +375,66 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 14,
+    justifyContent: 'space-between',
   },
   actionCard: {
-    width: (screenWidth - 72) / 2, // Account for padding and gap
-    height: 120,
-    borderRadius: 16,
+    width: (screenWidth - 76) / 2,
+    height: 130,
+    borderRadius: 24,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   actionGradient: {
     flex: 1,
-  },
-  actionBlur: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 24,
+    position: 'relative',
   },
   actionContent: {
-    alignItems: 'center',
-    padding: 16,
+    flex: 1,
+    padding: 18,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  actionIcon: {
-    marginBottom: 8,
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  actionTextContainer: {
+    flex: 1,
+    marginTop: 8,
   },
   actionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.white,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 4,
+    fontWeight: '700',
+    marginBottom: 2,
+    letterSpacing: 0.2,
   },
   actionSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    textAlign: 'center',
-    lineHeight: 16,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 14,
+    fontWeight: '500',
+  },
+  actionHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
   },
   focusCard: {
     borderRadius: 16,

@@ -37,9 +37,11 @@ Your **GoFitAI** app now has a third workout plan option: **"Build Your Own"** -
 - **Exercise Details**: Shows muscle groups, difficulty, equipment needed
 
 ### **Step 4: Exercise Customization**
-- **Sets**: User sets number of sets (default: 3)
-- **Reps**: Custom rep ranges (e.g., "8-12", "15-20", "AMRAP")
+- **Sets**: User sets number of sets (default: 3) for strength exercises
+- **Reps**: Custom rep ranges (e.g., "8-12", "15-20", "AMRAP") for strength exercises
+- **Duration**: Time-based parameters (e.g., "30s", "45s", "60s") for cardio exercises
 - **Rest**: Rest periods (e.g., "60s", "2-3 min", "as needed")
+- **Smart Detection**: Automatically detects cardio vs strength exercises and shows appropriate parameters
 - **Notes**: Optional exercise-specific notes
 
 ### **Step 5: Review & Save**
@@ -60,6 +62,8 @@ Your **GoFitAI** app now has a third workout plan option: **"Build Your Own"** -
 - **Add/Remove**: Easy + button to add exercises, X to remove
 - **Drag & Drop**: Future enhancement for exercise reordering
 - **Real-time Updates**: Instant feedback on changes
+- **Adaptive UI**: Automatically switches between sets/reps and duration/rest based on exercise type
+- **Cardio Detection**: Intelligently identifies cardio exercises and adjusts parameter inputs
 - **Validation**: Ensures each day has at least one exercise
 
 ### **Professional Styling**

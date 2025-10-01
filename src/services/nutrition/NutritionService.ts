@@ -18,10 +18,12 @@ export type FoodSuggestion = {
 import { environment } from '../../config/environment';
 import { GeminiService } from '../ai/GeminiService';
 
-// Base URLs for fallback system (Railway first, then environment)
+// Base URLs for fallback system (Local first, then Railway, then environment)
 const getBaseUrls = () => {
   return [
-    'https://gofitai-production.up.railway.app', // Railway server first (always available)
+    'http://192.168.0.176:4000', // Local network IP first (fastest for development)
+    'http://localhost:4000', // Localhost fallback
+    'https://gofitai-production.up.railway.app', // Railway server (production fallback)
     environment.apiUrl, // Configured URL from environment
   ].filter(Boolean) as string[];
 };
@@ -290,10 +292,13 @@ export class NutritionService {
         
         // Add timeout handling for each request  
         const controller = new AbortController();
+        // Use shorter timeout for local servers, longer for remote
+        const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
+        const timeoutMs = isLocal ? 15000 : 30000; // 15s for local, 30s for remote
         const timeoutId = setTimeout(() => {
-          console.log(`[NutritionService] ⏰ Request timeout after 30 seconds for: ${base}`);
+          console.log(`[NutritionService] ⏰ Request timeout after ${timeoutMs}ms for: ${base}`);
           controller.abort();
-        }, 30000); // 30 second timeout per base URL (reasonable for AI operations)
+        }, timeoutMs);
         
         const response = await fetch(url, {
           ...init,

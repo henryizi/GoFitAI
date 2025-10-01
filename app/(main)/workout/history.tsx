@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { MotiView } from 'moti';
+// import { MotiView } from 'moti';
 
 
 // Get screen dimensions
@@ -211,12 +211,7 @@ const WorkoutHistoryListScreen = () => {
           colors={colors.backgroundGradient}
           style={StyleSheet.absoluteFill}
         />
-        <MotiView
-          from={{ opacity: 0.5, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 500 }}
-          style={styles.loadingContent}
-        >
+        <View style={styles.loadingContent}>
           <Icon 
             name="dumbbell" 
             size={80} 
@@ -225,7 +220,7 @@ const WorkoutHistoryListScreen = () => {
           />
           <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
           <Text style={styles.loadingText}>Loading workout history...</Text>
-        </MotiView>
+        </View>
       </View>
     );
   }
@@ -240,12 +235,7 @@ const WorkoutHistoryListScreen = () => {
           style={StyleSheet.absoluteFill}
         />
         
-        <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 800 }}
-          style={styles.emptyContent}
-        >
+        <View style={styles.emptyContent}>
           <View style={styles.emptyIconContainer}>
             <Icon name="history" size={60} color={colors.primary} style={styles.emptyIcon} />
             <View style={styles.emptyIconGlow} />
@@ -274,7 +264,7 @@ const WorkoutHistoryListScreen = () => {
             
 
           </View>
-        </MotiView>
+        </View>
       </View>
     );
   }
@@ -345,16 +335,7 @@ const WorkoutHistoryListScreen = () => {
           />
         }
         renderItem={({ item, index }) => (
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ 
-              type: 'timing', 
-              duration: 600, 
-              delay: index * 100 
-            }}
-            style={styles.sessionCardContainer}
-          >
+          <View style={styles.sessionCardContainer}>
           <TouchableOpacity
             onPress={() => router.push({ pathname: '/(main)/workout/history-session/[sessionId]', params: { sessionId: item.id } })}
               style={styles.sessionCard}
@@ -371,7 +352,7 @@ const WorkoutHistoryListScreen = () => {
                         <LinearGradient
                           colors={['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)']}
                           style={styles.sessionIconGradient}
-          >
+                        >
                           <Icon 
                             name={getExerciseTypeIcon(item.split_name)} 
                             size={20} 
@@ -524,7 +505,7 @@ const WorkoutHistoryListScreen = () => {
                 </LinearGradient>
               </BlurView>
           </TouchableOpacity>
-          </MotiView>
+          </View>
         )}
       />
     </View>

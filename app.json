@@ -60,7 +60,7 @@
       "eas": {
         "projectId": "8acc1562-09e6-45d8-a2ec-5689e73600e2"
       },
-      "EXPO_PUBLIC_API_URL": "http://localhost:4000",
+      "EXPO_PUBLIC_API_URL": "https://gofitai-production.up.railway.app",
       "EXPO_PUBLIC_AI_TIMEOUT_MS": "45000",
       "EXPO_PUBLIC_AI_VERBOSE": "0"
     },

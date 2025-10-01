@@ -335,7 +335,7 @@ export default function LogProgressScreen() {
         try {
           await supabase
             .from('profiles')
-            .update({ body_fat: bodyFatNum } as any)
+            .update({ body_fat: bodyFatNum })
             .eq('id', user.id);
         } catch (e) {
           console.warn('Failed to update body fat percentage:', e);
@@ -396,7 +396,7 @@ export default function LogProgressScreen() {
         try {
           await supabase
             .from('profiles')
-            .update({ body_fat: bodyFatNum } as any)
+            .update({ body_fat: bodyFatNum })
             .eq('id', user.id);
         } catch (e) {
           console.warn('Failed to update body fat percentage:', e);

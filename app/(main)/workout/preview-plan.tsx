@@ -43,6 +43,36 @@ const colors = {
   glassStrong: 'rgba(255, 255, 255, 0.15)',
 };
 
+// Helper function to check if an exercise is cardio-based
+const isCardioExercise = (exercise: any): boolean => {
+  const cardioCategories = ['cardio', 'cardiovascular'];
+  const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
+  const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
+                          'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
+                          'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];
+  
+  // Check category
+  if (exercise.category && cardioCategories.some(cat => exercise.category.toLowerCase().includes(cat))) {
+    return true;
+  }
+  
+  // Check muscle groups
+  if (exercise.muscle_groups?.some(mg => 
+    cardioMuscleGroups.some(cardio => mg.toLowerCase().includes(cardio))
+  )) {
+    return true;
+  }
+  
+  // Check exercise name for cardio keywords
+  if (exercise.name && cardioKeywords.some(keyword => 
+    exercise.name.toLowerCase().includes(keyword)
+  )) {
+    return true;
+  }
+  
+  return false;
+};
+
 export default function PreviewPlanScreen() {
   const { planObject, originalPlanId } = useLocalSearchParams<{ planObject: string; originalPlanId: string }>();
   const [plan, setPlan] = useState<any>(null);
@@ -646,24 +676,45 @@ export default function PreviewPlanScreen() {
                     <View style={styles.exerciseDetails}>
                       <Text style={styles.exerciseName}>{exercise.name || 'Exercise'}</Text>
                       <View style={styles.exerciseMetrics}>
-                        <View style={styles.metric}>
-                          <Icon name="repeat" size={14} color={colors.primary} />
-                          <Text style={styles.metricText}>
-                            {typeof exercise.sets === 'number' ? exercise.sets : 3} sets
-                          </Text>
-                        </View>
-                        <View style={styles.metric}>
-                          <Icon name="sync" size={14} color={colors.primary} />
-                          <Text style={styles.metricText}>
-                            {exercise.reps || '8-12'} reps
-                          </Text>
-                        </View>
-                        <View style={styles.metric}>
-                          <Icon name="timer-outline" size={14} color={colors.primary} />
-                          <Text style={styles.metricText}>
-                            {exercise.rest || exercise.restBetweenSets || '60s'} rest
-                          </Text>
-                        </View>
+                        {isCardioExercise(exercise) ? (
+                          // Cardio exercises: show timing-based parameters
+                          <>
+                            <View style={styles.metric}>
+                              <Icon name="timer" size={14} color={colors.primary} />
+                              <Text style={styles.metricText}>
+                                {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'} duration
+                              </Text>
+                            </View>
+                            <View style={styles.metric}>
+                              <Icon name="timer-outline" size={14} color={colors.primary} />
+                              <Text style={styles.metricText}>
+                                {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'} rest
+                              </Text>
+                            </View>
+                          </>
+                        ) : (
+                          // Strength exercises: show traditional sets/reps parameters
+                          <>
+                            <View style={styles.metric}>
+                              <Icon name="repeat" size={14} color={colors.primary} />
+                              <Text style={styles.metricText}>
+                                {typeof exercise.sets === 'number' ? exercise.sets : 3} sets
+                              </Text>
+                            </View>
+                            <View style={styles.metric}>
+                              <Icon name="sync" size={14} color={colors.primary} />
+                              <Text style={styles.metricText}>
+                                {exercise.reps || '8-12'} reps
+                              </Text>
+                            </View>
+                            <View style={styles.metric}>
+                              <Icon name="timer-outline" size={14} color={colors.primary} />
+                              <Text style={styles.metricText}>
+                                {exercise.rest || exercise.restBetweenSets || '60s'} rest
+                              </Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </View>
                   </View>

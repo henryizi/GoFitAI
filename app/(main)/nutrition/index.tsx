@@ -650,8 +650,8 @@ const PlansScreen = () => {
                         </View>
                       </View>
                       
-                      {/* Metabolic Calculation Breakdown */}
-                      {activePlan?.metabolic_calculations && (
+                      {/* Metabolic Calculation Breakdown - Only show for mathematical calculations */}
+                      {activePlan?.metabolic_calculations && activePlan.metabolic_calculations.calculation_method !== 'Manual Input' && (
                         <View style={styles.calculationBreakdownContainer}>
                           <View style={styles.calculationBreakdownHeader}>
                             <Text style={styles.calculationBreakdownTitle}>📊 HOW YOUR TARGETS WERE CALCULATED</Text>

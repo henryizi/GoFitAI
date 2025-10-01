@@ -90,7 +90,7 @@ export class PhotoStorageService {
       const timestamp = new Date().toISOString();
       const filename = `${userId}/plan_${timestamp}.jpg`;
 
-      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
       const arrayBuffer = decode(base64);
 
       try {
