@@ -342,8 +342,8 @@ class GeminiTextService {
       console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
       console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
 
-      // Use shorter timeout and fewer retries for workout plan generation to fit Railway's 60s limit
-      const maxRetries = 2; // Reduced retries to fail faster and avoid Railway timeout
+      // Use single attempt with aggressive timeout to fit Railway's 60s limit
+      const maxRetries = 1; // Single attempt to prevent Railway timeout
       const result = await this.generateContentWithRetry([prompt], maxRetries);
       console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
 
@@ -704,17 +704,11 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     if (goalFatReduction) goals.push(`Fat Loss Goal: ${goalFatReduction}%`);
     if (goalMuscleGain) goals.push(`Muscle Gain Goal: ${goalMuscleGain}%`);
 
-    return `Create a personalized ${daysPerWeek}-day workout plan for ${fullName} as valid JSON.
+    return `Create ${daysPerWeek}-day workout plan as valid JSON ONLY.
 
-CRITICAL: Return ONLY valid JSON starting with { and ending with }. Use double quotes. Keep all instruction texts under 50 characters.
+PROFILE: ${fitnessLevel} level, ${primaryGoal} goal, ${age}yo ${gender}, Equipment: ${Array.isArray(equipment) ? equipment.slice(0, 3).join(', ') : 'basic'}
 
-USER PROFILE:
-- Level: ${fitnessLevel}, Goal: ${primaryGoal}, Frequency: ${daysPerWeek} days/week
-- Age: ${age}, Gender: ${gender}${height ? `, Height: ${height}cm` : ''}${weight ? `, Weight: ${weight}kg` : ''}
-- Equipment: ${Array.isArray(equipment) ? equipment.join(', ') : 'basic equipment'}
-- Rep Range: ${goalConfig.repRange}, Rest: ${goalConfig.restTime}, Focus: ${goalConfig.focus}
-
-JSON FORMAT:
+JSON FORMAT (return this structure):
 {
   "plan_name": "${fitnessLevel} ${primaryGoal} Plan",
   "duration_weeks": 4,
@@ -725,27 +719,21 @@ JSON FORMAT:
     {
       "day": 1,
       "day_name": "Monday",
-      "focus": "Upper Body / Lower Body / Full Body / Push / Pull / Legs",
+      "focus": "Push/Pull/Legs/Full",
       "workout_type": "Strength",
       "duration_minutes": ${sessionDuration},
-      "warm_up": [{"exercise": "Light cardio", "duration": "5 min", "instructions": "Warm up"}],
+      "warm_up": [{"exercise": "Cardio", "duration": "5 min", "instructions": "Warm up"}],
       "main_workout": [
-        {"exercise": "Exercise name", "sets": "${levelConfig.sets}", "reps": "${goalConfig.repRange}", "rest": "${goalConfig.restTime}", "instructions": "Brief tip"}
+        {"exercise": "Exercise", "sets": "${levelConfig.sets}", "reps": "${goalConfig.repRange}", "rest": "${goalConfig.restTime}", "instructions": "Form tip"}
       ],
       "cool_down": [{"exercise": "Stretch", "duration": "5 min", "instructions": "Cool down"}]
     }
   ],
-  "progression": {"mesocycleWeeks": 4, "guidance": "Progress weekly"},
+  "progression": {"mesocycleWeeks": 4, "guidance": "Weekly progress"},
   "estimatedTimePerSession": "${sessionDuration} min"
 }
 
-REQUIREMENTS:
-- Generate EXACTLY ${daysPerWeek} days in weeklySchedule
-- Use day names: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
-- 4-6 main exercises per day, vary muscle groups between days
-- Match exercises to equipment: ${Array.isArray(equipment) ? equipment.join(', ') : 'basic'}
-- Instructions must be under 50 characters
-- Adapt for ${age}yo ${gender}, ${fitnessLevel} level`;
+RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructions`;
   }
 
   /**
@@ -899,7 +887,7 @@ REQUIREMENTS:
                                 hasWorkoutPlan || hasExercise || contentString.includes('nutrition') || 
                                 hasFitness || contentString.includes('personalized workout') || 
                                 hasClientProfile || isLongContent;
-        const timeoutDuration = isComplexRequest ? 45000 : 25000; // 45s for complex, 25s for simple - reduced to fit Railway's 60s timeout
+        const timeoutDuration = isComplexRequest ? 35000 : 20000; // 35s for complex, 20s for simple - aggressive timeout to fit Railway's 60s limit
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
         // Add exponential backoff delay for retries
