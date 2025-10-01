@@ -7,8 +7,37 @@ import {
   getExerciseInfo,
   ExerciseInfo
 } from '../../constants/exerciseNames';
+import { generateWeeklyWorkoutPrompt } from './exercisePrompts';
 import { bodybuilderWorkouts, BodybuilderWorkout } from '../../data/bodybuilder-workouts';
 import { WorkoutPlan as AppWorkoutPlan, WorkoutDay as AppWorkoutDay, ExerciseItem } from '../../types/chat';
+
+// Exercise data structure for offline fallback
+const BASE_EXERCISES = {
+  muscle_gain: {
+    full_body: SUPPORTED_EXERCISES
+      .filter(ex => ex.category === 'Push' || ex.category === 'Pull' || ex.category === 'Legs')
+      .filter(ex => ex.equipment === 'Bodyweight' || ex.equipment === 'Dumbbell' || ex.equipment === 'Barbell')
+      .slice(0, 12),
+    compound: SUPPORTED_EXERCISES
+      .filter(ex => ex.difficulty === 'Intermediate' || ex.difficulty === 'Advanced')
+      .filter(ex => ex.category === 'Push' || ex.category === 'Pull' || ex.category === 'Legs')
+      .slice(0, 8)
+  },
+  fat_loss: {
+    hiit: SUPPORTED_EXERCISES
+      .filter(ex => ex.category === 'Cardio' || ex.category === 'Core')
+      .slice(0, 8),
+    strength: SUPPORTED_EXERCISES
+      .filter(ex => ex.category === 'Push' || ex.category === 'Pull' || ex.category === 'Legs')
+      .filter(ex => ex.difficulty === 'Beginner' || ex.difficulty === 'Intermediate')
+      .slice(0, 8)
+  },
+  general_fitness: {
+    full_body: SUPPORTED_EXERCISES
+      .filter(ex => ex.category === 'Push' || ex.category === 'Pull' || ex.category === 'Legs' || ex.category === 'Core')
+      .slice(0, 10)
+  }
+};
 
 interface RecipeTarget {
   calories?: number;
@@ -91,6 +120,7 @@ interface WorkoutPlanInput {
   fatLossGoal: number; // scale 1-5
   muscleGainGoal: number; // scale 1-5
   trainingLevel: 'beginner' | 'intermediate' | 'advanced';
+  primaryGoal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain'; // Primary fitness goal
   availableEquipment?: ('Dumbbell' | 'Barbell' | 'Kettlebell' | 'Resistance Band' | 'Cable Machine' | 'Plate')[];
   emulateBodybuilder?: string; // Optional parameter to emulate a famous bodybuilder's workout style
 
@@ -165,19 +195,21 @@ export class GeminiService {
   private static getBaseUrls(): string[] {
     const railwayUrl = 'https://gofitai-production.up.railway.app';
     const localhostUrl = 'http://localhost:4000';
+    const localIpUrl = 'http://192.168.0.176:4000'; // Local network IP from server startup
     const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
 
     console.log('[GEMINI SERVICE] Available URLs:');
     console.log('[GEMINI SERVICE] Railway URL:', railwayUrl);
     console.log('[GEMINI SERVICE] Localhost URL:', localhostUrl);
+    console.log('[GEMINI SERVICE] Local IP URL:', localIpUrl);
     console.log('[GEMINI SERVICE] Environment URL:', envUrl);
 
-    // For development, prioritize Railway server since localhost backend is not running
-    // Priority order: railway (production server), then environment, then localhost (if needed)
+    // Priority order: production endpoints first, then local development fallbacks
     const urls = [
-      railwayUrl,   // Railway server first (production server that's working)
-      envUrl,       // Configured URL from environment (if any)
-      // localhostUrl, // Commented out since no local backend server is running
+      railwayUrl,   // Production default
+      envUrl,       // Environment override (if provided)
+      localIpUrl,   // Local network IP (for development)
+      localhostUrl, // Localhost fallback (for simulator)
     ].filter(Boolean) as string[];
 
     console.log('[GEMINI SERVICE] Using URLs in order:', urls);
@@ -220,10 +252,12 @@ export class GeminiService {
         }
 
         // Create timeout promise - optimized for meal generation
-        const timeoutMs = 45000; // 45 seconds timeout for Gemini API (faster than server timeout)
+        // Use shorter timeout for local servers, longer for remote
+        const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
+        const timeoutMs = isLocal ? 15000 : 45000; // 15s for local, 45s for remote
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          console.log(`[GEMINI SERVICE] Request timed out after ${timeoutMs}ms for ${base}, trying next...`);
           controller.abort();
         }, timeoutMs);
         
@@ -231,6 +265,8 @@ export class GeminiService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'GoFitAI-Mobile/1.0',
           },
           body: JSON.stringify({
             mealType,
@@ -756,21 +792,32 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
         }
 
         // Create timeout promise - optimized timeout for better reliability
-        const timeoutMs = 30000; // 30 seconds timeout - shorter for better user experience
+        // Use shorter timeout for local servers, longer for remote
+        const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
+        const timeoutMs = isLocal ? 20000 : 45000; // 20s for local, 45s for remote (server has 35s timeout)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           console.log(`[GEMINI SERVICE] Request timed out after ${timeoutMs}ms for ${base}, trying next...`);
           controller.abort();
         }, timeoutMs);
 
-        // Transform input to match server API expectations
+        // Transform input to match server API expectations with comprehensive profile data
         const profileForAPI = {
           full_name: input.fullName || 'User',
           gender: input.gender || 'male',
           age: input.age || 30,
+          height_cm: input.height || null,
+          weight_kg: input.weight || null,
           training_level: input.trainingLevel || 'intermediate',
           primary_goal: input.primaryGoal || 'general_fitness',
-          workout_frequency: input.workoutFrequency || '4'
+          workout_frequency: input.workoutFrequency || '4_5',
+          body_fat: input.bodyFat || null,
+          activity_level: input.activityLevel || null,
+          fitness_strategy: input.bodyAnalysis?.ai_feedback ? 'personalized' : 'general',
+          goal_fat_reduction: input.fatLossGoal || null,
+          goal_muscle_gain: input.muscleGainGoal || null,
+          exercise_frequency: input.exerciseFrequency || null,
+          weight_trend: input.weightTrend || null
         };
 
         const response = await fetch(`${base}/api/generate-workout-plan`, {
@@ -974,39 +1021,9 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
         { day: "Day 6", focus: "Rest Day", exercises: [], specialNotes: "Complete rest or light yoga" },
         { day: "Day 7", focus: "Rest Day", exercises: [], specialNotes: "Prepare for next week" }
       ];
-    } else if (primaryGoal === 'fat_loss') {
-      weeklySchedule = [
-        { day: "Day 1", focus: "HIIT Cardio", exercises: baseExercises.fat_loss.hiit },
-        { day: "Day 2", focus: "Strength Training", exercises: baseExercises.fat_loss.strength },
-        { day: "Day 3", focus: "Active Recovery", exercises: [
-          { name: "Walking", sets: 1, reps: "30-45 minutes", restBetweenSets: "N/A" },
-          { name: "Stretching", sets: 1, reps: "15-20 minutes", restBetweenSets: "N/A" }
-        ]},
-        { day: "Day 4", focus: "HIIT Cardio", exercises: baseExercises.fat_loss.hiit },
-        { day: "Day 5", focus: "Strength Training", exercises: baseExercises.fat_loss.strength },
-        { day: "Day 6", focus: "Low Intensity Cardio", exercises: [
-          { name: "Brisk Walking", sets: 1, reps: "45-60 minutes", restBetweenSets: "N/A" },
-          { name: "Stretching", sets: 1, reps: "10-15 minutes", restBetweenSets: "N/A" }
-        ]},
-        { day: "Day 7", focus: "Rest Day", exercises: [], specialNotes: "Complete rest day" }
-      ];
     } else {
-      // General fitness
-      weeklySchedule = [
-        { day: "Day 1", focus: "Full Body Workout", exercises: baseExercises.general_fitness.full_body },
-        { day: "Day 2", focus: "Active Recovery", exercises: [
-          { name: "Walking", sets: 1, reps: "30 minutes", restBetweenSets: "N/A" },
-          { name: "Stretching", sets: 1, reps: "15 minutes", restBetweenSets: "N/A" }
-        ]},
-        { day: "Day 3", focus: "Full Body Workout", exercises: baseExercises.general_fitness.full_body },
-        { day: "Day 4", focus: "Rest Day", exercises: [], specialNotes: "Complete rest or light activity" },
-        { day: "Day 5", focus: "Full Body Workout", exercises: baseExercises.general_fitness.full_body },
-        { day: "Day 6", focus: "Active Recovery", exercises: [
-          { name: "Yoga", sets: 1, reps: "30-45 minutes", restBetweenSets: "N/A" },
-          { name: "Light Walking", sets: 1, reps: "20-30 minutes", restBetweenSets: "N/A" }
-        ]},
-        { day: "Day 7", focus: "Rest Day", exercises: [], specialNotes: "Prepare for next week" }
-      ];
+      // Generate personalized offline fallback based on user profile
+      weeklySchedule = this.generatePersonalizedOfflinePlan(input);
     }
 
     // Create the workout plan in the same format as the server response
@@ -1025,6 +1042,182 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
     
     return fallbackPlan;
   }
+
+  /**
+   * Generate a personalized offline workout plan based on user profile
+   */
+  static generatePersonalizedOfflinePlan = (input: WorkoutPlanInput): WorkoutDay[] => {
+    const { primaryGoal, trainingLevel, workoutFrequency = '4_5' } = input;
+
+    // Determine workout frequency based on user preference and fitness level
+    const getWorkoutDays = (): number => {
+      if (trainingLevel === 'Beginner') {
+        return workoutFrequency === '2_3' ? 2 : 3;
+      } else if (trainingLevel === 'Intermediate') {
+        // For intermediate users, default to more frequent training unless specifically requested otherwise
+        return workoutFrequency === '2_3' ? 3 : workoutFrequency === '4_5' ? 5 : 5; // Favor 5 days for 4_5 preference
+      } else { // Advanced
+        return workoutFrequency === '2_3' ? 4 : workoutFrequency === '4_5' ? 6 : 6; // Favor higher frequency for advanced
+      }
+    };
+
+    const workoutDays = getWorkoutDays();
+
+    // Create a 7-day schedule with dynamic rest days
+    const schedule: WorkoutDay[] = [];
+    const restDays = 7 - workoutDays;
+
+    // Distribute workout days and rest days intelligently
+    const workoutPattern = this.generateWorkoutPattern(workoutDays, primaryGoal as any);
+
+    for (let day = 1; day <= 7; day++) {
+      const dayType = workoutPattern[day - 1];
+
+      if (dayType === 'workout') {
+        schedule.push(this.createWorkoutDay(day, primaryGoal as any, trainingLevel as any));
+      } else if (dayType === 'active_recovery') {
+        schedule.push(this.createActiveRecoveryDay(day));
+      } else {
+        schedule.push(this.createRestDay(day));
+      }
+    }
+
+    return schedule;
+  };
+
+  /**
+   * Generate workout pattern based on frequency and goal
+   */
+  private static generateWorkoutPattern = (workoutDays: number, goal: string): string[] => {
+    const pattern: string[] = new Array(7).fill('rest');
+
+    // Distribute workout days based on goal and frequency
+    if (goal === 'muscle_gain') {
+      // For muscle gain, space out training days for recovery
+      if (workoutDays >= 4) {
+        pattern[0] = 'workout'; // Monday
+        pattern[2] = 'workout'; // Wednesday
+        pattern[4] = 'workout'; // Friday
+        if (workoutDays >= 5) pattern[6] = 'workout'; // Sunday
+        if (workoutDays >= 6) pattern[1] = 'active_recovery'; // Tuesday
+      } else {
+        pattern[0] = 'workout';
+        pattern[3] = 'workout';
+        if (workoutDays >= 3) pattern[5] = 'workout';
+      }
+    } else if (goal === 'fat_loss') {
+      // For fat loss, more frequent but shorter sessions
+      if (workoutDays >= 4) {
+        pattern[0] = 'workout';
+        pattern[1] = 'active_recovery';
+        pattern[2] = 'workout';
+        pattern[3] = 'workout';
+        pattern[4] = 'active_recovery';
+        if (workoutDays >= 5) pattern[5] = 'workout';
+      } else {
+        pattern[0] = 'workout';
+        pattern[2] = 'workout';
+        if (workoutDays >= 3) pattern[4] = 'workout';
+      }
+    } else {
+      // General fitness - balanced approach
+      if (workoutDays >= 4) {
+        pattern[0] = 'workout';
+        pattern[2] = 'workout';
+        pattern[4] = 'workout';
+        if (workoutDays >= 5) pattern[1] = 'active_recovery';
+        if (workoutDays >= 6) pattern[5] = 'workout';
+      } else {
+        pattern[0] = 'workout';
+        pattern[3] = 'workout';
+        if (workoutDays >= 3) pattern[5] = 'workout';
+      }
+    }
+
+    return pattern;
+  };
+
+  /**
+   * Create a workout day based on goal and fitness level
+   */
+  private static createWorkoutDay = (day: number, goal: string, level: string): WorkoutDay => {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    // Helper function to convert ExerciseInfo to ExerciseItem format
+    const convertToExerciseItem = (exercise: ExerciseInfo): ExerciseItem => ({
+      name: exercise.name,
+      sets: level === 'Beginner' ? 3 : level === 'Intermediate' ? 4 : 4,
+      reps: level === 'Beginner' ? '10-12' : level === 'Intermediate' ? '8-10' : '6-8',
+      restBetweenSets: level === 'Beginner' ? '60-90 seconds' : '90-120 seconds',
+      notes: `${exercise.equipment} exercise targeting ${exercise.muscleGroups.join(', ')}`
+    });
+
+    if (goal === 'muscle_gain') {
+      const exercises = level === 'Beginner' ?
+        BASE_EXERCISES.muscle_gain.full_body.slice(0, 4).map(convertToExerciseItem) :
+        BASE_EXERCISES.muscle_gain.compound.slice(0, 5).map(convertToExerciseItem);
+
+      return {
+        day: `Day ${day}`,
+        focus: level === 'Beginner' ? 'Full Body Strength' : 'Compound Movements',
+        exercises,
+        notes: `${level} level muscle building focus`,
+        estimatedCaloriesBurned: level === 'Beginner' ? 300 : 400
+      };
+    } else if (goal === 'fat_loss') {
+      const exercises = day % 2 === 1 ?
+        BASE_EXERCISES.fat_loss.hiit.slice(0, 4).map(convertToExerciseItem) :
+        BASE_EXERCISES.fat_loss.strength.slice(0, 4).map(convertToExerciseItem);
+
+      return {
+        day: `Day ${day}`,
+        focus: day % 2 === 1 ? 'HIIT Cardio' : 'Strength Training',
+        exercises,
+        notes: 'Combined cardio and strength for fat loss',
+        estimatedCaloriesBurned: 400
+      };
+    } else {
+      const exercises = BASE_EXERCISES.general_fitness.full_body.slice(0, 5).map(convertToExerciseItem);
+
+      return {
+        day: `Day ${day}`,
+        focus: 'Full Body Workout',
+        exercises,
+        notes: 'Balanced full body training',
+        estimatedCaloriesBurned: 350
+      };
+    }
+  };
+
+  /**
+   * Create an active recovery day
+   */
+  private static createActiveRecoveryDay = (day: number): WorkoutDay => {
+    return {
+      day: `Day ${day}`,
+      focus: 'Active Recovery',
+      exercises: [
+        { name: "Walking", sets: 1, reps: "30 minutes", restBetweenSets: "N/A" },
+        { name: "Stretching", sets: 1, reps: "15-20 minutes", restBetweenSets: "N/A" },
+        { name: "Light Yoga", sets: 1, reps: "20 minutes", restBetweenSets: "N/A" }
+      ],
+      notes: 'Light activity to promote recovery',
+      estimatedCaloriesBurned: 150
+    };
+  };
+
+  /**
+   * Create a rest day
+   */
+  private static createRestDay = (day: number): WorkoutDay => {
+    return {
+      day: `Day ${day}`,
+      focus: 'Rest Day',
+      exercises: [],
+      notes: 'Complete rest for recovery and muscle growth',
+      estimatedCaloriesBurned: 0
+    };
+  };
 }
 
 
