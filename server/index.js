@@ -1,5 +1,5 @@
 console.log('--- SERVER RESTARTED ---');
-console.log('--- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---');
+console.log('--- Code version: 4.0.2 - Gemini-Only-Clean: AI generation with mathematical fallback ---');
 
 // Load environment variables
 require('dotenv').config();
