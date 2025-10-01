@@ -136,10 +136,18 @@ class ResponseCache {
    * Get cache key for workout plans
    */
   getWorkoutCacheKey(profile, preferences) {
+    const frequency =
+      (preferences && preferences.workout_frequency) ||
+      profile.workout_frequency ||
+      profile.workoutFrequency ||
+      profile.preferred_workout_frequency ||
+      profile.sessions_per_week ||
+      4;
+
     return this.generateCacheKey('workout', {
       goal: profile.primary_goal,
       level: profile.training_level,
-      frequency: preferences?.workout_frequency || 5,
+      frequency,
       age: profile.age,
       gender: profile.gender
     });
