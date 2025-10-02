@@ -821,11 +821,13 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
 
         // Add timeout to prevent hanging requests - reasonable timeout for AI generation
         // Complex requests need more time for AI to generate comprehensive content
-        const isComplexRequest = content.includes('meal plan') || content.includes('recipe') ||
-                                content.includes('workout plan') || content.includes('exercise') ||
-                                content.includes('nutrition') || content.includes('fitness') ||
-                                content.includes('personalized workout') || content.includes('CLIENT PROFILE') ||
-                                content.length > 2000; // Workout plans are typically 2.5-6k chars
+        // Convert content to string for checking (content might be array or string)
+        const contentStr = Array.isArray(content) ? content.join(' ') : String(content);
+        const isComplexRequest = contentStr.includes('meal plan') || contentStr.includes('recipe') ||
+                                contentStr.includes('workout plan') || contentStr.includes('exercise') ||
+                                contentStr.includes('nutrition') || contentStr.includes('fitness') ||
+                                contentStr.includes('personalized workout') || contentStr.includes('CLIENT PROFILE') ||
+                                contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
         const timeoutDuration = isComplexRequest ? 90000 : 30000; // 90s for complex, 30s for simple - allows AI generation
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
