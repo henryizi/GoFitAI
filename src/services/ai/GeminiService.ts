@@ -793,8 +793,9 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
 
         // Create timeout promise - optimized timeout for better reliability
         // Use shorter timeout for local servers, longer for remote
+        // Workout plans need significantly more time (server has 120s timeout for Gemini)
         const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
-        const timeoutMs = isLocal ? 20000 : 45000; // 20s for local, 45s for remote (server has 35s timeout)
+        const timeoutMs = isLocal ? 30000 : 150000; // 30s for local, 150s for remote (server has 120s Gemini timeout + overhead)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           console.log(`[GEMINI SERVICE] Request timed out after ${timeoutMs}ms for ${base}, trying next...`);
@@ -891,6 +892,21 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
               (d.main_workout && d.main_workout.length > 0) || 
               (d.cool_down && d.cool_down.length > 0)
             )
+          });
+          
+          // Log full weekly schedule details for debugging
+          console.log('[GEMINI SERVICE] Full weekly schedule details:');
+          appPlan.weeklySchedule?.forEach((day, idx) => {
+            console.log(`  Day ${idx + 1}:`, {
+              day: day.day,
+              day_name: day.day_name,
+              focus: day.focus,
+              type: day.type || day.workout_type,
+              exercisesCount: day.exercises?.length || 0,
+              warmUpCount: day.warm_up?.length || 0,
+              mainWorkoutCount: day.main_workout?.length || 0,
+              coolDownCount: day.cool_down?.length || 0
+            });
           });
           
           return appPlan;

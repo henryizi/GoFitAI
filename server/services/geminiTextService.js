@@ -18,9 +18,6 @@ class GeminiTextService {
     this.model = null;
 
     this.initializeWithBestKey();
-
-    console.log('[GEMINI TEXT] Service initialized with model:', this.modelName);
-    console.log('[GEMINI TEXT] API Key rotation enabled: ✅ Yes');
   }
 
   /**
@@ -48,15 +45,10 @@ class GeminiTextService {
       generationConfig: {
         temperature: 0.7,
         topP: 0.95,
-        maxOutputTokens: 16000  // Increased for complex workout plans
+        maxOutputTokens: 16000
       }
     });
-    
-      console.log('[GEMINI TEXT] Using primary model:', this.modelName);
-      console.log('[GEMINI TEXT] Fallback models available:', this.modelFallbacks);
-      console.log('[GEMINI TEXT] Using key with best quota availability');
     } catch (error) {
-      console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
       throw error;
     }
   }
@@ -74,13 +66,10 @@ class GeminiTextService {
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,
-          maxOutputTokens: 16000  // Increased for complex workout plans
+          maxOutputTokens: 16000
         }
       });
-
-      console.log('[GEMINI TEXT] Rotated to next API key');
     } catch (error) {
-      console.error('[GEMINI TEXT] Failed to rotate API key:', error.message);
       throw error;
     }
   }
@@ -91,9 +80,7 @@ class GeminiTextService {
   recordUsage() {
     const usage = this.apiKeyManager.recordUsage(this.currentKey);
 
-    // If current key is near quota limit, rotate to next key
     if (usage.remaining <= 2) {
-      console.log('[GEMINI TEXT] Current key near quota limit, rotating...');
       this.rotateToNextKey();
     }
 
@@ -110,51 +97,19 @@ class GeminiTextService {
    */
   async generateRecipe(mealType, targets, ingredients, strict = false) {
     try {
-      console.log('[GEMINI TEXT] Generating recipe for:', mealType);
-      console.log('[GEMINI TEXT] Ingredients:', ingredients.length);
-      console.log('[GEMINI TEXT] Strict mode:', strict);
-
-      const startTime = Date.now();
-
       const prompt = this.createRecipePrompt(mealType, targets, ingredients, strict);
-      
       const result = await this.generateContentWithRetry([prompt]);
       const response = await result.response;
       const text = response.text();
 
-      const generationTime = Date.now() - startTime;
-      console.log(`[GEMINI TEXT] Recipe generated in ${generationTime}ms`);
-      console.log(`[GEMINI TEXT] Response length: ${text.length} characters`);
-      console.log(`[GEMINI TEXT] Response preview: ${text ? text.substring(0, 200) + '...' : 'EMPTY'}`);
-
-      // Enhanced response validation
-      if (text === null || text === undefined) {
-        console.error('[GEMINI TEXT] Response is null or undefined');
-        throw new Error('Null response received from Gemini');
-      }
-      
-      if (text.trim().length === 0) {
-        console.error('[GEMINI TEXT] Response is empty after trimming');
-        throw new Error('Empty response received from Gemini');
-      }
-      
-      if (text.length < 10) {
-        console.error('[GEMINI TEXT] Response too short:', text);
-        throw new Error('Response too short from Gemini');
+      if (!text || text.trim().length < 10) {
+        throw new Error('Invalid response from Gemini');
       }
 
-      // Parse the JSON response using enhanced parsing with fallbacks
       let recipeData;
       try {
         recipeData = this.parseJsonWithFallbacks(text, 'recipe');
-        console.log('[GEMINI TEXT] Successfully parsed recipe data');
-        console.log('[GEMINI TEXT] Recipe name:', recipeData.recipe_name);
       } catch (parseError) {
-        console.error('[GEMINI TEXT] All JSON parsing strategies failed:', parseError.message);
-        console.log('[GEMINI TEXT] Raw response for debugging:', text.substring(0, 1000));
-        
-        // Create a fallback recipe as last resort
-        console.log('[GEMINI TEXT] Creating emergency fallback recipe');
         recipeData = this.createFallbackRecipe(text, mealType, targets, ingredients);
       }
 
@@ -168,7 +123,6 @@ class GeminiTextService {
       };
 
     } catch (error) {
-      console.error('[GEMINI TEXT] Recipe generation failed:', error.message);
       throw new Error(`Recipe generation failed: ${error.message}`);
     }
   }
@@ -177,7 +131,6 @@ class GeminiTextService {
    * Creates a fallback recipe when JSON parsing fails
    */
   createFallbackRecipe(text, mealType, targets, ingredients) {
-    console.log('[GEMINI TEXT] Creating fallback recipe from text response');
     
     // Try to extract any useful information from the text
     const recipeName = this.extractRecipeName(text) || `${mealType} Recipe`;
@@ -330,41 +283,19 @@ class GeminiTextService {
    */
   async generateWorkoutPlan(userProfile, preferences) {
     try {
-      console.log('[GEMINI TEXT] Generating workout plan');
-      console.log('[GEMINI TEXT] User level:', userProfile.fitnessLevel);
-      console.log('[GEMINI TEXT] Goal:', userProfile.primaryGoal);
-      console.log('[GEMINI TEXT] User profile keys:', Object.keys(userProfile));
-      console.log('[GEMINI TEXT] Full user profile:', JSON.stringify(userProfile, null, 2));
-
       const startTime = Date.now();
-
       const prompt = this.createWorkoutPrompt(userProfile, preferences);
-      console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
-      console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
-
-      // Use single attempt with aggressive timeout to fit Railway's 60s limit
-      const maxRetries = 1; // Single attempt to prevent Railway timeout
+      
+      const maxRetries = 1;
       const result = await this.generateContentWithRetry([prompt], maxRetries);
-      console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
-
       const response = await result.response;
-      console.log('[GEMINI TEXT] Response object:', !!response);
-
       const text = response.text();
-      console.log('[GEMINI TEXT] Response text:', !!text, 'length:', text?.length || 0);
-
-      const generationTime = Date.now() - startTime;
-      console.log(`[GEMINI TEXT] Workout plan generated in ${generationTime}ms`);
 
       // Parse the JSON response using enhanced parsing with fallbacks
       let workoutData;
       try {
         workoutData = this.parseJsonWithFallbacks(text, 'workout', userProfile);
-        console.log('[GEMINI TEXT] Successfully parsed workout data');
-        console.log('[GEMINI TEXT] Plan name:', workoutData.plan_name);
       } catch (parseError) {
-        console.error('[GEMINI TEXT] All JSON parsing strategies failed:', parseError.message);
-        console.log('[GEMINI TEXT] Raw response for debugging:', text.substring(0, 1000));
         throw new Error('Failed to parse workout response');
       }
 
@@ -378,7 +309,6 @@ class GeminiTextService {
       };
 
     } catch (error) {
-      console.error('[GEMINI TEXT] Workout plan generation failed:', error.message);
       throw new Error(`Workout plan generation failed: ${error.message}`);
     }
   }
@@ -469,77 +399,30 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
    * Creates a detailed prompt for workout plan generation with comprehensive user profile data
    */
   createWorkoutPrompt(userProfile, preferences) {
-    // Enhanced customization based on user profile (support both formats)
+    // SIMPLIFIED: Only use the 4 core parameters from Supabase profile table
     const fitnessLevel = userProfile.fitnessLevel || userProfile.training_level || 'intermediate';
     const primaryGoal = userProfile.primaryGoal || userProfile.primary_goal || 'general_fitness';
-    const age = userProfile.age || 25;
-    const fullName = userProfile.fullName || userProfile.full_name || 'User';
-    const gender = (userProfile.gender || 'unspecified').toLowerCase();
-    const height = userProfile.height_cm || userProfile.height || null;
-    const weight = userProfile.weight_kg || userProfile.weight || null;
-    const bodyFat = userProfile.body_fat || null;
-    const activityLevel = userProfile.activity_level || null;
-    const fitnessStrategy = userProfile.fitness_strategy || null;
-    const goalFatReduction = userProfile.goal_fat_reduction || null;
-    const goalMuscleGain = userProfile.goal_muscle_gain || null;
-    
-    console.log('[GEMINI TEXT] Enhanced Profile data:', {
-      fitnessLevel,
-      primaryGoal,
-      age,
-      gender,
-      fullName,
-      height,
-      weight,
-      bodyFat,
-      activityLevel,
-      fitnessStrategy,
-      goalFatReduction,
-      goalMuscleGain
-    });
+    const gender = (userProfile.gender || 'male').toLowerCase();
 
     // Use workout frequency from userProfile (support both camelCase and snake_case)
-    const workoutFreq = userProfile.workoutFrequency || userProfile.workout_frequency;
+    const workoutFreq = userProfile.workoutFrequency || userProfile.workout_frequency || '4_5';
     let daysPerWeek;
     
-    console.log('[GEMINI TEXT] Workout frequency from profile:', workoutFreq);
-    
-    if (workoutFreq) {
-      // Convert workout frequency format to number of days
-      if (workoutFreq === '1') {
-        daysPerWeek = 1;
-      } else if (workoutFreq === '2_3') {
-        // For 2-3 times per week, choose 3 days for better results
-        daysPerWeek = 3;
-      } else if (workoutFreq === '4_5') {
-        // For 4-5 times per week, choose 5 days for maximum results
-        daysPerWeek = 5;
-      } else if (workoutFreq === '6') {
-        daysPerWeek = 6;
-      } else if (workoutFreq === '7') {
-        daysPerWeek = 7;
-      } else {
-        daysPerWeek = parseInt(workoutFreq) || 4;
-      }
+    // Convert workout frequency format to number of days
+    if (workoutFreq === '2_3') {
+      daysPerWeek = 3; // Middle of 2-3 range
+    } else if (workoutFreq === '4_5') {
+      daysPerWeek = 4; // Middle of 4-5 range
+    } else if (workoutFreq === '6') {
+      daysPerWeek = 6;
     } else {
-      daysPerWeek = preferences?.daysPerWeek || 4;
+      daysPerWeek = 4; // Default fallback
     }
     
-    console.log('[GEMINI TEXT] Calculated daysPerWeek:', daysPerWeek);
+    const sessionDuration = 60; // Fixed 60 minute sessions
     
-    const sessionDuration = preferences?.sessionDuration || 45;
-    
-    // Extract user preferences for personalization (with safe defaults)
-    const workoutTypes = (preferences && preferences.workoutTypes) ? preferences.workoutTypes : ['strength_training'];
-    const intensity = (preferences && preferences.intensity) ? preferences.intensity : 'medium';
-    const equipment = (preferences && preferences.equipment) ? preferences.equipment : ['dumbbells'];
-    
-    console.log('[GEMINI TEXT] User preferences:', {
-      workoutTypes,
-      intensity,
-      equipment,
-      sessionDuration
-    });
+    // Use basic equipment defaults (can be customized later)
+    const equipment = ['dumbbells', 'barbell', 'resistance_bands', 'bodyweight'];
     
     // Customize based on fitness level
     const levelSpecific = {
@@ -656,84 +539,171 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     const workoutSplit = this.generateWorkoutSplit(daysPerWeek, primaryGoal, fitnessLevel);
 
     // Create personalized equipment constraints
-    const equipmentConstraints = (Array.isArray(equipment) && equipment.length > 0) ? 
-      `EQUIPMENT AVAILABLE: ${equipment.join(', ')}. ONLY use exercises that can be performed with this equipment.` :
-      'Use bodyweight exercises and basic equipment.';
-    
-    // Create personalized workout type focus
-    const workoutTypeFocus = (Array.isArray(workoutTypes) && workoutTypes.length > 0) ?
-      `WORKOUT TYPES PREFERRED: ${workoutTypes.join(', ')}. Focus on these types of training.` :
-      'Use a balanced mix of training types.';
-    
-    // Create age-appropriate modifications
-    const ageConsiderations = age < 18 ? 
-      'Focus on bodyweight exercises and proper form. Avoid heavy weights.' :
-      age > 50 ? 
-      'Include mobility work and joint-friendly exercises. Emphasize recovery.' :
-      'Standard adult training protocols apply.';
-    
-    // Create gender-specific considerations (optional, based on preferences)
-    const genderConsiderations = gender === 'female' ?
-      'Consider exercises that are popular with female fitness goals. Include glute and core focus if appropriate.' :
-      gender === 'male' ?
-      'Consider exercises that align with typical male fitness goals. Include upper body and strength focus if appropriate.' :
-      'Use gender-neutral exercise selection.';
-      
-    console.log('[GEMINI TEXT] Personalization factors:', {
-      equipmentConstraints: Array.isArray(equipment) ? equipment.join(', ') : 'basic equipment',
-      workoutTypeFocus: Array.isArray(workoutTypes) ? workoutTypes.join(', ') : 'strength training',
-      ageConsiderations: age,
-      genderConsiderations: gender
-    });
+    // Equipment constraints - use the standard equipment list
+    const equipmentConstraints = `EQUIPMENT AVAILABLE: ${equipment.join(', ')}. Create workouts using these equipment options.`;
 
-    // Calculate BMI if height and weight are available
-    const bmi = (height && weight) ? (weight / ((height / 100) ** 2)).toFixed(1) : null;
-    
-    // Create comprehensive user profile summary
-    const physicalStats = [];
-    if (age) physicalStats.push(`Age: ${age} years`);
-    if (gender !== 'unspecified') physicalStats.push(`Gender: ${gender}`);
-    if (height) physicalStats.push(`Height: ${height} cm`);
-    if (weight) physicalStats.push(`Weight: ${weight} kg`);
-    if (bmi) physicalStats.push(`BMI: ${bmi}`);
-    if (bodyFat) physicalStats.push(`Body Fat: ${bodyFat}%`);
-    if (activityLevel) physicalStats.push(`Activity Level: ${activityLevel}`);
-    if (fitnessStrategy) physicalStats.push(`Fitness Strategy: ${fitnessStrategy}`);
-    
-    const goals = [];
-    if (goalFatReduction) goals.push(`Fat Loss Goal: ${goalFatReduction}%`);
-    if (goalMuscleGain) goals.push(`Muscle Gain Goal: ${goalMuscleGain}%`);
+    // Exercise pools categorized by muscle groups and equipment
+    const exercisesByType = {
+      push: ['Bench Press', 'Incline Dumbbell Press', 'Overhead Press', 'Dips', 'Push-ups', 'Cable Chest Fly', 'Tricep Pushdown', 'Close-grip Bench Press'],
+      pull: ['Pull-ups', 'Lat Pulldown', 'Barbell Row', 'Dumbbell Row', 'Face Pulls', 'Bicep Curls', 'Hammer Curls', 'Cable Row'],
+      legs: ['Back Squat', 'Front Squat', 'Romanian Deadlift', 'Leg Press', 'Lunges', 'Leg Curl', 'Leg Extension', 'Calf Raises'],
+      core: ['Plank', 'Hanging Leg Raises', 'Ab Wheel', 'Russian Twists', 'Dead Bug', 'Bicycle Crunches', 'Mountain Climbers']
+    };
 
-    return `Create ${daysPerWeek}-day workout plan as valid JSON ONLY.
+    return `You are an expert fitness coach. Create a comprehensive ${daysPerWeek}-day workout plan.
 
-PROFILE: ${fitnessLevel} level, ${primaryGoal} goal, ${age}yo ${gender}, Equipment: ${Array.isArray(equipment) ? equipment.slice(0, 3).join(', ') : 'basic'}
+USER PROFILE (from onboarding):
+- Gender: ${gender}
+- Fitness Level: ${fitnessLevel}
+- Primary Goal: ${primaryGoal}
+- Workout Frequency: ${daysPerWeek} days per week (${workoutFreq})
 
-JSON FORMAT (return this structure):
+SESSION DETAILS:
+- Session Duration: ${sessionDuration} minutes
+- Equipment Available: ${equipment.join(', ')}
+
+WORKOUT SPLIT: ${workoutSplit}
+
+TRAINING PARAMETERS FOR ${fitnessLevel.toUpperCase()} LEVEL:
+- Sets per exercise: ${levelConfig.sets}
+- Rep range: ${levelConfig.reps}
+- Rest periods: ${levelConfig.restPeriods}
+- Intensity: ${levelConfig.intensity}
+- Focus: ${levelConfig.focus}
+- Progression: ${levelConfig.progression}
+
+GOAL-SPECIFIC PARAMETERS FOR ${primaryGoal.toUpperCase()}:
+- Training focus: ${goalConfig.focus}
+- Rep range: ${goalConfig.repRange}
+- Rest time: ${goalConfig.restTime}
+- Exercise selection: ${goalConfig.exercises}
+- Training volume: ${goalConfig.volume}
+- Nutrition emphasis: ${goalConfig.nutrition}
+
+EXERCISE EXAMPLES BY CATEGORY:
+Push Exercises: ${exercisesByType.push.join(', ')}
+Pull Exercises: ${exercisesByType.pull.join(', ')}
+Leg Exercises: ${exercisesByType.legs.join(', ')}
+Core Exercises: ${exercisesByType.core.join(', ')}
+
+${equipmentConstraints}
+
+CRITICAL INSTRUCTIONS:
+1. Return ONLY valid JSON - no markdown, no explanations, no code blocks
+2. Create exactly ${daysPerWeek} workout sessions in the weekly_schedule array
+3. Each workout session MUST include:
+   - At least 1-2 warm_up exercises (5-10 min cardio/dynamic stretches)
+   - 4-6 main_workout exercises (compound and isolation movements)
+   - At least 1-2 cool_down exercises (5-10 min stretching)
+4. Every exercise MUST have: exercise name, sets, reps, rest_seconds, and instructions
+5. Use only equipment available to the user: ${Array.isArray(equipment) ? equipment.join(', ') : 'bodyweight and basic equipment'}
+6. Vary exercises across days - don't repeat the same exercise on consecutive days
+7. Follow the workout split: ${workoutSplit}
+8. Adjust difficulty based on ${fitnessLevel} level
+9. Align exercises with ${primaryGoal} goal
+10. Include proper warm-up, main workout, and cool-down for EVERY session
+
+REQUIRED JSON STRUCTURE:
 {
-  "plan_name": "${fitnessLevel} ${primaryGoal} Plan",
+  "plan_name": "${fitnessLevel.charAt(0).toUpperCase() + fitnessLevel.slice(1)} ${primaryGoal.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Plan",
   "duration_weeks": 4,
   "sessions_per_week": ${daysPerWeek},
   "target_level": "${fitnessLevel}",
   "primary_goal": "${primaryGoal}",
-  "weeklySchedule": [
+  "workout_split": "${workoutSplit}",
+  "weekly_schedule": [
     {
       "day": 1,
-      "day_name": "Monday",
-      "focus": "Push/Pull/Legs/Full",
-      "workout_type": "Strength",
+      "day_name": "Day 1",
+      "focus": "Push (Chest, Shoulders, Triceps)",
+      "workout_type": "Strength Training",
       "duration_minutes": ${sessionDuration},
-      "warm_up": [{"exercise": "Cardio", "duration": "5 min", "instructions": "Warm up"}],
-      "main_workout": [
-        {"exercise": "Exercise", "sets": "${levelConfig.sets}", "reps": "${goalConfig.repRange}", "rest": "${goalConfig.restTime}", "instructions": "Form tip"}
+      "warm_up": [
+        {
+          "exercise": "Light Cardio",
+          "duration": "5 minutes",
+          "instructions": "Treadmill, bike, or jumping jacks at easy pace to elevate heart rate"
+        },
+        {
+          "exercise": "Arm Circles",
+          "duration": "2 minutes",
+          "instructions": "Dynamic shoulder mobility - forward and backward circles"
+        }
       ],
-      "cool_down": [{"exercise": "Stretch", "duration": "5 min", "instructions": "Cool down"}]
+      "main_workout": [
+        {
+          "exercise": "Bench Press",
+          "sets": ${fitnessLevel === 'beginner' ? 3 : fitnessLevel === 'advanced' ? 5 : 4},
+          "reps": "${goalConfig.repRange}",
+          "rest_seconds": ${goalConfig.restTime.includes('minutes') ? 120 : 60},
+          "instructions": "Lower bar to chest, press explosively. Keep core tight and feet flat.",
+          "modifications": "${fitnessLevel === 'beginner' ? 'Start with lighter weight, use spotter' : 'Add progressive overload weekly'}"
+        },
+        {
+          "exercise": "Incline Dumbbell Press",
+          "sets": ${fitnessLevel === 'beginner' ? 3 : 4},
+          "reps": "${goalConfig.repRange}",
+          "rest_seconds": ${goalConfig.restTime.includes('minutes') ? 120 : 60},
+          "instructions": "Press dumbbells at 30-45 degree angle. Control the descent.",
+          "modifications": "Adjust bench angle for comfort"
+        },
+        {
+          "exercise": "Overhead Press",
+          "sets": ${fitnessLevel === 'beginner' ? 3 : 4},
+          "reps": "${goalConfig.repRange}",
+          "rest_seconds": 60,
+          "instructions": "Press weight overhead from shoulder height. Keep core braced.",
+          "modifications": "Use dumbbells or barbell based on equipment"
+        },
+        {
+          "exercise": "Tricep Pushdown",
+          "sets": 3,
+          "reps": "${goalConfig.repRange}",
+          "rest_seconds": 45,
+          "instructions": "Keep elbows tucked, extend arms fully. Control the return.",
+          "modifications": "Use rope, bar, or resistance band attachment"
+        }
+      ],
+      "cool_down": [
+        {
+          "exercise": "Chest Stretch",
+          "duration": "3 minutes",
+          "instructions": "Doorway stretch - hold 30 seconds each side, repeat 3 times"
+        },
+        {
+          "exercise": "Shoulder Stretch",
+          "duration": "2 minutes",
+          "instructions": "Cross-body arm stretch - hold 30 seconds each side"
+        }
+      ]
     }
   ],
-  "progression": {"mesocycleWeeks": 4, "guidance": "Weekly progress"},
-  "estimatedTimePerSession": "${sessionDuration} min"
+  "progression_plan": {
+    "week_1": "Establish baseline - focus on form and technique",
+    "week_2": "Increase weight by 5% if form is solid",
+    "week_3": "Increase weight by another 5% or add 1-2 reps",
+    "week_4": "Deload week - reduce volume by 30% for recovery",
+    "mesocycle_weeks": 4,
+    "progression_guidance": "Progressive overload through weight, reps, or sets"
+  },
+  "nutrition_tips": [
+    "${goalConfig.nutrition}",
+    "Stay hydrated - drink water before, during, and after workouts",
+    "Eat protein within 2 hours post-workout for muscle recovery"
+  ],
+  "safety_guidelines": [
+    "Always warm up for 5-10 minutes before training",
+    "Use proper form over heavy weight",
+    "Rest 48 hours between training the same muscle groups",
+    "Stop immediately if you feel sharp pain",
+    "Get adequate sleep (7-9 hours) for recovery"
+  ],
+  "equipment_needed": ${JSON.stringify(equipment)},
+  "estimated_results": "With consistent training and proper nutrition, expect visible progress in 4-6 weeks. Results vary by individual commitment.",
+  "estimated_time_per_session": "${sessionDuration} minutes"
 }
 
-RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructions`;
+IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each day must have complete warm_up (1-2 exercises), main_workout (4-6 exercises), and cool_down (1-2 exercises) arrays. DO NOT leave any arrays empty. Return ONLY the JSON object, starting with { and ending with }.`;
   }
 
   /**
@@ -797,8 +767,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
    * @returns {Promise<string>} Generated text response
    */
   async generateText(prompt) {
-    console.log('[GEMINI TEXT] Generating text content');
-    console.log('[GEMINI TEXT] Prompt length:', prompt.length);
     
     try {
       // For simple text prompts, Gemini expects either a string or array format
@@ -807,13 +775,10 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
       const response = await result.response;
       const text = response.text();
       
-      console.log('[GEMINI TEXT] ✅ Text generation successful');
-      console.log('[GEMINI TEXT] Response length:', text.length);
       
       return text;
       
     } catch (error) {
-      console.error('[GEMINI TEXT] ❌ Text generation failed:', error.message);
       throw error;
     }
   }
@@ -823,15 +788,12 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
    */
   async tryFallbackModel(content, currentError) {
     if (!this.modelFallbacks || this.modelFallbacks.length === 0) {
-      console.log('[GEMINI TEXT] No fallback models available');
       return null;
     }
 
-    console.log('[GEMINI TEXT] 🔄 Trying fallback models due to:', currentError.message.slice(0, 100));
     
     for (const fallbackModel of this.modelFallbacks) {
       try {
-        console.log('[GEMINI TEXT] 🧪 Testing fallback model:', fallbackModel);
         
         const fallbackModelInstance = this.genAI.getGenerativeModel({
           model: fallbackModel,
@@ -847,7 +809,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
           const response = await result.response;
           const text = response.text();
           if (text && text.trim().length > 0) {
-            console.log('[GEMINI TEXT] ✅ Fallback model success:', fallbackModel);
             // Update current model to working one
             this.model = fallbackModelInstance;
             this.modelName = fallbackModel;
@@ -855,11 +816,9 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
           }
         }
       } catch (fallbackError) {
-        console.log('[GEMINI TEXT] ❌ Fallback model failed:', fallbackModel, '-', fallbackError.message.slice(0, 80));
       }
     }
     
-    console.log('[GEMINI TEXT] 💥 All fallback models failed');
     return null;
   }
 
@@ -869,78 +828,39 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
   async generateContentWithRetry(content, maxRetries = 2) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
-        
-        // Add timeout to prevent hanging requests - reasonable timeout for AI generation
-        // Complex requests need more time for AI to generate comprehensive content
+        // Add timeout to prevent hanging requests
         const contentString = Array.isArray(content) ? content.join(' ') : content;
-        console.log(`[GEMINI TEXT] Content string preview:`, contentString.substring(0, 200));
-        console.log(`[GEMINI TEXT] Content string length:`, contentString.length);
-        const hasWorkoutPlan = contentString.includes('workout plan');
-        const hasExercise = contentString.includes('exercise');
-        const hasFitness = contentString.includes('fitness');
-        const hasClientProfile = contentString.includes('CLIENT PROFILE');
-        const isLongContent = contentString.length > 2000;
-        console.log(`[GEMINI TEXT] Detection checks: workout_plan=${hasWorkoutPlan}, exercise=${hasExercise}, fitness=${hasFitness}, client_profile=${hasClientProfile}, long_content=${isLongContent}`);
-        
+        const isWorkoutRequest = contentString.includes('workout plan') || contentString.includes('personalized workout') || contentString.includes('CLIENT PROFILE');
         const isComplexRequest = contentString.includes('meal plan') || contentString.includes('recipe') ||
-                                hasWorkoutPlan || hasExercise || contentString.includes('nutrition') || 
-                                hasFitness || contentString.includes('personalized workout') || 
-                                hasClientProfile || isLongContent;
-        const timeoutDuration = isComplexRequest ? 35000 : 20000; // 35s for complex, 20s for simple - aggressive timeout to fit Railway's 60s limit
-        console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
+                                contentString.includes('exercise') || 
+                                contentString.includes('nutrition') || contentString.includes('fitness') || 
+                                contentString.length > 2000;
+        // Workout plans need more time due to complexity - use 120 seconds
+        // Other complex requests use 60 seconds, simple requests use 20 seconds
+        const timeoutDuration = isWorkoutRequest ? 120000 : (isComplexRequest ? 60000 : 20000);
 
-        // Add exponential backoff delay for retries
         if (attempt > 1) {
-          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000); // 1s, 2s, 4s max
-          console.log(`[GEMINI TEXT] Applying exponential backoff delay: ${backoffDelay}ms`);
+          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000);
           await new Promise(resolve => setTimeout(resolve, backoffDelay));
         }
 
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`)), timeoutDuration);
+          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000}s`)), timeoutDuration);
         });
-        
-        console.log('[GEMINI TEXT] About to call this.model.generateContent');
-        console.log('[GEMINI TEXT] Model object:', !!this.model);
-        console.log('[GEMINI TEXT] Content type:', Array.isArray(content) ? 'array' : typeof content);
-        console.log('[GEMINI TEXT] Content length:', Array.isArray(content) ? content.length : content.length);
         
         const result = await Promise.race([
           this.model.generateContent(content),
           timeoutPromise
         ]);
-
-        console.log('[GEMINI TEXT] Model.generateContent completed successfully');
         
-        // Validate the response
         if (!result || !result.response) {
-          console.error('[GEMINI TEXT] Invalid response structure:', { result: !!result, response: !!result?.response });
           throw new Error('Invalid response structure from Gemini');
         }
         
         const response = await result.response;
         const text = response.text();
         
-        // Enhanced response validation with detailed logging
-        console.log(`[GEMINI TEXT] Response validation:`, {
-          textExists: !!text,
-          textType: typeof text,
-          textLength: text ? text.length : 0,
-          textTrimmedLength: text ? text.trim().length : 0,
-          textPreview: text ? text.substring(0, 100) + '...' : 'N/A'
-        });
-        
-        // Validate response content
         if (!text || text.trim().length === 0) {
-          console.error('[GEMINI TEXT] Empty response detected:', {
-            text: text,
-            textLength: text ? text.length : 0,
-            trimmedLength: text ? text.trim().length : 0
-          });
-          
-          // For empty responses, only retry on the first attempt
-          // This prevents infinite retry loops for prompts that consistently return empty responses
           if (attempt === 1) {
             throw new Error('Empty response from Gemini - retryable');
           } else {
@@ -948,50 +868,26 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
           }
         }
         
-        // Check for truncated responses (common with Gemini)
-        if (text.length < 50) {
-          console.warn('[GEMINI TEXT] Very short response detected, might be truncated');
-        }
-        
-        // Check for incomplete JSON (common issue)
-        const hasJsonStart = text.includes('{') || text.includes('[');
-        const hasJsonEnd = text.includes('}') || text.includes(']');
-        if (hasJsonStart && !hasJsonEnd) {
-          console.warn('[GEMINI TEXT] Incomplete JSON detected - response may be truncated');
-        }
-        
-        console.log(`[GEMINI TEXT] ✅ Success on attempt ${attempt}`);
-        console.log(`[GEMINI TEXT] Response length: ${text.length} characters`);
         return result;
         
       } catch (error) {
-        // Log errors more selectively to reduce noise
-        if (attempt === 1) {
-          console.error('[GEMINI TEXT] Error in generateContentWithRetry attempt', attempt, ':', error.message);
-        } else {
-          console.warn('[GEMINI TEXT] Retry attempt', attempt, 'failed:', error.message);
-        }
-
         // Try fallback models on first attempt if it's a model-specific error
         if (attempt === 1 && (
           error.message.includes('location is not supported') || 
           error.message.includes('not found') ||
           error.message.includes('not supported for generateContent')
         )) {
-          console.log('[GEMINI TEXT] 🔄 Model-specific error detected, trying fallback models...');
           const fallbackResult = await this.tryFallbackModel(content, error);
           if (fallbackResult) {
             return fallbackResult;
           }
         }
 
-        const isServiceUnavailable = error.message.includes('503') || 
-                                   error.message.includes('Service Unavailable') ||
-                                   error.message.includes('overloaded') ||
-                                   error.message.includes('quota') ||
-                                   error.message.includes('rate limit');
-        
-        const isRetryable = isServiceUnavailable || 
+        const isRetryable = error.message.includes('503') || 
+                           error.message.includes('Service Unavailable') ||
+                           error.message.includes('overloaded') ||
+                           error.message.includes('quota') ||
+                           error.message.includes('rate limit') ||
                            error.message.includes('network') ||
                            error.message.includes('timeout') ||
                            error.message.includes('fetch failed') ||
@@ -1007,30 +903,21 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
                              error.message.includes('ECONNREFUSED') ||
                              error.message.includes('network');
         
-        // If network error on first attempt, skip retries to fail fast and allow fallback
+        // If network error on first attempt, skip retries to fail fast
         if (isNetworkError && attempt === 1) {
-          console.log(`[GEMINI TEXT] ❌ Network error on first attempt, failing fast for fallback: ${error.message}`);
           throw error;
         }
         
         if (isRetryable && attempt < maxRetries) {
-          // Exponential backoff with jitter to prevent thundering herd
-          const baseDelay = 1000; // 1 second base
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-          const jitter = Math.random() * 500; // Add up to 500ms jitter
-          const delay = Math.min(exponentialDelay + jitter, 8000); // Max 8s to prevent excessive delays
+          const baseDelay = 1000;
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
+          const jitter = Math.random() * 500;
+          const delay = Math.min(exponentialDelay + jitter, 8000);
 
-          console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
-          console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
-          console.log(`[GEMINI TEXT] Error message:`, error.message);
-          console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
-          console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
-          
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
         
-        // If it's not a retryable error, or we've exhausted retries, throw the error
         throw error;
       }
     }
@@ -1206,7 +1093,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
     while ((match = sessionPattern.exec(text)) !== null) {
       try {
         const sessionText = match[0];
-        console.log(`[GEMINI TEXT] 🔍 Found potential workout session:`, sessionText.substring(0, 100) + '...');
         
         // Try to parse this individual session
         const cleanedSession = this.cleanJsonString(sessionText);
@@ -1214,10 +1100,8 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
         
         if (session.focus) {
           sessions.push(session);
-          console.log(`[GEMINI TEXT] ✅ Successfully extracted session with focus: "${session.focus}"`);
         }
       } catch (sessionError) {
-        console.log(`[GEMINI TEXT] ⚠️ Failed to parse individual session:`, sessionError.message);
       }
     }
     
@@ -1231,7 +1115,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
       }
       
       if (focuses.length > 0) {
-        console.log(`[GEMINI TEXT] 🔍 Found ${focuses.length} focus values:`, focuses);
         
         // Create basic workout sessions with the found focuses
         focuses.forEach((focus, index) => {
@@ -1249,7 +1132,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
       }
     }
     
-    console.log(`[GEMINI TEXT] 📊 Extracted ${sessions.length} workout sessions total`);
     return sessions;
   }
 
@@ -1257,12 +1139,10 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
    * Attempt aggressive JSON repair for severely malformed responses
    */
   attemptAggressiveJsonRepair(malformedJson) {
-    console.log('[GEMINI TEXT] 🔧 Starting aggressive JSON repair');
 
     // Try to extract all complete workout sessions first
     const sessionMatches = malformedJson.match(/\{\s*"day":\s*\d+[^}]*"focus":\s*"[^"]*"[^}]*\}/g);
     if (sessionMatches && sessionMatches.length > 0) {
-      console.log(`[GEMINI TEXT] 📋 Found ${sessionMatches.length} complete workout sessions in malformed JSON`);
 
       // Create a new valid JSON structure using the extracted sessions
       const planNameMatch = malformedJson.match(/"plan_name":\s*"([^"]+)"/);
@@ -1352,9 +1232,7 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
     cleaned = cleaned.replace(/[\u2028\u2029]/g, '');
     
     // Fix truncated decimal numbers - comprehensive approach
-    console.log(`[GEMINI TEXT] 🔧 Starting decimal repair on text length: ${cleaned.length}`);
     const beforeDecimalFix = cleaned.substring(300, 400);
-    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 before fixes:`, beforeDecimalFix);
     
     // First, fix the most common case: "5." -> "5.0"
     cleaned = cleaned.replace(/(\d+\.)(?!\d)/g, '$10');
@@ -1384,9 +1262,7 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
     
     // Ultra-specific fix for the recurring issue at position ~334
     // Look for patterns like "fat": 4.} or "fat": 4." and fix them
-    console.log(`[GEMINI TEXT] 🔧 Before ultra-specific fixes`);
     const beforeUltraFixes = cleaned.substring(300, 400);
-    console.log(`[GEMINI TEXT] 🔧 Text sample before ultra-fixes:`, beforeUltraFixes);
     
     // Using function replacements for more reliable decimal fixing
     cleaned = cleaned.replace(/"fat":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"fat": ${digits}0${following}`);
@@ -1403,19 +1279,16 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
     
     // More comprehensive decimal fixes - handle any non-digit after decimal
     cleaned = cleaned.replace(/(\d+\.)([^0-9])/g, (match, digits, following) => {
-      console.log(`[GEMINI TEXT] 🔧 Fixed decimal: "${match}" -> "${digits}0${following}"`);
       return `${digits}0${following}`;
     });
     
     // Specific fix for the position 334 error pattern - "fat": 4."
     cleaned = cleaned.replace(/"fat":\s*(\d+\.)"/g, (match, digits) => {
-      console.log(`[GEMINI TEXT] 🔧 Fixed fat decimal at end: "${match}" -> "fat": ${digits}0"`);
       return `"fat": ${digits}0`;
     });
     
     // Handle any field ending with decimal and quote
     cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)"/g, (match, field, digits) => {
-      console.log(`[GEMINI TEXT] 🔧 Fixed field decimal quote: "${match}" -> ${field}: ${digits}0"`);
       return `${field}: ${digits}0`;
     });
     
@@ -1423,7 +1296,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
     cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)([^0-9])/g, (match, field, digits, following) => `${field}: ${digits}0${following}`);
     
     const afterUltraFixes = cleaned.substring(300, 400);
-    console.log(`[GEMINI TEXT] 🔧 Text sample after ultra-fixes:`, afterUltraFixes);
     
     // Add detailed character analysis around common error positions
     [330, 334, 335, 340].forEach(pos => {
@@ -1432,13 +1304,11 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
         const end = Math.min(cleaned.length, pos + 10);
         const segment = cleaned.substring(start, end);
         const charAtPos = cleaned.charAt(pos);
-        console.log(`[GEMINI TEXT] 🔍 Position ${pos}: char='${charAtPos}' (${charAtPos.charCodeAt(0)}) context: "${segment}"`);
       }
     });
     
     // Log the result after all decimal fixes
     const afterDecimalFix = cleaned.substring(300, 400);
-    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 after fixes:`, afterDecimalFix);
     
     // Fix common Gemini-specific issues
     // Remove any text before the first {
@@ -1575,7 +1445,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
       closeBrackets++;
     }
 
-    console.log('[GEMINI TEXT] Enhanced cleaned JSON preview:', cleaned.substring(0, 200) + '...');
     return cleaned;
   }
 
@@ -1681,110 +1550,55 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
    * Enhanced JSON parsing with multiple fallback strategies
    */
   parseJsonWithFallbacks(text, context = 'unknown', userProfile = null) {
-    console.log(`[GEMINI TEXT] Attempting to parse JSON for ${context}`);
-    console.log(`[GEMINI TEXT] Raw text length: ${text.length}`);
-
-    // Enhanced preview logging to debug JSON issues
-    const preview = text.replace(/\s+/g, ' ');
-    console.log(`[GEMINI TEXT] Enhanced cleaned JSON preview:`, preview.substring(0, 500) + '...');
-    
-    // Debug specific positions where errors occur
-    if (preview.length > 350) {
-      console.log(`[GEMINI TEXT] Characters around position 334:`, preview.substring(320, 350));
-    }
-
-    // First, validate the JSON structure
     const validation = this.validateJsonStructure(text);
-    if (validation.valid) {
-      console.log(`[GEMINI TEXT] ✅ JSON structure validation passed for ${context}`);
-    } else {
-      console.log(`[GEMINI TEXT] ⚠️ JSON structure validation failed for ${context}:`, validation.error);
-      console.log(`[GEMINI TEXT] Issues found:`, validation.issues);
+    if (!validation.valid) {
     }
 
     // Strategy 1: Direct JSON parsing
     try {
       const parsed = JSON.parse(text);
-      console.log(`[GEMINI TEXT] ✅ Direct JSON parsing successful for ${context}`);
       return parsed;
     } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ Direct JSON parsing failed for ${context}:`, error.message);
-      if (!validation.valid) {
-        console.log(`[GEMINI TEXT] 🔧 Validation confirmed issues, will attempt cleaning strategies`);
-      }
+      // Continue to fallback strategies
     }
     
     // Strategy 2: Extract from markdown code blocks
     try {
       const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
-        let jsonContent = codeBlockMatch[1].trim();
-        console.log(`[GEMINI TEXT] 📦 Extracted from code block for ${context}:`, jsonContent.substring(0, 200) + '...');
-
-        // Validate extracted content
-        const codeBlockValidation = this.validateJsonStructure(jsonContent);
-        if (!codeBlockValidation.valid) {
-          console.log(`[GEMINI TEXT] ⚠️ Code block content validation failed:`, codeBlockValidation.error);
-        }
-
-        const cleaned = this.cleanJsonString(jsonContent);
-        const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ Code block extraction successful for ${context}`);
-        return parsed;
+        const cleaned = this.cleanJsonString(codeBlockMatch[1].trim());
+        return JSON.parse(cleaned);
       }
     } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ Code block extraction failed for ${context}:`, error.message);
+      // Continue to next strategy
     }
     
     // Strategy 3: Find JSON object in text
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        let jsonString = jsonMatch[0];
-        console.log(`[GEMINI TEXT] 🔍 Found JSON object for ${context}:`, jsonString.substring(0, 200) + '...');
-
-        // Validate found JSON
-        const jsonValidation = this.validateJsonStructure(jsonString);
-        if (!jsonValidation.valid) {
-          console.log(`[GEMINI TEXT] ⚠️ Found JSON validation failed:`, jsonValidation.error);
-        }
-
-        const cleaned = this.cleanJsonString(jsonString);
-        const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ JSON object extraction successful for ${context}`);
-        return parsed;
+        const cleaned = this.cleanJsonString(jsonMatch[0]);
+        return JSON.parse(cleaned);
       }
     } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ JSON object extraction failed for ${context}:`, error.message);
+      // Continue to next strategy
     }
     
     // Strategy 4: Find JSON array in text
     try {
       const arrayMatch = text.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
-        let jsonString = arrayMatch[0];
-        console.log(`[GEMINI TEXT] 📋 Found JSON array for ${context}:`, jsonString.substring(0, 200) + '...');
-
-        // Validate found JSON array
-        const arrayValidation = this.validateJsonStructure(jsonString);
-        if (!arrayValidation.valid) {
-          console.log(`[GEMINI TEXT] ⚠️ Found JSON array validation failed:`, arrayValidation.error);
-        }
-
-        const cleaned = this.cleanJsonString(jsonString);
-        const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ JSON array extraction successful for ${context}`);
-        return parsed;
+        const cleaned = this.cleanJsonString(arrayMatch[0]);
+        return JSON.parse(cleaned);
       }
     } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ JSON array extraction failed for ${context}:`, error.message);
+      // Continue to next strategy
     }
     
     // Strategy 5: Try to fix truncated JSON with enhanced recovery
     try {
       const partialMatch = text.match(/\{[\s\S]*$/);
       if (partialMatch) {
-        console.log(`[GEMINI TEXT] 🔧 Attempting to fix truncated JSON for ${context}`);
         let partialJson = partialMatch[0];
         
         // Enhanced truncation fixing for workout context
@@ -1853,12 +1667,10 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
           partialJson += '}';
         }
         
-        console.log(`[GEMINI TEXT] 🔧 Attempting to parse fixed JSON for ${context}:`, partialJson.substring(0, 200) + '...');
 
         // Validate fixed JSON with enhanced validation
         const fixedValidation = this.validateJsonStructure(partialJson);
         if (!fixedValidation.valid) {
-          console.log(`[GEMINI TEXT] ⚠️ Fixed JSON validation failed:`, fixedValidation.error);
 
           // Try more aggressive cleaning for severely malformed JSON
           if (context === 'workout') {
@@ -1868,17 +1680,14 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
 
         const cleaned = this.cleanJsonString(partialJson);
         const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ Truncated JSON fix successful for ${context}`);
         return parsed;
       }
     } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ Truncated JSON fix failed for ${context}:`, error.message);
     }
     
     // Strategy 6: Enhanced workout JSON reconstruction
     if (context === 'workout') {
       try {
-        console.log(`[GEMINI TEXT] 🔧 Attempting enhanced workout JSON reconstruction`);
         
         // Try to extract key workout information even from malformed JSON
         const planNameMatch = text.match(/"plan_name":\s*"([^"]+)"/);
@@ -1889,7 +1698,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
         
         const workoutSessions = this.extractWorkoutSessions(text);
         if (workoutSessions && workoutSessions.length > 0) {
-          console.log(`[GEMINI TEXT] ✅ Successfully extracted ${workoutSessions.length} workout sessions`);
           
           // Reconstruct a valid workout plan JSON
           const reconstructedPlan = {
@@ -1909,20 +1717,16 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
             source: "gemini_reconstructed"
           };
           
-          console.log(`[GEMINI TEXT] ✅ Successfully reconstructed workout plan: ${planName}`);
           return reconstructedPlan;
         }
       } catch (extractError) {
-        console.log(`[GEMINI TEXT] ❌ Workout session extraction failed:`, extractError.message);
       }
     }
     
     // Strategy 7: Last resort - try to extract workout sessions from raw text, then create minimal JSON
-    console.log(`[GEMINI TEXT] 🚨 All parsing strategies failed for ${context}, attempting to extract workout sessions from raw text`);
     
     if (context === 'workout') {
       // Try to extract workout sessions from the malformed JSON text
-      console.log(`[GEMINI TEXT] 🔍 Attempting to extract workout sessions from malformed JSON text`);
       const extractedSessions = this.extractWorkoutSessions(text);
       
       // Use user profile data for better fallback if available
@@ -1932,7 +1736,6 @@ RULES: Return JSON only, ${daysPerWeek} days, 4-5 exercises/day, brief instructi
         `AI-Generated ${fitnessLevel} ${primaryGoal} Plan` : 
         `Personalized ${fitnessLevel} ${primaryGoal} Plan`;
       
-      console.log(`[GEMINI TEXT] 📊 Created minimal JSON with ${extractedSessions.length} extracted sessions`);
       
       return {
         plan_name: planName,

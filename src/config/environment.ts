@@ -33,7 +33,7 @@ export const environment = {
   enableProductionServer: true,
   
   // Timeouts
-  apiTimeout: 240000, // Increased to 240 seconds (4 minutes) for AI processing
+  apiTimeout: 180000, // 3 minutes for AI processing (server timeout is 5 minutes)
   
   // Logging
   enableVerboseLogging: Boolean(Number((Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_AI_VERBOSE)) || isDevelopment,

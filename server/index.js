@@ -83,8 +83,6 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
     day.exercises && day.exercises.length > 0 && day.focus !== 'Rest Day'
   );
   
-  console.log('[WORKOUT] Original workout sessions:', workoutSessions.length);
-  console.log('[WORKOUT] Target workout days:', targetWorkoutDays);
   
   // Create a new weekly schedule
   const newWeeklySchedule = [];
@@ -233,8 +231,6 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
     }
   }
   
-  console.log('[WORKOUT] New schedule workout days:', newWeeklySchedule.filter(d => d.exercises.length > 0).length);
-  console.log('[WORKOUT] New schedule rest days:', newWeeklySchedule.filter(d => d.exercises.length === 0).length);
   
   return {
     ...plan,
@@ -245,10 +241,8 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
 
 // Apply strategic weekly distribution to AI-generated workout plans
 function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
-  console.log('[WORKOUT] Applying strategic weekly distribution to AI plan');
   
   if (!aiWorkoutPlan || !aiWorkoutPlan.weekly_schedule) {
-    console.log('[WORKOUT] No weekly schedule found in AI plan, returning original');
     return aiWorkoutPlan;
   }
   
@@ -284,8 +278,6 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
 
   const boundedWorkoutDays = Math.max(1, Math.min(7, targetWorkoutDays));
 
-  console.log('[WORKOUT] AI provided', workoutSessions.length, 'workout sessions');
-  console.log('[WORKOUT] Target workout days after preferences:', boundedWorkoutDays);
   
   // If AI provided no workout sessions, trigger fallback to rule-based generation
   if (workoutSessions.length === 0) {
@@ -384,8 +376,6 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
     }
   }
   
-  console.log('[WORKOUT] Distributed', boundedWorkoutDays, 'workouts across 7 days with strategic rest placement');
-  console.log('[WORKOUT] Weekly distribution:', newWeeklySchedule.map(d => `${d.day}: ${d.focus}`));
   
   return {
     ...aiWorkoutPlan,
@@ -789,7 +779,6 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       targetWorkoutDays = 7;
     }
   
-    console.log('[WORKOUT] Target workout days for frequency', workoutFrequency, ':', targetWorkoutDays);
 
     // Extract user profile data
     const goal = primaryGoal;
@@ -883,13 +872,6 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     notes: `This personalized plan is designed specifically for ${name}, targeting ${goal.replace('_', ' ')} at ${level} level.`
     };
     
-    console.log('[WORKOUT] ✅ Enhanced personalized plan generated for:', finalPlan.personalization.name);
-    console.log('[WORKOUT] 🔍 Schedule exercises debug:', finalPlan.weekly_schedule?.map(d => ({ 
-      day: d.day, 
-      focus: d.focus,
-      exerciseCount: d.exercises?.length || 0,
-      firstExercise: d.exercises?.[0]?.name 
-    })));
   
     // Transform exercises array to match expected format with main_workout, warm_up, and cool_down
     const transformedWeeklySchedule = finalPlan.weekly_schedule.map(day => {
@@ -1751,15 +1733,12 @@ function validateAndFixWorkoutFrequency(plan, profile) {
     day && day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0
   ).length;
 
-  console.log(`[WORKOUT] Frequency validation: Target=${targetTrainingDays}, Current=${trainingDays}`);
 
   // If frequency matches, return as-is
   if (trainingDays === targetTrainingDays) {
-    console.log('[WORKOUT] Workout frequency is correct');
     return plan;
   }
 
-  console.log(`[WORKOUT] Fixing workout frequency: adjusting from ${trainingDays} to ${targetTrainingDays} training days`);
 
   // Create corrected schedule
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -7386,6 +7365,16 @@ app.get('/api/exercises', async (req, res) => {
     });
   }
 });
+// Cache management endpoint
+app.post('/api/clear-cache', (req, res) => {
+  try {
+    const result = responseCache.clear();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Add workout plan generation endpoint with robust JSON parsing
 // TODO: Fix generate-workout-plan endpoint syntax error
 app.post('/api/generate-workout-plan', async (req, res) => {
@@ -7404,51 +7393,39 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     const defaultUserId = userId || crypto.randomUUID();
 
     // Accept both 'profile' and 'userProfile' for backward compatibility
-    const { profile, userProfile, preferences } = req.body;
+    const { profile, userProfile } = req.body;
     const profileData = profile || userProfile;
     
     if (!profileData) {
       return res.status(400).json({ success: false, error: 'Missing profile data' });
     }
     
-    const normalizedPreferences = {
-      workoutTypes: [],
-      equipment: [],
-      intensity: 'medium',
-      ...(preferences || {}),
+    // Extract ONLY the 4 required parameters from profile
+    // These are stored in Supabase profiles table from onboarding
+    const normalizedProfile = {
+      gender: profileData.gender,
+      training_level: profileData.training_level || profileData.fitnessLevel,
+      primary_goal: profileData.primary_goal || profileData.primaryGoal,
+      workout_frequency: profileData.workout_frequency || profileData.workoutFrequency || '4_5'
     };
 
-    // Map userProfile fields to expected profile format if needed
-    const normalizedProfile = userProfile ? {
-      full_name: userProfile.fullName,
-      gender: userProfile.gender,
-      age: userProfile.age,
-      training_level: userProfile.fitnessLevel,
-      primary_goal: userProfile.primaryGoal,
-      workout_frequency: userProfile.workoutFrequency || '4_5', // Default fallback
-      preferences: normalizedPreferences, // Include user preferences
-      workoutTypes: normalizedPreferences.workoutTypes,
-      equipment: normalizedPreferences.equipment,
-      intensity: normalizedPreferences.intensity
-    } : {
-      ...profileData,
-      workout_frequency: profileData.workout_frequency || '4_5', // Ensure fallback for direct profile data too
-      preferences: normalizedPreferences,
-      workoutTypes: normalizedPreferences.workoutTypes,
-      equipment: normalizedPreferences.equipment,
-      intensity: normalizedPreferences.intensity
-    };
+    // Validate required fields
+    if (!normalizedProfile.gender || !normalizedProfile.training_level || !normalizedProfile.primary_goal) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required profile fields: gender, training_level, and primary_goal are required' 
+      });
+    }
 
     // Check quota availability
     const quotaStatus = quotaMonitor.getQuotaStatus();
     const quotaWarning = quotaMonitor.getQuotaWarning();
 
     // Check cache first for workout plans (after normalizedProfile is defined)
-    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, req.body.preferences || {});
+    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, {});
     let cachedResponse = responseCache.get('workout', cacheKey);
 
     if (cachedResponse) {
-      console.log('[WORKOUT] ✅ Using cached workout plan');
       // Add rate limit headers
       const rateLimitHeaders = rateLimiter.getHeaders(req);
       Object.keys(rateLimitHeaders).forEach(header => {
@@ -7466,64 +7443,26 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       });
     }
 
-    console.log('[WORKOUT] Normalized profile data:', JSON.stringify(normalizedProfile, null, 2));
-    console.log('[WORKOUT] Primary goal from user profile:', userProfile?.primaryGoal);
-    console.log('[WORKOUT] Primary goal in normalized profile:', normalizedProfile.primary_goal);
-    
-    const prompt = composePrompt(normalizedProfile);
-    const messages = [{ role: 'user', content: prompt }];
-
-    console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
-    console.log('[WORKOUT] Prompt length:', prompt.length);
-    
-    // Try AI providers with systematic fallback
-    console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
-    
     // Use GeminiTextService directly for workout plan generation
-    let aiResponse = null;
     let usedProvider = null;
     let usedAI = false;
 
     try {
-      console.log('[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService');
-      console.log('[WORKOUT] Current GEMINI_MODEL:', GEMINI_MODEL);
-      console.log('[WORKOUT] geminiTextService available:', !!geminiTextService);
-
-      // Check if Gemini service is available
       if (!geminiTextService) {
         throw new Error('Gemini Text Service is not available');
       }
 
-      // Map normalizedProfile to expected GeminiTextService format
-      // NOTE: Do NOT spread normalizedProfile as it will overwrite camelCase with snake_case undefined values
+      // Map normalizedProfile to GeminiTextService format with ONLY 4 parameters
       const userProfileForGemini = {
-        // Backup original profile fields first
-        ...normalizedProfile,
-        // Then override with correctly mapped camelCase properties (these take precedence)
-        fullName: normalizedProfile.full_name,
         gender: normalizedProfile.gender,
-        age: normalizedProfile.age,
         fitnessLevel: normalizedProfile.training_level,
         primaryGoal: normalizedProfile.primary_goal,
         workoutFrequency: normalizedProfile.workout_frequency
       };
 
-      // Use the GeminiTextService to generate the workout plan
-      console.log('[WORKOUT] Calling generateWorkoutPlan with mapped user profile');
-      console.log('[WORKOUT] User profile for Gemini:', {
-        fullName: userProfileForGemini.fullName,
-        fitnessLevel: userProfileForGemini.fitnessLevel,
-        primaryGoal: userProfileForGemini.primaryGoal,
-        workoutFrequency: userProfileForGemini.workoutFrequency
-      });
-      console.log('[WORKOUT] Full user profile for Gemini:', JSON.stringify(userProfileForGemini, null, 2));
-
-      const workoutPlanData = await geminiTextService.generateWorkoutPlan(userProfileForGemini, preferences || {});
+      const workoutPlanData = await geminiTextService.generateWorkoutPlan(userProfileForGemini, {});
 
       if (workoutPlanData && workoutPlanData.weekly_schedule) {
-        console.log('[WORKOUT] ✅ Successfully generated workout plan using Gemini TextService');
-        console.log('[WORKOUT] Plan name:', workoutPlanData.plan_name);
-        console.log('[WORKOUT] Weekly schedule length:', workoutPlanData.weekly_schedule.length);
 
         // Transform plan data to match database function expectations
         const transformedPlan = {
@@ -7570,7 +7509,6 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         let savedFinalPlanId = null;
         try {
           if (supabase && userId) {
-            console.log('[WORKOUT] Saving final plan to database for user:', userId);
             const { data, error } = await supabase.rpc('upsert_ai_workout_plan', {
               user_id_param: userId,
               plan_data: transformedPlan
@@ -7580,7 +7518,6 @@ app.post('/api/generate-workout-plan', async (req, res) => {
               console.error('[WORKOUT] Error saving final plan to database:', error);
             } else {
               savedFinalPlanId = data;
-              console.log('[WORKOUT] ✅ Final plan saved to database with ID:', savedFinalPlanId);
 
               // Update the plan to be active
               await supabase
@@ -7589,7 +7526,6 @@ app.post('/api/generate-workout-plan', async (req, res) => {
                 .eq('id', savedFinalPlanId)
                 .eq('user_id', userId || defaultUserId);
 
-              console.log('[WORKOUT] ✅ Final plan set as active');
             }
           }
         } catch (dbError) {
@@ -7639,7 +7575,6 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       
       // Check if fallback is disabled by strict mode
       if (AI_STRICT_EFFECTIVE) {
-        console.log('[WORKOUT] ❌ Strict mode enabled: returning error instead of using fallback');
         
         // Enhanced error classification for proper error response
         let errorType = 'ai_service_unavailable';
@@ -7671,15 +7606,12 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       }
       
       // Fallback is enabled - use enhanced rule-based system
-      console.log('[WORKOUT] 🔄 AI service temporarily unavailable - seamlessly using enhanced rule-based system');
-      console.log('[WORKOUT] Using enhanced rule-based generation with fallback reason:', 'ai_unavailable');
       
       // Generate enhanced rule-based workout plan
       try {
         const enhancedWorkoutPlan = generateRuleBasedWorkoutPlan(normalizedProfile);
         
         if (enhancedWorkoutPlan) {
-          console.log('[WORKOUT] ✅ Enhanced personalized plan generated for:', normalizedProfile.full_name);
           
           // Cache fallback response (with longer timeout since it's more reliable)
           responseCache.set('workout', cacheKey, enhancedWorkoutPlan, 30 * 60 * 1000); // 30 minutes
@@ -7715,6 +7647,16 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     const rateLimitHeaders = rateLimiter.getHeaders(req);
     Object.keys(rateLimitHeaders).forEach(header => {
       res.setHeader(header, rateLimitHeaders[header]);
+    });
+
+    // Log detailed response structure before sending
+    console.log('[WORKOUT] 📤 Sending response to client:');
+    console.log('[WORKOUT] Plan name:', aiResponse?.name || aiResponse?.plan_name);
+    console.log('[WORKOUT] Weekly schedule length:', aiResponse?.weekly_schedule?.length || aiResponse?.weeklySchedule?.length || 0);
+    console.log('[WORKOUT] Weekly schedule breakdown:');
+    const schedule = aiResponse?.weekly_schedule || aiResponse?.weeklySchedule || [];
+    schedule.forEach((day, idx) => {
+      console.log(`  [${idx}] ${day.day || 'Unknown'}: ${day.focus || 'No focus'} (${day.exercises?.length || 0} exercises)`);
     });
 
     return res.json({
@@ -8429,6 +8371,17 @@ const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Server URL: http://${localIp}:${port}`);
   console.log(`Test API with: curl http://${localIp}:${port}/api/test`);
 });
+
+// Set server timeout to 5 minutes for AI generation requests
+// Railway default is 5 minutes, so we match that
+server.timeout = 300000; // 5 minutes in milliseconds
+server.keepAliveTimeout = 310000; // Keep-alive should be slightly longer
+server.headersTimeout = 320000; // Headers timeout should be longer than keep-alive
+
+console.log(`[SERVER] Timeout configuration:`);
+console.log(`  - Request timeout: ${server.timeout / 1000}s`);
+console.log(`  - Keep-alive timeout: ${server.keepAliveTimeout / 1000}s`);
+console.log(`  - Headers timeout: ${server.headersTimeout / 1000}s`);
 
 // Handle server errors
 server.on('error', (error) => {
