@@ -18,6 +18,9 @@ class GeminiTextService {
     this.model = null;
 
     this.initializeWithBestKey();
+
+    console.log('[GEMINI TEXT] Service initialized with model:', this.modelName);
+    console.log('[GEMINI TEXT] API Key rotation enabled: ✅ Yes');
   }
 
   /**
@@ -28,27 +31,20 @@ class GeminiTextService {
       const bestKey = this.apiKeyManager.getBestAvailableKey();
       this.currentKey = bestKey;
       this.genAI = new GoogleGenerativeAI(bestKey);
-      
-      // Try models in order of preference (working models first!)
-      const modelPriority = [
-        process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash',
-        'gemini-1.5-flash',            // Gemini 1.5 Flash (STABLE MODEL)
-        'gemini-1.5-pro',              // Pro version fallback
-        'gemini-pro'                   // Original fallback
-      ].filter(Boolean); // Remove undefined values
-      
-      this.modelName = modelPriority[0];
-      this.modelFallbacks = modelPriority.slice(1);
-      
-    this.model = this.genAI.getGenerativeModel({ 
-        model: this.modelName,
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        maxOutputTokens: 16000
-      }
-    });
+      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
+      this.modelName = modelName;
+      this.model = this.genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 8000
+        }
+      });
+
+      console.log('[GEMINI TEXT] Using key with best quota availability');
     } catch (error) {
+      console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
       throw error;
     }
   }
@@ -66,10 +62,13 @@ class GeminiTextService {
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,
-          maxOutputTokens: 16000
+          maxOutputTokens: 8000
         }
       });
+
+      console.log('[GEMINI TEXT] Rotated to next API key');
     } catch (error) {
+      console.error('[GEMINI TEXT] Failed to rotate API key:', error.message);
       throw error;
     }
   }
@@ -80,7 +79,9 @@ class GeminiTextService {
   recordUsage() {
     const usage = this.apiKeyManager.recordUsage(this.currentKey);
 
+    // If current key is near quota limit, rotate to next key
     if (usage.remaining <= 2) {
+      console.log('[GEMINI TEXT] Current key near quota limit, rotating...');
       this.rotateToNextKey();
     }
 
@@ -97,19 +98,51 @@ class GeminiTextService {
    */
   async generateRecipe(mealType, targets, ingredients, strict = false) {
     try {
+      console.log('[GEMINI TEXT] Generating recipe for:', mealType);
+      console.log('[GEMINI TEXT] Ingredients:', ingredients.length);
+      console.log('[GEMINI TEXT] Strict mode:', strict);
+
+      const startTime = Date.now();
+
       const prompt = this.createRecipePrompt(mealType, targets, ingredients, strict);
+      
       const result = await this.generateContentWithRetry([prompt]);
       const response = await result.response;
       const text = response.text();
 
-      if (!text || text.trim().length < 10) {
-        throw new Error('Invalid response from Gemini');
+      const generationTime = Date.now() - startTime;
+      console.log(`[GEMINI TEXT] Recipe generated in ${generationTime}ms`);
+      console.log(`[GEMINI TEXT] Response length: ${text.length} characters`);
+      console.log(`[GEMINI TEXT] Response preview: ${text ? text.substring(0, 200) + '...' : 'EMPTY'}`);
+
+      // Enhanced response validation
+      if (text === null || text === undefined) {
+        console.error('[GEMINI TEXT] Response is null or undefined');
+        throw new Error('Null response received from Gemini');
+      }
+      
+      if (text.trim().length === 0) {
+        console.error('[GEMINI TEXT] Response is empty after trimming');
+        throw new Error('Empty response received from Gemini');
+      }
+      
+      if (text.length < 10) {
+        console.error('[GEMINI TEXT] Response too short:', text);
+        throw new Error('Response too short from Gemini');
       }
 
+      // Parse the JSON response using enhanced parsing with fallbacks
       let recipeData;
       try {
         recipeData = this.parseJsonWithFallbacks(text, 'recipe');
+        console.log('[GEMINI TEXT] Successfully parsed recipe data');
+        console.log('[GEMINI TEXT] Recipe name:', recipeData.recipe_name);
       } catch (parseError) {
+        console.error('[GEMINI TEXT] All JSON parsing strategies failed:', parseError.message);
+        console.log('[GEMINI TEXT] Raw response for debugging:', text.substring(0, 1000));
+        
+        // Create a fallback recipe as last resort
+        console.log('[GEMINI TEXT] Creating emergency fallback recipe');
         recipeData = this.createFallbackRecipe(text, mealType, targets, ingredients);
       }
 
@@ -123,6 +156,7 @@ class GeminiTextService {
       };
 
     } catch (error) {
+      console.error('[GEMINI TEXT] Recipe generation failed:', error.message);
       throw new Error(`Recipe generation failed: ${error.message}`);
     }
   }
@@ -131,6 +165,7 @@ class GeminiTextService {
    * Creates a fallback recipe when JSON parsing fails
    */
   createFallbackRecipe(text, mealType, targets, ingredients) {
+    console.log('[GEMINI TEXT] Creating fallback recipe from text response');
     
     // Try to extract any useful information from the text
     const recipeName = this.extractRecipeName(text) || `${mealType} Recipe`;
@@ -283,24 +318,46 @@ class GeminiTextService {
    */
   async generateWorkoutPlan(userProfile, preferences) {
     try {
+      console.log('[GEMINI TEXT] Generating workout plan');
+      console.log('[GEMINI TEXT] User level:', userProfile.fitnessLevel);
+      console.log('[GEMINI TEXT] Goal:', userProfile.primaryGoal);
+      console.log('[GEMINI TEXT] User profile keys:', Object.keys(userProfile));
+      console.log('[GEMINI TEXT] Full user profile:', JSON.stringify(userProfile, null, 2));
+
       const startTime = Date.now();
+
       const prompt = this.createWorkoutPrompt(userProfile, preferences);
-      
-      const maxRetries = 1;
+      console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
+      console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
+
+      // Use longer timeout and more retries for workout plan generation
+      const maxRetries = 3; // Workout plans need more retries due to complexity
       const result = await this.generateContentWithRetry([prompt], maxRetries);
+      console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
+
       const response = await result.response;
+      console.log('[GEMINI TEXT] Response object:', !!response);
+
       const text = response.text();
+      console.log('[GEMINI TEXT] Response text:', !!text, 'length:', text?.length || 0);
+
+      const generationTime = Date.now() - startTime;
+      console.log(`[GEMINI TEXT] Workout plan generated in ${generationTime}ms`);
 
       // Parse the JSON response using enhanced parsing with fallbacks
       let workoutData;
       try {
-        workoutData = this.parseJsonWithFallbacks(text, 'workout', userProfile);
+        workoutData = this.parseJsonWithFallbacks(text, 'workout');
+        console.log('[GEMINI TEXT] Successfully parsed workout data');
+        console.log('[GEMINI TEXT] Plan name:', workoutData.plan_name);
       } catch (parseError) {
+        console.error('[GEMINI TEXT] All JSON parsing strategies failed:', parseError.message);
+        console.log('[GEMINI TEXT] Raw response for debugging:', text.substring(0, 1000));
         throw new Error('Failed to parse workout response');
       }
 
       // Validate and normalize the workout plan
-      const validatedPlan = this.validateWorkoutPlan(workoutData, userProfile);
+      const validatedPlan = this.validateWorkoutPlan(workoutData);
       
       return {
         ...validatedPlan,
@@ -309,6 +366,7 @@ class GeminiTextService {
       };
 
     } catch (error) {
+      console.error('[GEMINI TEXT] Workout plan generation failed:', error.message);
       throw new Error(`Workout plan generation failed: ${error.message}`);
     }
   }
@@ -317,7 +375,7 @@ class GeminiTextService {
    * Creates a detailed prompt for recipe generation
    */
   createRecipePrompt(mealType, targets, ingredients, strict) {
-    const strictnessNote = strict 
+    const strictnessNote = strict
       ? "You MUST use ONLY the ingredients listed. Do not add any other ingredients, seasonings, or components."
       : "Use primarily the listed ingredients, but you may add basic seasonings (salt, pepper, herbs) if needed for flavor.";
 
@@ -343,7 +401,7 @@ CRITICAL REQUIREMENTS:
 7. Escape any quotes within strings
 
 MEAL TYPE: ${mealType}
-NUTRITIONAL TARGETS: 
+NUTRITIONAL TARGETS:
 - Calories: ${targets.calories} kcal
 - Protein: ${targets.protein}g
 - Carbohydrates: ${targets.carbs}g
@@ -396,34 +454,40 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
   }
 
   /**
-   * Creates a detailed prompt for workout plan generation with comprehensive user profile data
+   * Creates a detailed prompt for workout plan generation
    */
   createWorkoutPrompt(userProfile, preferences) {
-    // SIMPLIFIED: Only use the 4 core parameters from Supabase profile table
-    const fitnessLevel = userProfile.fitnessLevel || userProfile.training_level || 'intermediate';
-    const primaryGoal = userProfile.primaryGoal || userProfile.primary_goal || 'general_fitness';
-    const gender = (userProfile.gender || 'male').toLowerCase();
+    // Enhanced customization based on user profile
+    const fitnessLevel = userProfile.fitnessLevel || 'intermediate';
+    const primaryGoal = userProfile.primaryGoal || 'general_fitness';
+    const age = userProfile.age || 25;
 
-    // Use workout frequency from userProfile (support both camelCase and snake_case)
-    const workoutFreq = userProfile.workoutFrequency || userProfile.workout_frequency || '4_5';
+    // Use userProfile.workoutFrequency if available, otherwise fall back to preferences
     let daysPerWeek;
-    
-    // Convert workout frequency format to number of days
-    if (workoutFreq === '2_3') {
-      daysPerWeek = 3; // Middle of 2-3 range
-    } else if (workoutFreq === '4_5') {
-      daysPerWeek = 4; // Middle of 4-5 range
-    } else if (workoutFreq === '6') {
-      daysPerWeek = 6;
+    if (userProfile.workoutFrequency) {
+      // Convert workout frequency format to number of days
+      if (userProfile.workoutFrequency === '1') {
+        daysPerWeek = 1;
+      } else if (userProfile.workoutFrequency === '2_3') {
+        // For 2-3 times per week, randomly choose between 2 and 3 days
+        daysPerWeek = Math.random() < 0.5 ? 2 : 3;
+      } else if (userProfile.workoutFrequency === '4_5') {
+        // For 4-5 times per week, randomly choose between 4 and 5 days
+        daysPerWeek = Math.random() < 0.5 ? 4 : 5;
+      } else if (userProfile.workoutFrequency === '6') {
+        daysPerWeek = 6;
+      } else if (userProfile.workoutFrequency === '7') {
+        daysPerWeek = 7;
+      } else {
+        daysPerWeek = parseInt(userProfile.workoutFrequency) || 4;
+      }
     } else {
-      daysPerWeek = 4; // Default fallback
+      daysPerWeek = preferences?.daysPerWeek || 4;
     }
-    
-    const sessionDuration = 60; // Fixed 60 minute sessions
-    
-    // Use basic equipment defaults (can be customized later)
-    const equipment = ['dumbbells', 'barbell', 'resistance_bands', 'bodyweight'];
-    
+
+    const sessionDuration = preferences?.sessionDuration || 45;
+    const gender = (userProfile.gender || 'unspecified').toLowerCase();
+
     // Customize based on fitness level
     const levelSpecific = {
       beginner: {
@@ -466,14 +530,6 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         exercises: 'compound movements with isolation exercises',
         volume: 'higher volume with moderate intensity',
         nutrition: 'high protein intake, caloric surplus'
-      },
-      weight_loss: {
-        focus: 'calorie burn and metabolic conditioning',
-        repRange: '12-20 reps',
-        restTime: '30-60 seconds',
-        exercises: 'full body circuits and HIIT',
-        volume: 'high intensity with shorter rest periods',
-        nutrition: 'caloric deficit, high protein'
       },
       fat_loss: {
         focus: 'calorie burn and metabolic conditioning',
@@ -522,14 +578,6 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         exercises: 'sport-specific movements and functional training',
         volume: 'moderate to high volume with sport-specific intensity',
         nutrition: 'performance-focused nutrition, adequate protein and carbs'
-      },
-      flexibility: {
-        focus: 'flexibility, mobility, and range of motion',
-        repRange: '30-60 seconds holds',
-        restTime: '15-30 seconds between stretches',
-        exercises: 'yoga poses, static stretches, dynamic movements, mobility work',
-        volume: 'gentle progression with focus on form and breathing',
-        nutrition: 'anti-inflammatory foods, adequate hydration'
       }
     };
 
@@ -538,74 +586,88 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     // Generate appropriate workout split based on frequency
     const workoutSplit = this.generateWorkoutSplit(daysPerWeek, primaryGoal, fitnessLevel);
 
-    // Create personalized equipment constraints
-    // Equipment constraints - use the standard equipment list
-    const equipmentConstraints = `EQUIPMENT AVAILABLE: ${equipment.join(', ')}. Create workouts using these equipment options.`;
-
-    // Exercise pools categorized by muscle groups and equipment
-    const exercisesByType = {
-      push: ['Bench Press', 'Incline Dumbbell Press', 'Overhead Press', 'Dips', 'Push-ups', 'Cable Chest Fly', 'Tricep Pushdown', 'Close-grip Bench Press'],
-      pull: ['Pull-ups', 'Lat Pulldown', 'Barbell Row', 'Dumbbell Row', 'Face Pulls', 'Bicep Curls', 'Hammer Curls', 'Cable Row'],
-      legs: ['Back Squat', 'Front Squat', 'Romanian Deadlift', 'Leg Press', 'Lunges', 'Leg Curl', 'Leg Extension', 'Calf Raises'],
-      core: ['Plank', 'Hanging Leg Raises', 'Ab Wheel', 'Russian Twists', 'Dead Bug', 'Bicycle Crunches', 'Mountain Climbers']
+    // Generate workout exercises based on goal and level
+    const exercisesByGoal = {
+      athletic_performance: {
+        beginner: [
+          { name: "Bodyweight Squats", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Push-ups (modified)", sets: 3, reps: "8-12", rest: 60 },
+          { name: "Bent-over Rows (bodyweight)", sets: 3, reps: "10-12", rest: 60 },
+          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 },
+          { name: "Jumping Jacks", sets: 3, reps: "30-45 seconds", rest: 60 }
+        ],
+        intermediate: [
+          { name: "Goblet Squats", sets: 4, reps: "10-12", rest: 90 },
+          { name: "Push-ups", sets: 4, reps: "8-12", rest: 90 },
+          { name: "Dumbbell Rows", sets: 4, reps: "10-12", rest: 90 },
+          { name: "Lunges", sets: 4, reps: "8-10 per leg", rest: 90 },
+          { name: "Burpees", sets: 4, reps: "6-8", rest: 90 }
+        ],
+        advanced: [
+          { name: "Front Squats", sets: 5, reps: "8-10", rest: 120 },
+          { name: "Plyometric Push-ups", sets: 5, reps: "6-8", rest: 120 },
+          { name: "Pull-ups", sets: 5, reps: "6-10", rest: 120 },
+          { name: "Box Jumps", sets: 5, reps: "8-10", rest: 120 },
+          { name: "Medicine Ball Slams", sets: 5, reps: "10-12", rest: 120 }
+        ]
+      },
+      general_fitness: {
+        beginner: [
+          { name: "Walking Lunges", sets: 3, reps: "10 per leg", rest: 60 },
+          { name: "Wall Push-ups", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Seated Rows", sets: 3, reps: "12-15", rest: 60 },
+          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 }
+        ],
+        intermediate: [
+          { name: "Dumbbell Squats", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Dumbbell Bench Press", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Dumbbell Rows", sets: 3, reps: "10-12", rest: 90 },
+          { name: "Overhead Press", sets: 3, reps: "8-10", rest: 90 }
+        ],
+        advanced: [
+          { name: "Barbell Back Squats", sets: 4, reps: "8-10", rest: 120 },
+          { name: "Bench Press", sets: 4, reps: "6-8", rest: 120 },
+          { name: "Deadlifts", sets: 4, reps: "6-8", rest: 120 },
+          { name: "Pull-ups", sets: 4, reps: "8-10", rest: 120 }
+        ]
+      }
     };
 
-    return `You are an expert fitness coach. Create a comprehensive ${daysPerWeek}-day workout plan.
+    const goalExercises = exercisesByGoal[primaryGoal] || exercisesByGoal.general_fitness;
+    const exercises = goalExercises[fitnessLevel] || goalExercises.intermediate;
 
-USER PROFILE (from onboarding):
-- Gender: ${gender}
+    return `You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY valid JSON - no text, explanations, or markdown
+2. Start response immediately with { and end with }
+3. Use double quotes for all strings and property names
+4. Ensure all numbers are complete (e.g., 4.0, not 4.)
+5. All arrays and objects must be properly closed
+6. No trailing commas
+7. Escape any quotes within strings
+
+USER PROFILE:
 - Fitness Level: ${fitnessLevel}
 - Primary Goal: ${primaryGoal}
-- Workout Frequency: ${daysPerWeek} days per week (${workoutFreq})
-
-SESSION DETAILS:
+- Workout Days: ${daysPerWeek} per week
 - Session Duration: ${sessionDuration} minutes
-- Equipment Available: ${equipment.join(', ')}
+- Gender: ${gender}
+- Age: ${age}
 
-WORKOUT SPLIT: ${workoutSplit}
-
-TRAINING PARAMETERS FOR ${fitnessLevel.toUpperCase()} LEVEL:
-- Sets per exercise: ${levelConfig.sets}
-- Rep range: ${levelConfig.reps}
-- Rest periods: ${levelConfig.restPeriods}
+WORKOUT SPECIFICATIONS:
+- Rep Range: ${goalConfig.repRange}
+- Rest Periods: ${goalConfig.restTime}
 - Intensity: ${levelConfig.intensity}
-- Focus: ${levelConfig.focus}
-- Progression: ${levelConfig.progression}
+- Focus: ${goalConfig.focus}
+- Equipment: ${levelConfig.equipment}
 
-GOAL-SPECIFIC PARAMETERS FOR ${primaryGoal.toUpperCase()}:
-- Training focus: ${goalConfig.focus}
-- Rep range: ${goalConfig.repRange}
-- Rest time: ${goalConfig.restTime}
-- Exercise selection: ${goalConfig.exercises}
-- Training volume: ${goalConfig.volume}
-- Nutrition emphasis: ${goalConfig.nutrition}
+EXERCISE EXAMPLES TO USE:
+${JSON.stringify(exercises, null, 2)}
 
-EXERCISE EXAMPLES BY CATEGORY:
-Push Exercises: ${exercisesByType.push.join(', ')}
-Pull Exercises: ${exercisesByType.pull.join(', ')}
-Leg Exercises: ${exercisesByType.legs.join(', ')}
-Core Exercises: ${exercisesByType.core.join(', ')}
-
-${equipmentConstraints}
-
-CRITICAL INSTRUCTIONS:
-1. Return ONLY valid JSON - no markdown, no explanations, no code blocks
-2. Create exactly ${daysPerWeek} workout sessions in the weekly_schedule array
-3. Each workout session MUST include:
-   - At least 1-2 warm_up exercises (5-10 min cardio/dynamic stretches)
-   - 4-6 main_workout exercises (compound and isolation movements)
-   - At least 1-2 cool_down exercises (5-10 min stretching)
-4. Every exercise MUST have: exercise name, sets, reps, rest_seconds, and instructions
-5. Use only equipment available to the user: ${Array.isArray(equipment) ? equipment.join(', ') : 'bodyweight and basic equipment'}
-6. Vary exercises across days - don't repeat the same exercise on consecutive days
-7. Follow the workout split: ${workoutSplit}
-8. Adjust difficulty based on ${fitnessLevel} level
-9. Align exercises with ${primaryGoal} goal
-10. Include proper warm-up, main workout, and cool-down for EVERY session
-
-REQUIRED JSON STRUCTURE:
+RESPONSE FORMAT (copy this exact structure):
 {
-  "plan_name": "${fitnessLevel.charAt(0).toUpperCase() + fitnessLevel.slice(1)} ${primaryGoal.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Plan",
+  "plan_name": "Personalized ${fitnessLevel} ${primaryGoal} Plan",
   "duration_weeks": 4,
   "sessions_per_week": ${daysPerWeek},
   "target_level": "${fitnessLevel}",
@@ -615,95 +677,48 @@ REQUIRED JSON STRUCTURE:
     {
       "day": 1,
       "day_name": "Day 1",
-      "focus": "Push (Chest, Shoulders, Triceps)",
+      "focus": "Upper Body",
       "workout_type": "Strength Training",
       "duration_minutes": ${sessionDuration},
       "warm_up": [
         {
           "exercise": "Light Cardio",
           "duration": "5 minutes",
-          "instructions": "Treadmill, bike, or jumping jacks at easy pace to elevate heart rate"
-        },
-        {
-          "exercise": "Arm Circles",
-          "duration": "2 minutes",
-          "instructions": "Dynamic shoulder mobility - forward and backward circles"
+          "instructions": "Easy pace to elevate heart rate"
         }
       ],
-      "main_workout": [
-        {
-          "exercise": "Bench Press",
-          "sets": ${fitnessLevel === 'beginner' ? 3 : fitnessLevel === 'advanced' ? 5 : 4},
-          "reps": "${goalConfig.repRange}",
-          "rest_seconds": ${goalConfig.restTime.includes('minutes') ? 120 : 60},
-          "instructions": "Lower bar to chest, press explosively. Keep core tight and feet flat.",
-          "modifications": "${fitnessLevel === 'beginner' ? 'Start with lighter weight, use spotter' : 'Add progressive overload weekly'}"
-        },
-        {
-          "exercise": "Incline Dumbbell Press",
-          "sets": ${fitnessLevel === 'beginner' ? 3 : 4},
-          "reps": "${goalConfig.repRange}",
-          "rest_seconds": ${goalConfig.restTime.includes('minutes') ? 120 : 60},
-          "instructions": "Press dumbbells at 30-45 degree angle. Control the descent.",
-          "modifications": "Adjust bench angle for comfort"
-        },
-        {
-          "exercise": "Overhead Press",
-          "sets": ${fitnessLevel === 'beginner' ? 3 : 4},
-          "reps": "${goalConfig.repRange}",
-          "rest_seconds": 60,
-          "instructions": "Press weight overhead from shoulder height. Keep core braced.",
-          "modifications": "Use dumbbells or barbell based on equipment"
-        },
-        {
-          "exercise": "Tricep Pushdown",
-          "sets": 3,
-          "reps": "${goalConfig.repRange}",
-          "rest_seconds": 45,
-          "instructions": "Keep elbows tucked, extend arms fully. Control the return.",
-          "modifications": "Use rope, bar, or resistance band attachment"
-        }
-      ],
+      "main_workout": ${JSON.stringify(exercises.slice(0, Math.ceil(exercises.length / daysPerWeek)), null, 2)},
       "cool_down": [
         {
-          "exercise": "Chest Stretch",
-          "duration": "3 minutes",
-          "instructions": "Doorway stretch - hold 30 seconds each side, repeat 3 times"
-        },
-        {
-          "exercise": "Shoulder Stretch",
-          "duration": "2 minutes",
-          "instructions": "Cross-body arm stretch - hold 30 seconds each side"
+          "exercise": "Stretching",
+          "duration": "5 minutes",
+          "instructions": "Focus on muscles trained today"
         }
       ]
     }
   ],
   "progression_plan": {
-    "week_1": "Establish baseline - focus on form and technique",
-    "week_2": "Increase weight by 5% if form is solid",
-    "week_3": "Increase weight by another 5% or add 1-2 reps",
-    "week_4": "Deload week - reduce volume by 30% for recovery",
-    "mesocycle_weeks": 4,
-    "progression_guidance": "Progressive overload through weight, reps, or sets"
+    "week_1": "Focus on form and technique",
+    "week_2": "Increase weight and intensity",
+    "week_3": "Add complexity and variations",
+    "week_4": "Peak performance and testing"
   },
   "nutrition_tips": [
     "${goalConfig.nutrition}",
-    "Stay hydrated - drink water before, during, and after workouts",
-    "Eat protein within 2 hours post-workout for muscle recovery"
+    "Stay hydrated throughout the day",
+    "Eat balanced meals with adequate protein"
   ],
   "safety_guidelines": [
-    "Always warm up for 5-10 minutes before training",
-    "Use proper form over heavy weight",
-    "Rest 48 hours between training the same muscle groups",
-    "Stop immediately if you feel sharp pain",
-    "Get adequate sleep (7-9 hours) for recovery"
+    "Always warm up before exercising",
+    "Stop immediately if you feel pain",
+    "Maintain proper form during all exercises",
+    "Consult a doctor before starting new exercise program"
   ],
-  "equipment_needed": ${JSON.stringify(equipment)},
-  "estimated_results": "With consistent training and proper nutrition, expect visible progress in 4-6 weeks. Results vary by individual commitment.",
-  "estimated_time_per_session": "${sessionDuration} minutes"
+  "equipment_needed": ["${levelConfig.equipment}"],
+  "estimated_results": "Visible improvements in 2-4 weeks with consistent training"
 }
 
-IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each day must have complete warm_up (1-2 exercises), main_workout (4-6 exercises), and cool_down (1-2 exercises) arrays. DO NOT leave any arrays empty. Return ONLY the JSON object, starting with { and ending with }.`;
+IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.`;
   }
 
   /**
@@ -717,8 +732,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         strength: "Full Body Strength (2x per week)",
         endurance: "Full Body Endurance (2x per week)",
         general_fitness: "Full Body Fitness (2x per week)",
-        athletic_performance: "Full Body Athletic (2x per week)",
-        flexibility: "Full Body Flexibility & Mobility (2x per week)"
+        athletic_performance: "Full Body Athletic (2x per week)"
       },
       3: {
         hypertrophy: "Push/Pull/Legs or Full Body (3x per week)",
@@ -726,8 +740,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         strength: "Full Body Strength (3x per week)",
         endurance: "Full Body Endurance (3x per week)",
         general_fitness: "Full Body Fitness (3x per week)",
-        athletic_performance: "Full Body Athletic (3x per week)",
-        flexibility: "Upper/Lower/Full Body Flexibility (3x per week)"
+        athletic_performance: "Full Body Athletic (3x per week)"
       },
       4: {
         hypertrophy: "Upper/Lower Split (4x per week)",
@@ -735,8 +748,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         strength: "Upper/Lower Strength (4x per week)",
         endurance: "Full Body + Cardio (4x per week)",
         general_fitness: "Upper/Lower Fitness (4x per week)",
-        athletic_performance: "Upper/Lower Athletic (4x per week)",
-        flexibility: "Upper/Lower/Core/Full Body Flexibility (4x per week)"
+        athletic_performance: "Upper/Lower Athletic (4x per week)"
       },
       5: {
         hypertrophy: "Push/Pull/Legs/Upper/Lower (5x per week)",
@@ -744,8 +756,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         strength: "Push/Pull/Legs/Upper/Lower (5x per week)",
         endurance: "Full Body + Cardio + Endurance (5x per week)",
         general_fitness: "Push/Pull/Legs/Upper/Lower (5x per week)",
-        athletic_performance: "Push/Pull/Legs/Upper/Lower Athletic (5x per week)",
-        flexibility: "Upper/Lower/Core/Hips/Full Body Flexibility (5x per week)"
+        athletic_performance: "Push/Pull/Legs/Upper/Lower Athletic (5x per week)"
       },
       6: {
         hypertrophy: "Push/Pull/Legs/Upper/Lower/Cardio (6x per week)",
@@ -753,8 +764,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         strength: "Push/Pull/Legs/Upper/Lower/Recovery (6x per week)",
         endurance: "Full Body + Cardio + Endurance + Recovery (6x per week)",
         general_fitness: "Push/Pull/Legs/Upper/Lower/Cardio (6x per week)",
-        athletic_performance: "Push/Pull/Legs/Upper/Lower/Cardio Athletic (6x per week)",
-        flexibility: "Upper/Lower/Core/Hips/Spine/Full Body Flexibility (6x per week)"
+        athletic_performance: "Push/Pull/Legs/Upper/Lower/Cardio Athletic (6x per week)"
       }
     };
 
@@ -767,6 +777,8 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
    * @returns {Promise<string>} Generated text response
    */
   async generateText(prompt) {
+    console.log('[GEMINI TEXT] Generating text content');
+    console.log('[GEMINI TEXT] Prompt length:', prompt.length);
     
     try {
       // For simple text prompts, Gemini expects either a string or array format
@@ -775,51 +787,15 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
       const response = await result.response;
       const text = response.text();
       
+      console.log('[GEMINI TEXT] ✅ Text generation successful');
+      console.log('[GEMINI TEXT] Response length:', text.length);
       
       return text;
       
     } catch (error) {
+      console.error('[GEMINI TEXT] ❌ Text generation failed:', error.message);
       throw error;
     }
-  }
-
-  /**
-   * Try fallback models when primary model fails
-   */
-  async tryFallbackModel(content, currentError) {
-    if (!this.modelFallbacks || this.modelFallbacks.length === 0) {
-      return null;
-    }
-
-    
-    for (const fallbackModel of this.modelFallbacks) {
-      try {
-        
-        const fallbackModelInstance = this.genAI.getGenerativeModel({
-          model: fallbackModel,
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.95,
-            maxOutputTokens: 16000  // Increased for complex workout plans
-          }
-        });
-
-        const result = await fallbackModelInstance.generateContent(content);
-        if (result && result.response) {
-          const response = await result.response;
-          const text = response.text();
-          if (text && text.trim().length > 0) {
-            // Update current model to working one
-            this.model = fallbackModelInstance;
-            this.modelName = fallbackModel;
-            return result;
-          }
-        }
-      } catch (fallbackError) {
-      }
-    }
-    
-    return null;
   }
 
   /**
@@ -828,39 +804,69 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
   async generateContentWithRetry(content, maxRetries = 2) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Add timeout to prevent hanging requests
-        const contentString = Array.isArray(content) ? content.join(' ') : content;
-        const isWorkoutRequest = contentString.includes('workout plan') || contentString.includes('personalized workout') || contentString.includes('CLIENT PROFILE');
-        const isComplexRequest = contentString.includes('meal plan') || contentString.includes('recipe') ||
-                                contentString.includes('exercise') || 
-                                contentString.includes('nutrition') || contentString.includes('fitness') || 
-                                contentString.length > 2000;
-        // Workout plans need more time due to complexity - use 120 seconds
-        // Other complex requests use 60 seconds, simple requests use 20 seconds
-        const timeoutDuration = isWorkoutRequest ? 120000 : (isComplexRequest ? 60000 : 20000);
+        console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
 
+        // Add timeout to prevent hanging requests - reasonable timeout for AI generation
+        // Complex requests need more time for AI to generate comprehensive content
+        const isComplexRequest = content.includes('meal plan') || content.includes('recipe') ||
+                                content.includes('workout plan') || content.includes('exercise') ||
+                                content.includes('nutrition') || content.includes('fitness') ||
+                                content.includes('personalized workout') || content.includes('CLIENT PROFILE') ||
+                                content.length > 2000; // Workout plans are typically 2.5-6k chars
+        const timeoutDuration = isComplexRequest ? 90000 : 30000; // 90s for complex, 30s for simple - allows AI generation
+        console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
+
+        // Add exponential backoff delay for retries
         if (attempt > 1) {
-          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000);
+          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000); // 1s, 2s, 4s max
+          console.log(`[GEMINI TEXT] Applying exponential backoff delay: ${backoffDelay}ms`);
           await new Promise(resolve => setTimeout(resolve, backoffDelay));
         }
 
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000}s`)), timeoutDuration);
+          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`)), timeoutDuration);
         });
         
+        console.log('[GEMINI TEXT] About to call this.model.generateContent');
+        console.log('[GEMINI TEXT] Model object:', !!this.model);
+        console.log('[GEMINI TEXT] Content type:', Array.isArray(content) ? 'array' : typeof content);
+        console.log('[GEMINI TEXT] Content length:', Array.isArray(content) ? content.length : content.length);
+
         const result = await Promise.race([
           this.model.generateContent(content),
           timeoutPromise
         ]);
+
+        console.log('[GEMINI TEXT] Model.generateContent completed successfully');
         
+        // Validate the response
         if (!result || !result.response) {
+          console.error('[GEMINI TEXT] Invalid response structure:', { result: !!result, response: !!result?.response });
           throw new Error('Invalid response structure from Gemini');
         }
         
         const response = await result.response;
         const text = response.text();
         
+        // Enhanced response validation with detailed logging
+        console.log(`[GEMINI TEXT] Response validation:`, {
+          textExists: !!text,
+          textType: typeof text,
+          textLength: text ? text.length : 0,
+          textTrimmedLength: text ? text.trim().length : 0,
+          textPreview: text ? text.substring(0, 100) + '...' : 'N/A'
+        });
+        
+        // Validate response content
         if (!text || text.trim().length === 0) {
+          console.error('[GEMINI TEXT] Empty response detected:', {
+            text: text,
+            textLength: text ? text.length : 0,
+            trimmedLength: text ? text.trim().length : 0
+          });
+          
+          // For empty responses, only retry on the first attempt
+          // This prevents infinite retry loops for prompts that consistently return empty responses
           if (attempt === 1) {
             throw new Error('Empty response from Gemini - retryable');
           } else {
@@ -868,26 +874,34 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
           }
         }
         
+        // Check for truncated responses (common with Gemini)
+        if (text.length < 50) {
+          console.warn('[GEMINI TEXT] Very short response detected, might be truncated');
+        }
+        
+        // Check for incomplete JSON (common issue)
+        const hasJsonStart = text.includes('{') || text.includes('[');
+        const hasJsonEnd = text.includes('}') || text.includes(']');
+        if (hasJsonStart && !hasJsonEnd) {
+          console.warn('[GEMINI TEXT] Incomplete JSON detected - response may be truncated');
+        }
+        
+        console.log(`[GEMINI TEXT] ✅ Success on attempt ${attempt}`);
+        console.log(`[GEMINI TEXT] Response length: ${text.length} characters`);
         return result;
         
       } catch (error) {
-        // Try fallback models on first attempt if it's a model-specific error
-        if (attempt === 1 && (
-          error.message.includes('location is not supported') || 
-          error.message.includes('not found') ||
-          error.message.includes('not supported for generateContent')
-        )) {
-          const fallbackResult = await this.tryFallbackModel(content, error);
-          if (fallbackResult) {
-            return fallbackResult;
-          }
-        }
+        console.error('[GEMINI TEXT] Error in generateContentWithRetry attempt', attempt, ':', error.message);
+        console.error('[GEMINI TEXT] Error stack:', error.stack);
+        console.error('[GEMINI TEXT] Error constructor:', error.constructor.name);
 
-        const isRetryable = error.message.includes('503') || 
-                           error.message.includes('Service Unavailable') ||
-                           error.message.includes('overloaded') ||
-                           error.message.includes('quota') ||
-                           error.message.includes('rate limit') ||
+        const isServiceUnavailable = error.message.includes('503') ||
+                                   error.message.includes('Service Unavailable') ||
+                                   error.message.includes('overloaded') ||
+                                   error.message.includes('quota') ||
+                                   error.message.includes('rate limit');
+        
+        const isRetryable = isServiceUnavailable || 
                            error.message.includes('network') ||
                            error.message.includes('timeout') ||
                            error.message.includes('fetch failed') ||
@@ -903,21 +917,30 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
                              error.message.includes('ECONNREFUSED') ||
                              error.message.includes('network');
         
-        // If network error on first attempt, skip retries to fail fast
+        // If network error on first attempt, skip retries to fail fast and allow fallback
         if (isNetworkError && attempt === 1) {
+          console.log(`[GEMINI TEXT] ❌ Network error on first attempt, failing fast for fallback: ${error.message}`);
           throw error;
         }
         
         if (isRetryable && attempt < maxRetries) {
-          const baseDelay = 1000;
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
-          const jitter = Math.random() * 500;
-          const delay = Math.min(exponentialDelay + jitter, 8000);
+          // Exponential backoff with jitter to prevent thundering herd
+          const baseDelay = 1000; // 1 second base
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+          const jitter = Math.random() * 500; // Add up to 500ms jitter
+          const delay = Math.min(exponentialDelay + jitter, 8000); // Max 8s to prevent excessive delays
+
+          console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
+          console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
+          console.log(`[GEMINI TEXT] Error message:`, error.message);
+          console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
+          console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
 
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
         
+        // If it's not a retryable error, or we've exhausted retries, throw the error
         throw error;
       }
     }
@@ -966,30 +989,11 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
   /**
    * Validates and normalizes workout plan data
    */
-  validateWorkoutPlan(plan, userProfile = null) {
-    // Calculate expected sessions based on user profile
-    let expectedSessions = 4; // default fallback
-    if (userProfile) {
-      const workoutFreq = userProfile.workoutFrequency || userProfile.workout_frequency;
-      if (workoutFreq === '4_5') {
-        expectedSessions = 5; // Use 5 for 4-5 times per week range
-      } else if (workoutFreq === '2_3') {
-        expectedSessions = 3;
-      } else if (workoutFreq === '6') {
-        expectedSessions = 6;
-      } else if (workoutFreq === '7') {
-        expectedSessions = 7;
-      } else if (workoutFreq === '1') {
-        expectedSessions = 1;
-      } else {
-        expectedSessions = parseInt(workoutFreq) || 4;
-      }
-    }
-
+  validateWorkoutPlan(plan) {
     const validated = {
       plan_name: plan.plan_name || "Custom Workout Plan",
       duration_weeks: Math.max(plan.duration_weeks || 4, 1),
-      sessions_per_week: Math.max(plan.sessions_per_week || expectedSessions, 1),
+      sessions_per_week: Math.max(plan.sessions_per_week || 3, 1),
       target_level: plan.target_level || "intermediate",
       primary_goal: plan.primary_goal || "general fitness",
       weekly_schedule: plan.weekly_schedule || [],
@@ -1013,7 +1017,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
 
     // Fallback: if Gemini returned an empty schedule, synthesize a basic one
     if (!validated.weekly_schedule || validated.weekly_schedule.length === 0) {
-      const sessions = validated.sessions_per_week || expectedSessions;
+      const sessions = validated.sessions_per_week || 3;
       const level = (validated.target_level || 'intermediate').toLowerCase();
       const goal = (validated.primary_goal || 'general_fitness').toLowerCase();
 
@@ -1080,109 +1084,6 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
   }
 
   /**
-   * Extract workout sessions from malformed JSON text
-   */
-  extractWorkoutSessions(text) {
-    const sessions = [];
-    
-    // Look for workout session patterns in the text
-    // Pattern 1: Look for objects with "focus" and workout-related properties
-    const sessionPattern = /\{\s*"day":\s*\d+[^}]*"focus":\s*"([^"]+)"[^}]*\}/g;
-    let match;
-    
-    while ((match = sessionPattern.exec(text)) !== null) {
-      try {
-        const sessionText = match[0];
-        
-        // Try to parse this individual session
-        const cleanedSession = this.cleanJsonString(sessionText);
-        const session = JSON.parse(cleanedSession);
-        
-        if (session.focus) {
-          sessions.push(session);
-        }
-      } catch (sessionError) {
-      }
-    }
-    
-    // Pattern 2: Look for focus values directly in the text
-    if (sessions.length === 0) {
-      const focusPattern = /"focus":\s*"([^"]+)"/g;
-      const focuses = [];
-      
-      while ((match = focusPattern.exec(text)) !== null) {
-        focuses.push(match[1]);
-      }
-      
-      if (focuses.length > 0) {
-        
-        // Create basic workout sessions with the found focuses
-        focuses.forEach((focus, index) => {
-          sessions.push({
-            day: index + 1,
-            day_name: `Day ${index + 1}`,
-            focus: focus,
-            workout_type: focus,
-            duration_minutes: 45,
-            warm_up: [],
-            main_workout: [],
-            cool_down: []
-          });
-        });
-      }
-    }
-    
-    return sessions;
-  }
-
-  /**
-   * Attempt aggressive JSON repair for severely malformed responses
-   */
-  attemptAggressiveJsonRepair(malformedJson) {
-
-    // Try to extract all complete workout sessions first
-    const sessionMatches = malformedJson.match(/\{\s*"day":\s*\d+[^}]*"focus":\s*"[^"]*"[^}]*\}/g);
-    if (sessionMatches && sessionMatches.length > 0) {
-
-      // Create a new valid JSON structure using the extracted sessions
-      const planNameMatch = malformedJson.match(/"plan_name":\s*"([^"]+)"/);
-      const planName = planNameMatch ? planNameMatch[1] : "Repaired Workout Plan";
-
-      const sessionsPerWeekMatch = malformedJson.match(/"sessions_per_week":\s*(\d+)/);
-      const sessionsPerWeek = sessionsPerWeekMatch ? parseInt(sessionsPerWeekMatch[1]) : Math.max(3, sessionMatches.length);
-
-      return `{
-        "plan_name": "${planName}",
-        "duration_weeks": 4,
-        "sessions_per_week": ${sessionsPerWeek},
-        "target_level": "intermediate",
-        "primary_goal": "muscle_gain",
-        "workout_split": "Custom Split",
-        "weekly_schedule": [${sessionMatches.join(',')}]
-      }`;
-    }
-
-    // If no complete sessions found, try to fix basic structure
-    let repaired = malformedJson;
-
-    // Add missing opening quote for plan_name if detected
-    if (repaired.includes('"plan_name":') && !repaired.includes('"plan_name": "')) {
-      repaired = repaired.replace('"plan_name":', '"plan_name": "Repaired Workout Plan",');
-    }
-
-    // Ensure basic structure exists
-    if (!repaired.includes('"weekly_schedule"')) {
-      repaired = repaired.replace(/,\s*$/, ',"weekly_schedule": []');
-    }
-
-    if (!repaired.includes('"sessions_per_week"')) {
-      repaired = repaired.replace(/,\s*$/, ',"sessions_per_week": 4');
-    }
-
-    return repaired;
-  }
-
-  /**
    * Enhanced JSON cleaning with better error handling and fallback mechanisms
    */
   cleanJsonString(jsonString) {
@@ -1232,7 +1133,9 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
     cleaned = cleaned.replace(/[\u2028\u2029]/g, '');
     
     // Fix truncated decimal numbers - comprehensive approach
+    console.log(`[GEMINI TEXT] 🔧 Starting decimal repair on text length: ${cleaned.length}`);
     const beforeDecimalFix = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 before fixes:`, beforeDecimalFix);
     
     // First, fix the most common case: "5." -> "5.0"
     cleaned = cleaned.replace(/(\d+\.)(?!\d)/g, '$10');
@@ -1262,7 +1165,9 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
     
     // Ultra-specific fix for the recurring issue at position ~334
     // Look for patterns like "fat": 4.} or "fat": 4." and fix them
+    console.log(`[GEMINI TEXT] 🔧 Before ultra-specific fixes`);
     const beforeUltraFixes = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text sample before ultra-fixes:`, beforeUltraFixes);
     
     // Using function replacements for more reliable decimal fixing
     cleaned = cleaned.replace(/"fat":\s*(\d+\.)([^0-9])/g, (match, digits, following) => `"fat": ${digits}0${following}`);
@@ -1279,16 +1184,19 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
     
     // More comprehensive decimal fixes - handle any non-digit after decimal
     cleaned = cleaned.replace(/(\d+\.)([^0-9])/g, (match, digits, following) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed decimal: "${match}" -> "${digits}0${following}"`);
       return `${digits}0${following}`;
     });
     
     // Specific fix for the position 334 error pattern - "fat": 4."
     cleaned = cleaned.replace(/"fat":\s*(\d+\.)"/g, (match, digits) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed fat decimal at end: "${match}" -> "fat": ${digits}0"`);
       return `"fat": ${digits}0`;
     });
     
     // Handle any field ending with decimal and quote
     cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)"/g, (match, field, digits) => {
+      console.log(`[GEMINI TEXT] 🔧 Fixed field decimal quote: "${match}" -> ${field}: ${digits}0"`);
       return `${field}: ${digits}0`;
     });
     
@@ -1296,6 +1204,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
     cleaned = cleaned.replace(/("[\w_]+"):\s*(\d+\.)([^0-9])/g, (match, field, digits, following) => `${field}: ${digits}0${following}`);
     
     const afterUltraFixes = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text sample after ultra-fixes:`, afterUltraFixes);
     
     // Add detailed character analysis around common error positions
     [330, 334, 335, 340].forEach(pos => {
@@ -1304,11 +1213,13 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
         const end = Math.min(cleaned.length, pos + 10);
         const segment = cleaned.substring(start, end);
         const charAtPos = cleaned.charAt(pos);
+        console.log(`[GEMINI TEXT] 🔍 Position ${pos}: char='${charAtPos}' (${charAtPos.charCodeAt(0)}) context: "${segment}"`);
       }
     });
     
     // Log the result after all decimal fixes
     const afterDecimalFix = cleaned.substring(300, 400);
+    console.log(`[GEMINI TEXT] 🔧 Text around 300-400 after fixes:`, afterDecimalFix);
     
     // Fix common Gemini-specific issues
     // Remove any text before the first {
@@ -1445,6 +1356,7 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
       closeBrackets++;
     }
 
+    console.log('[GEMINI TEXT] Enhanced cleaned JSON preview:', cleaned.substring(0, 200) + '...');
     return cleaned;
   }
 
@@ -1549,98 +1461,123 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
   /**
    * Enhanced JSON parsing with multiple fallback strategies
    */
-  parseJsonWithFallbacks(text, context = 'unknown', userProfile = null) {
+  parseJsonWithFallbacks(text, context = 'unknown') {
+    console.log(`[GEMINI TEXT] Attempting to parse JSON for ${context}`);
+    console.log(`[GEMINI TEXT] Raw text length: ${text.length}`);
+
+    // Enhanced preview logging to debug JSON issues
+    const preview = text.replace(/\s+/g, ' ');
+    console.log(`[GEMINI TEXT] Enhanced cleaned JSON preview:`, preview.substring(0, 500) + '...');
+    
+    // Debug specific positions where errors occur
+    if (preview.length > 350) {
+      console.log(`[GEMINI TEXT] Characters around position 334:`, preview.substring(320, 350));
+    }
+
+    // First, validate the JSON structure
     const validation = this.validateJsonStructure(text);
-    if (!validation.valid) {
+    if (validation.valid) {
+      console.log(`[GEMINI TEXT] ✅ JSON structure validation passed for ${context}`);
+    } else {
+      console.log(`[GEMINI TEXT] ⚠️ JSON structure validation failed for ${context}:`, validation.error);
+      console.log(`[GEMINI TEXT] Issues found:`, validation.issues);
     }
 
     // Strategy 1: Direct JSON parsing
     try {
       const parsed = JSON.parse(text);
+      console.log(`[GEMINI TEXT] ✅ Direct JSON parsing successful for ${context}`);
       return parsed;
     } catch (error) {
-      // Continue to fallback strategies
+      console.log(`[GEMINI TEXT] ❌ Direct JSON parsing failed for ${context}:`, error.message);
+      if (!validation.valid) {
+        console.log(`[GEMINI TEXT] 🔧 Validation confirmed issues, will attempt cleaning strategies`);
+      }
     }
     
     // Strategy 2: Extract from markdown code blocks
     try {
       const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
-        const cleaned = this.cleanJsonString(codeBlockMatch[1].trim());
-        return JSON.parse(cleaned);
+        let jsonContent = codeBlockMatch[1].trim();
+        console.log(`[GEMINI TEXT] 📦 Extracted from code block for ${context}:`, jsonContent.substring(0, 200) + '...');
+
+        // Validate extracted content
+        const codeBlockValidation = this.validateJsonStructure(jsonContent);
+        if (!codeBlockValidation.valid) {
+          console.log(`[GEMINI TEXT] ⚠️ Code block content validation failed:`, codeBlockValidation.error);
+        }
+
+        const cleaned = this.cleanJsonString(jsonContent);
+        const parsed = JSON.parse(cleaned);
+        console.log(`[GEMINI TEXT] ✅ Code block extraction successful for ${context}`);
+        return parsed;
       }
     } catch (error) {
-      // Continue to next strategy
+      console.log(`[GEMINI TEXT] ❌ Code block extraction failed for ${context}:`, error.message);
     }
     
     // Strategy 3: Find JSON object in text
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const cleaned = this.cleanJsonString(jsonMatch[0]);
-        return JSON.parse(cleaned);
+        let jsonString = jsonMatch[0];
+        console.log(`[GEMINI TEXT] 🔍 Found JSON object for ${context}:`, jsonString.substring(0, 200) + '...');
+
+        // Validate found JSON
+        const jsonValidation = this.validateJsonStructure(jsonString);
+        if (!jsonValidation.valid) {
+          console.log(`[GEMINI TEXT] ⚠️ Found JSON validation failed:`, jsonValidation.error);
+        }
+
+        const cleaned = this.cleanJsonString(jsonString);
+        const parsed = JSON.parse(cleaned);
+        console.log(`[GEMINI TEXT] ✅ JSON object extraction successful for ${context}`);
+        return parsed;
       }
     } catch (error) {
-      // Continue to next strategy
+      console.log(`[GEMINI TEXT] ❌ JSON object extraction failed for ${context}:`, error.message);
     }
     
     // Strategy 4: Find JSON array in text
     try {
       const arrayMatch = text.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
-        const cleaned = this.cleanJsonString(arrayMatch[0]);
-        return JSON.parse(cleaned);
+        let jsonString = arrayMatch[0];
+        console.log(`[GEMINI TEXT] 📋 Found JSON array for ${context}:`, jsonString.substring(0, 200) + '...');
+
+        // Validate found JSON array
+        const arrayValidation = this.validateJsonStructure(jsonString);
+        if (!arrayValidation.valid) {
+          console.log(`[GEMINI TEXT] ⚠️ Found JSON array validation failed:`, arrayValidation.error);
+        }
+
+        const cleaned = this.cleanJsonString(jsonString);
+        const parsed = JSON.parse(cleaned);
+        console.log(`[GEMINI TEXT] ✅ JSON array extraction successful for ${context}`);
+        return parsed;
       }
     } catch (error) {
-      // Continue to next strategy
+      console.log(`[GEMINI TEXT] ❌ JSON array extraction failed for ${context}:`, error.message);
     }
     
-    // Strategy 5: Try to fix truncated JSON with enhanced recovery
+    // Strategy 5: Try to fix truncated JSON
     try {
       const partialMatch = text.match(/\{[\s\S]*$/);
       if (partialMatch) {
+        console.log(`[GEMINI TEXT] 🔧 Attempting to fix truncated JSON for ${context}`);
         let partialJson = partialMatch[0];
         
-        // Enhanced truncation fixing for workout context
+        // Try to complete common missing parts based on context
         if (context === 'workout') {
-          // Fix common truncation patterns with better detection
           if (!partialJson.includes('"plan_name"')) {
             partialJson = partialJson.replace(/^\{/, '{"plan_name": "Generated Workout Plan",');
           }
-
-          // Enhanced weekly_schedule fixing
-          const weeklyScheduleMatch = partialJson.match(/"weekly_?schedule":?\s*\[/);
-          if (weeklyScheduleMatch) {
-            const scheduleStart = weeklyScheduleMatch.index;
-            const remainingText = partialJson.substring(scheduleStart);
-
-            // If array is started but not closed, try to close it properly
-            if (!remainingText.includes(']')) {
-              // Look for the last complete session or close the array
-              const lastBrace = partialJson.lastIndexOf('}');
-              if (lastBrace > scheduleStart) {
-                partialJson = partialJson.substring(0, lastBrace + 1) + ']}';
-              } else {
-                partialJson = partialJson.replace(/,\s*$/, '') + ']}';
-              }
-            }
-          } else {
-            // Add missing weekly_schedule if not present
+          if (!partialJson.includes('"weekly_schedule"')) {
             partialJson = partialJson.replace(/,\s*$/, ',"weekly_schedule": []');
           }
-
-          // Fix incomplete exercise arrays within sessions with better detection
-          partialJson = partialJson.replace(/"exercises":\s*\[\s*$/g, '"exercises": []');
-          partialJson = partialJson.replace(/"warm_up":\s*\[\s*$/g, '"warm_up": []');
-          partialJson = partialJson.replace(/"main_workout":\s*\[\s*$/g, '"main_workout": []');
-          partialJson = partialJson.replace(/"cool_down":\s*\[\s*$/g, '"cool_down": []');
-
-          // Enhanced sessions_per_week detection and insertion
           if (!partialJson.includes('"sessions_per_week"')) {
-            // Try to infer from the text or use intelligent default
-            const sessionCount = (partialJson.match(/"day":\s*\d+/g) || []).length;
-            const defaultSessions = Math.max(3, Math.min(sessionCount, 5));
-            partialJson = partialJson.replace(/,\s*$/, `,"sessions_per_week": ${defaultSessions}`);
+            partialJson = partialJson.replace(/,\s*$/, ',"sessions_per_week": 3');
           }
         } else if (context === 'recipe') {
           if (!partialJson.includes('"recipe_name"')) {
@@ -1653,97 +1590,40 @@ IMPORTANT: Create ${daysPerWeek} unique workout days with varied exercises. Each
             partialJson = partialJson.replace(/,\s*$/, ',"instructions": []');
           }
         }
-
-        // Enhanced brace balancing
-        const openBraces = (partialJson.match(/\{/g) || []).length;
-        const closeBraces = (partialJson.match(/\}/g) || []).length;
-
-        if (openBraces > closeBraces) {
-          partialJson += '}'.repeat(openBraces - closeBraces);
-        }
         
         // Ensure it ends with }
         if (!partialJson.endsWith('}')) {
           partialJson += '}';
         }
         
+        console.log(`[GEMINI TEXT] 🔧 Attempting to parse fixed JSON for ${context}:`, partialJson.substring(0, 200) + '...');
 
-        // Validate fixed JSON with enhanced validation
+        // Validate fixed JSON
         const fixedValidation = this.validateJsonStructure(partialJson);
         if (!fixedValidation.valid) {
-
-          // Try more aggressive cleaning for severely malformed JSON
-          if (context === 'workout') {
-            partialJson = this.attemptAggressiveJsonRepair(partialJson);
-          }
+          console.log(`[GEMINI TEXT] ⚠️ Fixed JSON validation failed:`, fixedValidation.error);
         }
 
         const cleaned = this.cleanJsonString(partialJson);
         const parsed = JSON.parse(cleaned);
+        console.log(`[GEMINI TEXT] ✅ Truncated JSON fix successful for ${context}`);
         return parsed;
       }
     } catch (error) {
+      console.log(`[GEMINI TEXT] ❌ Truncated JSON fix failed for ${context}:`, error.message);
     }
     
-    // Strategy 6: Enhanced workout JSON reconstruction
-    if (context === 'workout') {
-      try {
-        
-        // Try to extract key workout information even from malformed JSON
-        const planNameMatch = text.match(/"plan_name":\s*"([^"]+)"/);
-        const planName = planNameMatch ? planNameMatch[1] : "Generated Workout Plan";
-        
-        const sessionsPerWeekMatch = text.match(/"sessions_per_week":\s*(\d+)/);
-        const sessionsPerWeek = sessionsPerWeekMatch ? parseInt(sessionsPerWeekMatch[1]) : 4;
-        
-        const workoutSessions = this.extractWorkoutSessions(text);
-        if (workoutSessions && workoutSessions.length > 0) {
-          
-          // Reconstruct a valid workout plan JSON
-          const reconstructedPlan = {
-            plan_name: planName,
-            name: planName,
-            sessions_per_week: sessionsPerWeek,
-            training_level: "intermediate",
-            primary_goal: "muscle_gain",
-            mesocycle_length_weeks: 8,
-            estimated_time_per_session: "45-60 min",
-            weekly_schedule: workoutSessions,
-            weeklySchedule: workoutSessions,
-            status: "active",
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            source: "gemini_reconstructed"
-          };
-          
-          return reconstructedPlan;
-        }
-      } catch (extractError) {
-      }
-    }
-    
-    // Strategy 7: Last resort - try to extract workout sessions from raw text, then create minimal JSON
+    // Strategy 6: Last resort - create minimal valid JSON
+    console.log(`[GEMINI TEXT] 🚨 All parsing strategies failed for ${context}, creating minimal JSON`);
     
     if (context === 'workout') {
-      // Try to extract workout sessions from the malformed JSON text
-      const extractedSessions = this.extractWorkoutSessions(text);
-      
-      // Use user profile data for better fallback if available
-      const fitnessLevel = userProfile?.training_level || userProfile?.fitnessLevel || 'intermediate';
-      const primaryGoal = userProfile?.primary_goal || userProfile?.primaryGoal || 'general_fitness';
-      const planName = extractedSessions.length > 0 ? 
-        `AI-Generated ${fitnessLevel} ${primaryGoal} Plan` : 
-        `Personalized ${fitnessLevel} ${primaryGoal} Plan`;
-      
-      
       return {
-        plan_name: planName,
+        plan_name: "Fallback Workout Plan",
         duration_weeks: 4,
-        sessions_per_week: 4, // Better default than 3 for most users
-        target_level: fitnessLevel,
-        primary_goal: primaryGoal,
-        weekly_schedule: extractedSessions,
+        sessions_per_week: 3,
+        target_level: "intermediate",
+        primary_goal: "general_fitness",
+        weekly_schedule: [],
         progression_plan: {},
         nutrition_tips: ["Stay hydrated", "Eat balanced meals"],
         safety_guidelines: ["Warm up properly", "Listen to your body"],
