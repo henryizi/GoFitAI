@@ -646,6 +646,10 @@ CRITICAL REQUIREMENTS:
 5. All arrays and objects must be properly closed
 6. No trailing commas
 7. Escape any quotes within strings
+8. 🚨 ABSOLUTELY CRITICAL: Each workout day MUST have AT LEAST 4-6 exercises in the main_workout array
+9. 🚨 DO NOT return empty arrays for warm_up, main_workout, or cool_down
+10. 🚨 Every training day MUST include specific exercise names with sets, reps, and rest periods
+11. 🚨 VALIDATION CHECK: Before returning, count the exercises in each day's main_workout array - it must be 4-6 exercises minimum
 
 USER PROFILE:
 - Fitness Level: ${fitnessLevel}
@@ -662,7 +666,7 @@ WORKOUT SPECIFICATIONS:
 - Focus: ${goalConfig.focus}
 - Equipment: ${levelConfig.equipment}
 
-EXERCISE EXAMPLES TO USE:
+EXERCISE EXAMPLES TO USE (YOU MUST INCLUDE THESE IN YOUR RESPONSE):
 ${JSON.stringify(exercises, null, 2)}
 
 RESPONSE FORMAT (copy this exact structure):
@@ -718,7 +722,16 @@ RESPONSE FORMAT (copy this exact structure):
   "estimated_results": "Visible improvements in 2-4 weeks with consistent training"
 }
 
-IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.`;
+IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.
+
+🚨 FINAL PRE-SUBMISSION CHECKLIST - YOU MUST VERIFY:
+1. Did you include ${daysPerWeek} training days in the weekly_schedule array?
+2. Does each training day have a populated main_workout array with 4-6 exercises?
+3. Are warm_up and cool_down arrays populated (not empty)?
+4. Do all exercises have name, sets, reps, and rest/duration fields?
+5. Is your JSON syntactically valid with no trailing commas?
+
+IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
   }
 
   /**
@@ -1014,6 +1027,25 @@ IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. U
       main_workout: day.main_workout || [],
       cool_down: day.cool_down || []
     }));
+
+    // 🚨 CRITICAL VALIDATION: Check if ALL workout days have empty exercises
+    const workoutDays = validated.weekly_schedule.filter(day => 
+      !day.day_name?.toLowerCase().includes('rest') && 
+      day.workout_type?.toLowerCase() !== 'rest'
+    );
+    
+    const emptyDaysCount = workoutDays.filter(day => 
+      (!day.warm_up || day.warm_up.length === 0) &&
+      (!day.main_workout || day.main_workout.length === 0) &&
+      (!day.cool_down || day.cool_down.length === 0)
+    ).length;
+
+    // If more than half of workout days have no exercises, the plan is invalid
+    if (workoutDays.length > 0 && emptyDaysCount / workoutDays.length > 0.5) {
+      console.error('[GEMINI TEXT] ❌ VALIDATION FAILED: Most workout days have empty exercises');
+      console.error('[GEMINI TEXT] Workout days:', workoutDays.length, 'Empty days:', emptyDaysCount);
+      throw new Error('Gemini returned invalid workout plan with empty exercises - triggering fallback');
+    }
 
     // Fallback: if Gemini returned an empty schedule, synthesize a basic one
     if (!validated.weekly_schedule || validated.weekly_schedule.length === 0) {
