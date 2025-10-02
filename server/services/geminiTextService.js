@@ -331,7 +331,7 @@ class GeminiTextService {
       console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
 
       // Use longer timeout and more retries for workout plan generation
-      const maxRetries = 3; // Workout plans need more retries due to complexity
+      const maxRetries = 4; // Workout plans need more retries due to complexity and frequent 503 errors
       const result = await this.generateContentWithRetry([prompt], maxRetries);
       console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
 
@@ -828,7 +828,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
                                 contentStr.includes('nutrition') || contentStr.includes('fitness') ||
                                 contentStr.includes('personalized workout') || contentStr.includes('CLIENT PROFILE') ||
                                 contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
-        const timeoutDuration = isComplexRequest ? 90000 : 30000; // 90s for complex, 30s for simple - allows AI generation
+        const timeoutDuration = isComplexRequest ? 120000 : 60000; // 120s for complex, 60s for simple - allows AI generation time
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
         // Add exponential backoff delay for retries
@@ -940,14 +940,16 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
         
         if (isRetryable && attempt < maxRetries) {
           // Exponential backoff with jitter to prevent thundering herd
-          const baseDelay = 1000; // 1 second base
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-          const jitter = Math.random() * 500; // Add up to 500ms jitter
-          const delay = Math.min(exponentialDelay + jitter, 8000); // Max 8s to prevent excessive delays
+          // For 503 Service Unavailable (model overloaded), use longer delays
+          const baseDelay = isServiceUnavailable ? 3000 : 1000; // 3s base for 503, 1s for others
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 3s, 6s, 12s for 503; 1s, 2s, 4s for others
+          const jitter = Math.random() * 1000; // Add up to 1s jitter
+          const delay = Math.min(exponentialDelay + jitter, isServiceUnavailable ? 15000 : 8000); // Max 15s for 503, 8s for others
 
           console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
           console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
           console.log(`[GEMINI TEXT] Error message:`, error.message);
+          console.log(`[GEMINI TEXT] Service unavailable (503):`, isServiceUnavailable);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
 
