@@ -33,15 +33,15 @@ class GeminiTextService {
       this.genAI = new GoogleGenerativeAI(bestKey);
       const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
       this.modelName = modelName;
-      this.model = this.genAI.getGenerativeModel({
+    this.model = this.genAI.getGenerativeModel({ 
         model: modelName,
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          maxOutputTokens: 8000
-        }
-      });
-
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.95,
+        maxOutputTokens: 8000
+      }
+    });
+    
       console.log('[GEMINI TEXT] Using key with best quota availability');
     } catch (error) {
       console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
@@ -316,17 +316,12 @@ class GeminiTextService {
    * @param {Object} preferences - Workout preferences
    * @returns {Promise<Object>} Generated workout plan
    */
-  async generateWorkoutPlan(userProfile, preferences) {
+  async generateWorkoutPlan(prompt) {
     try {
-      console.log('[GEMINI TEXT] Generating workout plan');
-      console.log('[GEMINI TEXT] User level:', userProfile.fitnessLevel);
-      console.log('[GEMINI TEXT] Goal:', userProfile.primaryGoal);
-      console.log('[GEMINI TEXT] User profile keys:', Object.keys(userProfile));
-      console.log('[GEMINI TEXT] Full user profile:', JSON.stringify(userProfile, null, 2));
+      console.log('[GEMINI TEXT] Generating workout plan with provided prompt');
 
       const startTime = Date.now();
 
-      const prompt = this.createWorkoutPrompt(userProfile, preferences);
       console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
       console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
 
@@ -375,7 +370,7 @@ class GeminiTextService {
    * Creates a detailed prompt for recipe generation
    */
   createRecipePrompt(mealType, targets, ingredients, strict) {
-    const strictnessNote = strict
+    const strictnessNote = strict 
       ? "You MUST use ONLY the ingredients listed. Do not add any other ingredients, seasonings, or components."
       : "Use primarily the listed ingredients, but you may add basic seasonings (salt, pepper, herbs) if needed for flavor.";
 
@@ -401,7 +396,7 @@ CRITICAL REQUIREMENTS:
 7. Escape any quotes within strings
 
 MEAL TYPE: ${mealType}
-NUTRITIONAL TARGETS:
+NUTRITIONAL TARGETS: 
 - Calories: ${targets.calories} kcal
 - Protein: ${targets.protein}g
 - Carbohydrates: ${targets.carbs}g
@@ -454,337 +449,6 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
   }
 
   /**
-   * Creates a detailed prompt for workout plan generation
-   */
-  createWorkoutPrompt(userProfile, preferences) {
-    // Enhanced customization based on user profile
-    const fitnessLevel = userProfile.fitnessLevel || 'intermediate';
-    const primaryGoal = userProfile.primaryGoal || 'general_fitness';
-    const age = userProfile.age || 25;
-
-    // Use userProfile.workoutFrequency if available, otherwise fall back to preferences
-    let daysPerWeek;
-    if (userProfile.workoutFrequency) {
-      // Convert workout frequency format to number of days
-      if (userProfile.workoutFrequency === '1') {
-        daysPerWeek = 1;
-      } else if (userProfile.workoutFrequency === '2_3') {
-        // For 2-3 times per week, randomly choose between 2 and 3 days
-        daysPerWeek = Math.random() < 0.5 ? 2 : 3;
-      } else if (userProfile.workoutFrequency === '4_5') {
-        // For 4-5 times per week, randomly choose between 4 and 5 days
-        daysPerWeek = Math.random() < 0.5 ? 4 : 5;
-      } else if (userProfile.workoutFrequency === '6') {
-        daysPerWeek = 6;
-      } else if (userProfile.workoutFrequency === '7') {
-        daysPerWeek = 7;
-      } else {
-        daysPerWeek = parseInt(userProfile.workoutFrequency) || 4;
-      }
-    } else {
-      daysPerWeek = preferences?.daysPerWeek || 4;
-    }
-
-    const sessionDuration = preferences?.sessionDuration || 45;
-    const gender = (userProfile.gender || 'unspecified').toLowerCase();
-
-    // Customize based on fitness level
-    const levelSpecific = {
-      beginner: {
-        intensity: 'low to moderate',
-        restPeriods: '90-120 seconds',
-        sets: '2-3 sets',
-        reps: '10-15 reps',
-        focus: 'form and technique',
-        equipment: 'bodyweight and basic equipment',
-        progression: 'gradual increase in repetitions'
-      },
-      intermediate: {
-        intensity: 'moderate to high',
-        restPeriods: '60-90 seconds',
-        sets: '3-4 sets',
-        reps: '8-12 reps',
-        focus: 'strength and muscle building',
-        equipment: 'dumbbells, resistance bands, gym equipment',
-        progression: 'increase weight and complexity'
-      },
-      advanced: {
-        intensity: 'high to very high',
-        restPeriods: '45-75 seconds',
-        sets: '4-5 sets',
-        reps: '6-10 reps',
-        focus: 'power and advanced techniques',
-        equipment: 'barbells, advanced gym equipment',
-        progression: 'supersets, drop sets, advanced techniques'
-      }
-    };
-
-    const levelConfig = levelSpecific[fitnessLevel] || levelSpecific.intermediate;
-
-    // Customize based on primary goal
-    const goalSpecific = {
-      muscle_gain: {
-        focus: 'hypertrophy and strength',
-        repRange: levelConfig.reps,
-        restTime: levelConfig.restPeriods,
-        exercises: 'compound movements with isolation exercises',
-        volume: 'higher volume with moderate intensity',
-        nutrition: 'high protein intake, caloric surplus'
-      },
-      fat_loss: {
-        focus: 'calorie burn and metabolic conditioning',
-        repRange: '12-20 reps',
-        restTime: '30-60 seconds',
-        exercises: 'full body circuits and HIIT',
-        volume: 'high intensity with shorter rest periods',
-        nutrition: 'caloric deficit, high protein'
-      },
-      strength: {
-        focus: 'maximal strength development',
-        repRange: '3-6 reps',
-        restTime: '2-5 minutes',
-        exercises: 'compound movements with progressive overload',
-        volume: 'lower volume with high intensity',
-        nutrition: 'adequate protein, progressive overload'
-      },
-      endurance: {
-        focus: 'cardiovascular fitness and muscular endurance',
-        repRange: '15-30 reps',
-        restTime: '30-45 seconds',
-        exercises: 'bodyweight and light resistance',
-        volume: 'high repetition with low weight',
-        nutrition: 'balanced macronutrients, hydration focus'
-      },
-      general_fitness: {
-        focus: 'overall health and fitness',
-        repRange: levelConfig.reps,
-        restTime: levelConfig.restPeriods,
-        exercises: 'balanced mix of cardio and strength',
-        volume: 'moderate volume and intensity',
-        nutrition: 'balanced nutrition, consistency'
-      },
-      hypertrophy: {
-        focus: 'muscle building and hypertrophy',
-        repRange: '8-12 reps',
-        restTime: '60-90 seconds',
-        exercises: 'compound and isolation movements',
-        volume: 'higher volume with moderate intensity',
-        nutrition: 'high protein, caloric surplus, progressive overload'
-      },
-      athletic_performance: {
-        focus: 'sports-specific training and athletic development',
-        repRange: '6-12 reps',
-        restTime: '60-120 seconds',
-        exercises: 'sport-specific movements and functional training',
-        volume: 'moderate to high volume with sport-specific intensity',
-        nutrition: 'performance-focused nutrition, adequate protein and carbs'
-      }
-    };
-
-    const goalConfig = goalSpecific[primaryGoal] || goalSpecific.general_fitness;
-
-    // Generate appropriate workout split based on frequency
-    const workoutSplit = this.generateWorkoutSplit(daysPerWeek, primaryGoal, fitnessLevel);
-
-    // Generate workout exercises based on goal and level
-    const exercisesByGoal = {
-      athletic_performance: {
-        beginner: [
-          { name: "Bodyweight Squats", sets: 3, reps: "12-15", rest: 60 },
-          { name: "Push-ups (modified)", sets: 3, reps: "8-12", rest: 60 },
-          { name: "Bent-over Rows (bodyweight)", sets: 3, reps: "10-12", rest: 60 },
-          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 },
-          { name: "Jumping Jacks", sets: 3, reps: "30-45 seconds", rest: 60 }
-        ],
-        intermediate: [
-          { name: "Goblet Squats", sets: 4, reps: "10-12", rest: 90 },
-          { name: "Push-ups", sets: 4, reps: "8-12", rest: 90 },
-          { name: "Dumbbell Rows", sets: 4, reps: "10-12", rest: 90 },
-          { name: "Lunges", sets: 4, reps: "8-10 per leg", rest: 90 },
-          { name: "Burpees", sets: 4, reps: "6-8", rest: 90 }
-        ],
-        advanced: [
-          { name: "Front Squats", sets: 5, reps: "8-10", rest: 120 },
-          { name: "Plyometric Push-ups", sets: 5, reps: "6-8", rest: 120 },
-          { name: "Pull-ups", sets: 5, reps: "6-10", rest: 120 },
-          { name: "Box Jumps", sets: 5, reps: "8-10", rest: 120 },
-          { name: "Medicine Ball Slams", sets: 5, reps: "10-12", rest: 120 }
-        ]
-      },
-      general_fitness: {
-        beginner: [
-          { name: "Walking Lunges", sets: 3, reps: "10 per leg", rest: 60 },
-          { name: "Wall Push-ups", sets: 3, reps: "12-15", rest: 60 },
-          { name: "Seated Rows", sets: 3, reps: "12-15", rest: 60 },
-          { name: "Plank", sets: 3, reps: "20-30 seconds", rest: 60 }
-        ],
-        intermediate: [
-          { name: "Dumbbell Squats", sets: 3, reps: "10-12", rest: 90 },
-          { name: "Dumbbell Bench Press", sets: 3, reps: "10-12", rest: 90 },
-          { name: "Dumbbell Rows", sets: 3, reps: "10-12", rest: 90 },
-          { name: "Overhead Press", sets: 3, reps: "8-10", rest: 90 }
-        ],
-        advanced: [
-          { name: "Barbell Back Squats", sets: 4, reps: "8-10", rest: 120 },
-          { name: "Bench Press", sets: 4, reps: "6-8", rest: 120 },
-          { name: "Deadlifts", sets: 4, reps: "6-8", rest: 120 },
-          { name: "Pull-ups", sets: 4, reps: "8-10", rest: 120 }
-        ]
-      }
-    };
-
-    const goalExercises = exercisesByGoal[primaryGoal] || exercisesByGoal.general_fitness;
-    const exercises = goalExercises[fitnessLevel] || goalExercises.intermediate;
-
-    return `You are a professional fitness trainer. Create a detailed workout plan as valid JSON ONLY.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON - no text, explanations, or markdown
-2. Start response immediately with { and end with }
-3. Use double quotes for all strings and property names
-4. Ensure all numbers are complete (e.g., 4.0, not 4.)
-5. All arrays and objects must be properly closed
-6. No trailing commas
-7. Escape any quotes within strings
-8. 🚨 ABSOLUTELY CRITICAL: Each workout day MUST have AT LEAST 4-6 exercises in the main_workout array
-9. 🚨 DO NOT return empty arrays for warm_up, main_workout, or cool_down
-10. 🚨 Every training day MUST include specific exercise names with sets, reps, and rest periods
-11. 🚨 VALIDATION CHECK: Before returning, count the exercises in each day's main_workout array - it must be 4-6 exercises minimum
-
-USER PROFILE:
-- Fitness Level: ${fitnessLevel}
-- Primary Goal: ${primaryGoal}
-- Workout Days: ${daysPerWeek} per week
-- Session Duration: ${sessionDuration} minutes
-- Gender: ${gender}
-- Age: ${age}
-
-WORKOUT SPECIFICATIONS:
-- Rep Range: ${goalConfig.repRange}
-- Rest Periods: ${goalConfig.restTime}
-- Intensity: ${levelConfig.intensity}
-- Focus: ${goalConfig.focus}
-- Equipment: ${levelConfig.equipment}
-
-EXERCISE EXAMPLES TO USE (YOU MUST INCLUDE THESE IN YOUR RESPONSE):
-${JSON.stringify(exercises, null, 2)}
-
-RESPONSE FORMAT (copy this exact structure):
-{
-  "plan_name": "Personalized ${fitnessLevel} ${primaryGoal} Plan",
-  "duration_weeks": 4,
-  "sessions_per_week": ${daysPerWeek},
-  "target_level": "${fitnessLevel}",
-  "primary_goal": "${primaryGoal}",
-  "workout_split": "${workoutSplit}",
-  "weekly_schedule": [
-    {
-      "day": 1,
-      "day_name": "Day 1",
-      "focus": "Upper Body",
-      "workout_type": "Strength Training",
-      "duration_minutes": ${sessionDuration},
-      "warm_up": [
-        {
-          "exercise": "Light Cardio",
-          "duration": "5 minutes",
-          "instructions": "Easy pace to elevate heart rate"
-        }
-      ],
-      "main_workout": ${JSON.stringify(exercises.slice(0, Math.ceil(exercises.length / daysPerWeek)), null, 2)},
-      "cool_down": [
-        {
-          "exercise": "Stretching",
-          "duration": "5 minutes",
-          "instructions": "Focus on muscles trained today"
-        }
-      ]
-    }
-  ],
-  "progression_plan": {
-    "week_1": "Focus on form and technique",
-    "week_2": "Increase weight and intensity",
-    "week_3": "Add complexity and variations",
-    "week_4": "Peak performance and testing"
-  },
-  "nutrition_tips": [
-    "${goalConfig.nutrition}",
-    "Stay hydrated throughout the day",
-    "Eat balanced meals with adequate protein"
-  ],
-  "safety_guidelines": [
-    "Always warm up before exercising",
-    "Stop immediately if you feel pain",
-    "Maintain proper form during all exercises",
-    "Consult a doctor before starting new exercise program"
-  ],
-  "equipment_needed": ["${levelConfig.equipment}"],
-  "estimated_results": "Visible improvements in 2-4 weeks with consistent training"
-}
-
-IMPORTANT: Ensure your response is complete, valid JSON with no syntax errors. Use the exercise examples provided above.
-
-🚨 FINAL PRE-SUBMISSION CHECKLIST - YOU MUST VERIFY:
-1. Did you include ${daysPerWeek} training days in the weekly_schedule array?
-2. Does each training day have a populated main_workout array with 4-6 exercises?
-3. Are warm_up and cool_down arrays populated (not empty)?
-4. Do all exercises have name, sets, reps, and rest/duration fields?
-5. Is your JSON syntactically valid with no trailing commas?
-
-IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
-  }
-
-  /**
-   * Generates appropriate workout split based on frequency and goals
-   */
-  generateWorkoutSplit(daysPerWeek, primaryGoal, fitnessLevel) {
-    const splits = {
-      2: {
-        hypertrophy: "Full Body Split (2x per week)",
-        fat_loss: "Full Body HIIT (2x per week)",
-        strength: "Full Body Strength (2x per week)",
-        endurance: "Full Body Endurance (2x per week)",
-        general_fitness: "Full Body Fitness (2x per week)",
-        athletic_performance: "Full Body Athletic (2x per week)"
-      },
-      3: {
-        hypertrophy: "Push/Pull/Legs or Full Body (3x per week)",
-        fat_loss: "Full Body Circuits (3x per week)",
-        strength: "Full Body Strength (3x per week)",
-        endurance: "Full Body Endurance (3x per week)",
-        general_fitness: "Full Body Fitness (3x per week)",
-        athletic_performance: "Full Body Athletic (3x per week)"
-      },
-      4: {
-        hypertrophy: "Upper/Lower Split (4x per week)",
-        fat_loss: "Full Body + Cardio (4x per week)",
-        strength: "Upper/Lower Strength (4x per week)",
-        endurance: "Full Body + Cardio (4x per week)",
-        general_fitness: "Upper/Lower Fitness (4x per week)",
-        athletic_performance: "Upper/Lower Athletic (4x per week)"
-      },
-      5: {
-        hypertrophy: "Push/Pull/Legs/Upper/Lower (5x per week)",
-        fat_loss: "Full Body + Cardio + HIIT (5x per week)",
-        strength: "Push/Pull/Legs/Upper/Lower (5x per week)",
-        endurance: "Full Body + Cardio + Endurance (5x per week)",
-        general_fitness: "Push/Pull/Legs/Upper/Lower (5x per week)",
-        athletic_performance: "Push/Pull/Legs/Upper/Lower Athletic (5x per week)"
-      },
-      6: {
-        hypertrophy: "Push/Pull/Legs/Upper/Lower/Cardio (6x per week)",
-        fat_loss: "Full Body + Cardio + HIIT + Recovery (6x per week)",
-        strength: "Push/Pull/Legs/Upper/Lower/Recovery (6x per week)",
-        endurance: "Full Body + Cardio + Endurance + Recovery (6x per week)",
-        general_fitness: "Push/Pull/Legs/Upper/Lower/Cardio (6x per week)",
-        athletic_performance: "Push/Pull/Legs/Upper/Lower/Cardio Athletic (6x per week)"
-      }
-    };
-
-    return splits[daysPerWeek]?.[primaryGoal] || splits[daysPerWeek]?.general_fitness || "Custom Split";
-  }
-
-  /**
    * Generate text content using Gemini AI
    * @param {string} prompt - The text prompt to send to Gemini
    * @returns {Promise<string>} Generated text response
@@ -818,7 +482,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
-
+        
         // Add timeout to prevent hanging requests - reasonable timeout for AI generation
         // Complex requests need more time for AI to generate comprehensive content
         // Convert content to string for checking (content might be array or string)
@@ -828,7 +492,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
                                 contentStr.includes('nutrition') || contentStr.includes('fitness') ||
                                 contentStr.includes('personalized workout') || contentStr.includes('CLIENT PROFILE') ||
                                 contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
-        const timeoutDuration = isComplexRequest ? 120000 : 60000; // 120s for complex, 60s for simple - allows AI generation time
+        const timeoutDuration = isComplexRequest ? 180000 : 90000; // 180s for complex, 90s for simple - allows AI generation time in Railway
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
         // Add exponential backoff delay for retries
@@ -846,7 +510,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
         console.log('[GEMINI TEXT] Model object:', !!this.model);
         console.log('[GEMINI TEXT] Content type:', Array.isArray(content) ? 'array' : typeof content);
         console.log('[GEMINI TEXT] Content length:', Array.isArray(content) ? content.length : content.length);
-
+        
         const result = await Promise.race([
           this.model.generateContent(content),
           timeoutPromise
@@ -910,7 +574,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
         console.error('[GEMINI TEXT] Error stack:', error.stack);
         console.error('[GEMINI TEXT] Error constructor:', error.constructor.name);
 
-        const isServiceUnavailable = error.message.includes('503') ||
+        const isServiceUnavailable = error.message.includes('503') || 
                                    error.message.includes('Service Unavailable') ||
                                    error.message.includes('overloaded') ||
                                    error.message.includes('quota') ||
@@ -952,7 +616,7 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
           console.log(`[GEMINI TEXT] Service unavailable (503):`, isServiceUnavailable);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
-
+          
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -1013,12 +677,12 @@ IF ANY OF THESE ARE "NO", DO NOT SUBMIT. FIX YOUR RESPONSE FIRST.`;
       sessions_per_week: Math.max(plan.sessions_per_week || 3, 1),
       target_level: plan.target_level || "intermediate",
       primary_goal: plan.primary_goal || "general fitness",
-      weekly_schedule: plan.weekly_schedule || [],
-      progression_plan: plan.progression_plan || {},
+      weekly_schedule: plan.weekly_schedule || plan.weeklySchedule || [],
+      progression_plan: plan.progression_plan || plan.progression || {},
       nutrition_tips: plan.nutrition_tips || [],
       safety_guidelines: plan.safety_guidelines || [],
       equipment_needed: plan.equipment_needed || [],
-      estimated_results: plan.estimated_results || "Results vary by individual commitment and consistency"
+      estimated_results: plan.estimated_results || plan.estimatedTimePerSession || "Results vary by individual commitment and consistency"
     };
 
     // Ensure weekly schedule has proper structure

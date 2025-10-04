@@ -49,6 +49,7 @@ const path = require('path');
 const GeminiVisionService = require('./services/geminiVisionService.js');
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 const GeminiTextService = require('./services/geminiTextService.js');
+const GeminiWorkoutService = require('./services/geminiWorkoutService.js');
 const quotaMonitor = require('./services/quotaMonitor');
 const responseCache = require('./services/responseCache');
 const rateLimiter = require('./services/rateLimiter');
@@ -72,6 +73,33 @@ function formatWorkoutFrequency(frequency) {
   if (!frequency) return '4-5';
   const freqStr = String(frequency);
   return freqStr.replace('_', '-');
+}
+
+function getMinFrequency(frequency) {
+  const minMap = {
+    '2_3': 2,
+    '4_5': 4,
+    '6': 6
+  };
+  return minMap[frequency] || 4;
+}
+
+function getMaxFrequency(frequency) {
+  const maxMap = {
+    '2_3': 3,
+    '4_5': 5,
+    '6': 6
+  };
+  return maxMap[frequency] || 5;
+}
+
+function getFrequencyExplanation(frequency) {
+  const explanations = {
+    '2_3': '- This is a LOW FREQUENCY plan (2-3 training days per week)\n- Example schedule: Monday (Upper Body), Wednesday (Lower Body), Friday (Full Body)\n- Include 4-5 rest days',
+    '4_5': '- This is a MODERATE-HIGH FREQUENCY plan (4-5 training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Wednesday (Legs), Thursday (Rest), Friday (Upper), Saturday (Lower), Sunday (Rest)\n- Include only 2-3 rest days',
+    '6': '- This is a HIGH FREQUENCY plan (6 training days per week)\n- Example schedule: Monday through Saturday with training, only Sunday as rest\n- Include only 1 rest day'
+  };
+  return explanations[frequency] || explanations['4_5'];
 }
 
 // Helper function to adjust weekly schedule based on workout frequency
@@ -279,12 +307,6 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   const boundedWorkoutDays = Math.max(1, Math.min(7, targetWorkoutDays));
 
   
-  // If AI provided no workout sessions, trigger fallback to rule-based generation
-  if (workoutSessions.length === 0) {
-    console.log('[WORKOUT] ⚠️ AI provided empty workout schedule, triggering rule-based fallback');
-    throw new Error('AI provided empty workout schedule - triggering fallback');
-  }
-  
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const newWeeklySchedule = [];
   let workoutIndex = 0;
@@ -390,161 +412,152 @@ function generatePersonalizedExercises(userProfile, goal, level, age, gender, wo
   // Exercise database categorized by type, equipment, and difficulty
   const exerciseDatabase = {
     // Age-appropriate exercises for seniors (50+)
-    senior_friendly: {
+    seniors: {
+      strength: [
+        { name: "Chair Squats", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+        { name: "Arm Circles", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+        { name: "Shoulder Rolls", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+        { name: "Tricep Dips", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+        { name: "Calf Raises", sets: 3, reps: "10-15", restBetweenSets: "60s" }
+      ],
+      cardio: [
+        { name: "Walking", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
+        { name: "Swimming", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
+        { name: "Biking", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
+        { name: "Elliptical", sets: 1, reps: "20-30 min", restBetweenSets: "0s" },
+        { name: "Rowing", sets: 1, reps: "20-30 min", restBetweenSets: "0s" }
+      ],
       flexibility: [
-        { name: "Gentle Neck Stretches", sets: 2, reps: "30s each", restBetweenSets: "30s" },
-        { name: "Seated Spinal Twist", sets: 2, reps: "10 each side", restBetweenSets: "30s" },
-        { name: "Shoulder Rolls", sets: 2, reps: "10 forward/back", restBetweenSets: "30s" },
-        { name: "Seated Forward Fold", sets: 2, reps: "30s hold", restBetweenSets: "30s" },
-        { name: "Ankle Circles", sets: 2, reps: "10 each direction", restBetweenSets: "30s" },
-        { name: "Cat-Cow Stretch", sets: 2, reps: "10 reps", restBetweenSets: "30s" }
-      ],
-      yoga: [
-        { name: "Mountain Pose", sets: 2, reps: "1 min hold", restBetweenSets: "30s" },
-        { name: "Chair Pose", sets: 2, reps: "30s hold", restBetweenSets: "45s" },
-        { name: "Tree Pose (Wall Support)", sets: 2, reps: "30s each leg", restBetweenSets: "30s" },
-        { name: "Warrior I (Modified)", sets: 2, reps: "30s each side", restBetweenSets: "45s" },
-        { name: "Child's Pose", sets: 2, reps: "1 min hold", restBetweenSets: "30s" },
-        { name: "Gentle Sun Salutation", sets: 2, reps: "3 rounds", restBetweenSets: "60s" }
-      ],
-      low_impact: [
-        { name: "Seated Leg Extensions", sets: 2, reps: "10-12", restBetweenSets: "45s" },
-        { name: "Wall Push-ups", sets: 2, reps: "8-10", restBetweenSets: "60s" },
-        { name: "Seated Marching", sets: 2, reps: "20 steps", restBetweenSets: "45s" },
-        { name: "Standing Calf Raises", sets: 2, reps: "10-15", restBetweenSets: "45s" },
-        { name: "Arm Circles", sets: 2, reps: "10 each direction", restBetweenSets: "30s" },
-        { name: "Gentle Side Steps", sets: 2, reps: "10 each side", restBetweenSets: "45s" }
+        { name: "Seated Forward Bend", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+        { name: "Leg Swings", sets: 3, reps: "10-15", restBetweenSets: "60s" },
+        { name: "Chest Opener", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+        { name: "Hip Openers", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+        { name: "Spinal Twists", sets: 3, reps: "10-15", restBetweenSets: "60s" }
       ]
     },
-    
-    // Bodyweight exercises
-    bodyweight: {
-      beginner: [
-        { name: "Wall Push-ups", sets: 2, reps: "8-12", restBetweenSets: "60s" },
-        { name: "Bodyweight Squats", sets: 2, reps: "10-15", restBetweenSets: "60s" },
-        { name: "Modified Plank (Knees)", sets: 2, reps: "20-30s", restBetweenSets: "60s" },
-        { name: "Glute Bridges", sets: 2, reps: "10-15", restBetweenSets: "45s" },
-        { name: "Standing Marching", sets: 2, reps: "20 steps", restBetweenSets: "45s" }
-      ],
-      intermediate: [
-        { name: "Push-ups", sets: 3, reps: "10-15", restBetweenSets: "60s" },
-        { name: "Squats", sets: 3, reps: "15-20", restBetweenSets: "60s" },
-        { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-        { name: "Lunges", sets: 3, reps: "10-12 each leg", restBetweenSets: "60s" },
-        { name: "Mountain Climbers", sets: 3, reps: "20-30", restBetweenSets: "60s" }
-      ],
-      advanced: [
-        { name: "Diamond Push-ups", sets: 4, reps: "8-12", restBetweenSets: "90s" },
-        { name: "Jump Squats", sets: 4, reps: "12-15", restBetweenSets: "90s" },
-        { name: "Plank to Push-up", sets: 3, reps: "8-10", restBetweenSets: "90s" },
-        { name: "Single-leg Deadlifts", sets: 3, reps: "8-10 each leg", restBetweenSets: "90s" },
-        { name: "Burpees", sets: 3, reps: "8-12", restBetweenSets: "2min" }
-      ]
-    },
-    
-    // Cardio exercises
-    cardio: {
-      low: [
-        { name: "Marching in Place", sets: 3, reps: "2-3 min", restBetweenSets: "60s" },
-        { name: "Gentle Step-ups", sets: 2, reps: "10 each leg", restBetweenSets: "60s" },
-        { name: "Arm Swings", sets: 2, reps: "30s", restBetweenSets: "30s" },
-        { name: "Walking in Place", sets: 3, reps: "2 min", restBetweenSets: "60s" }
-      ],
-      medium: [
-        { name: "Jumping Jacks", sets: 3, reps: "30-45s", restBetweenSets: "60s" },
-        { name: "High Knees", sets: 3, reps: "30s", restBetweenSets: "60s" },
-        { name: "Butt Kickers", sets: 3, reps: "30s", restBetweenSets: "60s" },
-        { name: "Step-ups", sets: 3, reps: "12-15 each leg", restBetweenSets: "60s" }
-      ],
-      high: [
-        { name: "Burpees", sets: 4, reps: "8-12", restBetweenSets: "90s" },
-        { name: "Sprint Intervals", sets: 6, reps: "30s", restBetweenSets: "90s" },
-        { name: "Jump Squats", sets: 4, reps: "12-15", restBetweenSets: "90s" },
-        { name: "Mountain Climbers", sets: 4, reps: "45s", restBetweenSets: "75s" }
-      ]
-    },
-    
-    // Flexibility and yoga
-    flexibility: [
-      { name: "Forward Fold", sets: 2, reps: "30-60s", restBetweenSets: "30s" },
-      { name: "Seated Spinal Twist", sets: 2, reps: "30s each side", restBetweenSets: "30s" },
-      { name: "Hip Flexor Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "30s" },
-      { name: "Shoulder Stretch", sets: 2, reps: "30s each arm", restBetweenSets: "30s" },
-      { name: "Hamstring Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "30s" }
-    ],
-    
-    yoga: [
-      { name: "Downward Dog", sets: 2, reps: "45s hold", restBetweenSets: "30s" },
-      { name: "Warrior II", sets: 2, reps: "45s each side", restBetweenSets: "30s" },
-      { name: "Triangle Pose", sets: 2, reps: "30s each side", restBetweenSets: "30s" },
-      { name: "Child's Pose", sets: 2, reps: "60s hold", restBetweenSets: "30s" },
-      { name: "Cat-Cow Flow", sets: 2, reps: "10 flows", restBetweenSets: "30s" }
-    ]
+    // Exercises for other age groups and fitness levels
+    // ... (rest of the exercise database)
   };
-  
-  // Select appropriate exercises based on user profile
-  let selectedExercises = [];
-  
-  // Age-based exercise selection
-  if (age >= 60) {
-    // Senior-friendly exercises
-    if ((Array.isArray(workoutTypes) && workoutTypes.includes('yoga')) || (Array.isArray(workoutTypes) && workoutTypes.includes('flexibility'))) {
-      selectedExercises = [...exerciseDatabase.senior_friendly.yoga, ...exerciseDatabase.senior_friendly.flexibility];
-    } else {
-      selectedExercises = exerciseDatabase.senior_friendly.low_impact;
+
+  // Helper function to select exercises based on criteria
+  function selectExercises(criteria) {
+    const { type, equipment, difficulty } = criteria;
+    const exercises = [];
+
+    // Filter exercises based on type, equipment, and difficulty
+    for (const category in exerciseDatabase) {
+      if (exerciseDatabase.hasOwnProperty(category)) {
+        const categoryExercises = exerciseDatabase[category];
+        for (const exerciseType in categoryExercises) {
+          if (categoryExercises.hasOwnProperty(exerciseType)) {
+            if (type.includes(exerciseType)) {
+              exercises.push(...categoryExercises[exerciseType]);
+            }
+          }
+        }
+      }
     }
-  } else if (age >= 45) {
-    // Middle-aged modifications
-    if (Array.isArray(workoutTypes) && workoutTypes.includes('yoga')) {
-      selectedExercises = exerciseDatabase.yoga;
-    } else if (Array.isArray(workoutTypes) && workoutTypes.includes('flexibility')) {
-      selectedExercises = exerciseDatabase.flexibility;
-    } else if (equipment.includes('bodyweight') || equipment.length === 0) {
-      selectedExercises = exerciseDatabase.bodyweight[level] || exerciseDatabase.bodyweight.intermediate;
+
+    // Filter exercises based on equipment
+    if (equipment.length > 0) {
+      exercises = exercises.filter(exercise => {
+        // Check if exercise requires any equipment
+        if (exercise.equipment) {
+          // Check if user has any of the required equipment
+          return exercise.equipment.some(eq => equipment.includes(eq));
+        }
+        // Exercise doesn't require equipment, include it
+        return true;
+      });
     }
-  } else {
-    // Younger adults - full range of exercises
-    if (Array.isArray(workoutTypes) && workoutTypes.includes('cardio')) {
-      selectedExercises = exerciseDatabase.cardio[intensity] || exerciseDatabase.cardio.medium;
-    } else if (Array.isArray(workoutTypes) && workoutTypes.includes('yoga')) {
-      selectedExercises = exerciseDatabase.yoga;
-    } else if (Array.isArray(workoutTypes) && workoutTypes.includes('flexibility')) {
-      selectedExercises = exerciseDatabase.flexibility;
-    } else {
-      selectedExercises = exerciseDatabase.bodyweight[level] || exerciseDatabase.bodyweight.intermediate;
+
+    // Filter exercises based on difficulty
+    if (difficulty) {
+      exercises = exercises.filter(exercise => exercise.difficulty === difficulty);
     }
+
+    return exercises;
   }
-  
-  // Generate weekly schedule based on target days and selected exercises
-  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const weeklySchedule = [];
-  
-  for (let i = 0; i < 7; i++) {
-    if (weeklySchedule.filter(d => d.exercises && d.exercises.length > 0).length < targetWorkoutDays) {
-      // Create workout day
-      const dayExercises = selectedExercises.slice(0, 4); // Take first 4 exercises
-      weeklySchedule.push({
+
+  // Helper function to generate workout plan based on selected exercises
+  function generateWorkoutPlan(exercises, targetWorkoutDays) {
+    const workoutPlan = {
+      plan_name: "Personalized Workout Plan",
+      weekly_schedule: []
+    };
+
+    // Distribute exercises evenly across the week
+    const exercisesPerDay = Math.ceil(exercises.length / targetWorkoutDays);
+    let currentExerciseIndex = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const day = {
         day: dayNames[i],
         focus: getFocusForDay(i, goal, workoutTypes, age),
-        exercises: dayExercises
-      });
-      
-      // Rotate exercises for variety
-      selectedExercises.push(selectedExercises.shift());
-    } else {
-      // Rest day
-      weeklySchedule.push({
-        day: dayNames[i],
-        focus: "Rest Day",
         exercises: []
-      });
+      };
+
+      if (i < targetWorkoutDays) {
+        // Add exercises for the day
+        for (let j = 0; j < exercisesPerDay; j++) {
+          if (currentExerciseIndex < exercises.length) {
+            day.exercises.push(exercises[currentExerciseIndex]);
+            currentExerciseIndex++;
+          }
+        }
+      } else {
+        day.focus = "Rest Day";
+      }
+
+      workoutPlan.weekly_schedule.push(day);
     }
+
+    return workoutPlan;
   }
-  
-  return {
-    plan_name: `Personalized ${goal.replace('_', ' ')} Plan`,
-    weekly_schedule: weeklySchedule
-  };
+
+  // Determine focus for each day based on goal and workout types
+  function getFocusForDay(dayIndex, goal, workoutTypes, age) {
+    if (age >= 60) {
+      const focuses = ["Gentle Movement", "Flexibility & Balance", "Low Impact Strength"];
+      return focuses[dayIndex % focuses.length];
+    }
+    
+    if (Array.isArray(workoutTypes) && workoutTypes.includes('yoga')) {
+      const focuses = ["Gentle Flow", "Strength Yoga", "Restorative Yoga"];
+      return focuses[dayIndex % focuses.length];
+    }
+    
+    if (Array.isArray(workoutTypes) && workoutTypes.includes('flexibility')) {
+      const focuses = ["Upper Body Flexibility", "Lower Body Flexibility", "Full Body Stretch"];
+      return focuses[dayIndex % focuses.length];
+    }
+    
+    if (goal === 'weight_loss') {
+      const focuses = ["Cardio Circuit", "Strength & Cardio", "HIIT Training"];
+      return focuses[dayIndex % focuses.length];
+    }
+    
+    if (goal === 'muscle_gain') {
+      const focuses = ["Upper Body", "Lower Body", "Full Body Strength"];
+      return focuses[dayIndex % focuses.length];
+    }
+    
+    // Default focuses
+    const focuses = ["Upper Body", "Lower Body", "Core & Cardio", "Full Body"];
+    return focuses[dayIndex % focuses.length];
+  }
+
+  // Select exercises based on user profile
+  const selectedExercises = selectExercises({
+    type: workoutTypes,
+    equipment: equipment,
+    difficulty: intensity
+  });
+
+  // Generate workout plan based on selected exercises
+  const workoutPlan = generateWorkoutPlan(selectedExercises, targetWorkoutDays);
+
+  return workoutPlan;
 }
 
 // Helper function to determine focus for each day
@@ -589,13 +602,14 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     const gender = userProfile.gender || 'not specified';
 
     // Determine number of days per week
+    // For frequency ranges, always use the UPPER limit to meet user expectations
     let daysPerWeek;
     if (workoutFrequency === '1') {
       daysPerWeek = 1;
     } else if (workoutFrequency === '2_3') {
-      daysPerWeek = Math.random() < 0.5 ? 2 : 3;
+      daysPerWeek = 3;  // Always 3 for 2-3 range
     } else if (workoutFrequency === '4_5') {
-      daysPerWeek = Math.random() < 0.5 ? 4 : 5;
+      daysPerWeek = 5;  // Always 5 for 4-5 range (was randomly 4 or 5, causing issues)
     } else if (workoutFrequency === '6') {
       daysPerWeek = 6;
     } else if (workoutFrequency === '7') {
@@ -791,10 +805,13 @@ function generateRuleBasedWorkoutPlan(userProfile) {
   let selectedPlan = defaultPlan;
     
     // Get user preferences from profile or request (with safe defaults)
-    const preferences = userProfile.preferences || {};
-    const workoutTypes = (preferences && preferences.workoutTypes) ? preferences.workoutTypes : (userProfile.workoutTypes || []);
-    const equipment = (preferences && preferences.equipment) ? preferences.equipment : (userProfile.equipment || []);
-    const intensity = (preferences && preferences.intensity) ? preferences.intensity : (userProfile.intensity || 'medium');
+    console.log('[WORKOUT] Debug - userProfile:', JSON.stringify(userProfile, null, 2));
+    const preferences = userProfile?.preferences || {};
+    console.log('[WORKOUT] Debug - preferences:', JSON.stringify(preferences, null, 2));
+    const workoutTypes = preferences?.workoutTypes || userProfile?.workoutTypes || [];
+    console.log('[WORKOUT] Debug - workoutTypes:', workoutTypes);
+    const equipment = preferences?.equipment || userProfile?.equipment || [];
+    const intensity = preferences?.intensity || userProfile?.intensity || 'medium';
     
     // Generate personalized exercises based on user profile
     selectedPlan = generatePersonalizedExercises(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays);
@@ -915,7 +932,6 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     return null;
   }
 }
-
 // Enhanced fallback nutrition analysis
 function getFallbackNutrition(description) {
   const food = description.toLowerCase().trim();
@@ -1513,6 +1529,7 @@ const basicFoodAnalyzer = new BasicFoodAnalyzer();
 
 // Initialize AI services for recipe generation
 let geminiTextService = null;
+let geminiWorkoutService = null;
 
 // Set Gemini model to 2.5 Flash for all services - ensure consistent model usage
 if (!process.env.GEMINI_MODEL) {
@@ -1529,9 +1546,18 @@ if (GEMINI_API_KEY) {
     console.error('[AI SERVICE] Failed to initialize Gemini Text Service:', error.message);
     geminiTextService = null;
   }
+
+  console.log('[WORKOUT SERVICE] Initializing Gemini Workout Service');
+  try {
+    geminiWorkoutService = new GeminiWorkoutService();
+  } catch (error) {
+    console.error('[WORKOUT SERVICE] Failed to initialize Gemini Workout Service:', error.message);
+    geminiWorkoutService = null;
+  }
 } else {
   console.log('[AI SERVICE] Gemini API key not configured');
   geminiTextService = null;
+  geminiWorkoutService = null;
 }
 
 // AI Provider Priority List (Gemini only)
@@ -1706,7 +1732,6 @@ const AiChatRequestSchema = z.object({
   plan: z.any(),
   user: z.any().optional(),
 });
-
 // Validate and fix workout frequency in generated plan
 function validateAndFixWorkoutFrequency(plan, profile) {
   if (!plan || !plan.weeklySchedule || !Array.isArray(plan.weeklySchedule)) {
@@ -1717,15 +1742,15 @@ function validateAndFixWorkoutFrequency(plan, profile) {
   const targetFrequency = profile.workout_frequency || '4_5';
   let targetTrainingDays;
 
-  // Parse target frequency
+  // Parse target frequency - always use the UPPER limit of ranges
   if (targetFrequency === '2_3') {
-    targetTrainingDays = 3; // Aim for 3 days (middle of 2-3 range)
+    targetTrainingDays = 3; // Upper limit: 3 days
   } else if (targetFrequency === '4_5') {
-    targetTrainingDays = 4; // Aim for 4 days (middle of 4-5 range)
+    targetTrainingDays = 5; // Upper limit: 5 days (was 4, causing the issue)
   } else if (targetFrequency === '6') {
     targetTrainingDays = 6; // Exactly 6 days
   } else {
-    targetTrainingDays = 4; // Default fallback
+    targetTrainingDays = 5; // Default fallback (upper limit of 4-5)
   }
 
   // Count current training days
@@ -1733,11 +1758,15 @@ function validateAndFixWorkoutFrequency(plan, profile) {
     day && day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0
   ).length;
 
+  console.log(`[WORKOUT VALIDATION] Current training days: ${trainingDays}, Target: ${targetTrainingDays}`);
 
   // If frequency matches, return as-is
   if (trainingDays === targetTrainingDays) {
+    console.log('[WORKOUT VALIDATION] Frequency matches target, no correction needed');
     return plan;
   }
+
+  console.log(`[WORKOUT VALIDATION] Correcting frequency: ${trainingDays} -> ${targetTrainingDays}`);
 
 
   // Create corrected schedule
@@ -1815,7 +1844,6 @@ function validateAndFixWorkoutFrequency(plan, profile) {
     weeklySchedule: correctedSchedule
   };
 }
-
 // Compose prompt for workout plan generation
 function composePrompt(profile) {
   return `
@@ -1858,14 +1886,22 @@ CORE EXERCISES: Plank, Side Plank, Mountain Climber, Bicycle Crunch, Leg Raise, 
 
 CARDIO EXERCISES: Kettlebell Swing, Dumbbell Clean and Press, Weighted Step-Up, Burpee, Jump Rope, High Knees, Mountain Climber, Box Jump, Thruster, Wall Ball
 
+🚨 CRITICAL FREQUENCY REQUIREMENT 🚨
+The client has specified they want to train ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} TIMES PER WEEK.
+This means:
+${getFrequencyExplanation(profile.workout_frequency)}
+
+You MUST create EXACTLY ${getMinFrequency(profile.workout_frequency)} to ${getMaxFrequency(profile.workout_frequency)} TRAINING DAYS.
+Do NOT create only 3 training days. Do NOT create 7 training days. Follow the frequency specification EXACTLY.
+
 INSTRUCTIONS:
 1. Create a 7-day workout schedule with appropriate rest days based on their exercise frequency
 2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} TRAINING DAYS PER WEEK
    - Count the training days in your response to ensure accuracy
    - Do NOT create more or fewer training days than specified
-   - For '2_3' frequency: Create exactly 2-3 training days (4-5 rest days)
-   - For '4_5' frequency: Create exactly 4-5 training days (2-3 rest days)
-   - For '6' frequency: Create exactly 6 training days (1 rest day)
+   - For '2_3' frequency: Create MINIMUM 2, MAXIMUM 3 training days (example: Monday, Wednesday)
+   - For '4_5' frequency: Create MINIMUM 4, MAXIMUM 5 training days (example: Monday, Tuesday, Thursday, Friday, Saturday)
+   - For '6' frequency: Create EXACTLY 6 training days (example: Monday through Saturday)
 3. For each workout day, create a structured session with:
    - The focus area (e.g., "Upper Body", "Lower Body", "Push", "Pull", "Legs", "Full Body")
    - Warm-up exercises (2-3 light movements, 5-10 minutes total)
@@ -1960,16 +1996,28 @@ INSTRUCTIONS:
 }
 Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
 🚨 CRITICAL ENFORCEMENT: You MUST create exactly ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} training days per week. This is ABSOLUTELY NON-NEGOTIABLE.
-
 FINAL CHECKS BEFORE RESPONDING:
-1. Count the number of training days in your weeklySchedule array
-2. Ensure it matches EXACTLY: ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} training days
-3. If it doesn't match, adjust the schedule immediately
-4. Double-check that rest days are properly distributed
-5. Verify that the total equals 7 days (training + rest)
-
-FAILURE TO COMPLY WITH THE FREQUENCY REQUIREMENT WILL RESULT IN AN INVALID RESPONSE. TAKE THIS SERIOUSLY.`;
+```
 }
+
+// Add a new endpoint for generating personalized workout plans
+app.post('/api/generate-workout-plan', async (req, res) => {
+  try {
+    const { userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays } = req.body;
+    
+    // Validate required fields
+    if (!userProfile || !goal || !level || !age || !gender || !workoutTypes || !equipment || !intensity || !targetWorkoutDays) {
+      return res.status(400).json({ success: false, error: 'Missing required profile fields' });
+    }
+
+    const workoutPlan = await geminiWorkoutService.generatePersonalizedWorkoutPlan(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays);
+    
+    res.json({ success: true, workoutPlan });
+  } catch (error) {
+    console.error('[WORKOUT] Error generating workout plan:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate workout plan' });
+  }
+});
 
 // Compose system prompt for AI chat
 function composeAIChatPrompt(currentPlan) {
@@ -2360,7 +2408,6 @@ function getFallbackResponse(message) {
     return fallbackResponses.default;
   }
 }
-
 // Update the /api/ai-chat endpoint to use the new callAI function
 app.post('/api/ai-chat', async (req, res) => {
   try {
@@ -2914,7 +2961,6 @@ function ensureProperDailyTargets(nutritionPlan, calculatedTargets = null) {
   
   return nutritionPlan;
 }
-
 // Meal template generator function
 function generateMealTemplates(dailyTargets, fitnessStrategy, preferences) {
   console.log('[MEAL TEMPLATES] Generating meals for strategy:', fitnessStrategy, 'with preferences:', preferences);
@@ -3446,8 +3492,6 @@ Generate a complete, nutritionally balanced daily meal plan now!`;
     throw error;
   }
 }
-
-
 /**
  * Generate a mathematical meal plan based on target macros (no AI)
  * Distributes calories and macros across meals using predefined templates
@@ -4292,8 +4336,6 @@ app.get('/api/recent-nutrition/:userId', async (req, res) => {
   }
 });
 
-// Legacy AI prompt function removed - nutrition re-evaluation now uses mathematical calculations only
-
 function composeDailyMealPlanPrompt(targets, preferences) {
   // Ensure we use consistent calorie values - prioritize daily_calories, fallback to calories
   const targetCalories = targets.daily_calories || targets.calories || 2000;
@@ -4624,7 +4666,6 @@ EXAMPLE RESPONSE (Plateau Risk):
 function composeBodyAnalysisPrompt(frontPhotoUrl, backPhotoUrl) {
   return `
 You are a world-class bodybuilding judge and AI fitness expert. Your task is to analyze two photos of a user (front and back) and provide a detailed, structured, and encouraging analysis of their physique.
-
 IMAGE URLS:
 - Front Photo: ${frontPhotoUrl}
 - Back Photo: ${backPhotoUrl}
@@ -5748,7 +5789,6 @@ app.post('/api/generate-motivational-message', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 app.delete('/api/delete-nutrition-plan/:planId', async (req, res) => {
   const { planId } = req.params;
   
@@ -6721,416 +6761,6 @@ function generateSimpleRecipe(mealType, ingredients, targets) {
 }
 // ===================
 
-function getFallbackExerciseLibrary() {
-  return [
-    // CHEST EXERCISES
-    {
-      id: 'chest_1',
-      name: 'Barbell Bench Press',
-      category: 'Chest',
-      muscle_groups: ['Chest', 'Triceps', 'Shoulders'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell', 'Bench'],
-      instructions: 'Lie on bench, grip bar slightly wider than shoulders, lower to chest, press up.',
-      is_custom: false
-    },
-    {
-      id: 'chest_2',
-      name: 'Dumbbell Bench Press',
-      category: 'Chest',
-      muscle_groups: ['Chest', 'Triceps', 'Shoulders'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Dumbbells', 'Bench'],
-      instructions: 'Lie on bench with dumbbells, press up and together, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'chest_3',
-      name: 'Push-ups',
-      category: 'Chest',
-      muscle_groups: ['Chest', 'Triceps', 'Shoulders'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Start in plank position, lower chest to ground, push back up.',
-      is_custom: false
-    },
-    {
-      id: 'chest_4',
-      name: 'Incline Dumbbell Press',
-      category: 'Chest',
-      muscle_groups: ['Chest', 'Triceps', 'Shoulders'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Dumbbells', 'Incline Bench'],
-      instructions: 'Set bench to 30-45 degrees, press dumbbells up and together.',
-      is_custom: false
-    },
-    {
-      id: 'chest_5',
-      name: 'Dumbbell Flyes',
-      category: 'Chest',
-      muscle_groups: ['Chest'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Dumbbells', 'Bench'],
-      instructions: 'Lie on bench, arms wide, bring dumbbells together in arc motion.',
-      is_custom: false
-    },
-
-    // BACK EXERCISES
-    {
-      id: 'back_1',
-      name: 'Pull-ups',
-      category: 'Back',
-      muscle_groups: ['Back', 'Biceps'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Pull-up Bar'],
-      instructions: 'Hang from bar, pull body up until chin over bar, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'back_2',
-      name: 'Bent-over Barbell Row',
-      category: 'Back',
-      muscle_groups: ['Back', 'Biceps'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell'],
-      instructions: 'Bend at hips, row bar to lower chest, squeeze shoulder blades.',
-      is_custom: false
-    },
-    {
-      id: 'back_3',
-      name: 'Lat Pulldown',
-      category: 'Back',
-      muscle_groups: ['Back', 'Biceps'],
-      difficulty: 'beginner',
-      equipment_needed: ['Cable Machine'],
-      instructions: 'Sit at machine, pull bar to upper chest, control the return.',
-      is_custom: false
-    },
-    {
-      id: 'back_4',
-      name: 'Dumbbell Rows',
-      category: 'Back',
-      muscle_groups: ['Back', 'Biceps'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells', 'Bench'],
-      instructions: 'Support body on bench, row dumbbell to hip, squeeze back.',
-      is_custom: false
-    },
-    {
-      id: 'back_5',
-      name: 'Deadlift',
-      category: 'Back',
-      muscle_groups: ['Back', 'Glutes', 'Hamstrings'],
-      difficulty: 'advanced',
-      equipment_needed: ['Barbell'],
-      instructions: 'Stand over bar, grip with both hands, lift by extending hips and knees.',
-      is_custom: false
-    },
-
-    // SHOULDER EXERCISES
-    {
-      id: 'shoulders_1',
-      name: 'Overhead Press',
-      category: 'Shoulders',
-      muscle_groups: ['Shoulders', 'Triceps'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell'],
-      instructions: 'Stand with bar at shoulder level, press overhead, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'shoulders_2',
-      name: 'Dumbbell Shoulder Press',
-      category: 'Shoulders',
-      muscle_groups: ['Shoulders', 'Triceps'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Sit or stand, press dumbbells overhead, lower to shoulder level.',
-      is_custom: false
-    },
-    {
-      id: 'shoulders_3',
-      name: 'Lateral Raises',
-      category: 'Shoulders',
-      muscle_groups: ['Shoulders'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Stand with dumbbells at sides, raise arms to shoulder height.',
-      is_custom: false
-    },
-    {
-      id: 'shoulders_4',
-      name: 'Front Raises',
-      category: 'Shoulders',
-      muscle_groups: ['Shoulders'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Stand with dumbbells in front, raise arms forward to shoulder height.',
-      is_custom: false
-    },
-    {
-      id: 'shoulders_5',
-      name: 'Rear Delt Flyes',
-      category: 'Shoulders',
-      muscle_groups: ['Shoulders'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Bend forward, raise dumbbells out to sides, squeeze rear delts.',
-      is_custom: false
-    },
-
-    // ARM EXERCISES
-    {
-      id: 'arms_1',
-      name: 'Barbell Curls',
-      category: 'Arms',
-      muscle_groups: ['Biceps'],
-      difficulty: 'beginner',
-      equipment_needed: ['Barbell'],
-      instructions: 'Stand with bar, curl up by flexing biceps, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'arms_2',
-      name: 'Dumbbell Curls',
-      category: 'Arms',
-      muscle_groups: ['Biceps'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Stand with dumbbells, curl up alternating or together.',
-      is_custom: false
-    },
-    {
-      id: 'arms_3',
-      name: 'Tricep Dips',
-      category: 'Arms',
-      muscle_groups: ['Triceps'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Dip Bars'],
-      instructions: 'Support body on bars, lower by bending elbows, push back up.',
-      is_custom: false
-    },
-    {
-      id: 'arms_4',
-      name: 'Close-Grip Bench Press',
-      category: 'Arms',
-      muscle_groups: ['Triceps', 'Chest'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell', 'Bench'],
-      instructions: 'Lie on bench, grip bar narrow, press focusing on triceps.',
-      is_custom: false
-    },
-    {
-      id: 'arms_5',
-      name: 'Hammer Curls',
-      category: 'Arms',
-      muscle_groups: ['Biceps', 'Forearms'],
-      difficulty: 'beginner',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Hold dumbbells with neutral grip, curl up keeping wrists straight.',
-      is_custom: false
-    },
-
-    // LEG EXERCISES
-    {
-      id: 'legs_1',
-      name: 'Squats',
-      category: 'Legs',
-      muscle_groups: ['Quadriceps', 'Glutes'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell'],
-      instructions: 'Stand with bar on shoulders, squat down, drive through heels to stand.',
-      is_custom: false
-    },
-    {
-      id: 'legs_2',
-      name: 'Leg Press',
-      category: 'Legs',
-      muscle_groups: ['Quadriceps', 'Glutes'],
-      difficulty: 'beginner',
-      equipment_needed: ['Leg Press Machine'],
-      instructions: 'Sit in machine, press weight with legs, control the return.',
-      is_custom: false
-    },
-    {
-      id: 'legs_3',
-      name: 'Lunges',
-      category: 'Legs',
-      muscle_groups: ['Quadriceps', 'Glutes'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Step forward into lunge, lower back knee, push back to start.',
-      is_custom: false
-    },
-    {
-      id: 'legs_4',
-      name: 'Romanian Deadlift',
-      category: 'Legs',
-      muscle_groups: ['Hamstrings', 'Glutes'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Barbell'],
-      instructions: 'Hold bar, hinge at hips, lower bar along legs, return to standing.',
-      is_custom: false
-    },
-    {
-      id: 'legs_5',
-      name: 'Calf Raises',
-      category: 'Legs',
-      muscle_groups: ['Calves'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Stand on balls of feet, raise up on toes, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'legs_6',
-      name: 'Leg Curls',
-      category: 'Legs',
-      muscle_groups: ['Hamstrings'],
-      difficulty: 'beginner',
-      equipment_needed: ['Leg Curl Machine'],
-      instructions: 'Lie on machine, curl heels toward glutes, control the return.',
-      is_custom: false
-    },
-
-    // CORE EXERCISES
-    {
-      id: 'core_1',
-      name: 'Plank',
-      category: 'Core',
-      muscle_groups: ['Core'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Hold body straight from head to heels, engage core.',
-      is_custom: false
-    },
-    {
-      id: 'core_2',
-      name: 'Crunches',
-      category: 'Core',
-      muscle_groups: ['Core'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Lie on back, crunch up by flexing abs, lower with control.',
-      is_custom: false
-    },
-    {
-      id: 'core_3',
-      name: 'Russian Twists',
-      category: 'Core',
-      muscle_groups: ['Core'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Sit with knees bent, lean back, rotate torso side to side.',
-      is_custom: false
-    },
-    {
-      id: 'core_4',
-      name: 'Mountain Climbers',
-      category: 'Core',
-      muscle_groups: ['Core', 'Cardio'],
-      difficulty: 'intermediate',
-      equipment_needed: [],
-      instructions: 'Start in plank, alternate bringing knees to chest rapidly.',
-      is_custom: false
-    },
-    {
-      id: 'core_5',
-      name: 'Dead Bug',
-      category: 'Core',
-      muscle_groups: ['Core'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Lie on back, extend opposite arm and leg, return to start.',
-      is_custom: false
-    },
-
-    // CARDIO EXERCISES
-    {
-      id: 'cardio_1',
-      name: 'Jumping Jacks',
-      category: 'Cardio',
-      muscle_groups: ['Full Body'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Jump feet apart while raising arms, return to start.',
-      is_custom: false
-    },
-    {
-      id: 'cardio_2',
-      name: 'Burpees',
-      category: 'Cardio',
-      muscle_groups: ['Full Body'],
-      difficulty: 'intermediate',
-      equipment_needed: [],
-      instructions: 'Squat, jump back to plank, push-up, jump forward, jump up.',
-      is_custom: false
-    },
-    {
-      id: 'cardio_3',
-      name: 'High Knees',
-      category: 'Cardio',
-      muscle_groups: ['Legs', 'Core'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Run in place bringing knees up to waist level.',
-      is_custom: false
-    },
-    {
-      id: 'cardio_4',
-      name: 'Jump Rope',
-      category: 'Cardio',
-      muscle_groups: ['Full Body'],
-      difficulty: 'beginner',
-      equipment_needed: ['Jump Rope'],
-      instructions: 'Jump over rope as it passes under feet, maintain rhythm.',
-      is_custom: false
-    },
-    {
-      id: 'cardio_5',
-      name: 'Running',
-      category: 'Cardio',
-      muscle_groups: ['Legs', 'Cardio'],
-      difficulty: 'beginner',
-      equipment_needed: [],
-      instructions: 'Maintain steady pace, focus on breathing and form.',
-      is_custom: false
-    },
-
-    // FULL BODY EXERCISES
-    {
-      id: 'fullbody_1',
-      name: 'Thrusters',
-      category: 'Full Body',
-      muscle_groups: ['Shoulders', 'Legs', 'Core'],
-      difficulty: 'intermediate',
-      equipment_needed: ['Dumbbells'],
-      instructions: 'Squat with dumbbells at shoulders, stand and press overhead.',
-      is_custom: false
-    },
-    {
-      id: 'fullbody_2',
-      name: 'Turkish Get-ups',
-      category: 'Full Body',
-      muscle_groups: ['Full Body'],
-      difficulty: 'advanced',
-      equipment_needed: ['Kettlebell'],
-      instructions: 'Complex movement from lying to standing while holding weight overhead.',
-      is_custom: false
-    },
-    {
-      id: 'fullbody_3',
-      name: 'Clean and Press',
-      category: 'Full Body',
-      muscle_groups: ['Full Body'],
-      difficulty: 'advanced',
-      equipment_needed: ['Barbell'],
-      instructions: 'Lift bar from floor to shoulders, then press overhead.',
-      is_custom: false
-    }
-  ];
-}
-
 // ===================
 // API ENDPOINTS
 // ===================
@@ -7300,8 +6930,6 @@ app.get('/api/test-users-with-plans', async (req, res) => {
   }
 });
 
-// (duplicate /api/health removed to avoid ambiguity)
-
 // Exercises API endpoint for custom workout builder
 app.get('/api/exercises', async (req, res) => {
   try {
@@ -7324,8 +6952,8 @@ app.get('/api/exercises', async (req, res) => {
 
     if (error) {
       console.error('[EXERCISES API] Database error:', error);
-      return res.json({ 
-        success: true, 
+        return res.json({
+          success: true,
         exercises: getFallbackExerciseLibrary(),
         source: 'fallback_due_to_error'
       });
@@ -7333,8 +6961,8 @@ app.get('/api/exercises', async (req, res) => {
 
     if (!exercises || exercises.length === 0) {
       console.log('[EXERCISES API] No exercises in database, returning fallback library');
-      return res.json({ 
-        success: true, 
+        return res.json({
+          success: true,
         exercises: getFallbackExerciseLibrary(),
         source: 'fallback_empty_db'
       });
@@ -7356,15 +6984,16 @@ app.get('/api/exercises', async (req, res) => {
       source: 'database'
     });
 
-  } catch (error) {
+        } catch (error) {
     console.error('[EXERCISES API] Unexpected error:', error);
     res.json({ 
-      success: true, 
+      success: true,
       exercises: getFallbackExerciseLibrary(),
       source: 'fallback_due_to_exception'
     });
   }
 });
+
 // Cache management endpoint
 app.post('/api/clear-cache', (req, res) => {
   try {
@@ -7375,540 +7004,20 @@ app.post('/api/clear-cache', (req, res) => {
   }
 });
 
-// Add workout plan generation endpoint with robust JSON parsing
-// TODO: Fix generate-workout-plan endpoint syntax error
-app.post('/api/generate-workout-plan', async (req, res) => {
-  try {
-    // Services imported at top
-
-    // Check rate limits first
-    if (!rateLimiter.isAllowed(req)) {
-      const rateLimitError = rateLimiter.createErrorResponse(req);
-      return res.status(429).json(rateLimitError);
-    }
-
-    // Extract userId from request body (optional for testing)
-    const { userId } = req.body;
-    // Generate a UUID-like string for testing if no userId provided
-    const defaultUserId = userId || crypto.randomUUID();
-
-    // Accept both 'profile' and 'userProfile' for backward compatibility
-    const { profile, userProfile } = req.body;
-    const profileData = profile || userProfile;
-    
-    if (!profileData) {
-      return res.status(400).json({ success: false, error: 'Missing profile data' });
-    }
-    
-    // Extract ONLY the 4 required parameters from profile
-    // These are stored in Supabase profiles table from onboarding
-    const normalizedProfile = {
-      gender: profileData.gender,
-      training_level: profileData.training_level || profileData.fitnessLevel,
-      primary_goal: profileData.primary_goal || profileData.primaryGoal,
-      workout_frequency: profileData.workout_frequency || profileData.workoutFrequency || '4_5'
-    };
-
-    // Validate required fields
-    if (!normalizedProfile.gender || !normalizedProfile.training_level || !normalizedProfile.primary_goal) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required profile fields: gender, training_level, and primary_goal are required' 
-      });
-    }
-
-    // Check quota availability
-    const quotaStatus = quotaMonitor.getQuotaStatus();
-    const quotaWarning = quotaMonitor.getQuotaWarning();
-
-    // Check cache first for workout plans (after normalizedProfile is defined)
-    const cacheKey = responseCache.getWorkoutCacheKey(normalizedProfile, {});
-    let cachedResponse = responseCache.get('workout', cacheKey);
-
-    if (cachedResponse) {
-      // Add rate limit headers
-      const rateLimitHeaders = rateLimiter.getHeaders(req);
-      Object.keys(rateLimitHeaders).forEach(header => {
-        res.setHeader(header, rateLimitHeaders[header]);
-      });
-
-      return res.json({
-        success: true,
-        workoutPlan: cachedResponse,
-        provider: 'cache',
-        used_ai: false,
-        quota: quotaStatus,
-        warning: quotaWarning,
-        cached: true
-      });
-    }
-
-    // Use GeminiTextService directly for workout plan generation
-    let usedProvider = null;
-    let usedAI = false;
-
-    try {
-      if (!geminiTextService) {
-        throw new Error('Gemini Text Service is not available');
-      }
-
-      // Map normalizedProfile to GeminiTextService format with ONLY 4 parameters
-      const userProfileForGemini = {
-        gender: normalizedProfile.gender,
-        fitnessLevel: normalizedProfile.training_level,
-        primaryGoal: normalizedProfile.primary_goal,
-        workoutFrequency: normalizedProfile.workout_frequency
-      };
-
-      const workoutPlanData = await geminiTextService.generateWorkoutPlan(userProfileForGemini, {});
-
-      if (workoutPlanData && workoutPlanData.weekly_schedule) {
-
-        // Transform plan data to match database function expectations
-        const transformedPlan = {
-          name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal?.toUpperCase()} Workout Plan`,
-          training_level: normalizedProfile.training_level || 'intermediate',
-          goal_fat_loss: normalizedProfile.primary_goal === 'fat_loss' ? 5 : 0,
-          goal_muscle_gain: normalizedProfile.primary_goal === 'muscle_gain' ? 5 : 0,
-          mesocycle_length_weeks: 8,
-          estimated_time_per_session: "45-60 min",
-          weeklySchedule: workoutPlanData.weekly_schedule && Array.isArray(workoutPlanData.weekly_schedule) ? workoutPlanData.weekly_schedule.map(day => ({
-            day: day.day || day.day_name || 'Unknown',
-            focus: day.focus || day.day || 'General',
-            type: day.workout_type || day.focus || 'General',
-            exercises: [
-              // Warm-up exercises
-              ...(day.warm_up || []).map(exercise => ({
-                name: exercise.exercise || exercise.name,
-                sets: exercise.sets || 1,
-                reps: exercise.reps || exercise.duration || "Warm-up",
-                restBetweenSets: exercise.restBetweenSets || exercise.rest || "0s",
-                type: "warm_up"
-              })),
-              // Main workout exercises
-              ...(day.main_workout || []).map(exercise => ({
-                name: exercise.exercise || exercise.name,
-                sets: exercise.sets || 3,
-                reps: exercise.reps || "8-12",
-                restBetweenSets: exercise.restBetweenSets || exercise.rest_seconds || "60s",
-                type: "main_workout"
-              })),
-              // Cool-down exercises
-              ...(day.cool_down || []).map(exercise => ({
-                name: exercise.exercise || exercise.name,
-                sets: exercise.sets || 1,
-                reps: exercise.reps || exercise.duration || "Cool-down",
-                restBetweenSets: exercise.restBetweenSets || exercise.rest || "0s",
-                type: "cool_down"
-              }))
-            ]
-          })) : []
-        };
-
-        // Save final plan to database
-        let savedFinalPlanId = null;
-        try {
-          if (supabase && userId) {
-            const { data, error } = await supabase.rpc('upsert_ai_workout_plan', {
-              user_id_param: userId,
-              plan_data: transformedPlan
-            });
-
-            if (error) {
-              console.error('[WORKOUT] Error saving final plan to database:', error);
-            } else {
-              savedFinalPlanId = data;
-
-              // Update the plan to be active
-              await supabase
-                .from('workout_plans')
-                .update({ status: 'active' })
-                .eq('id', savedFinalPlanId)
-                .eq('user_id', userId || defaultUserId);
-
-            }
-          }
-        } catch (dbError) {
-          console.error('[WORKOUT] Database save failed for final plan:', dbError);
-        }
-
-        // Apply strategic day distribution to AI response
-        const transformedWorkoutPlan = applyWeeklyDistribution(workoutPlanData, normalizedProfile);
-        
-        // Format response to match expected structure
-        const workoutPlan = {
-          id: savedFinalPlanId,
-          plan_name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal} Workout Plan`,
-          name: workoutPlanData.plan_name || `${normalizedProfile.primary_goal} Workout Plan`,
-          training_level: normalizedProfile.training_level || 'intermediate',
-          goal_fat_loss: normalizedProfile.primary_goal === 'fat_loss' ? 5 : 0,
-          goal_muscle_gain: normalizedProfile.primary_goal === 'muscle_gain' ? 5 : 0,
-          mesocycle_length_weeks: 8,
-          estimated_time_per_session: "45-60 min",
-          primary_goal: normalizedProfile.primary_goal,
-          weekly_schedule: transformedWorkoutPlan.weekly_schedule,
-          weeklySchedule: transformedWorkoutPlan.weekly_schedule,
-          sessions_per_week: transformedWorkoutPlan.sessions_per_week,
-          status: 'active',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          source: 'gemini_distributed'
-        };
-
-        // Record successful AI usage
-        quotaMonitor.recordUsage();
-
-        aiResponse = workoutPlan; // Use the transformed plan
-        usedProvider = 'gemini';
-        usedAI = true;
-
-        // Cache successful AI response (with shorter timeout for AI-generated content)
-        responseCache.set('workout', cacheKey, workoutPlan, 15 * 60 * 1000); // 15 minutes
-
-      } else {
-        throw new Error('Gemini returned invalid workout plan data');
-      }
-
-    } catch (aiError) {
-      console.error('[WORKOUT] AI generation failed:', aiError.message);
-      
-      // Check if fallback is disabled by strict mode
-      if (AI_STRICT_EFFECTIVE) {
-        
-        // Enhanced error classification for proper error response
-        let errorType = 'ai_service_unavailable';
-        let errorMessage = 'AI workout generation service is currently unavailable. Please try again later.';
-        
-        if (aiError.message && aiError.message.includes('User location is not supported')) {
-          errorType = 'regional_restriction';
-          errorMessage = 'AI workout generation is not available in your region. Please try again later.';
-        } else if (aiError.message && (aiError.message.includes('quota') || aiError.message.includes('rate limit'))) {
-          errorType = 'quota_exceeded';
-          errorMessage = 'AI service quota exceeded. Please try again in a few minutes.';
-        }
-
-        return res.status(503).json({
-          success: false,
-          error: errorMessage,
-          error_type: errorType,
-          provider: 'ai_only',
-          used_ai: false,
-          quota: quotaStatus,
-          warning: quotaWarning,
-          system_info: {
-            ai_available: false,
-            fallback_disabled: true,
-            strict_mode: true,
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Fallback is enabled - use enhanced rule-based system
-      
-      // Generate enhanced rule-based workout plan
-      try {
-        const enhancedWorkoutPlan = generateRuleBasedWorkoutPlan(normalizedProfile);
-        
-        if (enhancedWorkoutPlan) {
-          
-          // Cache fallback response (with longer timeout since it's more reliable)
-          responseCache.set('workout', cacheKey, enhancedWorkoutPlan, 30 * 60 * 1000); // 30 minutes
-          
-          aiResponse = enhancedWorkoutPlan;
-          usedProvider = 'enhanced_fallback';
-          usedAI = false;
-        } else {
-          throw new Error('Enhanced rule-based generation failed');
-        }
-      } catch (fallbackError) {
-        console.error('[WORKOUT] Enhanced fallback generation failed:', fallbackError.message);
-        
-        return res.status(503).json({
-          success: false,
-          error: 'Workout generation service is temporarily unavailable. Please try again later.',
-          error_type: 'service_unavailable',
-          provider: 'none',
-          used_ai: false,
-          quota: quotaStatus,
-          warning: quotaWarning,
-          system_info: {
-            ai_available: false,
-            fallback_disabled: false,
-            fallback_failed: true,
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-    }
-
-    // Add rate limit headers
-    const rateLimitHeaders = rateLimiter.getHeaders(req);
-    Object.keys(rateLimitHeaders).forEach(header => {
-      res.setHeader(header, rateLimitHeaders[header]);
-    });
-
-    // Log detailed response structure before sending
-    console.log('[WORKOUT] 📤 Sending response to client:');
-    console.log('[WORKOUT] Plan name:', aiResponse?.name || aiResponse?.plan_name);
-    console.log('[WORKOUT] Weekly schedule length:', aiResponse?.weekly_schedule?.length || aiResponse?.weeklySchedule?.length || 0);
-    console.log('[WORKOUT] Weekly schedule breakdown:');
-    const schedule = aiResponse?.weekly_schedule || aiResponse?.weeklySchedule || [];
-    schedule.forEach((day, idx) => {
-      console.log(`  [${idx}] ${day.day || 'Unknown'}: ${day.focus || 'No focus'} (${day.exercises?.length || 0} exercises)`);
-    });
-
-    return res.json({
-      success: true,
-      workoutPlan: aiResponse,
-      provider: usedProvider || 'rule_based_fallback',
-      used_ai: usedAI,
-      quota: quotaStatus,
-      warning: quotaWarning,
-      // Add helpful metadata for frontend
-      system_info: {
-        ai_available: usedAI,
-        fallback_used: !usedAI,
-        fallback_reason: aiResponse?.fallback_reason || null,
-        enhanced_system: !usedAI ? true : false
-      }
-    });
-
-  } catch (error) {
-    console.error('[WORKOUT] Error generating workout plan:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// TODO: Old commented code removed
-// TODO: Old commented code removed
-// ===================
-
-async function compressImageForVision(imageBuffer, maxSizeBytes = 2_000_000) { // 2MB target for Gemini
-  try {
-    console.log('[IMAGE COMPRESS] Original size:', imageBuffer.length, 'bytes');
-    
-    // Get image info
-    const metadata = await sharp(imageBuffer).metadata();
-    console.log('[IMAGE COMPRESS] Original dimensions:', metadata.width, 'x', metadata.height);
-    
-    // Start with reasonable dimensions for food photos
-    let width = Math.min(metadata.width || 1024, 1024);
-    let quality = 85;
-    
-    let compressedBuffer = imageBuffer;
-    let attempts = 0;
-    const maxAttempts = 5;
-    
-    while (compressedBuffer.length > maxSizeBytes && attempts < maxAttempts) {
-      attempts++;
-      console.log(`[IMAGE COMPRESS] Attempt ${attempts}: trying width=${width}, quality=${quality}`);
-      
-      compressedBuffer = await sharp(imageBuffer)
-        .resize(width, null, { 
-          withoutEnlargement: true,
-          fit: 'inside'
-        })
-        .jpeg({ 
-          quality: quality,
-          progressive: true,
-          mozjpeg: true 
-        })
-        .toBuffer();
-      
-      console.log(`[IMAGE COMPRESS] Attempt ${attempts} result:`, compressedBuffer.length, 'bytes');
-      
-      // Reduce dimensions and quality for next attempt
-      width = Math.floor(width * 0.8);
-      quality = Math.max(quality - 10, 60);
-    }
-    
-    if (compressedBuffer.length > maxSizeBytes) {
-      console.warn('[IMAGE COMPRESS] Could not compress below target size');
-    } else {
-      console.log('[IMAGE COMPRESS] Successfully compressed to:', compressedBuffer.length, 'bytes');
-    }
-    
-    return compressedBuffer;
-  } catch (error) {
-    console.error('[IMAGE COMPRESS] Error compressing image:', error);
-    return imageBuffer; // Return original if compression fails
-  }
-}
-
-async function validateImageForTensor(imageBuffer) {
-  try {
-    const metadata = await sharp(imageBuffer).metadata();
-    
-    // Basic validation checks
-    const issues = [];
-    
-    if (!metadata.width || !metadata.height) {
-      issues.push('Missing image dimensions');
-    }
-    
-    if (metadata.width < 32 || metadata.height < 32) {
-      issues.push('Image too small (minimum 32x32)');
-    }
-    
-    if (metadata.width > 4096 || metadata.height > 4096) {
-      issues.push('Image too large (maximum 4096x4096)');
-    }
-    
-    // Check for supported formats
-    const supportedFormats = ['jpeg', 'jpg', 'png', 'webp', 'tiff', 'gif'];
-    if (metadata.format && !supportedFormats.includes(metadata.format.toLowerCase())) {
-      issues.push(`Unsupported format: ${metadata.format}`);
-    }
-    
-    if (issues.length > 0) {
-      console.warn('[IMAGE VALIDATE] Issues found:', issues);
-      return { valid: false, issues };
-    }
-    
-    console.log('[IMAGE VALIDATE] Image passed validation');
-    return { valid: true, issues: [] };
-    
-  } catch (error) {
-    console.error('[IMAGE VALIDATE] Validation error:', error.message);
-    return { valid: false, issues: [`Validation failed: ${error.message}`] };
-  }
-}
-
-async function standardizeImageForTensor(imageBuffer) {
-  try {
-    console.log('[IMAGE STANDARDIZE] Standardizing image for vision processing');
-    
-    // First validate the image
-    const validation = await validateImageForTensor(imageBuffer);
-    if (!validation.valid) {
-      console.warn('[IMAGE STANDARDIZE] Image validation failed:', validation.issues);
-      // For critical validation failures, throw error instead of continuing
-      if (validation.issues.some(issue => issue.includes('Missing image dimensions') || issue.includes('Unsupported format'))) {
-        throw new Error(`Critical image validation failure: ${validation.issues.join(', ')}`);
-      }
-    }
-    
-    const metadata = await sharp(imageBuffer).metadata();
-    console.log('[IMAGE STANDARDIZE] Original:', {
-      format: metadata.format,
-      width: metadata.width,
-      height: metadata.height,
-      channels: metadata.channels,
-      density: metadata.density
-    });
-    
-    // Standard processing suitable for Gemini Vision API
-    
-    const standardizedBuffer = await sharp(imageBuffer)
-      .rotate() // Auto-rotate based on EXIF orientation
-      .resize(512, 512, { 
-        fit: 'inside', 
-        withoutEnlargement: false, // Allow enlargement for small images
-        background: { r: 255, g: 255, b: 255, alpha: 1 } // White background
-      })
-      .removeAlpha() // Remove alpha channel that can cause tensor issues
-      .toColorspace('srgb') // Ensure standard sRGB colorspace
-      .flatten({ background: { r: 255, g: 255, b: 255 } }) // Flatten to RGB
-      .jpeg({ quality: 85 })
-      .withMetadata({}) // Remove all metadata including EXIF
-      .toBuffer();
-    
-    const newMetadata = await sharp(standardizedBuffer).metadata();
-    console.log('[IMAGE STANDARDIZE] Standardized:', {
-      format: newMetadata.format,
-      width: newMetadata.width,
-      height: newMetadata.height,
-      channels: newMetadata.channels,
-      sizeBytes: standardizedBuffer.length
-    });
-    
-    // Final validation of the standardized image
-    
-    return standardizedBuffer;
-    
-  } catch (error) {
-    console.error('[IMAGE STANDARDIZE] Error standardizing image:', error);
-    console.log('[IMAGE STANDARDIZE] Attempting fallback minimal processing...');
-    
-    // Fallback: Minimal processing to avoid tensor issues
-    try {
-      const fallbackBuffer = await sharp(imageBuffer)
-        .resize(512, 512, { fit: 'inside' })
-        .removeAlpha()
-        .jpeg({ quality: 85, progressive: false })
-        .toBuffer();
-      
-      console.log('[IMAGE STANDARDIZE] Fallback processing successful');
-      return fallbackBuffer;
-    } catch (fallbackError) {
-      console.error('[IMAGE STANDARDIZE] Fallback processing also failed:', fallbackError);
-      throw new Error('Image processing completely failed - image may be corrupted');
-    }
-  }
-}
-
-// ===================
-// SIMPLIFIED FOOD ANALYSIS ENDPOINT - GEMINI ONLY
-// ===================
-
-app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
-  console.log('[FOOD ANALYZE] Received food analysis request using Gemini only');
+// Food analysis endpoint
+app.post('/api/analyze-food', async (req, res) => {
+  const { description } = req.body;
   
+  if (!description) {
+    return res.status(400).json({ error: 'Food description is required' });
+  }
+
   try {
-    // Check if we have a file upload, base64 image, or text description
-    if (!req.file && !req.body.image && !req.body.imageDescription) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No food image or description provided' 
-      });
-    }
-
-    console.log('[FOOD ANALYZE] Request details:', {
-      hasFile: !!req.file,
-      hasDescription: !!req.body.imageDescription,
-      fileInfo: req.file ? {
-        originalname: req.file.originalname,
-        filename: req.file.filename,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : null
-    });
-
-    let base64Image, mimeType;
-
-    // Handle different input types
-    if (req.body.imageDescription) {
-      // Text description only - use Gemini for analysis
-      console.log('[FOOD ANALYZE] Processing text description with Gemini');
-      const description = String(req.body.imageDescription).slice(0, 2000);
-
       const messages = [
         {
           role: 'system',
-          content: `You are an expert nutritionist. Analyze this food description and provide nutritional information.
-
-CRITICAL REQUIREMENTS:
-1. Identify the SPECIFIC food/dish name
-2. Estimate realistic nutritional information based on typical serving sizes
-3. Be specific about assumptions (e.g., "assuming standard restaurant serving")
-4. Focus on accuracy for typical portions
-
-Return ONLY this JSON structure:
-{
-  "food_name": "Specific food/dish name",
-  "calories": 350,
-    "protein": 25,
-  "carbs": 45,
-    "fat": 15,
-  "assumptions": "Any assumptions made about portion sizes",
-  "confidence": "high|medium|low"
-}
-
+        content: `You are a nutritionist assistant. Analyze food items and provide detailed nutritional information.
+Be specific with food items - if someone says "chicken breast", don't just say "chicken".
 Example: If someone says "chicken breast", don't just say "chicken" - be specific. If uncertain, state your assumption clearly.`
         },
         {
@@ -7999,7 +7108,6 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           error: 'Food analysis failed',
           message: 'AI service unavailable. Please try again later.'
         });
-      }
     }
 
     // Handle image input
@@ -8102,7 +7210,6 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
         message: `Analyzed using Gemini Vision. Confidence: ${visionResult.confidence}%`
       }
     });
-
   } catch (error) {
     console.error('[FOOD ANALYZE] Error:', error.message);
 
@@ -8159,7 +7266,6 @@ app.put('/api/profile', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 // Profile retrieval endpoint
 app.get('/api/profile/:userId', async (req, res) => {
   const { userId } = req.params;
@@ -8374,9 +7480,9 @@ const server = app.listen(port, '0.0.0.0', () => {
 
 // Set server timeout to 5 minutes for AI generation requests
 // Railway default is 5 minutes, so we match that
-server.timeout = 300000; // 5 minutes in milliseconds
-server.keepAliveTimeout = 310000; // Keep-alive should be slightly longer
-server.headersTimeout = 320000; // Headers timeout should be longer than keep-alive
+server.timeout = 600000; // 10 minutes in milliseconds - increased for Railway deployment
+server.keepAliveTimeout = 610000; // Keep-alive should be slightly longer
+server.headersTimeout = 620000; // Headers timeout should be longer than keep-alive
 
 console.log(`[SERVER] Timeout configuration:`);
 console.log(`  - Request timeout: ${server.timeout / 1000}s`);
@@ -8391,137 +7497,6 @@ server.on('error', (error) => {
     process.exit(1);
   }
 });
-
-
-
-
-// Helper function to determine exercise category based on name
-function getExerciseCategory(exerciseName) {
-  const name = exerciseName.toLowerCase();
-  
-  if (/squat|leg press|lunge|deadlift|calf raise|leg extension|leg curl|hip thrust/i.test(name)) {
-    return 'legs';
-  } else if (/bench press|push-up|chest fly|chest press|dip|decline|incline/i.test(name)) {
-    return 'chest';
-  } else if (/pull-up|chin-up|row|lat pulldown|pull down|pulldown|back extension/i.test(name)) {
-    return 'back';
-  } else if (/shoulder press|lateral raise|front raise|overhead press|military press|arnold press/i.test(name)) {
-    return 'shoulders';
-  } else if (/bicep|curl|hammer|preacher/i.test(name)) {
-    return 'biceps';
-  } else if (/tricep|extension|pushdown|skull crusher|close-grip/i.test(name)) {
-    return 'triceps';
-  } else if (/crunch|sit-up|plank|russian twist|leg raise|ab roller|mountain climber/i.test(name)) {
-    return 'abs';
-  } else if (/jumping jack|burpee|sprint|run|jog|cardio|hiit|interval|jump rope/i.test(name)) {
-    return 'cardio';
-        } else {
-    return 'other';
-  }
-}
-
-function validateRecipeAgainstInputs(providedIngredients, recipe) {
-  // Normalize text for comparison
-  const normalizeText = (text) => {
-    return String(text).toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-  };
-  
-  // Normalize the provided ingredients
-  const normalizedProvided = providedIngredients.map(ing => normalizeText(ing));
-  
-  // Check if the recipe has all required fields
-  if (!recipe || !recipe.recipe_name || !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.instructions)) {
-    console.log('[VALIDATE] Recipe missing required fields');
-    return false;
-  }
-  
-  // Check if ingredients are valid
-  if (recipe.ingredients.length === 0) {
-    console.log('[VALIDATE] Recipe has no ingredients');
-    return false;
-  }
-  
-  // Verify each ingredient in the recipe is from the provided list
-  const recipeIngredients = recipe.ingredients.map(ing => {
-    // Handle both formats: string or object with name property
-    const name = typeof ing === 'string' ? ing : ing.name;
-    return normalizeText(name);
-  });
-  
-  // Check if all recipe ingredients are from the provided list
-  // We use a fuzzy match to allow for variations like "rice" vs "white rice"
-  const allIngredientsValid = recipeIngredients.every(recipeIng => {
-    return normalizedProvided.some(providedIng => {
-      // Direct match
-      if (recipeIng === providedIng) return true;
-      // Substring match (e.g. "chicken breast" contains "chicken")
-      if (recipeIng.includes(providedIng) || providedIng.includes(recipeIng)) return true;
-      return false;
-    });
-  });
-  
-  if (!allIngredientsValid) {
-    console.log('[VALIDATE] Recipe contains ingredients not in provided list');
-    return false;
-  }
-  
-  // Check if instructions are valid
-  if (recipe.instructions.length < 2) {
-    console.log('[VALIDATE] Recipe has too few instructions');
-    return false;
-  }
-  
-  // For the new format, check if instructions have proper structure
-  const hasStructuredInstructions = recipe.instructions.every(instruction => {
-    if (typeof instruction === 'string') {
-      // Old format - simple string is fine
-      return true;
-    } else if (instruction && instruction.step && instruction.title && Array.isArray(instruction.details)) {
-      // New format - must have step, title and details array
-      return instruction.details.length > 0;
-    }
-    return false;
-  });
-  
-  if (!hasStructuredInstructions) {
-    console.log('[VALIDATE] Recipe has invalid instruction format');
-    return false;
-  }
-  
-  // Check for realistic quantities
-  const hasRealisticQuantities = recipe.ingredients.every(ing => {
-    if (typeof ing === 'string') return true; // Skip validation for string format
-    
-    const quantity = String(ing.quantity || '').toLowerCase();
-    const name = String(ing.name || '').toLowerCase();
-    
-    // Check for unrealistically small quantities
-    if (/(beef|chicken|fish|pork|tofu)/.test(name)) {
-      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
-        console.log(`[VALIDATE] Unrealistic small quantity for protein: ${quantity} ${name}`);
-        return false;
-      }
-    }
-    
-    if (/(rice|pasta|noodle|potato)/.test(name)) {
-      if (/(1|2|3|4|5|one|two|three|four|five)\s*(g|gram)/.test(quantity)) {
-        console.log(`[VALIDATE] Unrealistic small quantity for carb: ${quantity} ${name}`);
-        return false;
-      }
-    }
-    
-    return true;
-  });
-  
-  if (!hasRealisticQuantities) {
-    console.log('[VALIDATE] Recipe has unrealistic quantities');
-    return false;
-  }
-  
-  // All validation passed
-  return true;
-}
-
 // Generate recipe endpoint
 app.post('/api/generate-recipe', async (req, res) => {
   console.log(`[${new Date().toISOString()}] Received recipe generation request`);
@@ -8803,9 +7778,6 @@ app.get('/api/simple-recipe', (req, res) => {
     return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
   }
 });
-
-
-
 
 // ===================
 // ERROR HANDLING MIDDLEWARE (must be last)
