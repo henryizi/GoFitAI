@@ -494,6 +494,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                 contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
         const timeoutDuration = isComplexRequest ? 180000 : 90000; // 180s for complex, 90s for simple - allows AI generation time in Railway
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
+        console.log(`[GEMINI TEXT] 🚀 UPDATED TIMEOUT LOGIC - Force deployment refresh`);
 
         // Add exponential backoff delay for retries
         if (attempt > 1) {
@@ -589,7 +590,8 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                            error.message.includes('ETIMEDOUT') ||
                            error.message.includes('Gemini request timeout') ||
                            error.message.includes('Empty response from Gemini - retryable') ||
-                           error.message.includes('Invalid response structure');
+                           error.message.includes('Invalid response structure') ||
+                           error.message.includes('30 seconds'); // Handle legacy timeout errors
         
         const isNetworkError = error.message.includes('fetch failed') || 
                              error.message.includes('ENOTFOUND') ||
