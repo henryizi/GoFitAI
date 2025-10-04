@@ -2000,22 +2000,164 @@ FINAL CHECKS BEFORE RESPONDING:
 ```
 }
 
-// Add a new endpoint for generating personalized workout plans
-app.post('/api/generate-workout-plan', async (req, res) => {
-  try {
-    const { userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays } = req.body;
+/**
+ * Transforms GeminiTextService plan format to app's expected format
+ */
+function transformGeminiPlanToAppFormat(plan, profileData) {
+  console.log('[WORKOUT] Transforming enhanced plan format for app compatibility');
+  console.log('[WORKOUT] Plan structure:', {
+    hasWeeklySchedule: !!(plan.weeklySchedule || plan.weekly_schedule),
+    scheduleLength: (plan.weeklySchedule || plan.weekly_schedule || []).length,
+    hasUserProfile: !!plan.user_profile_summary,
+    planName: plan.plan_name
+  });
+  
+  // Handle both weeklySchedule (new format) and weekly_schedule (old format)
+  const schedule = plan.weeklySchedule || plan.weekly_schedule || [];
+  
+  const weeklySchedule = schedule.map(day => {
+    // Handle the enhanced format with warm_up, main_workout, cool_down
+    let allExercises = [];
     
-    // Validate required fields
-    if (!userProfile || !goal || !level || !age || !gender || !workoutTypes || !equipment || !intensity || !targetWorkoutDays) {
-      return res.status(400).json({ success: false, error: 'Missing required profile fields' });
+    if (day.warm_up || day.main_workout || day.cool_down) {
+      // New enhanced format
+      const warmUpExercises = (day.warm_up || []).map(ex => ({
+        ...ex,
+        category: 'warm_up',
+        name: ex.exercise || ex.name || 'Warm-up Exercise'
+      }));
+      
+      const mainExercises = (day.main_workout || []).map(ex => ({
+        ...ex,
+        category: 'main_workout',
+        name: ex.exercise || ex.name || 'Main Exercise'
+      }));
+      
+      const coolDownExercises = (day.cool_down || []).map(ex => ({
+        ...ex,
+        category: 'cool_down',
+        name: ex.exercise || ex.name || 'Cool-down Exercise'
+      }));
+      
+      allExercises = [...warmUpExercises, ...mainExercises, ...coolDownExercises];
+    } else if (day.exercises) {
+      // Legacy format
+      allExercises = day.exercises.map(ex => ({
+        ...ex,
+        category: 'main_workout',
+        name: ex.name || ex.exercise || 'Exercise'
+      }));
     }
 
-    const workoutPlan = await geminiWorkoutService.generatePersonalizedWorkoutPlan(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays);
+    // Transform exercises to app format
+    const exercises = allExercises.map(exercise => ({
+      name: exercise.name || 'Unknown Exercise',
+      sets: exercise.sets || 3,
+      reps: exercise.reps || '8-12',
+      restBetweenSets: exercise.rest || exercise.rest_seconds || '60-90s',
+      instructions: exercise.instructions || '',
+      muscleGroups: exercise.muscle_groups || [],
+      category: exercise.category || 'main_workout',
+      duration: exercise.duration || null // For warm-up and cool-down exercises
+    }));
+
+    return {
+      day: day.day_name || day.day || `Day ${day.day || 1}`,
+      focus: day.focus || day.workout_type || 'Training',
+      exercises: exercises,
+      duration_minutes: day.duration_minutes || 60
+    };
+  });
+
+  // Return in app's expected format with enhanced data
+  return {
+    name: plan.plan_name || `${profileData.primaryGoal || profileData.primary_goal || 'Custom'} Workout Plan`,
+    training_level: plan.target_level || profileData.fitnessLevel || profileData.training_level || 'intermediate',
+    goal_fat_loss: profileData.fatLossGoal || profileData.goal_fat_reduction || 2,
+    goal_muscle_gain: profileData.muscleGainGoal || profileData.goal_muscle_gain || 3,
+    mesocycle_length_weeks: plan.duration_weeks || 4,
+    weeklySchedule: weeklySchedule,
+    user_profile_summary: plan.user_profile_summary || {
+      name: profileData.fullName || profileData.full_name || 'User',
+      training_level: profileData.fitnessLevel || profileData.training_level || 'intermediate',
+      primary_goal: profileData.primaryGoal || profileData.primary_goal || 'general_fitness'
+    },
+    recommendations: {
+      nutrition: typeof plan.nutrition_tips === 'string' ? [plan.nutrition_tips] : (plan.nutrition_tips || []),
+      safety: plan.safety_guidelines || [],
+      progression: plan.progression || plan.progression_plan || {}
+    },
+    estimatedTimePerSession: plan.estimatedTimePerSession || `${plan.sessions_per_week ? Math.round(60 * plan.sessions_per_week / 7) : 60} minutes`
+  };
+}
+
+// Add a new endpoint for generating personalized workout plans
+app.post('/api/generate-workout-plan', async (req, res) => {
+  console.log('[WORKOUT] /api/generate-workout-plan called');
+  try {
+    // Accept both 'profile' and 'userProfile' for backward compatibility
+    const { profile, userProfile } = req.body || {};
+    const profileData = userProfile || profile;
     
-    res.json({ success: true, workoutPlan });
+    if (!profileData) {
+      return res.status(400).json({ success: false, error: 'Missing profile data' });
+    }
+
+    console.log('[WORKOUT] Generating plan with profile:', {
+      level: profileData.training_level,
+      goal: profileData.primary_goal,
+      workoutFrequency: profileData.workout_frequency,
+      age: profileData.age,
+    });
+
+    // Check if Gemini service is available
+    if (!geminiTextService) {
+      console.log('[WORKOUT] Gemini Text Service not available, using rule-based fallback');
+      const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
+      return res.json({
+        success: true,
+        workoutPlan: fallbackPlan,
+        provider: 'rule_based_fallback',
+        used_ai: false,
+        note: 'AI generation service not available, using rule-based fallback'
+      });
+    }
+
+    try {
+      // Use GeminiTextService for workout plan generation
+      const preferences = {};
+      const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
+      console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
+
+      // Transform the plan to match app's expected format
+      const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
+      console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
+
+      return res.json({ 
+        success: true, 
+        workoutPlan: transformedPlan, 
+        provider: 'gemini', 
+        used_ai: true 
+      });
+    } catch (aiError) {
+      console.log('[WORKOUT] ❌ Gemini AI failed:', aiError.message);
+      console.log('[WORKOUT] 🧮 Using rule-based fallback workout plan generation');
+
+      // Generate rule-based fallback plan
+      const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
+      console.log('[WORKOUT] Generated fallback plan with', fallbackPlan.weekly_schedule?.length || 0, 'days');
+
+      return res.json({
+        success: true,
+        workoutPlan: fallbackPlan,
+        provider: 'rule_based_fallback',
+        used_ai: false,
+        note: 'AI generation failed, using rule-based fallback'
+      });
+    }
   } catch (error) {
-    console.error('[WORKOUT] Error generating workout plan:', error);
-    res.status(500).json({ success: false, error: 'Failed to generate workout plan' });
+    console.error('[WORKOUT] Workout plan generation failed:', error?.message || error);
+    return res.status(500).json({ success: false, error: error?.message || 'Workout plan generation failed' });
   }
 });
 
