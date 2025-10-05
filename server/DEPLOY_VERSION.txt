@@ -1,0 +1,10 @@
+v1.0.1 - 240s Timeout Fix
+Deployed: 2025-10-05
+Commit: d9f1913
+
+This file forces Railway to rebuild when changed.
+Expected behavior:
+- Gemini timeout: 240 seconds (not 30s)
+- Version banner in logs: "🚀 DEPLOYMENT VERSION: v1.0.1"
+- Optimized model configuration
+
