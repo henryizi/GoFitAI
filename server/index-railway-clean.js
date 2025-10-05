@@ -246,6 +246,126 @@ app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
 /**
  * Transforms GeminiTextService plan format to app's expected format
  */
+// Helper functions for workout frequency formatting
+function formatWorkoutFrequency(frequency) {
+  if (!frequency) return '4-5';
+  const freqStr = String(frequency);
+  return freqStr.replace('_', '-');
+}
+
+function getMinFrequency(frequency) {
+  const minMap = {
+    '2_3': 2,
+    '4_5': 4,
+    '6': 6
+  };
+  return minMap[frequency] || 4;
+}
+
+function getMaxFrequency(frequency) {
+  const maxMap = {
+    '2_3': 3,
+    '4_5': 5,
+    '6': 6
+  };
+  return maxMap[frequency] || 5;
+}
+
+function getFrequencyExplanation(frequency) {
+  const explanations = {
+    '2_3': '- This is a LOW FREQUENCY plan (2-3 training days per week)\n- Example schedule: Monday (Upper Body), Wednesday (Lower Body), Friday (Full Body)\n- Include 4-5 rest days',
+    '4_5': '- This is a MODERATE-HIGH FREQUENCY plan (4-5 training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Wednesday (Legs), Thursday (Rest), Friday (Upper), Saturday (Lower), Sunday (Rest)\n- Include only 2-3 rest days',
+    '6': '- This is a HIGH FREQUENCY plan (6 training days per week)\n- Example schedule: Monday through Saturday with training, only Sunday as rest\n- Include only 1 rest day'
+  };
+  return explanations[frequency] || explanations['4_5'];
+}
+
+// Compose prompt for workout plan generation
+function composePrompt(profile) {
+  try {
+    // Pre-calculate values to avoid template literal scope issues
+    const workoutFreqText = profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) + ' times per week' : '4-5 times per week';
+    const frequencyExplanation = getFrequencyExplanation(profile.workout_frequency);
+    const minFrequency = getMinFrequency(profile.workout_frequency);
+    const maxFrequency = getMaxFrequency(profile.workout_frequency);
+    const frequencyDisplay = profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5';
+    
+    // Debug logging
+    console.log('[COMPOSE PROMPT] Values calculated:', {
+      workoutFreqText,
+      frequencyExplanation: frequencyExplanation.substring(0, 50) + '...',
+      minFrequency,
+      maxFrequency,
+      frequencyDisplay,
+      primary_goal: profile.primary_goal
+    });
+    
+    // Build prompt using string concatenation to avoid template literal issues
+    let prompt = 'You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.\n\n';
+    
+    prompt += 'CLIENT PROFILE:\n';
+    prompt += '- Full Name: ' + (profile.full_name || 'Client') + '\n';
+    prompt += '- Gender: ' + (profile.gender || 'Not specified') + '\n';
+    prompt += '- Age: ' + (profile.age || 'Not specified') + '\n';
+    prompt += '- Training Level: ' + (profile.training_level || 'intermediate') + '\n';
+    prompt += '- Primary Goal: ' + (profile.primary_goal || 'general fitness') + '\n';
+    prompt += '- Preferred Workout Frequency: ' + workoutFreqText + '\n\n';
+    
+    prompt += 'PROGRAMMING & PROGRESSION:\n';
+    prompt += '1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.\n';
+    prompt += '2. Suggest target set volumes relative to training level (lower for beginners, higher for advanced).\n';
+    prompt += '3. Tailor the workout plan to the client\'s primary goal:\n';
+    prompt += '   - Muscle Gain: Focus on compound movements with moderate reps (8-12) and adequate rest (90-120s)\n';
+    prompt += '   - Fat Loss: Include higher reps (12-15) with shorter rest periods (60-90s) and cardio elements\n';
+    prompt += '   - Athletic Performance: Emphasize functional movements, power exercises, and sport-specific training\n';
+    prompt += '   - General Fitness: Balanced approach with mix of strength and cardio elements\n\n';
+    
+    prompt += 'WORKOUT FREQUENCY: ' + frequencyExplanation + '\n';
+    prompt += '- Target: ' + frequencyDisplay + ' training days per week\n';
+    prompt += '- Minimum: ' + minFrequency + ' days per week\n';
+    prompt += '- Maximum: ' + maxFrequency + ' days per week\n\n';
+    
+    prompt += 'RESPONSE FORMAT:\n';
+    prompt += 'You must respond with a valid JSON object containing a structured workout plan. The format MUST be:\n\n';
+    prompt += '{\n';
+    prompt += '  "plan_name": "' + (profile.full_name || 'Client') + '\'s ' + (profile.primary_goal || 'Fitness').replace(/_/g, ' ') + ' Plan",\n';
+    prompt += '  "weekly_schedule": [\n';
+    prompt += '    {\n';
+    prompt += '      "day": "Monday",\n';
+    prompt += '      "focus": "Upper Body Strength",\n';
+    prompt += '      "exercises": [\n';
+    prompt += '        {\n';
+    prompt += '          "name": "Exercise Name",\n';
+    prompt += '          "sets": 3,\n';
+    prompt += '          "reps": "8-12",\n';
+    prompt += '          "rest": "90s",\n';
+    prompt += '          "notes": "Focus on form"\n';
+    prompt += '        }\n';
+    prompt += '      ]\n';
+    prompt += '    }\n';
+    prompt += '  ],\n';
+    prompt += '  "mesocycle_weeks": 4,\n';
+    prompt += '  "deload_week": 5,\n';
+    prompt += '  "progressive_overload": "Increase weight by 2.5-5% when you can complete all sets with good form"\n';
+    prompt += '}\n\n';
+    
+    prompt += 'IMPORTANT REQUIREMENTS:\n';
+    prompt += '1. Generate a complete 7-day weekly schedule with both training and rest days\n';
+    prompt += '2. Exactly ' + frequencyDisplay + ' days MUST be training days with exercises\n';
+    prompt += '3. Rest days should have "focus": "Rest Day" and empty exercises array\n';
+    prompt += '4. Training days MUST include 4-8 exercises each\n';
+    prompt += '5. Ensure the plan matches the client\'s primary goal: ' + (profile.primary_goal || 'general fitness') + '\n';
+    prompt += '6. Return ONLY the JSON object, no additional text\n';
+    
+    console.log('[COMPOSE PROMPT] Prompt successfully generated, length:', prompt.length);
+    return prompt;
+    
+  } catch (error) {
+    console.error('[COMPOSE PROMPT] Error building prompt:', error);
+    throw error;
+  }
+}
+
 function transformGeminiPlanToAppFormat(plan, profileData) {
   console.log('[WORKOUT] Transforming enhanced plan format for app compatibility');
   console.log('[WORKOUT] Plan structure:', {
@@ -312,9 +432,40 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
     };
   });
 
+  // Create a meaningful plan name if missing
+  const createPlanName = (plan, profileData) => {
+    if (plan.plan_name) return plan.plan_name;
+    
+    const goal = profileData.primaryGoal || profileData.primary_goal || 'fitness';
+    const level = profileData.fitnessLevel || profileData.training_level || 'intermediate';
+    const name = profileData.fullName || profileData.full_name || 'User';
+    
+    // Create a personalized plan name
+    const goalMap = {
+      'muscle_gain': 'Muscle Building',
+      'weight_loss': 'Fat Loss', 
+      'fat_loss': 'Fat Loss',
+      'athletic_performance': 'Athletic Performance',
+      'general_fitness': 'General Fitness',
+      'strength': 'Strength Training',
+      'endurance': 'Endurance Training'
+    };
+    
+    const levelMap = {
+      'beginner': 'Beginner',
+      'intermediate': 'Intermediate', 
+      'advanced': 'Advanced'
+    };
+    
+    const goalName = goalMap[goal] || 'Custom';
+    const levelName = levelMap[level] || 'Intermediate';
+    
+    return `${name}'s ${goalName} Plan (${levelName})`;
+  };
+
   // Return in app's expected format with enhanced data
   return {
-    name: plan.plan_name || `${profileData.primaryGoal || profileData.primary_goal || 'Custom'} Workout Plan`,
+    name: createPlanName(plan, profileData),
     training_level: plan.target_level || profileData.fitnessLevel || profileData.training_level || 'intermediate',
     goal_fat_loss: profileData.fatLossGoal || profileData.goal_fat_reduction || 2,
     goal_muscle_gain: profileData.muscleGainGoal || profileData.goal_muscle_gain || 3,
@@ -344,20 +495,42 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 
     // Accept both 'profile' and 'userProfile' for backward compatibility
     const { profile, userProfile } = req.body || {};
-    const profileData = userProfile || profile;
+    let profileData = userProfile || profile;
+    
     if (!profileData) {
       return res.status(400).json({ success: false, error: 'Missing profile data' });
     }
 
-    console.log('[WORKOUT] Generating plan with profile:', {
-      level: profileData.fitnessLevel,
-      goal: profileData.primaryGoal,
-      workoutFrequency: profileData.workoutFrequency,
+    // 🔧 NORMALIZE PROFILE DATA: Handle different field name formats
+    if (userProfile && !profile) {
+      // If we received userProfile format, normalize to expected format
+      profileData = {
+        full_name: userProfile.fullName || userProfile.full_name || 'Client',
+        gender: userProfile.gender || 'not_specified',
+        age: userProfile.age || 25,
+        height_cm: userProfile.height_cm || userProfile.heightCm,
+        weight_kg: userProfile.weight_kg || userProfile.weightKg,
+        training_level: userProfile.fitnessLevel || userProfile.training_level || 'intermediate',
+        primary_goal: userProfile.primaryGoal || userProfile.primary_goal || 'general_fitness',
+        workout_frequency: userProfile.workoutFrequency || userProfile.workout_frequency || '4_5',
+        body_fat: userProfile.body_fat,
+        activity_level: userProfile.activity_level || 'moderately_active',
+        fitness_strategy: userProfile.fitness_strategy || 'general',
+        goal_fat_reduction: userProfile.goal_fat_reduction || 1,
+        goal_muscle_gain: userProfile.goal_muscle_gain || 1,
+        exercise_frequency: userProfile.exercise_frequency || userProfile.workout_frequency || '4-5',
+        weight_trend: userProfile.weight_trend || 'stable'
+      };
+      console.log('[WORKOUT] ✅ Normalized userProfile to standard format');
+    }
+
+    console.log('[WORKOUT] Normalized profile data:', {
+      full_name: profileData.full_name,
+      training_level: profileData.training_level,
+      primary_goal: profileData.primary_goal,
+      workout_frequency: profileData.workout_frequency,
       age: profileData.age,
     });
-
-    // Optional preferences (daysPerWeek/sessionDuration derived as needed inside service)
-    const preferences = {};
 
     try {
       console.log('[WORKOUT] Attempting Gemini AI workout plan generation');
@@ -368,7 +541,12 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         throw new Error('Gemini Text Service not available');
       }
 
-      const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
+      // Build the prompt using composePrompt helper function
+      const prompt = composePrompt(profileData);
+      console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
+      console.log('[WORKOUT] Prompt length:', prompt.length);
+
+      const plan = await geminiTextService.generateWorkoutPlan(prompt);
       console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
 
       // Transform the plan to match app's expected format
