@@ -317,6 +317,9 @@ class GeminiTextService {
    */
   async generateWorkoutPlan(prompt) {
     try {
+      console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
+      console.log('[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.1 - 240s TIMEOUT FIX');
+      console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
       console.log('[GEMINI TEXT] Generating workout plan');
       console.log('[GEMINI TEXT] User level: N/A (using prompt-based generation)');
       console.log('[GEMINI TEXT] Goal: N/A (using prompt-based generation)');
