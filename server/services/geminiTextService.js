@@ -31,14 +31,14 @@ class GeminiTextService {
       const bestKey = this.apiKeyManager.getBestAvailableKey();
       this.currentKey = bestKey;
       this.genAI = new GoogleGenerativeAI(bestKey);
-      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
+      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash-latest';
       this.modelName = modelName;
     this.model = this.genAI.getGenerativeModel({ 
         model: modelName,
       generationConfig: {
         temperature: 0.7,
         topP: 0.95,
-        maxOutputTokens: 8000
+        maxOutputTokens: 16384  // Increased for comprehensive workout plans
       }
     });
     
@@ -62,7 +62,7 @@ class GeminiTextService {
         generationConfig: {
           temperature: 0.7,
           topP: 0.95,
-          maxOutputTokens: 8000
+          maxOutputTokens: 16384  // Increased for comprehensive workout plans
         }
       });
 
@@ -312,29 +312,61 @@ class GeminiTextService {
 
   /**
    * Generates a customized workout plan using Gemini AI
-   * @param {Object} userProfile - User's fitness profile
-   * @param {Object} preferences - Workout preferences
+   * @param {string} prompt - The workout generation prompt
    * @returns {Promise<Object>} Generated workout plan
    */
   async generateWorkoutPlan(prompt) {
     try {
-      console.log('[GEMINI TEXT] Generating workout plan with provided prompt');
+      console.log('[GEMINI TEXT] Generating workout plan');
+      console.log('[GEMINI TEXT] User level: N/A (using prompt-based generation)');
+      console.log('[GEMINI TEXT] Goal: N/A (using prompt-based generation)');
 
       const startTime = Date.now();
 
-      console.log('[GEMINI TEXT] About to call generateContentWithRetry with prompt length:', prompt.length);
-      console.log('[GEMINI TEXT] Prompt preview:', prompt.substring(0, 300) + '...');
+      console.log('[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)');
+      console.log('[GEMINI TEXT] Prompt length:', prompt.length);
 
-      // Use longer timeout and more retries for workout plan generation
-      const maxRetries = 4; // Workout plans need more retries due to complexity and frequent 503 errors
-      const result = await this.generateContentWithRetry([prompt], maxRetries);
-      console.log('[GEMINI TEXT] generateContentWithRetry returned:', !!result);
+      // 🚀 OPTIMIZED: Use dedicated workout model configuration for faster generation
+      const workoutModel = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        generationConfig: {
+          temperature: 0.5,  // Lower temperature for faster, more consistent responses
+          topP: 0.9,
+          maxOutputTokens: 12000,  // Sufficient for workout plans without excessive detail
+          candidateCount: 1  // Only generate one candidate for speed
+        }
+      });
+
+      let lastError;
+      const maxRetries = 2;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
+          console.log('[GEMINI TEXT] Using optimized workout model config');
+          console.log('[GEMINI TEXT] About to call workoutModel.generateContent');
+
+          // Create timeout promise - increased to 240 seconds for complex workouts
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Gemini request timeout after 240 seconds')), 240000);
+          });
+
+          // Race between generation and timeout
+          const result = await Promise.race([
+            workoutModel.generateContent(prompt),
+            timeoutPromise
+          ]);
+
+          console.log('[GEMINI TEXT] Model.generateContent completed successfully');
+          console.log('[GEMINI TEXT] ✅ Success on attempt', attempt);
 
       const response = await result.response;
-      console.log('[GEMINI TEXT] Response object:', !!response);
+          console.log('[GEMINI TEXT] Response object:', !!response);
 
       const text = response.text();
-      console.log('[GEMINI TEXT] Response text:', !!text, 'length:', text?.length || 0);
+          console.log('[GEMINI TEXT] Response text:', !!text, 'length:', text?.length || 0);
+          console.log('[GEMINI TEXT] Raw response from Gemini (first 1000 chars):');
+          console.log(text.substring(0, 1000));
 
       const generationTime = Date.now() - startTime;
       console.log(`[GEMINI TEXT] Workout plan generated in ${generationTime}ms`);
@@ -342,6 +374,7 @@ class GeminiTextService {
       // Parse the JSON response using enhanced parsing with fallbacks
       let workoutData;
       try {
+        console.log('[GEMINI TEXT] Raw response preview:', text.substring(0, 500));
         workoutData = this.parseJsonWithFallbacks(text, 'workout');
         console.log('[GEMINI TEXT] Successfully parsed workout data');
         console.log('[GEMINI TEXT] Plan name:', workoutData.plan_name);
@@ -352,13 +385,37 @@ class GeminiTextService {
       }
 
       // Validate and normalize the workout plan
+      console.log('[GEMINI TEXT] Starting workout plan validation...');
       const validatedPlan = this.validateWorkoutPlan(workoutData);
+      console.log('[GEMINI TEXT] ✅ Validated plan with name:', validatedPlan.plan_name);
       
       return {
         ...validatedPlan,
         source: 'gemini_text',
         generated_at: new Date().toISOString()
       };
+
+        } catch (error) {
+          console.log(`[GEMINI TEXT] Error in generateContentWithRetry attempt ${attempt}:`, error.message);
+          console.log('[GEMINI TEXT] Error stack:', error.stack);
+          console.log('[GEMINI TEXT] Error constructor:', error.constructor.name);
+          
+          lastError = error;
+          
+          if (attempt < maxRetries) {
+            console.log('[GEMINI TEXT] ⚠️ Retryable error (attempt ' + attempt + '), retrying in 500ms...');
+            console.log('[GEMINI TEXT] Error type:', error.constructor.name);
+            console.log('[GEMINI TEXT] Error message:', error.message);
+            console.log('[GEMINI TEXT] Network error detected:', error.message?.includes('fetch'));
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+
+      // If all retries failed
+      console.error('[GEMINI TEXT] All retry attempts failed');
+      throw lastError || new Error('All retry attempts failed');
 
     } catch (error) {
       console.error('[GEMINI TEXT] Workout plan generation failed:', error.message);
@@ -687,12 +744,16 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       estimated_results: plan.estimated_results || plan.estimatedTimePerSession || "Results vary by individual commitment and consistency"
     };
 
-    // Ensure weekly schedule has proper structure
+    // Ensure weekly schedule has proper structure - PRESERVE ORIGINAL EXERCISES
     validated.weekly_schedule = validated.weekly_schedule.map(day => ({
       day: day.day || 1,
-      day_name: day.day_name || "Workout Day",
+      day_name: day.day_name || day.focus || "Workout Day",
+      focus: day.focus || day.day_name || "Training",
       workout_type: day.workout_type || "Training",
       duration_minutes: Math.max(day.duration_minutes || 45, 15),
+      // PRESERVE ORIGINAL EXERCISES ARRAY - This is what Gemini returns!
+      exercises: day.exercises || [],
+      // Also preserve structured format if it exists
       warm_up: day.warm_up || [],
       main_workout: day.main_workout || [],
       cool_down: day.cool_down || []
@@ -704,16 +765,34 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       day.workout_type?.toLowerCase() !== 'rest'
     );
     
-    const emptyDaysCount = workoutDays.filter(day => 
-      (!day.warm_up || day.warm_up.length === 0) &&
-      (!day.main_workout || day.main_workout.length === 0) &&
-      (!day.cool_down || day.cool_down.length === 0)
-    ).length;
+    const emptyDaysCount = workoutDays.filter(day => {
+      // Check both formats: exercises array format and warm_up/main_workout/cool_down format
+      const hasExercisesArray = day.exercises && day.exercises.length > 0;
+      const hasStructuredWorkout = (
+        (day.warm_up && day.warm_up.length > 0) ||
+        (day.main_workout && day.main_workout.length > 0) ||
+        (day.cool_down && day.cool_down.length > 0)
+      );
+      
+      // DEBUG: Log what we're finding for each day
+      console.log(`[GEMINI TEXT] 🔍 Day "${day.day_name}" validation:`, {
+        hasExercisesArray,
+        exercisesCount: day.exercises?.length || 0,
+        hasStructuredWorkout,
+        warmUpCount: day.warm_up?.length || 0,
+        mainWorkoutCount: day.main_workout?.length || 0,
+        coolDownCount: day.cool_down?.length || 0
+      });
+      
+      // Day is empty if it has neither format with exercises
+      return !hasExercisesArray && !hasStructuredWorkout;
+    }).length;
 
     // If more than half of workout days have no exercises, the plan is invalid
     if (workoutDays.length > 0 && emptyDaysCount / workoutDays.length > 0.5) {
       console.error('[GEMINI TEXT] ❌ VALIDATION FAILED: Most workout days have empty exercises');
       console.error('[GEMINI TEXT] Workout days:', workoutDays.length, 'Empty days:', emptyDaysCount);
+      console.error('[GEMINI TEXT] Sample day structure:', JSON.stringify(workoutDays[0], null, 2));
       throw new Error('Gemini returned invalid workout plan with empty exercises - triggering fallback');
     }
 
@@ -778,7 +857,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     return {
       service: 'GeminiTextService',
       status: 'healthy',
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest',
       apiKeyConfigured: !!this.apiKey,
       capabilities: ['recipe_generation', 'workout_plans'],
       timestamp: new Date().toISOString()
@@ -1317,6 +1396,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     
     // Strategy 6: Last resort - create minimal valid JSON
     console.log(`[GEMINI TEXT] 🚨 All parsing strategies failed for ${context}, creating minimal JSON`);
+    console.log(`[GEMINI TEXT] Raw text causing fallback:`, text.substring(0, 1000));
     
     if (context === 'workout') {
       return {

@@ -271,10 +271,13 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
 function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   
   if (!aiWorkoutPlan || !aiWorkoutPlan.weekly_schedule) {
+    console.log('[applyWeeklyDistribution] ❌ No workout plan or weekly_schedule');
     return aiWorkoutPlan;
   }
   
   const workoutSessions = aiWorkoutPlan.weekly_schedule;
+  console.log('[applyWeeklyDistribution] 🔍 Input workoutSessions length:', workoutSessions.length);
+  
   const workoutFrequency =
     userProfile?.workout_frequency ||
     userProfile?.workoutFrequency ||
@@ -282,6 +285,7 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
     aiWorkoutPlan.sessions_per_week ||
     workoutSessions.length ||
     4;
+  console.log('[applyWeeklyDistribution] 🔍 workoutFrequency:', workoutFrequency);
 
   let targetWorkoutDays = Number(workoutFrequency);
 
@@ -305,6 +309,7 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   }
 
   const boundedWorkoutDays = Math.max(1, Math.min(7, targetWorkoutDays));
+  console.log('[applyWeeklyDistribution] 🔍 boundedWorkoutDays:', boundedWorkoutDays);
 
   
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -351,36 +356,50 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
         type: originalWorkout.workout_type || originalWorkout.focus,
         workout_type: originalWorkout.workout_type || originalWorkout.focus,
         duration_minutes: originalWorkout.duration_minutes || 45,
-        exercises: [
-          // Keep warm-up exercises
-          ...(originalWorkout.warm_up || []).map(ex => ({
-            name: ex.exercise || ex.name,
-            sets: ex.sets || 1,
-            reps: ex.reps || ex.duration || "5 min",
-            rest: ex.rest_seconds || ex.rest || "30s",
-            type: "warm_up",
-            instructions: ex.instructions
-          })),
-          // Keep main workout exercises  
-          ...(originalWorkout.main_workout || []).map(ex => ({
-            name: ex.exercise || ex.name,
-            sets: ex.sets || 3,
-            reps: ex.reps || "8-12",
-            rest: ex.rest_seconds || ex.rest || "60s",
-            type: "main_workout",
+        exercises: originalWorkout.exercises ? 
+          // If exercises array exists (new format), use it directly
+          originalWorkout.exercises.map(ex => ({
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            rest: ex.restBetweenSets || ex.rest,
+            type: ex.category || ex.type || "main_workout",
             instructions: ex.instructions,
-            modifications: ex.modifications
-          })),
-          // Keep cool-down exercises
-          ...(originalWorkout.cool_down || []).map(ex => ({
-            name: ex.exercise || ex.name,
-            sets: ex.sets || 1,
-            reps: ex.reps || ex.duration || "5 min",
-            rest: ex.rest_seconds || ex.rest || "30s",
-            type: "cool_down",
-            instructions: ex.instructions
-          }))
-        ]
+            modifications: ex.modifications,
+            muscleGroups: ex.muscleGroups || [],
+            duration: ex.duration
+          })) :
+          // Fallback to old format with separate arrays
+          [
+            // Keep warm-up exercises
+            ...(originalWorkout.warm_up || []).map(ex => ({
+              name: ex.exercise || ex.name,
+              sets: ex.sets || 1,
+              reps: ex.reps || ex.duration || "5 min",
+              rest: ex.rest_seconds || ex.rest || "30s",
+              type: "warm_up",
+              instructions: ex.instructions
+            })),
+            // Keep main workout exercises  
+            ...(originalWorkout.main_workout || []).map(ex => ({
+              name: ex.exercise || ex.name,
+              sets: ex.sets || 3,
+              reps: ex.reps || "8-12",
+              rest: ex.rest_seconds || ex.rest || "60s",
+              type: "main_workout",
+              instructions: ex.instructions,
+              modifications: ex.modifications
+            })),
+            // Keep cool-down exercises
+            ...(originalWorkout.cool_down || []).map(ex => ({
+              name: ex.exercise || ex.name,
+              sets: ex.sets || 1,
+              reps: ex.reps || ex.duration || "5 min",
+              rest: ex.rest_seconds || ex.rest || "30s",
+              type: "cool_down",
+              instructions: ex.instructions
+            }))
+          ]
       };
       
       newWeeklySchedule.push(transformedWorkout);
@@ -398,6 +417,8 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
     }
   }
   
+  console.log('[applyWeeklyDistribution] 🔍 newWeeklySchedule length:', newWeeklySchedule.length);
+  console.log('[applyWeeklyDistribution] 🔍 newWeeklySchedule days:', newWeeklySchedule.map(d => ({ day: d.day, focus: d.focus })));
   
   return {
     ...aiWorkoutPlan,
@@ -435,14 +456,41 @@ function generatePersonalizedExercises(userProfile, goal, level, age, gender, wo
         { name: "Spinal Twists", sets: 3, reps: "10-15", restBetweenSets: "60s" }
       ]
     },
-    // Exercises for other age groups and fitness levels
-    // ... (rest of the exercise database)
+    // General strength exercises
+    strength: [
+      { name: "Push-ups", sets: 3, reps: "8-12", restBetweenSets: "90s" },
+      { name: "Squats", sets: 3, reps: "12-15", restBetweenSets: "90s" },
+      { name: "Lunges", sets: 3, reps: "10-12 each leg", restBetweenSets: "90s" },
+      { name: "Plank", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
+      { name: "Burpees", sets: 3, reps: "8-10", restBetweenSets: "120s" },
+      { name: "Mountain Climbers", sets: 3, reps: "20-30", restBetweenSets: "60s" },
+      { name: "Deadlifts", sets: 3, reps: "8-10", restBetweenSets: "120s" },
+      { name: "Pull-ups", sets: 3, reps: "5-8", restBetweenSets: "120s" }
+    ],
+    // Cardio exercises
+    cardio: [
+      { name: "Jumping Jacks", sets: 3, reps: "30-45s", restBetweenSets: "30s" },
+      { name: "High Knees", sets: 3, reps: "30s", restBetweenSets: "30s" },
+      { name: "Butt Kicks", sets: 3, reps: "30s", restBetweenSets: "30s" },
+      { name: "Jump Rope", sets: 3, reps: "60s", restBetweenSets: "60s" },
+      { name: "Running in Place", sets: 3, reps: "60s", restBetweenSets: "30s" },
+      { name: "Box Steps", sets: 3, reps: "45s", restBetweenSets: "45s" }
+    ],
+    // Flexibility exercises
+    flexibility: [
+      { name: "Hamstring Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "15s" },
+      { name: "Quad Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "15s" },
+      { name: "Shoulder Stretch", sets: 2, reps: "30s each arm", restBetweenSets: "15s" },
+      { name: "Calf Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "15s" },
+      { name: "Hip Flexor Stretch", sets: 2, reps: "30s each leg", restBetweenSets: "15s" },
+      { name: "Cat-Cow Stretch", sets: 2, reps: "10-15", restBetweenSets: "30s" }
+    ]
   };
 
   // Helper function to select exercises based on criteria
   function selectExercises(criteria) {
     const { type, equipment, difficulty } = criteria;
-    const exercises = [];
+    let exercises = [];
 
     // Filter exercises based on type, equipment, and difficulty
     for (const category in exerciseDatabase) {
@@ -480,9 +528,10 @@ function generatePersonalizedExercises(userProfile, goal, level, age, gender, wo
   }
 
   // Helper function to generate workout plan based on selected exercises
-  function generateWorkoutPlan(exercises, targetWorkoutDays) {
+  function generateWorkoutPlan(exercises, targetWorkoutDays, goal, workoutTypes, age, userName = 'Your') {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const workoutPlan = {
-      plan_name: "Personalized Workout Plan",
+      plan_name: `${userName}'s Personalized Plan`,
       weekly_schedule: []
     };
 
@@ -548,14 +597,29 @@ function generatePersonalizedExercises(userProfile, goal, level, age, gender, wo
   }
 
   // Select exercises based on user profile
+  // If no specific workout types are provided, use defaults based on goal
+  let effectiveWorkoutTypes = workoutTypes;
+  if (!effectiveWorkoutTypes || effectiveWorkoutTypes.length === 0) {
+    if (goal === 'muscle_gain') {
+      effectiveWorkoutTypes = ['strength'];
+    } else if (goal === 'weight_loss' || goal === 'fat_loss') {
+      effectiveWorkoutTypes = ['cardio', 'strength'];
+    } else if (goal === 'athletic_performance') {
+      effectiveWorkoutTypes = ['strength', 'cardio', 'flexibility'];
+    } else {
+      effectiveWorkoutTypes = ['strength', 'cardio']; // general fitness default
+    }
+  }
+  
   const selectedExercises = selectExercises({
-    type: workoutTypes,
+    type: effectiveWorkoutTypes,
     equipment: equipment,
     difficulty: intensity
   });
 
   // Generate workout plan based on selected exercises
-  const workoutPlan = generateWorkoutPlan(selectedExercises, targetWorkoutDays);
+  const userName = userProfile.full_name || userProfile.fullName || userProfile.name || 'Your';
+  const workoutPlan = generateWorkoutPlan(selectedExercises, targetWorkoutDays, goal, effectiveWorkoutTypes, age, userName);
 
   return workoutPlan;
 }
@@ -622,10 +686,13 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const weeklySchedule = [];
   
+  // Get user's name for personalization
+  const userName = userProfile.full_name || userProfile.fullName || userProfile.name || 'Your';
+  
   // Base template that works for most fitness goals
   const baseWorkouts = {
     muscle_gain: {
-      plan_name: "Muscle Building Workout Plan",
+      plan_name: `${userName}'s Muscle Building Plan`,
       weekly_schedule: [
         {
           day: "Monday",
@@ -675,7 +742,7 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       ]
     },
     weight_loss: {
-      plan_name: "Weight Loss Workout Plan",
+      plan_name: `${userName}'s Weight Loss Plan`,
       weekly_schedule: [
         {
           day: "Monday",
@@ -731,7 +798,7 @@ function generateRuleBasedWorkoutPlan(userProfile) {
   
   // Default general fitness plan
   const defaultPlan = {
-    plan_name: "General Fitness Workout Plan",
+    plan_name: `${userName}'s General Fitness Plan`,
     weekly_schedule: [
       {
         day: "Monday",
@@ -786,7 +853,8 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     } else if (workoutFrequency === '2_3') {
       targetWorkoutDays = Math.random() < 0.5 ? 2 : 3;
     } else if (workoutFrequency === '4_5') {
-      targetWorkoutDays = Math.random() < 0.5 ? 4 : 5;
+      // For intermediate users, favor 5 days for better results
+      targetWorkoutDays = fitnessLevel === 'intermediate' ? 5 : (Math.random() < 0.5 ? 4 : 5);
     } else if (workoutFrequency === '6') {
       targetWorkoutDays = 6;
     } else if (workoutFrequency === '7') {
@@ -799,7 +867,7 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     const level = fitnessLevel;
     const name = userProfile.fullName || userProfile.full_name || 'User';
     const age = userProfile.age || 25;
-    const planName = `${goal?.replace(/_/g, ' ')?.toUpperCase() || 'General Fitness'} Workout Plan`;
+    const planName = `${name}'s ${goal?.replace(/_/g, ' ')?.toUpperCase() || 'General Fitness'} Plan`;
 
     // Enhanced plan selection with personalization
   let selectedPlan = defaultPlan;
@@ -808,10 +876,30 @@ function generateRuleBasedWorkoutPlan(userProfile) {
     console.log('[WORKOUT] Debug - userProfile:', JSON.stringify(userProfile, null, 2));
     const preferences = userProfile?.preferences || {};
     console.log('[WORKOUT] Debug - preferences:', JSON.stringify(preferences, null, 2));
-    const workoutTypes = preferences?.workoutTypes || userProfile?.workoutTypes || [];
-    console.log('[WORKOUT] Debug - workoutTypes:', workoutTypes);
-    const equipment = preferences?.equipment || userProfile?.equipment || [];
-    const intensity = preferences?.intensity || userProfile?.intensity || 'medium';
+    
+    // Set default workout types based on goal if not provided
+    let workoutTypes = preferences?.workoutTypes || (userProfile && userProfile.workoutTypes) || [];
+    if (!Array.isArray(workoutTypes) || workoutTypes.length === 0) {
+      // Set default workout types based on primary goal
+      switch (userProfile.primary_goal) {
+        case 'muscle_gain':
+          workoutTypes = ['strength'];
+          break;
+        case 'fat_loss':
+          workoutTypes = ['cardio', 'strength'];
+          break;
+        case 'athletic_performance':
+          workoutTypes = ['strength', 'cardio'];
+          break;
+        case 'general_fitness':
+        default:
+          workoutTypes = ['strength', 'cardio', 'flexibility'];
+          break;
+      }
+    }
+    console.log('[WORKOUT] Debug - workoutTypes (after defaults):', workoutTypes);
+    const equipment = preferences?.equipment || (userProfile && userProfile.equipment) || [];
+    const intensity = preferences?.intensity || (userProfile && userProfile.intensity) || 'medium';
     
     // Generate personalized exercises based on user profile
     selectedPlan = generatePersonalizedExercises(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays);
@@ -1846,158 +1934,75 @@ function validateAndFixWorkoutFrequency(plan, profile) {
 }
 // Compose prompt for workout plan generation
 function composePrompt(profile) {
-  return `
-You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.
-
-CLIENT PROFILE:
-- Full Name: ${profile.full_name || 'Client'}
-- Gender: ${profile.gender || 'Not specified'}
-- Age: ${profile.age || 'Not specified'}
-- Training Level: ${profile.training_level || 'intermediate'}
-- Primary Goal: ${profile.primary_goal || 'general fitness'}
-- Preferred Workout Frequency: ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) + ' times per week' : '4-5 times per week'}
-
-PROGRAMMING & PROGRESSION:
-1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.
-2. Suggest target set volumes relative to training level (lower for beginners, higher for advanced).
-3. Tailor the workout plan to the client's primary goal:
-   - Muscle Gain: Focus on compound movements with moderate reps (8-12) and adequate rest (90-120s)
-   - Fat Loss: Include higher reps (12-15) with shorter rest periods (60-90s) and cardio elements
-   - Athletic Performance: Emphasize functional movements, power exercises, and sport-specific training
-   - General Fitness: Balanced approach with mix of strength and cardio elements
-4. Ensure balanced weekly distribution across push, pull, legs, and include core.
-
-CRITICAL EXERCISE VARIETY REQUIREMENTS:
-1. NEVER repeat the same exercises in consecutive workouts
-2. Use different exercise variations for the same muscle group
-3. Rotate between compound and isolation exercises
-4. Vary equipment types (barbell, dumbbell, cable, bodyweight)
-5. Include different angles and grips for muscle groups
-6. Use progressive exercise selection (start with basics, progress to advanced)
-
-AVAILABLE EXERCISES (Choose from these for variety):
-PUSH EXERCISES: Bench Press, Incline Bench Press, Decline Bench Press, Close Grip Bench Press, Military Press, Push Press, Dumbbell Bench Press, Incline Dumbbell Press, Decline Dumbbell Press, Dumbbell Flyes, Incline Dumbbell Flyes, Decline Dumbbell Flyes, Dumbbell Shoulder Press, Arnold Press, Lateral Raise, Front Raise, Rear Delt Flyes, Dumbbell Tricep Extension, Overhead Dumbbell Extension, Dumbbell Kickback, Cable Flyes, Incline Cable Flyes, Decline Cable Flyes, Cable Lateral Raise, Cable Front Raise, Cable Rear Delt Flyes, Tricep Pushdown, Rope Pushdown, Overhead Cable Extension, Cable Crossovers, Push Up, Diamond Push Up, Pike Push Up, Wide Grip Push Up, Decline Push Up, Archer Push Up, One Arm Push Up, Dip, Ring Dip, Handstand Push Up
-
-PULL EXERCISES: Barbell Row, Pendlay Row, T-Bar Row, Barbell Curl, Preacher Curl, Incline Barbell Curl, Barbell Shrug, Upright Row, Dumbbell Row, One Arm Dumbbell Row, Incline Dumbbell Row, Dumbbell Curl, Hammer Curl, Incline Dumbbell Curl, Concentration Curl, Dumbbell Shrug, Dumbbell Rear Delt Flyes, Lat Pulldown, Wide Grip Lat Pulldown, Close Grip Lat Pulldown, Seated Cable Row, One Arm Cable Row, Face Pull, Cable Curl, Rope Cable Curl, Cable Shrug, Pull Up, Chin Up, Wide Grip Pull Up, Close Grip Pull Up, Neutral Grip Pull Up, Muscle Up, Inverted Row
-
-LEG EXERCISES: Barbell Back Squat, Front Squat, Overhead Squat, Romanian Deadlift, Conventional Deadlift, Sumo Deadlift, Good Morning, Barbell Calf Raise, Dumbbell Squat, Goblet Squat, Walking Lunge, Dumbbell Step Up, Dumbbell Romanian Deadlift, Dumbbell Calf Raise, Kettlebell Goblet Squat, Kettlebell Swing, Kettlebell Deadlift, Leg Press, Leg Extension, Leg Curl, Seated Leg Curl, Standing Leg Curl, Cable Calf Raise, Seated Calf Raise, Hack Squat, Hip Thrust, Bodyweight Squat, Jump Squat, Bodyweight Lunge, Walking Lunge, Jumping Lunge, Single Leg Squat, Pistol Squat, Calf Raise, Single Leg Calf Raise, Glute Bridge, Single Leg Glute Bridge, Wall Sit
-
-CORE EXERCISES: Plank, Side Plank, Mountain Climber, Bicycle Crunch, Leg Raise, Hanging Leg Raise, Crunch, Sit Up, Russian Twist, Dead Bug, Bird Dog, Superman, Cable Woodchop, Weighted Russian Twist, Weighted Plank, Cable Crunch, Pallof Press, Cable Rotation, Weighted Sit Up, Weighted Crunch
-
-CARDIO EXERCISES: Kettlebell Swing, Dumbbell Clean and Press, Weighted Step-Up, Burpee, Jump Rope, High Knees, Mountain Climber, Box Jump, Thruster, Wall Ball
-
-🚨 CRITICAL FREQUENCY REQUIREMENT 🚨
-The client has specified they want to train ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} TIMES PER WEEK.
-This means:
-${getFrequencyExplanation(profile.workout_frequency)}
-
-You MUST create EXACTLY ${getMinFrequency(profile.workout_frequency)} to ${getMaxFrequency(profile.workout_frequency)} TRAINING DAYS.
-Do NOT create only 3 training days. Do NOT create 7 training days. Follow the frequency specification EXACTLY.
-
-INSTRUCTIONS:
-1. Create a 7-day workout schedule with appropriate rest days based on their exercise frequency
-2. 🚨 ABSOLUTE REQUIREMENT: You MUST create EXACTLY ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} TRAINING DAYS PER WEEK
-   - Count the training days in your response to ensure accuracy
-   - Do NOT create more or fewer training days than specified
-   - For '2_3' frequency: Create MINIMUM 2, MAXIMUM 3 training days (example: Monday, Wednesday)
-   - For '4_5' frequency: Create MINIMUM 4, MAXIMUM 5 training days (example: Monday, Tuesday, Thursday, Friday, Saturday)
-   - For '6' frequency: Create EXACTLY 6 training days (example: Monday through Saturday)
-3. For each workout day, create a structured session with:
-   - The focus area (e.g., "Upper Body", "Lower Body", "Push", "Pull", "Legs", "Full Body")
-   - Warm-up exercises (2-3 light movements, 5-10 minutes total)
-   - Main workout exercises (4-6 exercises appropriate for their training level)
-   - Cool-down exercises (2-3 stretches or light movements, 5-10 minutes total)
-4. For each exercise, include detailed information: name, sets, reps, rest time, and helpful instructions
-5. Include an estimated time per session (e.g., "45 minutes")
-6. Ensure maximum exercise variety - never repeat exercises in consecutive workouts
-7. Return ONLY a valid JSON object with the following structure:
-
-{
-  "weeklySchedule": [
-    {
-      "day": 1,
-      "day_name": "Monday",
-      "focus": "Chest and Triceps",
-      "workout_type": "Strength Training",
-      "duration_minutes": 60,
-      "warm_up": [
-        {
-          "exercise": "Arm Circles (forward & backward)",
-          "duration": "2 minutes",
-          "instructions": "Start with small circles and gradually increase size. Perform 30 seconds forward, 30 seconds backward, repeat."
-        },
-        {
-          "exercise": "Light Chest Stretch",
-          "duration": "2 minutes", 
-          "instructions": "Stand in doorway, place forearms on frame, step forward gently to stretch chest and shoulders."
-        },
-        {
-          "exercise": "Shoulder Blade Squeezes",
-          "duration": "1 minute",
-          "instructions": "Pull shoulder blades together, hold for 2 seconds, release. Repeat 15-20 times."
-        }
-      ],
-      "main_workout": [
-        {
-          "exercise": "Bench Press",
-          "sets": 4,
-          "reps": "8-10",
-          "rest": "90s",
-          "instructions": "Keep feet planted, arch back slightly, lower bar to chest with control, press up explosively. Focus on squeezing chest at the top."
-        },
-        {
-          "exercise": "Incline Dumbbell Press", 
-          "sets": 3,
-          "reps": "10-12",
-          "rest": "60s",
-          "instructions": "Set bench to 30-45 degrees. Lower dumbbells to chest level, press up and slightly inward. Control the negative."
-        },
-        {
-          "exercise": "Cable Flyes",
-          "sets": 3,
-          "reps": "12-15", 
-          "rest": "60s",
-          "instructions": "Stand with slight forward lean, bring cables together in arc motion. Focus on squeezing chest at peak contraction."
-        },
-        {
-          "exercise": "Tricep Pushdown",
-          "sets": 3,
-          "reps": "12-15",
-          "rest": "60s", 
-          "instructions": "Keep elbows tucked at sides, press down with control, squeeze triceps at bottom. Slow return to start."
-        },
-        {
-          "exercise": "Overhead Dumbbell Extension",
-          "sets": 3,
-          "reps": "10-12",
-          "rest": "60s",
-          "instructions": "Lower dumbbell behind head with control, keep elbows pointing forward. Press back to start position."
-        }
-      ],
-      "cool_down": [
-        {
-          "exercise": "Chest Doorway Stretch",
-          "duration": "3 minutes",
-          "instructions": "Place forearm against doorway, step forward to stretch chest and front deltoids. Hold 90 seconds each arm."
-        },
-        {
-          "exercise": "Tricep Overhead Stretch", 
-          "duration": "2 minutes",
-          "instructions": "Reach one arm overhead, bend elbow, use other hand to gently pull elbow. Hold 60 seconds each arm."
-        }
-      ]
-    }
-  ],
-  "estimatedTimePerSession": "60 minutes",
-  "progression": {
-    "mesocycleWeeks": 4,
-    "guidance": "Increase load 2.5-5% weekly if all reps achieved; optional deload in week 4 if fatigue accumulates."
+  try {
+    // Pre-calculate values to avoid template literal scope issues
+    const workoutFreqText = profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) + ' times per week' : '4-5 times per week';
+    const frequencyExplanation = getFrequencyExplanation(profile.workout_frequency);
+    const minFrequency = getMinFrequency(profile.workout_frequency);
+    const maxFrequency = getMaxFrequency(profile.workout_frequency);
+    const frequencyDisplay = profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5';
+    
+    // Debug logging
+    console.log('[COMPOSE PROMPT] Values calculated:', {
+      workoutFreqText,
+      frequencyExplanation: frequencyExplanation.substring(0, 50) + '...',
+      minFrequency,
+      maxFrequency,
+      frequencyDisplay
+    });
+    
+    // Build prompt using string concatenation to avoid template literal issues
+    let prompt = 'You are a professional fitness coach. Create a personalized weekly workout plan for a client with the following profile. Focus on their primary fitness goal while considering their age, gender, training level, and preferred workout frequency.\n\n';
+    
+    prompt += 'CLIENT PROFILE:\n';
+    prompt += '- Full Name: ' + (profile.full_name || 'Client') + '\n';
+    prompt += '- Gender: ' + (profile.gender || 'Not specified') + '\n';
+    prompt += '- Age: ' + (profile.age || 'Not specified') + '\n';
+    prompt += '- Training Level: ' + (profile.training_level || 'intermediate') + '\n';
+    prompt += '- Primary Goal: ' + (profile.primary_goal || 'general fitness') + '\n';
+    prompt += '- Preferred Workout Frequency: ' + workoutFreqText + '\n\n';
+    
+    prompt += 'PROGRAMMING & PROGRESSION:\n';
+    prompt += '1. Provide a sensible 4-week mesocycle with progressive overload guidance and 1 optional deload recommendation.\n';
+    prompt += '2. Suggest target set volumes relative to training level (lower for beginners, higher for advanced).\n';
+    prompt += '3. Tailor the workout plan to the client\'s primary goal:\n';
+    prompt += '   - Muscle Gain: Focus on compound movements with moderate reps (8-12) and adequate rest (90-120s)\n';
+    prompt += '   - Fat Loss: Include higher reps (12-15) with shorter rest periods (60-90s) and cardio elements\n';
+    prompt += '   - Athletic Performance: Emphasize functional movements, power exercises, and sport-specific training\n';
+    prompt += '   - General Fitness: Balanced approach with mix of strength and cardio elements\n\n';
+    
+    prompt += 'WORKOUT FREQUENCY: ' + frequencyExplanation + '\n';
+    prompt += '- Target: ' + frequencyDisplay + ' training days per week\n';
+    prompt += '- Minimum: ' + minFrequency + ' days per week\n';
+    prompt += '- Maximum: ' + maxFrequency + ' days per week\n\n';
+    
+    prompt += 'RESPONSE FORMAT (respond ONLY with JSON, no markdown):\n';
+    prompt += '{\n';
+    prompt += '  "plan_name": "' + (profile.full_name || 'Client') + '\'s ' + (profile.primary_goal || 'Fitness').replace('_', ' ') + ' Plan",\n';
+    prompt += '  "weekly_schedule": [\n';
+    prompt += '    {\n';
+    prompt += '      "day": "Monday",\n';
+    prompt += '      "focus": "Upper Body",\n';
+    prompt += '      "exercises": [{"name": "Push-ups", "sets": 3, "reps": "8-12", "rest": "90s", "notes": ""}]\n';
+    prompt += '    }\n';
+    prompt += '  ]\n';
+    prompt += '}\n\n';
+    
+    prompt += 'REQUIREMENTS:\n';
+    prompt += '- Create exactly ' + frequencyDisplay + ' training days\n';
+    prompt += '- Include 4-6 exercises per training day\n';
+    prompt += '- Mix compound and isolation movements\n';
+    prompt += '- Keep notes brief or empty\n';
+    prompt += '- Return ONLY valid JSON (no markdown backticks)';
+    
+    console.log('[COMPOSE PROMPT] Successfully built prompt, length:', prompt.length);
+    return prompt;
+    
+  } catch (error) {
+    console.error('[COMPOSE PROMPT] Error building prompt:', error.message);
+    console.error('[COMPOSE PROMPT] Error stack:', error.stack);
+    throw error;
   }
-}
-Make sure all exercises are appropriate for the client's training level. Include both compound and isolation exercises. Rest days should be appropriately spaced throughout the week. IMPORTANT: Ensure maximum exercise variety and avoid repetition across workouts.
-🚨 CRITICAL ENFORCEMENT: You MUST create exactly ${profile.workout_frequency ? formatWorkoutFrequency(profile.workout_frequency) : '4-5'} training days per week. This is ABSOLUTELY NON-NEGOTIABLE.
-FINAL CHECKS BEFORE RESPONDING:
-```
 }
 
 /**
@@ -2005,6 +2010,13 @@ FINAL CHECKS BEFORE RESPONDING:
  */
 function transformGeminiPlanToAppFormat(plan, profileData) {
   console.log('[WORKOUT] Transforming enhanced plan format for app compatibility');
+  
+  // Handle null or undefined plan
+  if (!plan) {
+    console.error('[WORKOUT] ❌ Plan is null or undefined, cannot transform');
+    throw new Error('Plan data is null or undefined');
+  }
+  
   console.log('[WORKOUT] Plan structure:', {
     hasWeeklySchedule: !!(plan.weeklySchedule || plan.weekly_schedule),
     scheduleLength: (plan.weeklySchedule || plan.weekly_schedule || []).length,
@@ -2069,9 +2081,39 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
     };
   });
 
+  // Create a meaningful plan name - always personalize it
+  const createPlanName = (plan, profileData) => {
+    const goal = profileData.primaryGoal || profileData.primary_goal || 'fitness';
+    const level = profileData.fitnessLevel || profileData.training_level || 'intermediate';
+    const name = profileData.fullName || profileData.full_name || 'User';
+    
+    // Create a personalized plan name
+    const goalMap = {
+      'muscle_gain': 'Muscle Building',
+      'weight_loss': 'Fat Loss', 
+      'fat_loss': 'Fat Loss',
+      'athletic_performance': 'Athletic Performance',
+      'general_fitness': 'General Fitness',
+      'strength': 'Strength Training',
+      'endurance': 'Endurance Training'
+    };
+    
+    const levelMap = {
+      'beginner': 'Beginner',
+      'intermediate': 'Intermediate', 
+      'advanced': 'Advanced'
+    };
+    
+    const goalName = goalMap[goal] || 'Custom';
+    const levelName = levelMap[level] || 'Intermediate';
+    
+    return `${name}'s ${goalName} Plan`;
+  };
+
   // Return in app's expected format with enhanced data
   return {
-    name: plan.plan_name || `${profileData.primaryGoal || profileData.primary_goal || 'Custom'} Workout Plan`,
+    name: createPlanName(plan, profileData),
+    primaryGoal: profileData.primaryGoal || profileData.primary_goal || 'general_fitness', // ✅ ADD PRIMARY GOAL
     training_level: plan.target_level || profileData.fitnessLevel || profileData.training_level || 'intermediate',
     goal_fat_loss: profileData.fatLossGoal || profileData.goal_fat_reduction || 2,
     goal_muscle_gain: profileData.muscleGainGoal || profileData.goal_muscle_gain || 3,
@@ -2097,12 +2139,38 @@ app.post('/api/generate-workout-plan', async (req, res) => {
   try {
     // Accept both 'profile' and 'userProfile' for backward compatibility
     const { profile, userProfile } = req.body || {};
-    const profileData = userProfile || profile;
+    let profileData = userProfile || profile;
     
     if (!profileData) {
       return res.status(400).json({ success: false, error: 'Missing profile data' });
     }
 
+    // 🔧 NORMALIZE PROFILE DATA: Handle different field name formats
+    if (userProfile && !profile) {
+      // If we received userProfile format, normalize to expected format
+      profileData = {
+        full_name: userProfile.fullName || userProfile.full_name || 'Client',
+        gender: userProfile.gender || 'not_specified',
+        age: userProfile.age || 25,
+        height_cm: userProfile.height_cm || userProfile.heightCm,
+        weight_kg: userProfile.weight_kg || userProfile.weightKg,
+        training_level: userProfile.fitnessLevel || userProfile.training_level || 'intermediate',
+        primary_goal: userProfile.primaryGoal || userProfile.primary_goal || 'general_fitness',
+        workout_frequency: userProfile.workoutFrequency || userProfile.workout_frequency || '4_5',
+        body_fat: userProfile.body_fat,
+        activity_level: userProfile.activity_level || 'moderately_active',
+        fitness_strategy: userProfile.fitness_strategy || 'general',
+        goal_fat_reduction: userProfile.goal_fat_reduction || 1,
+        goal_muscle_gain: userProfile.goal_muscle_gain || 1,
+        exercise_frequency: userProfile.exercise_frequency || userProfile.workout_frequency || '4-5',
+        weight_trend: userProfile.weight_trend || 'stable'
+      };
+      console.log('[WORKOUT] ✅ Normalized userProfile to standard format');
+    }
+
+    console.log('[WORKOUT] Normalized profile data:', JSON.stringify(profileData, null, 2));
+    console.log('[WORKOUT] Primary goal from user profile:', userProfile?.primaryGoal);
+    console.log('[WORKOUT] Primary goal in normalized profile:', profileData.primary_goal);
     console.log('[WORKOUT] Generating plan with profile:', {
       level: profileData.training_level,
       goal: profileData.primary_goal,
@@ -2125,31 +2193,83 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 
     try {
       // Use GeminiTextService for workout plan generation
-      const preferences = {};
-      const plan = await geminiTextService.generateWorkoutPlan(profileData, preferences);
+      console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
+      console.log('[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService');
+      console.log('[WORKOUT] Current GEMINI_MODEL:', process.env.GEMINI_MODEL || 'gemini-1.5-flash');
+      console.log('[WORKOUT] geminiTextService available:', !!geminiTextService);
+      console.log('[WORKOUT] Calling generateWorkoutPlan with normalized profile');
+      
+      const prompt = composePrompt(profileData);
+      console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
+      console.log('[WORKOUT] Prompt length:', prompt.length);
+      
+      // 🚀 OPTIMIZED TIMEOUT: Extended timeout with optimized Gemini configuration
+      const plan = await Promise.race([
+        geminiTextService.generateWorkoutPlan(prompt),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Workout generation timeout after 300 seconds')), 300000)
+        )
+      ]);
+      
       console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
+
+      // Check if plan is null or undefined
+      if (!plan) {
+        throw new Error('Gemini service returned null/undefined plan');
+      }
 
       // Transform the plan to match app's expected format
       const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
       console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
 
+      // Apply weekly distribution to add rest days and create full 7-day schedule
+      // Convert weeklySchedule to weekly_schedule for compatibility with applyWeeklyDistribution
+      const planForDistribution = {
+        ...transformedPlan,
+        weekly_schedule: transformedPlan.weeklySchedule || transformedPlan.weekly_schedule || []
+      };
+      console.log('[WORKOUT] Applying weekly distribution with', profileData.workoutFrequency, 'sessions per week');
+      const finalPlan = applyWeeklyDistribution(planForDistribution, profileData);
+
+      // Convert back to app format (weeklySchedule instead of weekly_schedule)
+      const appFormatPlan = {
+        ...finalPlan,
+        weeklySchedule: finalPlan.weekly_schedule || finalPlan.weeklySchedule || [],
+        // Add primaryGoal at root level for easier access
+        primaryGoal: finalPlan.user_profile_summary?.primary_goal || profileData.primaryGoal,
+        primary_goal: finalPlan.user_profile_summary?.primary_goal || profileData.primaryGoal
+      };
+      delete appFormatPlan.weekly_schedule; // Remove the underscore version
+
+      console.log('[WORKOUT] ✅ Final response - weeklySchedule:', appFormatPlan.weeklySchedule?.length, 'days');
+      console.log('[WORKOUT] ✅ Primary goal preserved:', appFormatPlan.primaryGoal);
+
       return res.json({ 
         success: true, 
-        workoutPlan: transformedPlan, 
+        workoutPlan: appFormatPlan, 
         provider: 'gemini', 
         used_ai: true 
       });
     } catch (aiError) {
-      console.log('[WORKOUT] ❌ Gemini AI failed:', aiError.message);
-      console.log('[WORKOUT] 🧮 Using rule-based fallback workout plan generation');
+      console.log('[WORKOUT] Using fallback rule-based generation');
+      console.log('[WORKOUT] AI generation failed:', aiError.message);
 
       // Generate rule-based fallback plan
       const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
       console.log('[WORKOUT] Generated fallback plan with', fallbackPlan.weekly_schedule?.length || 0, 'days');
 
+      // Convert to app format and add primaryGoal at root level
+      const fallbackAppFormat = {
+        ...fallbackPlan,
+        weeklySchedule: fallbackPlan.weekly_schedule || fallbackPlan.weeklySchedule || [],
+        primaryGoal: fallbackPlan.primary_goal || profileData.primaryGoal,
+        primary_goal: fallbackPlan.primary_goal || profileData.primaryGoal
+      };
+      delete fallbackAppFormat.weekly_schedule;
+
       return res.json({
         success: true,
-        workoutPlan: fallbackPlan,
+        workoutPlan: fallbackAppFormat,
         provider: 'rule_based_fallback',
         used_ai: false,
         note: 'AI generation failed, using rule-based fallback'
