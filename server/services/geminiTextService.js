@@ -646,10 +646,12 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                 contentStr.includes('workout plan') || contentStr.includes('exercise') ||
                                 contentStr.includes('nutrition') || contentStr.includes('fitness') ||
                                 contentStr.includes('personalized workout') || contentStr.includes('CLIENT PROFILE') ||
-                                contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
+                                contentStr.includes('personal trainer') || contentStr.includes('fitness expert') ||
+                                contentStr.includes('workout') || contentStr.includes('training') ||
+                                contentStr.length > 1500; // Workout plans are typically 2.5-6k chars, lower threshold
         // Use environment variables for timeout configuration with fallbacks
         const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 300000;
-        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000;
+        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 120000; // Increased from 180s to 120s for better balance
         const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
         console.log(`[GEMINI TEXT] 🚀 UPDATED TIMEOUT LOGIC - Force deployment refresh`);
