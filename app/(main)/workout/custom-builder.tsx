@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ExerciseService } from '../../../src/services/workout/ExerciseService';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
@@ -141,6 +142,8 @@ export default function CustomBuilderScreen() {
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState<string>('');
   const [step, setStep] = useState(1);
+  const [selectedExerciseForSets, setSelectedExerciseForSets] = useState<Exercise | null>(null);
+  const [numberOfSets, setNumberOfSets] = useState('3');
   
  // 1: Plan Setup, 2: Day Selection, 3: Exercise Assignment, 4: Review
 
@@ -294,7 +297,7 @@ export default function CustomBuilderScreen() {
 
 
 
-  const addExerciseToDay = useCallback((day: string, exercise: Exercise) => {
+  const addExerciseToDay = useCallback((day: string, exercise: Exercise, numberOfSets: number = 3) => {
     setWorkoutDays(prevDays => {
       const existingDay = prevDays.find(d => d.day === day);
 
@@ -310,7 +313,7 @@ export default function CustomBuilderScreen() {
           restSeconds: 30 // 30 seconds rest default
         } : {
           exercise,
-          sets: 3,
+          sets: numberOfSets, // Use the selected number of sets
           reps: '10-12',
           rest: '60s'
         };
@@ -332,7 +335,7 @@ export default function CustomBuilderScreen() {
           restSeconds: 30 // 30 seconds rest default
         } : {
           exercise,
-          sets: 3,
+          sets: numberOfSets, // Use the selected number of sets
           reps: '10-12',
           rest: '60s'
         };
@@ -832,32 +835,36 @@ export default function CustomBuilderScreen() {
                         
                         <View style={styles.modernExerciseDetails}>
                           {isCardioExercise(workoutExercise.exercise) ? (
-                            // Cardio exercises: show timing-based parameters
+                            // Cardio exercises: show duration in minutes only (no rest time)
                             <>
                               <View style={styles.modernDetailInput}>
-                                <Text style={styles.modernDetailLabel}>Duration</Text>
+                                <Text style={styles.modernDetailLabel}>Duration (minutes)</Text>
                                 <TextInput
                                   style={styles.modernDetailTextInput}
-                                  value={workoutExercise.duration?.toString() || '30'}
-                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
-                                    duration: parseInt(value) || 30,
-                                    reps: `${parseInt(value) || 30}s` // Keep reps in sync for compatibility
-                                  })}
+                                  value={(workoutExercise.duration || 0) === 0 ? '' : `${workoutExercise.duration}`}
+                                  onChangeText={(value) => {
+                                    // Remove any non-numeric characters
+                                    const numericOnly = value.replace(/[^0-9]/g, '');
+                                    const numValue = numericOnly === '' ? 0 : parseInt(numericOnly);
+                                    if (!isNaN(numValue)) {
+                                      updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
+                                        duration: numValue,
+                                        reps: numValue > 0 ? `${numValue}m` : '0m' // Store as minutes
+                                      });
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    // Apply minimum of 1 when user leaves the field
+                                    const currentDuration = workoutExercise.duration || 0;
+                                    if (currentDuration < 1) {
+                                      updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
+                                        duration: 30,
+                                        reps: '30m'
+                                      });
+                                    }
+                                  }}
                                   keyboardType="numeric"
-                                  placeholder="seconds"
-                                />
-                              </View>
-                              <View style={styles.modernDetailInput}>
-                                <Text style={styles.modernDetailLabel}>Rest</Text>
-                                <TextInput
-                                  style={styles.modernDetailTextInput}
-                                  value={workoutExercise.restSeconds?.toString() || '30'}
-                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
-                                    restSeconds: parseInt(value) || 30,
-                                    rest: `${parseInt(value) || 30}s` // Keep rest in sync for compatibility
-                                  })}
-                                  keyboardType="numeric"
-                                  placeholder="seconds"
+                                  placeholder="30m"
                                 />
                               </View>
                             </>
@@ -868,8 +875,20 @@ export default function CustomBuilderScreen() {
                                 <Text style={styles.modernDetailLabel}>Sets</Text>
                                 <TextInput
                                   style={styles.modernDetailTextInput}
-                                  value={workoutExercise.sets.toString()}
-                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: parseInt(value) || 1 })}
+                                  value={workoutExercise.sets === 0 ? '' : workoutExercise.sets.toString()}
+                                  onChangeText={(value) => {
+                                    // Allow empty during editing, or parse to number
+                                    const numValue = value === '' ? 0 : parseInt(value);
+                                    if (!isNaN(numValue)) {
+                                      updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: numValue });
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    // Apply minimum of 1 when user leaves the field
+                                    if (workoutExercise.sets < 1) {
+                                      updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { sets: 1 });
+                                    }
+                                  }}
                                   keyboardType="numeric"
                                 />
                               </View>
@@ -882,11 +901,18 @@ export default function CustomBuilderScreen() {
                                 />
                               </View>
                               <View style={styles.modernDetailInput}>
-                                <Text style={styles.modernDetailLabel}>Rest</Text>
+                                <Text style={styles.modernDetailLabel}>Rest (seconds)</Text>
                                 <TextInput
                                   style={styles.modernDetailTextInput}
-                                  value={workoutExercise.rest}
-                                  onChangeText={(value) => updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { rest: value })}
+                                  value={workoutExercise.rest ? workoutExercise.rest.replace(/[^0-9]/g, '') : ''}
+                                  onChangeText={(value) => {
+                                    // Remove any non-numeric characters
+                                    const numericOnly = value.replace(/[^0-9]/g, '');
+                                    updateExerciseDetails(selectedDay, workoutExercise.exercise.id, { 
+                                      rest: numericOnly ? `${numericOnly}s` : '0s'
+                                    });
+                                  }}
+                                  keyboardType="numeric"
                                 />
                               </View>
                             </>
@@ -914,7 +940,10 @@ export default function CustomBuilderScreen() {
                       {filteredExercises.map((exercise) => (
                         <TouchableOpacity
                           key={exercise.id}
-                          onPress={() => addExerciseToDay(selectedDay, exercise)}
+                          onPress={() => {
+                            setSelectedExerciseForSets(exercise);
+                            setNumberOfSets('3');
+                          }}
                           style={styles.modernAvailableExerciseCard}
                         >
                           <View style={styles.modernAvailableExerciseContent}>
@@ -925,7 +954,7 @@ export default function CustomBuilderScreen() {
                               <Text style={styles.modernAvailableExerciseMuscle}>
                                 {exercise.muscle_groups?.join(', ')}
                               </Text>
-                              {exercise.description && (
+                              {exercise.description && exercise.description.trim().toLowerCase() !== 'new' && (
                                 <Text style={styles.modernAvailableExerciseDescription} numberOfLines={2}>
                                   {exercise.description}
                                 </Text>
@@ -1017,55 +1046,119 @@ export default function CustomBuilderScreen() {
           contentContainerStyle={styles.modernScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.stepTitle}>Step 3: Review Your Custom Plan</Text>
+          {/* Plan Summary Card */}
+          <View style={styles.reviewSummaryCard}>
+            <View style={styles.reviewHeader}>
+              <Icon name="clipboard-check" size={32} color={colors.primary} />
+              <Text style={styles.reviewTitle}>Review Your Plan</Text>
+            </View>
+            
+            <View style={styles.planInfoBox}>
+              <Text style={styles.planNameText}>{planSetup.name}</Text>
+              {planSetup.description && (
+                <Text style={styles.planDescText}>{planSetup.description}</Text>
+              )}
+              
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Icon name="calendar-range" size={20} color={colors.primary} />
+                  <Text style={styles.statValue}>{progressInfo.totalDays}</Text>
+                  <Text style={styles.statLabel}>Days</Text>
+                </View>
+                
+                <View style={styles.statDivider} />
+                
+                <View style={styles.statItem}>
+                  <Icon name="dumbbell" size={20} color={colors.primary} />
+                  <Text style={styles.statValue}>{progressInfo.totalExercises}</Text>
+                  <Text style={styles.statLabel}>Exercises</Text>
+                </View>
+                
+                <View style={styles.statDivider} />
+                
+                <View style={styles.statItem}>
+                  <Icon name="speedometer" size={20} color={colors.primary} />
+                  <Text style={styles.statValue}>{planSetup.trainingLevel}</Text>
+                  <Text style={styles.statLabel}>Level</Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-          <Card style={styles.planSummary} theme={{ colors: { surface: colors.surface } }}>
-            <Text style={styles.planTitle}>{planSetup.name}</Text>
-            {planSetup.description && (
-              <Text style={styles.planDescription}>{planSetup.description}</Text>
-            )}
-            <Text style={styles.planDetails}>
-              {progressInfo.totalDays} training days • {planSetup.trainingLevel} level
-            </Text>
-            <Text style={styles.planDetails}>
-              {progressInfo.totalExercises} total exercises
-            </Text>
-          </Card>
-
+          {/* Workout Days List */}
           <View style={styles.finalWorkoutList}>
-            {workoutDays.map((day) => (
-              <Card key={day.day} style={styles.dayCard} theme={{ colors: { surface: colors.card } }}>
-                <Text style={styles.dayTitle}>{day.day}</Text>
-                {day.exercises.map((workoutExercise, index) => (
-                  <View key={index} style={styles.exerciseItem}>
-                    <Text style={styles.exerciseName}>{workoutExercise.exercise.name}</Text>
-                    <Text style={styles.exerciseDetails}>
-                      {workoutExercise.sets} sets × {workoutExercise.reps} ({workoutExercise.rest} rest)
-                    </Text>
+            <Text style={styles.workoutListTitle}>Workout Schedule</Text>
+            {workoutDays.map((day, dayIndex) => (
+              <View key={day.day} style={styles.reviewDayCard}>
+                <View style={styles.dayHeaderRow}>
+                  <View style={styles.dayNumberBadge}>
+                    <Text style={styles.dayNumberText}>{dayIndex + 1}</Text>
                   </View>
-                ))}
-              </Card>
+                  <Text style={styles.reviewDayTitle}>{day.day}</Text>
+                  <View style={styles.exerciseCountBadge}>
+                    <Text style={styles.exerciseCountText}>{day.exercises.length} exercises</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.exercisesList}>
+                  {day.exercises.map((workoutExercise, index) => (
+                    <View key={index} style={styles.reviewExerciseItem}>
+                      <View style={styles.exerciseIconContainer}>
+                        <Icon name="chevron-right" size={16} color={colors.primary} />
+                      </View>
+                      <View style={styles.exerciseContent}>
+                        <Text style={styles.reviewExerciseName}>{workoutExercise.exercise.name}</Text>
+                        <View style={styles.exerciseMetaRow}>
+                          <View style={styles.exerciseMeta}>
+                            <Text style={styles.exerciseMetaLabel}>Sets:</Text>
+                            <Text style={styles.exerciseMetaValue}>{workoutExercise.sets}</Text>
+                          </View>
+                          <Text style={styles.exerciseMetaSeparator}>•</Text>
+                          <View style={styles.exerciseMeta}>
+                            <Text style={styles.exerciseMetaLabel}>Reps:</Text>
+                            <Text style={styles.exerciseMetaValue}>{workoutExercise.reps}</Text>
+                          </View>
+                          <Text style={styles.exerciseMetaSeparator}>•</Text>
+                          <View style={styles.exerciseMeta}>
+                            <Text style={styles.exerciseMetaLabel}>Rest:</Text>
+                            <Text style={styles.exerciseMetaValue}>{workoutExercise.rest}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
             ))}
           </View>
         </ScrollView>
         
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={createWorkoutPlan}
             disabled={isLoading}
-            style={styles.createButton}
-            contentStyle={styles.createButtonContent}
+            style={[styles.createButton, isLoading && styles.createButtonDisabled]}
+            activeOpacity={0.8}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Icon name="check" size={20} color="#FFFFFF" />
-                <Text style={styles.createButtonText}>Create &quot;{planSetup.name}&quot;</Text>
-              </>
-            )}
-          </Button>
+            <LinearGradient
+              colors={isLoading ? ['#999', '#777'] : [colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.createButtonGradient}
+            >
+              {isLoading ? (
+                <View style={styles.createButtonContent}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.createButtonText}>Creating...</Text>
+                </View>
+              ) : (
+                <View style={styles.createButtonContent}>
+                  <Icon name="check-circle" size={22} color="#FFFFFF" />
+                  <Text style={styles.createButtonText}>Create &quot;{planSetup.name}&quot;</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1107,6 +1200,59 @@ export default function CustomBuilderScreen() {
           Go Back
         </Button>
       </View>
+
+      {/* Set Picker Modal */}
+      {selectedExerciseForSets && (
+        <View style={styles.setPickerOverlay}>
+          <View style={styles.setPickerCard}>
+            <Text style={styles.setPickerTitle}>How many sets?</Text>
+            <Text style={styles.setPickerExerciseName}>{selectedExerciseForSets.name}</Text>
+            
+            <View style={styles.setInputContainer}>
+              <TextInput
+                style={styles.setInput}
+                value={numberOfSets}
+                onChangeText={setNumberOfSets}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="3"
+                placeholderTextColor={colors.textSecondary}
+              />
+              <Text style={styles.setInputLabel}>sets</Text>
+            </View>
+            
+            <Text style={styles.setInputHint}>Enter 1-50 sets</Text>
+
+            <View style={styles.setPickerActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => {
+                  setSelectedExerciseForSets(null);
+                  setNumberOfSets('3');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={() => {
+                  if (selectedExerciseForSets) {
+                    const sets = parseInt(numberOfSets, 10);
+                    if (sets > 0 && sets <= 50) {
+                      addExerciseToDay(selectedDay, selectedExerciseForSets, sets);
+                      setSelectedExerciseForSets(null);
+                      setNumberOfSets('3');
+                    }
+                  }
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Add Exercise</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1532,6 +1678,181 @@ const styles = StyleSheet.create({
   finalWorkoutList: {
     flex: 1,
   },
+  
+  // New Review Page Styles
+  reviewSummaryCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  reviewTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  planInfoBox: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  planNameText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  planDescText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  statLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
+    textTransform: 'capitalize',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.border,
+  },
+  workoutListTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  reviewDayCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  dayNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  dayNumberText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reviewDayTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  exerciseCountBadge: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  exerciseCountText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  exercisesList: {
+    gap: 8,
+  },
+  reviewExerciseItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  exerciseIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  exerciseContent: {
+    flex: 1,
+  },
+  reviewExerciseName: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  exerciseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  exerciseMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exerciseMetaLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginRight: 4,
+  },
+  exerciseMetaValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  exerciseMetaSeparator: {
+    color: colors.border,
+    fontSize: 13,
+    marginHorizontal: 8,
+  },
   // Plan Setup Styles
   setupCard: {
     backgroundColor: colors.card,
@@ -1566,7 +1887,7 @@ const styles = StyleSheet.create({
   modernLabel: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 12,
     marginTop: 20,
   },
@@ -1597,7 +1918,7 @@ const styles = StyleSheet.create({
   optionLabel: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 4,
   },
   selectedOptionLabel: {
@@ -1947,18 +2268,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   createButton: {
-    backgroundColor: colors.success,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  createButtonDisabled: {
+    opacity: 0.6,
+  },
+  createButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 10,
   },
   createButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    marginLeft: 8,
+    letterSpacing: 0.5,
   },
 
   // Enhanced Day Selection Styles
@@ -2379,18 +2719,10 @@ const styles = StyleSheet.create({
   selectedDayStats: {
     alignItems: 'center',
   },
-  statItem: {
-    alignItems: 'center',
-  },
   statNumber: {
     color: colors.primary,
     fontSize: 24,
     fontWeight: '700',
-  },
-  statLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
   },
   exerciseSearchContainer: {
     marginBottom: 24,
@@ -2655,5 +2987,97 @@ const styles = StyleSheet.create({
   },
   modernNextButtonTextDisabled: {
     color: colors.textSecondary,
+  },
+  setPickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    zIndex: 1000,
+  },
+  setPickerCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    gap: 20,
+  },
+  setPickerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  setPickerExerciseName: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  setInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  setInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    width: 100,
+    height: 80,
+  },
+  setInputLabel: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  setInputHint: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: -8,
+  },
+  setPickerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

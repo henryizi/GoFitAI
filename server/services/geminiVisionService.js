@@ -24,9 +24,6 @@ class GeminiVisionService {
       }
     });
     
-    console.log('[GEMINI VISION] Service initialized with model:', modelName);
-    console.log('[GEMINI VISION] Temperature: 0.1 (low for consistency)');
-    console.log('[GEMINI VISION] API Key configured: ✅ Yes');
   }
 
   /**
@@ -37,9 +34,6 @@ class GeminiVisionService {
    */
   async analyzeFoodImage(imageBuffer, mimeType = 'image/jpeg') {
     try {
-      console.log('[GEMINI VISION] Starting food image analysis');
-      console.log('[GEMINI VISION] Image size:', imageBuffer.length, 'bytes');
-      console.log('[GEMINI VISION] MIME type:', mimeType);
 
       const startTime = Date.now();
 
@@ -55,14 +49,29 @@ class GeminiVisionService {
       };
 
       // Focused prompt for direct food analysis and nutrition estimation
-      const prompt = `Analyze this food photo and identify the dish or food items. Estimate their nutritional information based on typical serving sizes.
+      const prompt = `Analyze this food photo and identify the dish or food items. 
+
+CRITICAL PORTION SIZE ANALYSIS:
+1. CAREFULLY assess the ACTUAL VISIBLE PORTION SIZE in the image
+2. Look for visual cues: plate size, bowl fullness, food volume, comparison to utensils/hands if visible
+3. Classify the portion as: "Small" (child-size/snack), "Medium" (half portion), "Regular" (standard meal), "Large" (1.5x normal), or "Extra Large" (2x+ normal)
+4. Adjust calorie estimates based on the ACTUAL portion you see, NOT a standard serving
+5. If the portion looks smaller than typical restaurant/home serving, reduce calories proportionally
+6. If the portion looks larger, increase calories proportionally
+
+PORTION SIZE EXAMPLES:
+- Small bowl of rice (1/2 cup) = ~100 cal, not a full bowl (1 cup) = ~200 cal
+- Small piece of chicken (2 oz) = ~100 cal, not regular piece (4 oz) = ~200 cal  
+- Half sandwich = ~200 cal, not full sandwich = ~400 cal
+- Small salad (side dish) = ~50 cal, not large salad (meal) = ~200 cal
 
 CRITICAL: Respond ONLY with valid JSON in this exact format:
 
 {
   "foodName": "Specific dish name if recognizable (e.g., 'Spaghetti Bolognese', 'Caesar Salad', 'Grilled Salmon'), or simple description if multiple separate items",
   "confidence": 85,
-  "estimatedServingSize": "Estimated portion description",
+  "estimatedServingSize": "IMPORTANT: Specify actual portion size seen - e.g., 'Small portion (~1/2 cup)', 'Regular serving', 'Large portion (1.5x normal)'",
+  "portionMultiplier": 1.0,
   "totalNutrition": {
     "calories": 450,
     "protein": 25.5,
@@ -75,7 +84,7 @@ CRITICAL: Respond ONLY with valid JSON in this exact format:
   "foodItems": [
     {
       "name": "Specific food item",
-      "quantity": "Amount/portion",
+      "quantity": "ACTUAL amount visible - e.g., '1/2 cup rice', '2 oz chicken', '1 small piece'",
       "calories": 200,
       "protein": 15.0,
       "carbohydrates": 20.0,
@@ -83,9 +92,10 @@ CRITICAL: Respond ONLY with valid JSON in this exact format:
     }
   ],
   "assumptions": [
-    "Key assumptions about portion sizes and preparation"
+    "MUST include portion size assessment - e.g., 'Portion appears smaller than standard serving, calories adjusted to ~70% of typical'",
+    "Other key assumptions about preparation"
   ],
-  "notes": "Brief analysis summary"
+  "notes": "Brief analysis summary including portion size observation"
 }
 
 DISH RECOGNITION PRIORITY - BE SMART AND RECOGNIZE CUISINE:
@@ -137,8 +147,6 @@ BEVERAGE ANALYSIS GUIDELINES:
       const text = response.text();
 
       const analysisTime = Date.now() - startTime;
-      console.log(`[GEMINI VISION] ✅ Analysis completed in ${analysisTime}ms`);
-      console.log('[GEMINI VISION] Raw response length:', text.length);
 
       // Parse the JSON response
       let nutritionData;
@@ -148,13 +156,9 @@ BEVERAGE ANALYSIS GUIDELINES:
         const jsonString = jsonMatch ? jsonMatch[0] : text;
         nutritionData = JSON.parse(jsonString);
         
-        console.log('[GEMINI VISION] Successfully parsed nutrition data');
-        console.log('[GEMINI VISION] Food identified:', nutritionData.foodName);
-        console.log('[GEMINI VISION] Confidence level:', nutritionData.confidence);
         
       } catch (parseError) {
         console.error('[GEMINI VISION] JSON parsing failed:', parseError.message);
-        console.log('[GEMINI VISION] Raw response:', text.substring(0, 500));
         
         // Fallback: create structured response from text
         nutritionData = this.createFallbackResponse(text);
@@ -163,7 +167,6 @@ BEVERAGE ANALYSIS GUIDELINES:
       // Validate and ensure required fields
       const validatedData = this.validateAndNormalize(nutritionData);
       
-      console.log('[GEMINI VISION] Analysis successful for:', validatedData.foodName);
       return validatedData;
 
     } catch (error) {
@@ -171,14 +174,12 @@ BEVERAGE ANALYSIS GUIDELINES:
       console.error('[GEMINI VISION] Error details:', error);
       
       // Try fallback to basic food analyzer if available
-      console.log('[GEMINI VISION] 🔄 Attempting fallback to basic food analyzer...');
       
       try {
         const BasicFoodAnalyzer = require('./basicFoodAnalyzer');
         const basicAnalyzer = new BasicFoodAnalyzer();
         const fallbackResult = await basicAnalyzer.analyzeFood(imageBuffer);
         
-        console.log('[GEMINI VISION] ✅ Fallback analysis successful');
         return {
           ...fallbackResult,
           confidence: Math.max(0, fallbackResult.confidence - 20), // Reduce confidence for fallback
@@ -189,7 +190,6 @@ BEVERAGE ANALYSIS GUIDELINES:
         console.error('[GEMINI VISION] Fallback analysis also failed:', fallbackError.message);
         
         // Return a generic fallback response as last resort
-        console.log('[GEMINI VISION] 🛑 Using generic fallback response');
         return this.createFallbackResponse();
       }
     }
@@ -203,10 +203,8 @@ BEVERAGE ANALYSIS GUIDELINES:
   async generateContentWithRetry(content, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[GEMINI VISION] Attempt ${attempt}/${maxRetries}`);
         
         const result = await this.model.generateContent(content);
-        console.log(`[GEMINI VISION] ✅ Success on attempt ${attempt}`);
         return result;
         
       } catch (error) {
@@ -216,8 +214,6 @@ BEVERAGE ANALYSIS GUIDELINES:
         
         if (isServiceUnavailable && attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
-          console.log(`[GEMINI VISION] ⚠️ Service unavailable (attempt ${attempt}), retrying in ${delay}ms...`);
-          console.log(`[GEMINI VISION] Error: ${error.message}`);
           
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -235,12 +231,12 @@ BEVERAGE ANALYSIS GUIDELINES:
    * @returns {Object} Structured fallback response
    */
   createFallbackResponse() {
-    console.log('[GEMINI VISION] Creating fallback response from text');
     
     return {
       foodName: "Unidentified Food Item",
       confidence: 50,
       estimatedServingSize: "Standard serving",
+      portionMultiplier: 1.0,
       totalNutrition: {
         calories: 300,
         protein: 15.0,
@@ -277,6 +273,7 @@ BEVERAGE ANALYSIS GUIDELINES:
       foodName: data.foodName || "Food Item",
       confidence: Math.min(Math.max(data.confidence || 75, 0), 100),
       estimatedServingSize: data.estimatedServingSize || "1 serving",
+      portionMultiplier: data.portionMultiplier || 1.0,
       totalNutrition: {
         calories: this.roundToDecimal(data.totalNutrition?.calories || 250, 0),
         protein: this.roundToDecimal(data.totalNutrition?.protein || 12, 1),
@@ -330,14 +327,9 @@ BEVERAGE ANALYSIS GUIDELINES:
       
     if (shouldGenerateCombinedName && normalized.foodItems.length > 0) {
       const generatedName = this.generateMealNameFromItems(normalized.foodItems);
-      console.log(`[GEMINI VISION] 🍽️ Generated meal name: "${generatedName}" from ${normalized.foodItems.length} items`);
-      console.log(`[GEMINI VISION] 🔄 Changed from: "${normalized.foodName}" to: "${generatedName}"`);
       normalized.foodName = generatedName;
-    } else {
-      console.log(`[GEMINI VISION] 🍽️ Keeping AI-recognized dish name: "${normalized.foodName}"`);
     }
 
-    console.log(`[GEMINI VISION] 📝 Final meal name: "${normalized.foodName}"`);
     return normalized;
   }
 

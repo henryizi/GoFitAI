@@ -9,9 +9,6 @@ class ResponseCache {
     this.maxCacheSize = 100; // Maximum number of cached entries
     this.cacheTimeout = 30 * 60 * 1000; // 30 minutes default timeout
 
-    console.log('[CACHE] Response cache initialized');
-    console.log('[CACHE] Max cache size:', this.maxCacheSize);
-    console.log('[CACHE] Default timeout:', this.cacheTimeout / 1000 / 60, 'minutes');
   }
 
   /**
@@ -48,13 +45,9 @@ class ResponseCache {
     const entry = this.cache.get(key);
 
     if (this.isCacheValid(entry)) {
-      console.log(`[CACHE] ✅ Hit for ${type}:`, key.substring(0, 50) + '...');
       return entry.data;
     } else if (entry) {
-      console.log(`[CACHE] ❌ Expired for ${type}:`, key.substring(0, 50) + '...');
       this.cache.delete(key);
-    } else {
-      console.log(`[CACHE] ⭕ Miss for ${type}:`, key.substring(0, 50) + '...');
     }
 
     return null;
@@ -74,8 +67,14 @@ class ResponseCache {
     const entry = this.createCacheEntry(data, timeout);
     this.cache.set(key, entry);
 
-    console.log(`[CACHE] ✅ Set for ${type}:`, key.substring(0, 50) + '...');
-    console.log(`[CACHE] Current size: ${this.cache.size}/${this.maxCacheSize}`);
+  }
+
+  /**
+   * Clear all cache
+   */
+  clear() {
+    this.cache.clear();
+    return { cleared: true, message: 'Cache cleared successfully' };
   }
 
   /**
@@ -94,7 +93,6 @@ class ResponseCache {
 
     if (oldestKey) {
       this.cache.delete(oldestKey);
-      console.log(`[CACHE] 🗑️ Evicted oldest entry:`, oldestKey.substring(0, 50) + '...');
     }
   }
 
@@ -104,7 +102,6 @@ class ResponseCache {
   clear() {
     const size = this.cache.size;
     this.cache.clear();
-    console.log(`[CACHE] 🧹 Cleared ${size} cache entries`);
   }
 
   /**

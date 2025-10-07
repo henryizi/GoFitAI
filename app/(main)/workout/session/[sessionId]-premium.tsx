@@ -8,6 +8,7 @@ import { Database } from '../../../../src/types/database';
 import { ExerciseService } from '../../../../src/services/workout/ExerciseService';
 import * as WorkoutHistoryServiceModule from '../../../../src/services/workout/WorkoutHistoryService';
 const { WorkoutHistoryService } = WorkoutHistoryServiceModule;
+import { PreviousExerciseService, PreviousExerciseData } from '../../../../src/services/workout/PreviousExerciseService';
 import { colors } from '../../../../src/styles/colors';
 import { theme } from '../../../../src/styles/theme';
 import RestTimer from '../../../../src/components/workout/RestTimer';
@@ -21,8 +22,18 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { isBodyweightExercise, canUseOptionalWeight } from '../../../../src/constants/exerciseNames';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { calculateWorkoutCalories, adjustCaloriesForUserProfile } from '../../../../src/utils/calorieCalculation';
+import ExercisePicker from '../../../../src/components/workout/ExercisePicker';
 
 const { width, height } = Dimensions.get('window');
+
+// Helper function to check if an exercise is cardio
+const isCardioExercise = (exerciseName: string): boolean => {
+  const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
+                          'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
+                          'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];
+  
+  return cardioKeywords.some(keyword => exerciseName?.toLowerCase().includes(keyword));
+};
 
 // Weight conversion utilities
 const convertLbsToKg = (lbs: number): number => lbs * 0.453592;
@@ -34,6 +45,197 @@ const formatWeight = (weight: number, unit: 'kg' | 'lbs'): string => {
 export type ExerciseSet = Database['public']['Tables']['exercise_sets']['Row'];
 export type ExerciseLogInsert = Database['public']['Tables']['exercise_logs']['Insert'];
 export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row'];
+
+// Function to fetch last performance for an exercise
+async function fetchLastExercisePerformance(exerciseName: string, userId: string) {
+  try {
+    console.log('[Session] ===== Fetching last performance for:', exerciseName, '=====');
+    
+    // Array to collect all sets from both sources
+    const allSets: Array<{
+      reps: number;
+      weight: number | null;
+      rpe?: number | null;
+      completed_at: string;
+    }> = [];
+    
+    // METHOD 1: Query workout_history for custom/quick workouts (exercises_data JSONB field)
+    console.log('[Session] Querying workout_history for custom workouts...');
+    const { data: historyData, error: historyError } = await supabase
+      .from('workout_history')
+      .select('exercises_data, completed_at')
+      .eq('user_id', userId)
+      .not('exercises_data', 'is', null)
+      .order('completed_at', { ascending: false })
+      .limit(50); // Get recent history
+    
+    if (historyError) {
+      console.error('[Session] Error fetching workout history:', historyError);
+    } else if (historyData && historyData.length > 0) {
+      console.log('[Session] Found', historyData.length, 'workout history records');
+      
+      // Parse exercises_data and look for matching exercise names
+      historyData.forEach((history: any, historyIndex: number) => {
+        console.log(`[Session] History record ${historyIndex + 1}:`, {
+          plan_name: history.plan_name,
+          session_name: history.session_name,
+          completed_at: history.completed_at,
+          exercises_data_type: typeof history.exercises_data,
+          exercises_data_is_array: Array.isArray(history.exercises_data),
+          exercises_data_length: history.exercises_data?.length
+        });
+        
+        if (history.exercises_data && Array.isArray(history.exercises_data)) {
+          history.exercises_data.forEach((exerciseData: any, exIndex: number) => {
+            console.log(`[Session]   Exercise ${exIndex + 1}:`, {
+              all_keys: Object.keys(exerciseData),
+              exercise_id: exerciseData.exercise_id,
+              exercise_name: exerciseData.exercise_name,
+              name: exerciseData.name,
+              has_logs: !!exerciseData.logs,
+              logs_length: exerciseData.logs?.length,
+              has_sets: !!exerciseData.sets,
+              sets_length: exerciseData.sets?.length,
+              full_data: JSON.stringify(exerciseData).substring(0, 200)
+            });
+            
+            // Case-insensitive match - check both 'exercise_name' and 'name' fields
+            const savedExerciseName = exerciseData.exercise_name || exerciseData.name;
+            if (savedExerciseName?.toLowerCase() === exerciseName.toLowerCase()) {
+              console.log('[Session] ✓ Found matching exercise in history:', savedExerciseName);
+              
+              // Handle different data structures:
+              // 1. Array of set objects: [{reps, weight}, {reps, weight}]
+              // 2. Arrays for each property: {reps: [10,10,10], weights: [25,25,25]}
+              
+              if (exerciseData.logs && Array.isArray(exerciseData.logs)) {
+                // Structure 1: logs array with set objects
+                console.log('[Session]   Processing logs array:', exerciseData.logs.length, 'sets');
+                exerciseData.logs.forEach((set: any) => {
+                  allSets.push({
+                    reps: set.actual_reps || set.reps || 0,
+                    weight: set.actual_weight || set.weight || null,
+                    rpe: set.actual_rpe || set.rpe || null,
+                    completed_at: set.completed_at || history.completed_at
+                  });
+                });
+              } else if (exerciseData.reps && Array.isArray(exerciseData.reps)) {
+                // Structure 2: separate arrays for reps and weights
+                const repsArray = exerciseData.reps;
+                const weightsArray = exerciseData.weights || [];
+                console.log('[Session]   Processing arrays - reps:', repsArray.length, 'weights:', weightsArray.length);
+                
+                repsArray.forEach((reps: number, index: number) => {
+                  allSets.push({
+                    reps: reps || 0,
+                    weight: weightsArray[index] || null,
+                    rpe: null,
+                    completed_at: history.completed_at
+                  });
+                });
+              } else if (exerciseData.sets && Array.isArray(exerciseData.sets)) {
+                // Structure 3: sets array (fallback)
+                console.log('[Session]   Processing sets array:', exerciseData.sets.length, 'sets');
+                exerciseData.sets.forEach((set: any) => {
+                  allSets.push({
+                    reps: set.actual_reps || set.reps || 0,
+                    weight: set.actual_weight || set.weight || null,
+                    rpe: set.actual_rpe || set.rpe || null,
+                    completed_at: set.completed_at || history.completed_at
+                  });
+                });
+              }
+              
+              console.log('[Session]   Extracted', allSets.length, 'total sets so far');
+            }
+          });
+        }
+      });
+      
+      console.log('[Session] Found', allSets.length, 'sets from workout_history');
+    }
+    
+    // METHOD 2: Query exercise_logs for planned workouts (traditional method)
+    console.log('[Session] Querying exercise_logs for planned workouts...');
+    
+    // First, get ALL exercise IDs with this name (across all plans)
+    const { data: exercisesData, error: exerciseError } = await supabase
+      .from('exercises')
+      .select('id, name, plan_id')
+      .ilike('name', exerciseName);
+    
+    if (exerciseError) {
+      console.error('[Session] Error fetching exercises:', exerciseError);
+    } else if (exercisesData && exercisesData.length > 0) {
+      const exerciseIds = exercisesData.map(ex => ex.id);
+      console.log('[Session] Found', exerciseIds.length, 'exercise(s) with matching name in exercises table');
+      
+      // Find all exercise_sets for these exercises
+      const { data: setsData, error: setsError } = await supabase
+        .from('exercise_sets')
+        .select('id, exercise_id, session_id')
+        .in('exercise_id', exerciseIds);
+      
+      if (setsError) {
+        console.error('[Session] Error fetching exercise sets:', setsError);
+      } else if (setsData && setsData.length > 0) {
+        console.log('[Session] Found', setsData.length, 'exercise sets');
+        const setIds = setsData.map(s => s.id);
+        
+        // Get exercise logs for these sets
+        const { data: logsData, error: logsError } = await supabase
+          .from('exercise_logs')
+          .select('id, actual_reps, actual_weight, actual_rpe, completed_at, set_id')
+          .in('set_id', setIds)
+          .order('completed_at', { ascending: false })
+          .limit(50);
+        
+        if (logsError) {
+          console.error('[Session] Error fetching exercise logs:', logsError);
+        } else if (logsData && logsData.length > 0) {
+          console.log('[Session] Found', logsData.length, 'exercise logs from planned workouts');
+          
+          logsData.forEach((log: any) => {
+            allSets.push({
+              reps: log.actual_reps,
+              weight: log.actual_weight,
+              rpe: log.actual_rpe,
+              completed_at: log.completed_at
+            });
+          });
+        }
+      }
+    }
+    
+    // Check if we found any sets from either method
+    if (allSets.length === 0) {
+      console.log('[Session] No previous performance data found for', exerciseName);
+      return null;
+    }
+    
+    // Sort all sets by completion time (most recent first)
+    allSets.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
+    
+    // Take only the most recent 10 sets
+    const recentSets = allSets.slice(0, 10);
+    
+    console.log('[Session] Total sets found:', allSets.length, '| Showing most recent:', recentSets.length);
+    
+    // Format the data
+    return {
+      exerciseName,
+      lastPerformed: recentSets[0].completed_at,
+      sets: recentSets,
+      topSet: {
+        weight: Math.max(...recentSets.map(s => s.weight || 0)),
+        reps: recentSets.find(s => s.weight === Math.max(...recentSets.map(set => set.weight || 0)))?.reps || 0
+      }
+    };
+  } catch (error) {
+    console.error('[Session] Error fetching last performance:', error);
+    return null;
+  }
+}
 
 export default function SessionExecutionScreen() {
   useEffect(() => {
@@ -66,6 +268,11 @@ export default function SessionExecutionScreen() {
   const [estimatedCalories, setEstimatedCalories] = useState<number | null>(null);
   const [realTimeCalories, setRealTimeCalories] = useState<number>(0);
   const [splitName, setSplitName] = useState<string | null>(null);
+  const [previousExerciseData, setPreviousExerciseData] = useState<Map<string, PreviousExerciseData>>(new Map());
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [isQuickWorkout, setIsQuickWorkout] = useState(false);
+  const [showLastPerformance, setShowLastPerformance] = useState(false);
+  const [lastPerformanceData, setLastPerformanceData] = useState<any>(null);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -287,6 +494,11 @@ export default function SessionExecutionScreen() {
       } else if (fallbackExercises) {
         // For fallback exercises, generate a random calorie estimate
         setEstimatedCalories(Math.floor(Math.random() * 200 + 200));
+        
+        // Check if this is a quick workout
+        if (String(sessionId).startsWith('quick-')) {
+          setIsQuickWorkout(true);
+        }
       }
       
       // Fetch exercise details for all sets
@@ -387,6 +599,37 @@ export default function SessionExecutionScreen() {
     }
   }, [completedSets, currentIndex, setNumber, exerciseMap, sets, user]);
 
+  // Fetch previous exercise data when exercises are loaded
+  useEffect(() => {
+    const fetchPreviousExerciseData = async () => {
+      if (!user?.id || sets.length === 0) {
+        return;
+      }
+
+      console.log('[Session] Fetching previous exercise data for user:', user.id);
+
+      // Get unique exercise IDs
+      const exerciseIds = sets
+        .map(set => set.exercise_id)
+        .filter((id, index, self) => self.indexOf(id) === index && !id.startsWith('ex-id-')); // Skip synthetic IDs
+
+      if (exerciseIds.length === 0) {
+        console.log('[Session] No valid exercise IDs to fetch previous data for');
+        return;
+      }
+
+      try {
+        const previousData = await PreviousExerciseService.getLastPerformedExercises(user.id, exerciseIds);
+        setPreviousExerciseData(previousData);
+        console.log(`[Session] Loaded previous exercise data for ${previousData.size} exercises`);
+      } catch (error) {
+        console.error('[Session] Error fetching previous exercise data:', error);
+      }
+    };
+
+    fetchPreviousExerciseData();
+  }, [sets, user?.id]);
+
   useEffect(() => {
     // Fetch session details to get estimated calories
     const fetchSessionDetails = async () => {
@@ -412,28 +655,98 @@ export default function SessionExecutionScreen() {
 
   const currentSet = sets[currentIndex];
 
+  // Handler to fetch and show last performance
+  const handleShowLastPerformance = async () => {
+    if (!currentSet || !user?.id) return;
+    
+    console.log('[Session] Current set exercise_id:', currentSet.exercise_id);
+    console.log('[Session] Exercise map keys:', Object.keys(exerciseMap));
+    console.log('[Session] Exercise map:', exerciseMap);
+    
+    const exerciseName = exerciseMap[currentSet.exercise_id]?.name;
+    console.log('[Session] Resolved exercise name:', exerciseName);
+    
+    if (!exerciseName) {
+      console.log('[Session] No exercise name found for exercise_id:', currentSet.exercise_id);
+      return;
+    }
+    
+    setLastPerformanceData(null); // Reset previous data
+    setShowLastPerformance(true); // Show modal with loading state
+    
+    const data = await fetchLastExercisePerformance(exerciseName, user.id);
+    setLastPerformanceData(data);
+  };
+
+  // Handle adding a new exercise during the workout
+  const handleAddExercise = (exercise: any, numberOfSets: number = 3) => {
+    console.log('[Session] Adding exercise to quick workout:', exercise.name, 'with', numberOfSets, 'sets');
+    analyticsTrack('quick_workout_exercise_added', { 
+      exercise_name: exercise.name,
+      sets: numberOfSets 
+    });
+    
+    // Create a new exercise set
+    const newOrder = sets.length;
+    const newExerciseSet: ExerciseSet = {
+      id: `ex-${sessionId}-${newOrder}`,
+      session_id: sessionId as string,
+      exercise_id: exercise.id,
+      order_in_session: newOrder,
+      target_sets: numberOfSets, // Use the selected number of sets
+      target_reps: '8-12', // Default reps
+      rest_period: '90s', // Default rest
+      target_rpe: null,
+      progression_scheme: 'double_progression',
+      notes: null
+    };
+    
+    // Add to sets array
+    setSets(prevSets => [...prevSets, newExerciseSet]);
+    
+    // Add to exercise map
+    setExerciseMap(prevMap => ({
+      ...prevMap,
+      [exercise.id]: { name: exercise.name }
+    }));
+    
+    // Close the picker
+    setShowExercisePicker(false);
+    
+    // Move to the newly added exercise and reset set number
+    setCurrentIndex(sets.length); // Move to the new exercise (current length will be the new index)
+    setSetNumber(1);
+    setActualReps('');
+    setActualWeight('');
+    console.log('[Session] Moved to newly added exercise at index:', sets.length);
+  };
+
   const handleSetDone = async () => {
     if (!currentSet) return;
     console.log('[Session] Complete Set tapped for set', currentSet.id, 'index', currentIndex, 'setNumber', setNumber);
 
     // Allow unlimited sets - no restriction on going beyond target
 
+    // Check if this is a cardio exercise
+    const exerciseName = exerciseMap[currentSet.exercise_id]?.name || '';
+    const isCardio = isCardioExercise(exerciseName);
+
     // simple validation
     const repsNum = parseInt(actualReps, 10);
-    let weightNum = actualWeight ? parseFloat(actualWeight) : null;
+    let weightNum = isCardio ? 0 : (actualWeight ? parseFloat(actualWeight) : null);
 
-    // Set session weight unit on first weight entry
-    if (weightNum !== null && sessionWeightUnit === null) {
+    // Set session weight unit on first weight entry (skip for cardio)
+    if (!isCardio && weightNum !== null && sessionWeightUnit === null) {
       setSessionWeightUnit(weightUnit);
     }
 
-    // Convert weight to kg if entered in lbs
-    if (weightNum !== null && weightUnit === 'lbs') {
+    // Convert weight to kg if entered in lbs (skip for cardio)
+    if (!isCardio && weightNum !== null && weightUnit === 'lbs') {
       weightNum = convertLbsToKg(weightNum);
     }
 
     if (isNaN(repsNum) || repsNum <= 0) {
-      Alert.alert("Invalid Input", "Please enter a valid number of reps");
+      Alert.alert("Invalid Input", isCardio ? "Please enter a valid number of minutes" : "Please enter a valid number of reps");
       return;
     }
 
@@ -705,6 +1018,32 @@ export default function SessionExecutionScreen() {
               });
               
               // Create workout history entry for custom workouts
+              const exercisesDataToSave = sets.map(set => {
+                const exerciseCompletedSets = updatedCompletedSets[set.exercise_id] || [];
+                const exerciseData = {
+                  exercise_id: set.exercise_id,
+                  exercise_name: exerciseMap[set.exercise_id]?.name || 'Unknown Exercise',
+                  target_sets: set.target_sets,
+                  target_reps: set.target_reps,
+                  rest_period: set.rest_period,
+                  order_in_session: sets.indexOf(set) + 1,
+                  // Include actual performed sets
+                  logs: exerciseCompletedSets.map((completedSet, index) => ({
+                    id: `custom-log-${set.exercise_id}-${index}`,
+                    actual_reps: completedSet.reps,
+                    actual_weight: completedSet.weight,
+                    actual_rpe: null,
+                    completed_at: completedSet.completed_at,
+                    notes: null
+                  }))
+                };
+                console.log('[Session] Saving exercise data:', exerciseData);
+                return exerciseData;
+              });
+              
+              console.log('[Session] 🔍 FULL exerciseMap before saving:', JSON.stringify(exerciseMap, null, 2));
+              console.log('[Session] 🔍 FULL exercisesDataToSave:', JSON.stringify(exercisesDataToSave, null, 2));
+              
               const customHistorySaved = await WorkoutHistoryService.saveCustomWorkoutHistory({
                 user_id: user.id,
                 plan_name: 'Custom Workout',
@@ -715,26 +1054,7 @@ export default function SessionExecutionScreen() {
                 total_exercises: totalExercises,
                 estimated_calories: actualCompletedCalories,
                 notes: `Custom workout: ${totalExercises} exercises with ${totalSets} total sets`,
-                exercises_data: sets.map(set => {
-                  const exerciseCompletedSets = updatedCompletedSets[set.exercise_id] || [];
-                  return {
-                    exercise_id: set.exercise_id,
-                    exercise_name: exerciseMap[set.exercise_id]?.name || 'Unknown Exercise',
-                    target_sets: set.target_sets,
-                    target_reps: set.target_reps,
-                    rest_period: set.rest_period,
-                    order_in_session: sets.indexOf(set) + 1,
-                    // Include actual performed sets
-                    logs: exerciseCompletedSets.map((completedSet, index) => ({
-                      id: `custom-log-${set.exercise_id}-${index}`,
-                      actual_reps: completedSet.reps,
-                      actual_weight: completedSet.weight,
-                      actual_rpe: null,
-                      completed_at: completedSet.completed_at,
-                      notes: null
-                    }))
-                  };
-                })
+                exercises_data: exercisesDataToSave
               });
               
               if (customHistorySaved) {
@@ -778,6 +1098,14 @@ export default function SessionExecutionScreen() {
           {
             text: 'Finish Exercise',
             onPress: () => handleFinishExercise(),
+            style: 'default'
+          },
+          {
+            text: 'Add Another Exercise',
+            onPress: () => {
+              console.log('[Session] User chose to add another exercise');
+              setShowExercisePicker(true);
+            },
             style: 'default'
           },
           {
@@ -1234,12 +1562,9 @@ export default function SessionExecutionScreen() {
                     </View>
                     <TouchableOpacity 
                       style={styles.infoButton}
-                      onPress={() => Alert.alert(
-                        exerciseName,
-                        "Tap to see exercise video and detailed instructions"
-                      )}
+                      onPress={handleShowLastPerformance}
                     >
-                      <Icon name="information-outline" size={24} color={colors.text} />
+                      <Icon name="history" size={24} color={colors.text} />
                     </TouchableOpacity>
                   </View>
                 </LinearGradient>
@@ -1259,6 +1584,78 @@ export default function SessionExecutionScreen() {
             </View>
           </View>
           
+          {/* Previous Workout Data */}
+          {(() => {
+            const previousData = previousExerciseData.get(currentSet.exercise_id);
+            if (previousData && previousData.sets.length > 0) {
+              const formatDate = (dateString: string) => {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffTime = Math.abs(now.getTime() - date.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 0) return 'Today';
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return `${diffDays} days ago`;
+                if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+                return date.toLocaleDateString();
+              };
+
+              const formatWeightDisplay = (weight: number | null, unit: 'kg' | 'lbs') => {
+                if (weight === null) return 'Bodyweight';
+                // Convert to user's preferred unit
+                const displayWeight = unit === weightUnit ? weight : 
+                  (weightUnit === 'kg' ? weight * 0.453592 : weight * 2.20462);
+                return `${formatWeight(displayWeight, weightUnit)} ${weightUnit}`;
+              };
+
+              return (
+                <View style={styles.previousWorkoutSection}>
+                  <LinearGradient
+                    colors={['rgba(28, 28, 30, 0.8)', 'rgba(18, 18, 18, 0.9)']}
+                    style={styles.previousWorkoutGradient}
+                  >
+                    <View style={styles.previousWorkoutHeader}>
+                      <Icon name="history" size={18} color={colors.primary} style={styles.previousWorkoutIcon} />
+                      <Text style={styles.previousWorkoutTitle}>Last Performance</Text>
+                      <Text style={styles.previousWorkoutDate}>{formatDate(previousData.lastPerformed || '')}</Text>
+                    </View>
+                    
+                    <View style={styles.previousSetsList}>
+                      {previousData.sets.map((set, idx) => (
+                        <View key={idx} style={styles.previousSetRow}>
+                          <Text style={styles.previousSetNumber}>Set {idx + 1}</Text>
+                          <Text style={styles.previousSetReps}>{set.reps} reps</Text>
+                          <Text style={styles.previousSetWeight}>{formatWeightDisplay(set.weight, set.weightUnit)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    
+                    {previousData.totalVolume > 0 && (
+                      <View style={styles.previousWorkoutStats}>
+                        <View style={styles.previousStatItem}>
+                          <Text style={styles.previousStatLabel}>Total Volume</Text>
+                          <Text style={styles.previousStatValue}>
+                            {formatWeightDisplay(previousData.totalVolume, 'kg')}
+                          </Text>
+                        </View>
+                        {previousData.topSetWeight && (
+                          <View style={styles.previousStatItem}>
+                            <Text style={styles.previousStatLabel}>Top Set</Text>
+                            <Text style={styles.previousStatValue}>
+                              {formatWeightDisplay(previousData.topSetWeight, 'kg')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </LinearGradient>
+                </View>
+              );
+            }
+            return null;
+          })()}
+
           <View style={styles.recordSection}>
             <LinearGradient
               colors={['rgba(28, 28, 30, 0.9)', 'rgba(18, 18, 18, 0.95)']}
@@ -1270,34 +1667,72 @@ export default function SessionExecutionScreen() {
               </View>
               
               <View style={styles.inputsContainer}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Actual Reps</Text>
-                  <TextInput
-                    mode="outlined"
-                    value={actualReps}
-                    onChangeText={setActualReps}
-                    keyboardType="numeric"
-                    style={styles.input}
-                    outlineColor={colors.border}
-                    activeOutlineColor={colors.primary}
-                    placeholder="Enter reps"
-                    theme={{
-                      colors: {
-                        primary: colors.primary,
-                        outline: colors.border,
-                        onSurfaceVariant: colors.textSecondary,
-                        surface: colors.surface,
-                        onSurface: colors.text
-                      }
-                    }}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  {(() => {
-                    const exerciseName = exerciseMap[currentSet.exercise_id]?.name || '';
-                    const isBodyweight = isBodyweightExercise(exerciseName);
-                    const canAddWeight = canUseOptionalWeight(exerciseName);
+                {(() => {
+                  const exerciseName = exerciseMap[currentSet.exercise_id]?.name || '';
+                  const isCardio = isCardioExercise(exerciseName);
+                  
+                  if (isCardio) {
+                    // Cardio exercises: show Time (minutes) only
+                    return (
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Time (minutes)</Text>
+                        <TextInput
+                          mode="outlined"
+                          value={actualReps}
+                          onChangeText={(value) => {
+                            // Remove 'm' suffix and any non-numeric characters
+                            const numericOnly = value.replace(/[^0-9]/g, '');
+                            setActualReps(numericOnly);
+                          }}
+                          keyboardType="numeric"
+                          style={styles.input}
+                          outlineColor={colors.border}
+                          activeOutlineColor={colors.primary}
+                          placeholder="Enter minutes"
+                          theme={{
+                            colors: {
+                              primary: colors.primary,
+                              outline: colors.border,
+                              onSurfaceVariant: colors.textSecondary,
+                              surface: colors.surface,
+                              onSurface: colors.text
+                            }
+                          }}
+                        />
+                      </View>
+                    );
+                  }
+                  
+                  // Strength exercises: show Reps and Weight
+                  return (
+                    <>
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Actual Reps</Text>
+                        <TextInput
+                          mode="outlined"
+                          value={actualReps}
+                          onChangeText={setActualReps}
+                          keyboardType="numeric"
+                          style={styles.input}
+                          outlineColor={colors.border}
+                          activeOutlineColor={colors.primary}
+                          placeholder="Enter reps"
+                          theme={{
+                            colors: {
+                              primary: colors.primary,
+                              outline: colors.border,
+                              onSurfaceVariant: colors.textSecondary,
+                              surface: colors.surface,
+                              onSurface: colors.text
+                            }
+                          }}
+                        />
+                      </View>
+                      
+                      <View style={styles.inputContainer}>
+                        {(() => {
+                          const isBodyweight = isBodyweightExercise(exerciseName);
+                          const canAddWeight = canUseOptionalWeight(exerciseName);
                     
                     if (isBodyweight) {
                       return (
@@ -1466,7 +1901,10 @@ export default function SessionExecutionScreen() {
                       );
                     }
                   })()}
-                </View>
+                      </View>
+                    </>
+                  );
+                })()}
               </View>
               
               {/* Complete Set button - alert will handle set limit */}
@@ -1597,22 +2035,43 @@ export default function SessionExecutionScreen() {
                 colors={['rgba(28, 28, 30, 0.8)', 'rgba(18, 18, 18, 0.9)']}
                 style={styles.loadingGradient}
               >
-                <Icon name="alert-circle-outline" size={48} color={colors.primary} />
-                <Text style={styles.loadingText}>No exercises found</Text>
-                <Text style={styles.loadingTip}>
-                  This workout session doesn't have any exercises configured.
+                <Icon name="dumbbell" size={64} color={colors.primary} />
+                <Text style={styles.loadingText}>
+                  {isQuickWorkout ? 'Ready to Start!' : 'No exercises found'}
                 </Text>
-                <TouchableOpacity
-                  style={styles.doneButtonContainer}
-                  onPress={() => router.back()}
-                >
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryDark]}
-                    style={styles.doneButton}
+                <Text style={styles.loadingTip}>
+                  {isQuickWorkout 
+                    ? 'Add exercises as you go. Choose what feels right for today!'
+                    : 'This workout session doesn\'t have any exercises configured.'
+                  }
+                </Text>
+                
+                {isQuickWorkout ? (
+                  <TouchableOpacity
+                    style={styles.doneButtonContainer}
+                    onPress={() => setShowExercisePicker(true)}
                   >
-                    <Text style={styles.doneButtonText}>Go Back</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={[colors.primary, colors.primaryDark]}
+                      style={styles.doneButton}
+                    >
+                      <Icon name="plus-circle" size={20} color={colors.text} style={{ marginRight: 8 }} />
+                      <Text style={styles.doneButtonText}>Add First Exercise</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.doneButtonContainer}
+                    onPress={() => router.back()}
+                  >
+                    <LinearGradient
+                      colors={[colors.primary, colors.primaryDark]}
+                      style={styles.doneButton}
+                    >
+                      <Text style={styles.doneButtonText}>Go Back</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
               </LinearGradient>
             </View>
           </View>
@@ -1622,8 +2081,8 @@ export default function SessionExecutionScreen() {
           renderExerciseContent()
         )}
         
-        {/* Floating Action Button */}
-        {!loading && !resting && (
+        {/* Floating Action Buttons */}
+        {!loading && !resting && sets.length > 0 && (
           <TouchableOpacity
             style={styles.fab}
             onPress={() => Alert.alert('Tip', 'Focus on proper form for maximum results and to prevent injuries.')}
@@ -1636,6 +2095,124 @@ export default function SessionExecutionScreen() {
             </LinearGradient>
           </TouchableOpacity>
         )}
+        
+        {/* Add Exercise FAB for Quick Workouts */}
+        {!loading && !resting && isQuickWorkout && (
+          <TouchableOpacity
+            style={[styles.fab, styles.addExerciseFab]}
+            onPress={() => setShowExercisePicker(true)}
+          >
+            <LinearGradient
+              colors={[colors.purple, colors.pink]}
+              style={styles.fabGradient}
+            >
+              <Icon name="plus" size={28} color={colors.text} />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+        
+        {/* Last Performance Modal */}
+        {showLastPerformance && (
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity 
+              style={styles.modalBackdrop}
+              activeOpacity={1}
+              onPress={() => setShowLastPerformance(false)}
+            />
+            <View style={styles.modalContent}>
+              <LinearGradient
+                colors={['rgba(28, 28, 30, 0.98)', 'rgba(18, 18, 18, 0.98)']}
+                style={styles.modalGradient}
+              >
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalTitleContainer}>
+                    <Icon name="history" size={24} color={colors.primary} />
+                    <Text style={styles.modalTitle}>Last Performance</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowLastPerformance(false)}>
+                    <Icon name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                
+                {!lastPerformanceData ? (
+                  <View style={styles.modalLoading}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.modalLoadingText}>Loading history...</Text>
+                  </View>
+                ) : lastPerformanceData.sets && lastPerformanceData.sets.length > 0 ? (
+                  <ScrollView 
+                    style={styles.modalScrollView} 
+                    contentContainerStyle={styles.modalScrollContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.performanceContainer}>
+                      <Text style={styles.exerciseNameModal}>{lastPerformanceData.exerciseName}</Text>
+                      <Text style={styles.lastPerformedDate}>
+                        Last performed: {new Date(lastPerformanceData.lastPerformed).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </Text>
+                      
+                      <View style={styles.topSetCard}>
+                        <LinearGradient
+                          colors={[colors.primary + '20', colors.primaryDark + '20']}
+                          style={styles.topSetGradient}
+                        >
+                          <Text style={styles.topSetLabel}>🏆 Personal Best</Text>
+                          <Text style={styles.topSetValue}>
+                            {lastPerformanceData.topSet.weight > 0 
+                              ? `${formatWeight(lastPerformanceData.topSet.weight, weightUnit)} ${weightUnit}` 
+                              : 'Bodyweight'} × {lastPerformanceData.topSet.reps} reps
+                          </Text>
+                        </LinearGradient>
+                      </View>
+                      
+                      <Text style={styles.setsHistoryLabel}>Recent Sets ({lastPerformanceData.sets.length})</Text>
+                      {lastPerformanceData.sets.map((set: any, index: number) => (
+                        <View key={index} style={styles.historySetRow}>
+                          <View style={styles.setNumberBadge}>
+                            <Text style={styles.setNumberText}>{index + 1}</Text>
+                          </View>
+                          <View style={styles.setDetails}>
+                            <Text style={styles.setDetailText}>
+                              {set.weight > 0 
+                                ? `${formatWeight(set.weight, weightUnit)} ${weightUnit}` 
+                                : 'Bodyweight'}
+                            </Text>
+                            <Text style={styles.setDetailSeparator}>×</Text>
+                            <Text style={styles.setDetailText}>{set.reps} reps</Text>
+                          </View>
+                          <Text style={styles.setDate}>
+                            {new Date(set.completed_at).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                ) : (
+                  <View style={styles.modalEmpty}>
+                    <Icon name="information-outline" size={48} color={colors.textSecondary} />
+                    <Text style={styles.modalEmptyText}>No previous performance found</Text>
+                    <Text style={styles.modalEmptySubtext}>This is your first time doing this exercise!</Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
+          </View>
+        )}
+        
+        {/* Exercise Picker Modal */}
+        <ExercisePicker
+          visible={showExercisePicker}
+          onClose={() => setShowExercisePicker(false)}
+          onSelectExercise={handleAddExercise}
+          excludeExerciseIds={sets.map(s => s.exercise_id)}
+        />
       </LinearGradient>
     </View>
   );
@@ -1853,6 +2430,87 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+  },
+  previousWorkoutSection: {
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  previousWorkoutGradient: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+  },
+  previousWorkoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  previousWorkoutIcon: {
+    marginRight: 8,
+  },
+  previousWorkoutTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  previousWorkoutDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  previousSetsList: {
+    marginBottom: 12,
+  },
+  previousSetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  previousSetNumber: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    flex: 0.3,
+  },
+  previousSetReps: {
+    fontSize: 13,
+    color: colors.text,
+    flex: 0.35,
+  },
+  previousSetWeight: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '500',
+    flex: 0.35,
+    textAlign: 'right',
+  },
+  previousWorkoutStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  previousStatItem: {
+    alignItems: 'center',
+  },
+  previousStatLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  previousStatValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   recordSection: {
     backgroundColor: colors.surface,
@@ -2084,6 +2742,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  addExerciseFab: {
+    bottom: 180, // Position above the tips FAB
+  },
   caloriesCard: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -2295,5 +2956,166 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.textSecondary,
+  },
+  // Last Performance Modal Styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    maxHeight: height * 0.8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  modalGradient: {
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalLoading: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 16,
+  },
+  modalLoadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  modalScrollView: {
+    maxHeight: height * 0.6,
+  },
+  modalScrollContent: {
+    paddingBottom: 100, // Extra padding to prevent content from being hidden by tab bar
+  },
+  performanceContainer: {
+    gap: 12,
+  },
+  exerciseNameModal: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  lastPerformedDate: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  topSetCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  topSetGradient: {
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  topSetLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  topSetValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  setsHistoryLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  historySetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    gap: 12,
+  },
+  setNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '40',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setNumberText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  setDetails: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  setDetailText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  setDetailSeparator: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  setDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  modalEmpty: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalEmptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  modalEmptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 }); 

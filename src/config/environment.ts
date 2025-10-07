@@ -14,7 +14,7 @@ const getApiUrl = (): string => {
   }
   
   // Prioritize Railway for all environments, fallback to machine IP only if no environment variable
-  const fallbackUrl = isDevelopment && !configUrl ? 'http://192.168.0.152:4000' : 'https://gofitai-production.up.railway.app';
+  const fallbackUrl = isDevelopment && !configUrl ? 'http://192.168.0.174:4000' : 'https://gofitai-production.up.railway.app';
   console.log('[ENVIRONMENT] Using fallback API URL:', fallbackUrl);
   return fallbackUrl;
 };

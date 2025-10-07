@@ -4,7 +4,7 @@ import { Text, Button, Card, ActivityIndicator, Portal, Modal } from 'react-nati
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
 import { colors } from '../../styles/colors';
 import { typography } from '../../styles/fonts';

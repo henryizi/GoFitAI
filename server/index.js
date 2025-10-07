@@ -239,8 +239,22 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
         shouldRest = workoutIndex >= targetWorkoutDays;
       }
       
-      if (!shouldRest && workoutIndex < workoutSessions.length && workoutIndex < targetWorkoutDays) {
-        const workout = workoutSessions[workoutIndex];
+      if (!shouldRest && workoutIndex < targetWorkoutDays) {
+        // Use available workout session or create a generic one if we run out
+        const workout = workoutIndex < workoutSessions.length 
+          ? workoutSessions[workoutIndex]
+          : {
+              focus: `Workout ${workoutIndex + 1}`,
+              exercises: [
+                {
+                  name: "Full Body Circuit",
+                  sets: 3,
+                  reps: "8-12",
+                  rest: "60s",
+                  notes: "Adjust intensity based on your fitness level"
+                }
+              ]
+            };
         newWeeklySchedule.push({
           day: dayName,
           day_name: `Day ${i + 1}`,
@@ -277,6 +291,15 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   
   const workoutSessions = aiWorkoutPlan.weekly_schedule;
   console.log('[applyWeeklyDistribution] 🔍 Input workoutSessions length:', workoutSessions.length);
+  console.log('[applyWeeklyDistribution] 🔍 Workout sessions:', workoutSessions.map(w => ({ focus: w.focus, exerciseCount: w.exercises?.length || 0 })));
+  
+  // DEBUG: Check if workoutSessions have exercises
+  const sessionsWithExercises = workoutSessions.filter(w => w.exercises && w.exercises.length > 0);
+  console.log('[applyWeeklyDistribution] 🔍 Sessions with exercises:', sessionsWithExercises.length);
+  if (sessionsWithExercises.length === 0) {
+    console.log('[applyWeeklyDistribution] ⚠️ WARNING: No workout sessions have exercises!');
+    console.log('[applyWeeklyDistribution] 🔍 Sample session structure:', JSON.stringify(workoutSessions[0], null, 2));
+  }
   
   const workoutFrequency =
     userProfile?.workout_frequency ||
@@ -345,8 +368,31 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
       shouldRest = workoutIndex >= boundedWorkoutDays;
     }
     
-    if (!shouldRest && workoutIndex < workoutSessions.length && workoutIndex < boundedWorkoutDays) {
-      const originalWorkout = workoutSessions[workoutIndex];
+    if (!shouldRest && workoutIndex < boundedWorkoutDays && workoutSessions.length > 0) {
+      // Use available workout session or create an intelligent fallback
+      let originalWorkout;
+      
+      if (workoutIndex < workoutSessions.length) {
+        originalWorkout = workoutSessions[workoutIndex];
+      } else {
+        // Create intelligent fallback by cycling through existing workouts
+        const fallbackIndex = workoutIndex % workoutSessions.length;
+        const baseWorkout = workoutSessions[fallbackIndex];
+        
+        console.log(`[applyWeeklyDistribution] 🔄 Creating fallback workout ${workoutIndex + 1} based on workout ${fallbackIndex + 1}: ${baseWorkout.focus}`);
+        
+        originalWorkout = {
+          ...baseWorkout,
+          focus: `${baseWorkout.focus} (Variation)`,
+          // Slightly modify the workout to make it different
+          exercises: baseWorkout.exercises ? baseWorkout.exercises.map(ex => ({
+            ...ex,
+            // Add slight variation to reps or sets
+            reps: ex.reps === "8-12" ? "10-15" : ex.reps,
+            sets: Math.min(ex.sets + 1, 4) // Add one set, max 4
+          })) : []
+        };
+      }
       
       // Transform AI workout session to include day and simplified structure
       const transformedWorkout = {
@@ -2133,6 +2179,9 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
   };
 }
 
+// Enhanced AI Workout Generator
+const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse } = require('./services/aiWorkoutGenerator');
+
 // Add a new endpoint for generating personalized workout plans
 app.post('/api/generate-workout-plan', async (req, res) => {
   console.log('[WORKOUT] /api/generate-workout-plan called');
@@ -2168,14 +2217,14 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       console.log('[WORKOUT] ✅ Normalized userProfile to standard format');
     }
 
-    console.log('[WORKOUT] Normalized profile data:', JSON.stringify(profileData, null, 2));
-    console.log('[WORKOUT] Primary goal from user profile:', userProfile?.primaryGoal);
-    console.log('[WORKOUT] Primary goal in normalized profile:', profileData.primary_goal);
-    console.log('[WORKOUT] Generating plan with profile:', {
+    console.log('[WORKOUT] 🎯 Enhanced AI Workout Generation Starting');
+    console.log('[WORKOUT] Profile:', {
+      name: profileData.full_name,
       level: profileData.training_level,
       goal: profileData.primary_goal,
-      workoutFrequency: profileData.workout_frequency,
+      frequency: profileData.workout_frequency,
       age: profileData.age,
+      gender: profileData.gender
     });
 
     // Check if Gemini service is available
@@ -2192,78 +2241,97 @@ app.post('/api/generate-workout-plan', async (req, res) => {
     }
 
     try {
-      // Use GeminiTextService for workout plan generation
-      console.log('[WORKOUT] Starting AI workout plan generation with systematic fallback');
-      console.log('[WORKOUT] 🤖 Attempting workout generation using GEMINI via TextService');
-      console.log('[WORKOUT] Current GEMINI_MODEL:', process.env.GEMINI_MODEL || 'gemini-1.5-flash');
-      console.log('[WORKOUT] geminiTextService available:', !!geminiTextService);
-      console.log('[WORKOUT] Calling generateWorkoutPlan with normalized profile');
+      // Use ENHANCED prompt generation
+      console.log('[WORKOUT] 🚀 Using ENHANCED AI Workout Generator');
+      console.log('[WORKOUT] Gemini Model:', process.env.GEMINI_MODEL || 'gemini-1.5-flash');
       
-      const prompt = composePrompt(profileData);
-      console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
-      console.log('[WORKOUT] Prompt length:', prompt.length);
+      const enhancedPrompt = composeEnhancedWorkoutPrompt({
+        gender: profileData.gender,
+        primaryGoal: profileData.primary_goal,
+        workoutFrequency: profileData.workout_frequency,
+        trainingLevel: profileData.training_level,
+        age: profileData.age,
+        weight: profileData.weight_kg,
+        height: profileData.height_cm,
+        fullName: profileData.full_name
+      });
       
-      // 🚀 OPTIMIZED TIMEOUT: Extended timeout with optimized Gemini configuration
-      const plan = await Promise.race([
-        geminiTextService.generateWorkoutPlan(prompt),
+      console.log('[WORKOUT] 📝 Enhanced prompt generated (' + enhancedPrompt.length + ' chars)');
+      console.log('[WORKOUT] Prompt preview:', enhancedPrompt.substring(0, 300) + '...');
+      
+      // Call Gemini AI with timeout - increased for Railway deployment
+      const rawPlan = await Promise.race([
+        geminiTextService.generateWorkoutPlan(enhancedPrompt),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Workout generation timeout after 300 seconds')), 300000)
         )
       ]);
       
-      console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
+      console.log('[WORKOUT] ✅ Raw plan received from Gemini');
 
-      // Check if plan is null or undefined
-      if (!plan) {
-        throw new Error('Gemini service returned null/undefined plan');
+      // Check if plan is valid
+      if (!rawPlan || !rawPlan.weekly_schedule) {
+        throw new Error('Gemini service returned invalid plan structure');
       }
 
-      // Transform the plan to match app's expected format
-      const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
-      console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
+      // Transform to app format using enhanced transformer
+      const transformedPlan = transformAIWorkoutResponse(rawPlan, {
+        trainingLevel: profileData.training_level,
+        primaryGoal: profileData.primary_goal,
+        workoutFrequency: profileData.workout_frequency,
+        age: profileData.age,
+        weight: profileData.weight_kg,
+        height: profileData.height_cm,
+        gender: profileData.gender,
+        fullName: profileData.full_name
+      });
+      
+      console.log('[WORKOUT] ✅ Plan transformed successfully');
+      console.log('[WORKOUT] Training days:', transformedPlan.weeklySchedule.length);
+      console.log('[WORKOUT] 🔍 Transformed plan structure:', transformedPlan.weeklySchedule.map(d => ({ 
+        day: d.day, 
+        focus: d.focus, 
+        exerciseCount: d.exercises?.length || 0,
+        hasExercises: !!(d.exercises && d.exercises.length > 0)
+      })));
 
-      // Apply weekly distribution to add rest days and create full 7-day schedule
-      // Convert weeklySchedule to weekly_schedule for compatibility with applyWeeklyDistribution
+      // Apply weekly distribution to add rest days
       const planForDistribution = {
         ...transformedPlan,
-        weekly_schedule: transformedPlan.weeklySchedule || transformedPlan.weekly_schedule || []
+        weekly_schedule: transformedPlan.weeklySchedule
       };
-      console.log('[WORKOUT] Applying weekly distribution with', profileData.workoutFrequency, 'sessions per week');
       const finalPlan = applyWeeklyDistribution(planForDistribution, profileData);
 
-      // Convert back to app format (weeklySchedule instead of weekly_schedule)
+      // Convert back to app format
       const appFormatPlan = {
         ...finalPlan,
-        weeklySchedule: finalPlan.weekly_schedule || finalPlan.weeklySchedule || [],
-        // Add primaryGoal at root level for easier access
-        primaryGoal: finalPlan.user_profile_summary?.primary_goal || profileData.primaryGoal,
-        primary_goal: finalPlan.user_profile_summary?.primary_goal || profileData.primaryGoal
+        weeklySchedule: finalPlan.weekly_schedule, // Use the 7-day schedule from applyWeeklyDistribution
+        primaryGoal: finalPlan.primary_goal || profileData.primary_goal,
+        primary_goal: finalPlan.primary_goal || profileData.primary_goal
       };
-      delete appFormatPlan.weekly_schedule; // Remove the underscore version
+      delete appFormatPlan.weekly_schedule;
 
-      console.log('[WORKOUT] ✅ Final response - weeklySchedule:', appFormatPlan.weeklySchedule?.length, 'days');
-      console.log('[WORKOUT] ✅ Primary goal preserved:', appFormatPlan.primaryGoal);
+      console.log('[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated');
+      console.log('[WORKOUT] Final schedule:', appFormatPlan.weeklySchedule?.length || 0, 'days');
+      console.log('[WORKOUT] Final schedule preview:', appFormatPlan.weeklySchedule?.map(d => ({ day: d.day, focus: d.focus, exerciseCount: d.exercises?.length || 0 })));
 
       return res.json({ 
         success: true, 
         workoutPlan: appFormatPlan, 
-        provider: 'gemini', 
+        provider: 'gemini_enhanced', 
         used_ai: true 
       });
     } catch (aiError) {
-      console.log('[WORKOUT] Using fallback rule-based generation');
-      console.log('[WORKOUT] AI generation failed:', aiError.message);
+      console.log('[WORKOUT] ❌ AI generation failed:', aiError.message);
+      console.log('[WORKOUT] Falling back to rule-based generation');
 
       // Generate rule-based fallback plan
       const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
-      console.log('[WORKOUT] Generated fallback plan with', fallbackPlan.weekly_schedule?.length || 0, 'days');
-
-      // Convert to app format and add primaryGoal at root level
       const fallbackAppFormat = {
         ...fallbackPlan,
-        weeklySchedule: fallbackPlan.weekly_schedule || fallbackPlan.weeklySchedule || [],
-        primaryGoal: fallbackPlan.primary_goal || profileData.primaryGoal,
-        primary_goal: fallbackPlan.primary_goal || profileData.primaryGoal
+        weeklySchedule: fallbackPlan.weekly_schedule || fallbackPlan.weeklySchedule,
+        primaryGoal: fallbackPlan.primary_goal || profileData.primary_goal,
+        primary_goal: fallbackPlan.primary_goal || profileData.primary_goal
       };
       delete fallbackAppFormat.weekly_schedule;
 
@@ -7052,6 +7120,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Add root health check endpoint
+app.get('/health', (req, res) => {
+  const uptime = process.uptime();
+  res.status(200).json({ 
+    status: 'healthy',
+    uptime: Math.round(uptime),
+    timestamp: new Date().toISOString(),
+    version: '4.0.2',
+    service: 'GoFitAI Backend'
+  });
+});
+
 // Debug endpoint for AI configuration
 app.get('/api/debug/ai-config', (req, res) => {
   res.json({
@@ -7764,7 +7844,8 @@ app.post('/api/generate-recipe', async (req, res) => {
   console.log(`[${new Date().toISOString()}] Received recipe generation request`);
   
   try {
-    // Services imported at top
+    // Extract request body first
+    const { mealType, targets, ingredients, strict } = req.body;
 
     // Check rate limits first
     if (!rateLimiter.isAllowed(req)) {
@@ -7797,8 +7878,6 @@ app.post('/api/generate-recipe', async (req, res) => {
         cached: true
       });
     }
-
-    const { mealType, targets, ingredients, strict } = req.body;
     
     // Check for meal plan recipe request (new behavior)
     if (req.body.meal_plan_request === true) {

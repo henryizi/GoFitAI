@@ -441,36 +441,6 @@ const WorkoutHistoryListScreen = () => {
                           </View>
                         )}
                       </View>
-
-                      {/* Detailed Exercise Information */}
-                      {item.exercises && item.exercises.length > 0 && (
-                        <View style={styles.exerciseDetailsContainer}>
-                          <Text style={styles.exerciseDetailsTitle}>Exercises Completed:</Text>
-                          {item.exercises.map((exercise, exerciseIndex) => (
-                            <View key={exerciseIndex} style={styles.exerciseDetailRow}>
-                              <View style={styles.exerciseNameContainer}>
-                                <Icon name="dumbbell" size={12} color={colors.primary} />
-                                <Text style={styles.exerciseDetailName} numberOfLines={1}>
-                                  {exercise.exercise_name}
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseStatsContainer}>
-                                <Text style={styles.exerciseDetailStat}>
-                                  {exercise.sets_completed} sets
-                                </Text>
-                                <Text style={styles.exerciseDetailStat}>
-                                  {exercise.total_reps} reps
-                                </Text>
-                                {exercise.max_weight && (
-                                  <Text style={styles.exerciseDetailStat}>
-                                    {exercise.max_weight}kg max
-                                  </Text>
-                                )}
-                              </View>
-                            </View>
-                          ))}
-                        </View>
-                      )}
                     </View>
                     
                     <View style={styles.sessionActionsContainer}>

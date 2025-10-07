@@ -195,7 +195,7 @@ export class GeminiService {
   private static getBaseUrls(): string[] {
     const railwayUrl = 'https://gofitai-production.up.railway.app';
     const localhostUrl = 'http://localhost:4000';
-    const localIpUrl = 'http://192.168.0.176:4000'; // Local network IP from server startup
+    const localIpUrl = 'http://192.168.0.174:4000'; // Local network IP from server startup
     const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
 
     console.log('[GEMINI SERVICE] Available URLs:');
@@ -250,7 +250,7 @@ export class GeminiService {
           console.warn(`[GEMINI SERVICE] Invalid base URL: ${base}, skipping...`);
           continue;
         }
-
+        
         // Create timeout promise - optimized for meal generation
         // Use shorter timeout for local servers, longer for remote
         const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
@@ -570,18 +570,18 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
   static async testConnection(): Promise<boolean> {
     try {
       const apiUrl = this.getApiUrl();
-
+      
       const response = await fetch(`${apiUrl}/api/test-gemini`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         }
       });
-
+      
       if (!response.ok) {
         return false;
       }
-
+      
       const data = await response.json();
       return data.success === true;
     } catch (error) {
@@ -857,6 +857,16 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
         if (data.success && data.workoutPlan) {
           // Transform server response to match app expectations
           const serverPlan = data.workoutPlan;
+          
+          // DEBUG: Log the raw server plan structure
+          console.log('[GEMINI SERVICE] 🔍 Raw server plan structure:', {
+            hasWeeklySchedule: !!serverPlan.weekly_schedule,
+            hasWeeklyScheduleCamel: !!serverPlan.weeklySchedule,
+            weeklyScheduleType: Array.isArray(serverPlan.weekly_schedule) ? 'array' : typeof serverPlan.weekly_schedule,
+            weeklyScheduleLength: serverPlan.weekly_schedule?.length || serverPlan.weeklySchedule?.length || 0,
+            firstDay: serverPlan.weekly_schedule?.[0] || serverPlan.weeklySchedule?.[0]
+          });
+          
           const appPlan: AppWorkoutPlan = {
             id: `server-${Date.now()}`, // Generate client ID
             name: serverPlan.name || serverPlan.plan_name || 'AI Generated Plan',
@@ -881,11 +891,19 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           console.log('[GEMINI SERVICE] ✅ Successfully transformed server plan:', {
             name: appPlan.name,
             weeklyScheduleLength: appPlan.weeklySchedule?.length || 0,
+            weeklyScheduleIsArray: Array.isArray(appPlan.weeklySchedule),
             firstDayExercises: appPlan.weeklySchedule?.[0] ? 
               (appPlan.weeklySchedule[0].exercises?.length || 0) + 
               (appPlan.weeklySchedule[0].warm_up?.length || 0) + 
               (appPlan.weeklySchedule[0].main_workout?.length || 0) + 
               (appPlan.weeklySchedule[0].cool_down?.length || 0) : 0,
+            firstDayStructure: appPlan.weeklySchedule?.[0] ? {
+              day: appPlan.weeklySchedule[0].day,
+              focus: appPlan.weeklySchedule[0].focus,
+              hasExercises: !!appPlan.weeklySchedule[0].exercises,
+              exercisesLength: appPlan.weeklySchedule[0].exercises?.length || 0,
+              exerciseNames: appPlan.weeklySchedule[0].exercises?.slice(0, 3)?.map(ex => ex.name) || []
+            } : null,
             firstWorkoutDay: appPlan.weeklySchedule?.find(d => 
               (d.exercises && d.exercises.length > 0) || 
               (d.warm_up && d.warm_up.length > 0) || 
@@ -896,6 +914,8 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           
           // Log full weekly schedule details for debugging
           console.log('[GEMINI SERVICE] Full weekly schedule details:');
+          console.log('[GEMINI SERVICE] 🔍 RAW SERVER PLAN WEEKLY_SCHEDULE:', JSON.stringify(serverPlan.weekly_schedule, null, 2));
+          console.log('[GEMINI SERVICE] 🔍 APP PLAN WEEKLY_SCHEDULE LENGTH:', appPlan.weeklySchedule?.length);
           appPlan.weeklySchedule?.forEach((day, idx) => {
             console.log(`  Day ${idx + 1}:`, {
               day: day.day,
@@ -905,9 +925,17 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
               exercisesCount: day.exercises?.length || 0,
               warmUpCount: day.warm_up?.length || 0,
               mainWorkoutCount: day.main_workout?.length || 0,
-              coolDownCount: day.cool_down?.length || 0
+              coolDownCount: day.cool_down?.length || 0,
+              firstExercise: day.exercises?.[0] || null
             });
           });
+          
+          // CRITICAL CHECK: Ensure weeklySchedule is not empty
+          if (!appPlan.weeklySchedule || appPlan.weeklySchedule.length === 0) {
+            console.error('[GEMINI SERVICE] ❌ WARNING: weeklySchedule is empty or undefined!');
+            console.error('[GEMINI SERVICE] Server plan keys:', Object.keys(serverPlan));
+            console.error('[GEMINI SERVICE] Full server plan:', JSON.stringify(serverPlan, null, 2));
+          }
           
           return appPlan;
         } else {

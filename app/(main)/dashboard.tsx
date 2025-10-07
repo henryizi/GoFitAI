@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,9 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { colors } from '../../src/styles/colors';
+import { NutritionService } from '../../src/services/nutrition/NutritionService';
+import { WorkoutHistoryService, CompletedSessionListItem } from '../../src/services/workout/WorkoutHistoryService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -37,7 +40,7 @@ const quickActions: QuickAction[] = [
     subtitle: 'Begin your training session',
     icon: 'dumbbell',
     route: '/(main)/workout',
-    gradient: ['#667eea', '#764ba2'],
+    gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
   },
   {
     id: 'nutrition',
@@ -45,7 +48,7 @@ const quickActions: QuickAction[] = [
     subtitle: 'Track your daily nutrition',
     icon: 'food-apple-outline',
     route: '/(main)/nutrition',
-    gradient: ['#f093fb', '#f5576c'],
+    gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
   },
   {
     id: 'progress',
@@ -53,7 +56,7 @@ const quickActions: QuickAction[] = [
     subtitle: 'Log your body metrics',
     icon: 'chart-line',
     route: '/(main)/progress',
-    gradient: ['#4facfe', '#00f2fe'],
+    gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
   },
   {
     id: 'settings',
@@ -61,15 +64,26 @@ const quickActions: QuickAction[] = [
     subtitle: 'Customize your experience',
     icon: 'cog',
     route: '/(main)/settings',
-    gradient: ['#43e97b', '#38f9d7'],
+    gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
   },
 ];
+
+interface NutritionProgress {
+  calories: { current: number; target: number };
+  protein: { current: number; target: number };
+  carbs: { current: number; target: number };
+  fat: { current: number; target: number };
+}
 
 export default function Dashboard() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showRemaining, setShowRemaining] = useState(false);
+  const [nutritionProgress, setNutritionProgress] = useState<NutritionProgress | null>(null);
+  const [recentActivities, setRecentActivities] = useState<CompletedSessionListItem[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -79,10 +93,88 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch nutrition progress
+  const fetchNutritionProgress = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Get active nutrition plan
+      const plan = await NutritionService.getLatestNutritionPlan(user.id);
+      
+      if (!plan) {
+        setNutritionProgress(null);
+        return;
+      }
+
+      // Get daily targets
+      const targets = plan.daily_targets || {
+        calories: 2000,
+        protein_grams: 150,
+        carbs_grams: 200,
+        fat_grams: 65
+      };
+
+      // Get today's food logs from AsyncStorage
+      const todayDate = new Date().toISOString().split('T')[0];
+      const storageKey = `nutrition_log_${user.id}_${todayDate}`;
+      const todayLogsStr = await AsyncStorage.getItem(storageKey);
+      const todayLogs = todayLogsStr ? JSON.parse(todayLogsStr) : [];
+
+      // Calculate current intake
+      const current = todayLogs.reduce((acc: any, log: any) => {
+        acc.calories += log.calories || 0;
+        acc.protein += log.protein_grams || 0;
+        acc.carbs += log.carbs_grams || 0;
+        acc.fat += log.fat_grams || 0;
+        return acc;
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+      setNutritionProgress({
+        calories: { current: Math.round(current.calories), target: Math.round(targets.calories) },
+        protein: { current: Math.round(current.protein), target: Math.round(targets.protein_grams) },
+        carbs: { current: Math.round(current.carbs), target: Math.round(targets.carbs_grams) },
+        fat: { current: Math.round(current.fat), target: Math.round(targets.fat_grams) }
+      });
+    } catch (error) {
+      console.error('Error fetching nutrition progress:', error);
+      setNutritionProgress(null);
+    }
+  }, [user?.id]);
+
+  // Fetch recent workout activities
+  const fetchRecentActivities = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const sessions = await WorkoutHistoryService.getCompletedSessions(user.id);
+      // Get the 3 most recent activities
+      setRecentActivities(sessions.slice(0, 3));
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      setRecentActivities([]);
+    }
+  }, [user?.id]);
+
+  // Load all dashboard data
+  const loadDashboardData = useCallback(async () => {
+    setLoadingData(true);
+    await Promise.all([
+      fetchNutritionProgress(),
+      fetchRecentActivities()
+    ]);
+    setLoadingData(false);
+  }, [fetchNutritionProgress, fetchRecentActivities]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id, loadDashboardData]);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    // Add any refresh logic here
-    setTimeout(() => setRefreshing(false), 1000);
+    await loadDashboardData();
+    setRefreshing(false);
   };
 
   const getGreeting = () => {
@@ -179,53 +271,6 @@ export default function Dashboard() {
           </LinearGradient>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.actionCard}
-                onPress={() => router.push(action.route as any)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={[action.gradient[0] + 'E8', action.gradient[1] + 'F2']}
-                  style={styles.actionGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.actionContent}>
-                    <View style={[styles.actionIconContainer, {
-                      backgroundColor: 'rgba(255,255,255,0.25)',
-                      borderColor: 'rgba(255,255,255,0.35)',
-                      borderWidth: 1,
-                      shadowColor: action.gradient[0],
-                    }]}>
-                      <Icon 
-                        name={action.icon as any} 
-                        size={28} 
-                        color={colors.white} 
-                      />
-                    </View>
-                    
-                    <View style={styles.actionTextContainer}>
-                      <Text style={styles.actionTitle}>{action.title}</Text>
-                      <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-                    </View>
-                  </View>
-                  
-                  {/* Subtle highlight overlay */}
-                  <View style={[styles.actionHighlight, {
-                    backgroundColor: action.gradient[0] + '08'
-                  }]} />
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         {/* Today's Focus */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Today's Focus</Text>
@@ -245,38 +290,294 @@ export default function Dashboard() {
           </LinearGradient>
         </View>
 
-        {/* Quick Stats */}
+        {/* Quick Actions */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Your Journey</Text>
-          <View style={styles.statsContainer}>
-            <LinearGradient
-              colors={['rgba(255,107,53,0.2)', 'rgba(0,0,0,0.15)']}
-              style={styles.statCard}
-            >
-              <Icon name="calendar-check" size={24} color={colors.primary} />
-              <Text style={styles.statNumber}>--</Text>
-              <Text style={styles.statLabel}>Days Active</Text>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={['rgba(255,143,101,0.15)', 'rgba(0,0,0,0.1)']}
-              style={styles.statCard}
-            >
-              <Icon name="fire" size={24} color={colors.primaryLight} />
-              <Text style={styles.statNumber}>--</Text>
-              <Text style={styles.statLabel}>Workouts</Text>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={['rgba(229,90,43,0.15)', 'rgba(0,0,0,0.1)']}
-              style={styles.statCard}
-            >
-              <Icon name="trophy" size={24} color={colors.primaryDark} />
-              <Text style={styles.statNumber}>--</Text>
-              <Text style={styles.statLabel}>Goals Hit</Text>
-            </LinearGradient>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            {quickActions.map((action, index) => (
+              <TouchableOpacity
+                key={action.id}
+                style={styles.actionCard}
+                onPress={() => router.push(action.route as any)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={action.gradient as any}
+                  style={styles.actionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.actionContent}>
+                    <View style={[styles.actionIconContainer, {
+                      backgroundColor: 'rgba(255,107,53,0.3)',
+                      borderColor: 'rgba(255,107,53,0.5)',
+                      borderWidth: 1,
+                      shadowColor: colors.primary,
+                    }]}>
+                      <Icon 
+                        name={action.icon as any} 
+                        size={28} 
+                        color={colors.white} 
+                      />
+                    </View>
+                    
+                    <View style={styles.actionTextContainer}>
+                      <Text style={styles.actionTitle}>{action.title}</Text>
+                      <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                    </View>
+                  </View>
+                  
+                  {/* Subtle highlight overlay */}
+                  <View style={[styles.actionHighlight, {
+                    backgroundColor: 'rgba(255,107,53,0.08)'
+                  }]} />
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
+
+        {/* Daily Nutrition Progress */}
+        {nutritionProgress && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Today's Nutrition</Text>
+              <View style={styles.nutritionActions}>
+                <TouchableOpacity 
+                  style={styles.nutritionActionButton}
+                  onPress={() => router.push('/(main)/nutrition/log-food')}
+                >
+                  <Icon name="plus-circle" size={16} color={colors.primary} />
+                  <Text style={styles.nutritionActionText}>Log Food</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    styles.nutritionActionButtonSecondary,
+                    showRemaining && styles.nutritionActionButtonActive
+                  ]}
+                  onPress={() => setShowRemaining(!showRemaining)}
+                >
+                  <Icon 
+                    name={showRemaining ? "check-circle" : "information-outline"} 
+                    size={16} 
+                    color={showRemaining ? colors.primary : colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.nutritionActionTextSecondary,
+                    showRemaining && styles.nutritionActionTextActive
+                  ]}>
+                    {showRemaining ? "Show Consumed" : "Show Remaining"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <LinearGradient
+              colors={['rgba(255,107,53,0.2)', 'rgba(0,0,0,0.25)']}
+              style={styles.nutritionCard}
+            >
+              {/* Calories - Main Focus */}
+              <View style={styles.caloriesContainer}>
+                <View style={styles.caloriesHeader}>
+                  <Icon name="fire" size={24} color={colors.primary} />
+                  <Text style={styles.caloriesLabel}>Calories {showRemaining ? 'Remaining' : 'Consumed'}</Text>
+                </View>
+                <View style={styles.caloriesProgress}>
+                  <Text style={styles.caloriesNumber}>
+                    {showRemaining 
+                      ? Math.max(0, nutritionProgress.calories.target - nutritionProgress.calories.current)
+                      : nutritionProgress.calories.current
+                    }
+                  </Text>
+                  <Text style={styles.caloriesTarget}>
+                    / {nutritionProgress.calories.target}
+                  </Text>
+                </View>
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { 
+                          width: `${Math.min(showRemaining 
+                            ? Math.max(0, ((nutritionProgress.calories.target - nutritionProgress.calories.current) / nutritionProgress.calories.target) * 100)
+                            : (nutritionProgress.calories.current / nutritionProgress.calories.target) * 100
+                          , 100)}%`,
+                          backgroundColor: colors.primary
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.progressPercentage}>
+                    {Math.round(showRemaining 
+                      ? Math.max(0, ((nutritionProgress.calories.target - nutritionProgress.calories.current) / nutritionProgress.calories.target) * 100)
+                      : (nutritionProgress.calories.current / nutritionProgress.calories.target) * 100
+                    )}%
+                  </Text>
+                </View>
+              </View>
+
+              {/* Macros Grid */}
+              <View style={styles.macrosGrid}>
+                <View style={styles.macroItem}>
+                  <Icon name="food-drumstick" size={20} color="#4ECDC4" />
+                  <Text style={styles.macroLabel}>Protein</Text>
+                  <Text style={styles.macroValue}>
+                    {showRemaining 
+                      ? Math.max(0, nutritionProgress.protein.target - nutritionProgress.protein.current)
+                      : nutritionProgress.protein.current
+                    }g
+                  </Text>
+                  <Text style={styles.macroTarget}>
+                    of {nutritionProgress.protein.target}g
+                  </Text>
+                  <View style={styles.miniProgressBar}>
+                    <View 
+                      style={[
+                        styles.miniProgressFill, 
+                        { 
+                          width: `${Math.min(showRemaining
+                            ? Math.max(0, ((nutritionProgress.protein.target - nutritionProgress.protein.current) / nutritionProgress.protein.target) * 100)
+                            : (nutritionProgress.protein.current / nutritionProgress.protein.target) * 100
+                          , 100)}%`,
+                          backgroundColor: '#4ECDC4'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.macroItem}>
+                  <Icon name="bread-slice" size={20} color="#95E1D3" />
+                  <Text style={styles.macroLabel}>Carbs</Text>
+                  <Text style={styles.macroValue}>
+                    {showRemaining 
+                      ? Math.max(0, nutritionProgress.carbs.target - nutritionProgress.carbs.current)
+                      : nutritionProgress.carbs.current
+                    }g
+                  </Text>
+                  <Text style={styles.macroTarget}>
+                    of {nutritionProgress.carbs.target}g
+                  </Text>
+                  <View style={styles.miniProgressBar}>
+                    <View 
+                      style={[
+                        styles.miniProgressFill, 
+                        { 
+                          width: `${Math.min(showRemaining
+                            ? Math.max(0, ((nutritionProgress.carbs.target - nutritionProgress.carbs.current) / nutritionProgress.carbs.target) * 100)
+                            : (nutritionProgress.carbs.current / nutritionProgress.carbs.target) * 100
+                          , 100)}%`,
+                          backgroundColor: '#95E1D3'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.macroItem}>
+                  <Icon name="water" size={20} color="#F38181" />
+                  <Text style={styles.macroLabel}>Fat</Text>
+                  <Text style={styles.macroValue}>
+                    {showRemaining 
+                      ? Math.max(0, nutritionProgress.fat.target - nutritionProgress.fat.current)
+                      : nutritionProgress.fat.current
+                    }g
+                  </Text>
+                  <Text style={styles.macroTarget}>
+                    of {nutritionProgress.fat.target}g
+                  </Text>
+                  <View style={styles.miniProgressBar}>
+                    <View 
+                      style={[
+                        styles.miniProgressFill, 
+                        { 
+                          width: `${Math.min(showRemaining
+                            ? Math.max(0, ((nutritionProgress.fat.target - nutritionProgress.fat.current) / nutritionProgress.fat.target) * 100)
+                            : (nutritionProgress.fat.current / nutritionProgress.fat.target) * 100
+                          , 100)}%`,
+                          backgroundColor: '#F38181'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* Recent Activities */}
+        {recentActivities.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Activities</Text>
+              <TouchableOpacity onPress={() => router.push('/(main)/workout/history')}>
+                <Text style={styles.sectionAction}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.activitiesContainer}>
+              {recentActivities.map((activity, index) => (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={styles.activityCard}
+                  onPress={() => router.push(`/(main)/workout/history-session/${activity.id}` as any)}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,107,53,0.15)', 'rgba(0,0,0,0.2)']}
+                    style={styles.activityGradient}
+                  >
+                    <View style={styles.activityHeader}>
+                      <View style={styles.activityIconContainer}>
+                        <Icon name="dumbbell" size={20} color={colors.primary} />
+                      </View>
+                      <View style={styles.activityInfo}>
+                        <Text style={styles.activityTitle} numberOfLines={1}>
+                          {activity.session_name || activity.plan_name || 'Workout Session'}
+                        </Text>
+                        <Text style={styles.activityDate}>
+                          {new Date(activity.completed_at).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                      </View>
+                      <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+                    </View>
+                    <View style={styles.activityStats}>
+                      {activity.duration_minutes && (
+                        <View style={styles.activityStat}>
+                          <Icon name="clock-outline" size={14} color={colors.textSecondary} />
+                          <Text style={styles.activityStatText}>
+                            {activity.duration_minutes} min
+                          </Text>
+                        </View>
+                      )}
+                      {activity.total_exercises && (
+                        <View style={styles.activityStat}>
+                          <Icon name="weight-lifter" size={14} color={colors.textSecondary} />
+                          <Text style={styles.activityStatText}>
+                            {activity.total_exercises} exercises
+                          </Text>
+                        </View>
+                      )}
+                      {activity.total_sets && (
+                        <View style={styles.activityStat}>
+                          <Icon name="format-list-numbered" size={14} color={colors.textSecondary} />
+                          <Text style={styles.activityStatText}>
+                            {activity.total_sets} sets
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -366,11 +667,64 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 30,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     color: colors.white,
     fontWeight: 'bold',
-    marginBottom: 16,
+  },
+  sectionAction: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  nutritionActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nutritionActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,107,53,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.3)',
+  },
+  nutritionActionText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  nutritionActionButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  nutritionActionTextSecondary: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  nutritionActionButtonActive: {
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    borderColor: 'rgba(255,107,53,0.3)',
+  },
+  nutritionActionTextActive: {
+    color: colors.primary,
   },
   actionsGrid: {
     flexDirection: 'row',
@@ -480,5 +834,152 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  // Nutrition Progress Styles
+  nutritionCard: {
+    borderRadius: 20,
+    padding: 20,
+  },
+  caloriesContainer: {
+    marginBottom: 20,
+  },
+  caloriesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  caloriesLabel: {
+    fontSize: 16,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  caloriesProgress: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  caloriesNumber: {
+    fontSize: 36,
+    color: colors.white,
+    fontWeight: 'bold',
+  },
+  caloriesTarget: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    marginLeft: 4,
+  },
+  progressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  progressPercentage: {
+    fontSize: 14,
+    color: colors.white,
+    fontWeight: '600',
+    minWidth: 40,
+  },
+  macrosGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  macroItem: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  macroLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  macroValue: {
+    fontSize: 18,
+    color: colors.white,
+    fontWeight: 'bold',
+  },
+  macroTarget: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  miniProgressBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  miniProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  // Recent Activities Styles
+  activitiesContainer: {
+    gap: 12,
+  },
+  activityCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  activityGradient: {
+    padding: 16,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,107,53,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 16,
+    color: colors.white,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  activityDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  activityStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  activityStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activityStatText: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });

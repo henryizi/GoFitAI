@@ -13,9 +13,6 @@ class QuotaMonitor {
     // Load from persistent storage if available
     this.loadUsageData();
 
-    console.log('[QUOTA] Monitor initialized');
-    console.log('[QUOTA] Daily quota:', this.dailyQuota);
-    console.log('[QUOTA] Reset time:', this.resetTime);
   }
 
   /**
@@ -59,7 +56,6 @@ class QuotaMonitor {
     const now = new Date();
 
     if (now >= this.resetTime) {
-      console.log('[QUOTA] Resetting daily quota');
       this.currentUsage = 0;
       this.lastReset = now;
       this.resetTime = this.getNextResetTime();
@@ -77,7 +73,6 @@ class QuotaMonitor {
     const remaining = this.getRemainingQuota();
     const percentage = this.getUsagePercentage();
 
-    console.log(`[QUOTA] Usage recorded: ${this.currentUsage}/${this.dailyQuota} (${percentage}%)`);
 
     if (remaining <= 5) {
       console.warn(`[QUOTA] ⚠️ Low quota remaining: ${remaining} requests`);
@@ -146,7 +141,6 @@ class QuotaMonitor {
             this.resetTime = new Date(data.resetTime);
           }
 
-          console.log('[QUOTA] Loaded usage data:', this.currentUsage, 'requests');
         }
       }
     } catch (error) {

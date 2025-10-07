@@ -31,10 +31,22 @@ class GeminiTextService {
       const bestKey = this.apiKeyManager.getBestAvailableKey();
       this.currentKey = bestKey;
       this.genAI = new GoogleGenerativeAI(bestKey);
-      const modelName = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash-latest';
-      this.modelName = modelName;
+      
+      // Model fallback chain - prefer stable models over preview/experimental
+      const primaryModel = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+      this.modelName = primaryModel;
+      
+      // Define fallback models in order of preference
+      this.modelFallbackChain = [
+        primaryModel,
+        'gemini-2.0-flash-001',  // Stable Gemini 2.0
+        'gemini-flash-latest'     // Latest stable flash
+      ];
+      
+      this.currentModelIndex = 0;
+      
     this.model = this.genAI.getGenerativeModel({ 
-        model: modelName,
+        model: this.modelName,
       generationConfig: {
         temperature: 0.7,
         topP: 0.95,
@@ -43,10 +55,36 @@ class GeminiTextService {
     });
     
       console.log('[GEMINI TEXT] Using key with best quota availability');
+      console.log('[GEMINI TEXT] Primary model:', this.modelName);
+      console.log('[GEMINI TEXT] Fallback chain:', this.modelFallbackChain.join(' → '));
     } catch (error) {
       console.error('[GEMINI TEXT] Failed to initialize with best key:', error.message);
       throw error;
     }
+  }
+  
+  /**
+   * Switch to next available model in fallback chain
+   */
+  switchToFallbackModel() {
+    if (this.currentModelIndex < this.modelFallbackChain.length - 1) {
+      this.currentModelIndex++;
+      const newModel = this.modelFallbackChain[this.currentModelIndex];
+      this.modelName = newModel;
+      
+      this.model = this.genAI.getGenerativeModel({
+        model: newModel,
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.95,
+          maxOutputTokens: 16384
+        }
+      });
+      
+      console.log(`[GEMINI TEXT] 🔄 Switched to fallback model: ${newModel}`);
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -57,6 +95,11 @@ class GeminiTextService {
       const nextKey = this.apiKeyManager.getNextKey();
       this.currentKey = nextKey;
       this.genAI = new GoogleGenerativeAI(nextKey);
+      
+      // Reset to primary model when rotating keys
+      this.currentModelIndex = 0;
+      this.modelName = this.modelFallbackChain[0];
+      
       this.model = this.genAI.getGenerativeModel({
         model: this.modelName,
         generationConfig: {
@@ -67,6 +110,7 @@ class GeminiTextService {
       });
 
       console.log('[GEMINI TEXT] Rotated to next API key');
+      console.log('[GEMINI TEXT] Reset to primary model:', this.modelName);
     } catch (error) {
       console.error('[GEMINI TEXT] Failed to rotate API key:', error.message);
       throw error;
@@ -97,8 +141,12 @@ class GeminiTextService {
    * @returns {Promise<Object>} Generated recipe
    */
   async generateRecipe(mealType, targets, ingredients, strict = false) {
+    // Try with model fallback chain if primary model fails with 503
+    let lastError = null;
+    
+    for (let modelAttempt = 0; modelAttempt < this.modelFallbackChain.length; modelAttempt++) {
     try {
-      console.log('[GEMINI TEXT] Generating recipe for:', mealType);
+        console.log(`[GEMINI TEXT] Generating recipe for: ${mealType} (Model: ${this.modelName}, attempt ${modelAttempt + 1}/${this.modelFallbackChain.length})`);
       console.log('[GEMINI TEXT] Ingredients:', ingredients.length);
       console.log('[GEMINI TEXT] Strict mode:', strict);
 
@@ -152,13 +200,35 @@ class GeminiTextService {
       return {
         ...validatedRecipe,
         source: 'gemini_text',
+          model: this.modelName,
         generated_at: new Date().toISOString()
       };
 
     } catch (error) {
-      console.error('[GEMINI TEXT] Recipe generation failed:', error.message);
-      throw new Error(`Recipe generation failed: ${error.message}`);
+        lastError = error;
+        console.error(`[GEMINI TEXT] Recipe generation failed with ${this.modelName}:`, error.message);
+        
+        // Check if it's a 503 overload error
+        const is503 = error.message && (
+          error.message.includes('503') || 
+          error.message.includes('overloaded') ||
+          error.message.includes('Service Unavailable')
+        );
+        
+        // If 503 and we have more models to try, switch to fallback model
+        if (is503 && modelAttempt < this.modelFallbackChain.length - 1) {
+          console.log(`[GEMINI TEXT] Model ${this.modelName} is overloaded, trying fallback model...`);
+          this.switchToFallbackModel();
+          continue;
+        }
+        
+        // Otherwise, throw the error
+        break;
+      }
     }
+    
+    // If we get here, all models failed
+    throw new Error(`Recipe generation failed after trying ${this.modelFallbackChain.length} models: ${lastError.message}`);
   }
 
   /**
@@ -316,32 +386,36 @@ class GeminiTextService {
    * @returns {Promise<Object>} Generated workout plan
    */
   async generateWorkoutPlan(prompt) {
-    try {
-      console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
-      console.log('[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.1 - 240s TIMEOUT FIX');
-      console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
-      console.log('[GEMINI TEXT] Generating workout plan');
-      console.log('[GEMINI TEXT] User level: N/A (using prompt-based generation)');
-      console.log('[GEMINI TEXT] Goal: N/A (using prompt-based generation)');
+    // Try with model fallback chain if primary model fails with 503
+    let lastModelError = null;
+    
+    for (let modelAttempt = 0; modelAttempt < this.modelFallbackChain.length; modelAttempt++) {
+      try {
+        console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
+        console.log(`[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.2 - Model fallback enabled`);
+        console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
+        console.log(`[GEMINI TEXT] Generating workout plan (Model: ${this.modelName}, attempt ${modelAttempt + 1}/${this.modelFallbackChain.length})`);
+        console.log('[GEMINI TEXT] User level: N/A (using prompt-based generation)');
+        console.log('[GEMINI TEXT] Goal: N/A (using prompt-based generation)');
 
       const startTime = Date.now();
 
-      console.log('[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)');
-      console.log('[GEMINI TEXT] Prompt length:', prompt.length);
+        console.log('[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)');
+        console.log('[GEMINI TEXT] Prompt length:', prompt.length);
 
-      // 🚀 OPTIMIZED: Use dedicated workout model configuration for faster generation
-      const workoutModel = this.genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          temperature: 0.5,  // Lower temperature for faster, more consistent responses
-          topP: 0.9,
-          maxOutputTokens: 12000,  // Sufficient for workout plans without excessive detail
-          candidateCount: 1  // Only generate one candidate for speed
-        }
-      });
+        // 🚀 OPTIMIZED: Use dedicated workout model configuration for faster generation
+        const workoutModel = this.genAI.getGenerativeModel({
+          model: this.modelName,
+          generationConfig: {
+            temperature: 0.5,  // Lower temperature for faster, more consistent responses
+            topP: 0.9,
+            maxOutputTokens: 12000,  // Sufficient for workout plans without excessive detail
+            candidateCount: 1  // Only generate one candidate for speed
+          }
+        });
 
-      let lastError;
-      const maxRetries = 2;
+        let lastError;
+        const maxRetries = 2;
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -398,7 +472,7 @@ class GeminiTextService {
         generated_at: new Date().toISOString()
       };
 
-        } catch (error) {
+    } catch (error) {
           console.log(`[GEMINI TEXT] Error in generateContentWithRetry attempt ${attempt}:`, error.message);
           console.log('[GEMINI TEXT] Error stack:', error.stack);
           console.log('[GEMINI TEXT] Error constructor:', error.constructor.name);
@@ -416,14 +490,35 @@ class GeminiTextService {
         }
       }
 
-      // If all retries failed
-      console.error('[GEMINI TEXT] All retry attempts failed');
-      throw lastError || new Error('All retry attempts failed');
+        // If all retries failed
+        console.error('[GEMINI TEXT] All retry attempts failed for this model');
+        throw lastError || new Error('All retry attempts failed');
 
-    } catch (error) {
-      console.error('[GEMINI TEXT] Workout plan generation failed:', error.message);
-      throw new Error(`Workout plan generation failed: ${error.message}`);
+      } catch (error) {
+        lastModelError = error;
+        console.error(`[GEMINI TEXT] Workout plan generation failed with ${this.modelName}:`, error.message);
+        
+        // Check if it's a 503 overload error
+        const is503 = error.message && (
+          error.message.includes('503') || 
+          error.message.includes('overloaded') ||
+          error.message.includes('Service Unavailable')
+        );
+        
+        // If 503 and we have more models to try, switch to fallback model
+        if (is503 && modelAttempt < this.modelFallbackChain.length - 1) {
+          console.log(`[GEMINI TEXT] Model ${this.modelName} is overloaded, trying fallback model...`);
+          this.switchToFallbackModel();
+          continue;
+        }
+        
+        // Otherwise, throw the error
+        break;
+      }
     }
+    
+    // If we get here, all models failed
+    throw new Error(`Workout plan generation failed after trying ${this.modelFallbackChain.length} models: ${lastModelError.message}`);
   }
 
   /**
@@ -538,7 +633,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
   /**
    * Generates content with retry logic for 503 Service Unavailable errors
    */
-  async generateContentWithRetry(content, maxRetries = 2) {
+  async generateContentWithRetry(content, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
@@ -552,7 +647,10 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                 contentStr.includes('nutrition') || contentStr.includes('fitness') ||
                                 contentStr.includes('personalized workout') || contentStr.includes('CLIENT PROFILE') ||
                                 contentStr.length > 2000; // Workout plans are typically 2.5-6k chars
-        const timeoutDuration = isComplexRequest ? 180000 : 90000; // 180s for complex, 90s for simple - allows AI generation time in Railway
+        // Use environment variables for timeout configuration with fallbacks
+        const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 300000;
+        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000;
+        const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
         console.log(`[GEMINI TEXT] 🚀 UPDATED TIMEOUT LOGIC - Force deployment refresh`);
 
@@ -561,6 +659,19 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000); // 1s, 2s, 4s max
           console.log(`[GEMINI TEXT] Applying exponential backoff delay: ${backoffDelay}ms`);
           await new Promise(resolve => setTimeout(resolve, backoffDelay));
+          
+          // Quick connectivity check before retry
+          try {
+            console.log('[GEMINI TEXT] Testing connectivity to Google API...');
+            const testResponse = await fetch('https://generativelanguage.googleapis.com/', { 
+              method: 'HEAD', 
+              timeout: 5000 
+            });
+            console.log(`[GEMINI TEXT] Connectivity test result: ${testResponse.status}`);
+          } catch (connectError) {
+            console.log(`[GEMINI TEXT] Connectivity test failed: ${connectError.message}`);
+            // Continue anyway - the test might fail but the actual request might work
+          }
         }
 
         const timeoutPromise = new Promise((_, reject) => {
@@ -634,6 +745,16 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         console.error('[GEMINI TEXT] Error in generateContentWithRetry attempt', attempt, ':', error.message);
         console.error('[GEMINI TEXT] Error stack:', error.stack);
         console.error('[GEMINI TEXT] Error constructor:', error.constructor.name);
+        
+        // Enhanced error logging for fetch failures
+        if (error.message.includes('fetch failed')) {
+          console.error('[GEMINI TEXT] Fetch failure details:', {
+            cause: error.cause,
+            code: error.code,
+            errno: error.errno,
+            syscall: error.syscall
+          });
+        }
 
         const isServiceUnavailable = error.message.includes('503') || 
                                    error.message.includes('Service Unavailable') ||
@@ -648,6 +769,8 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                            error.message.includes('ENOTFOUND') ||
                            error.message.includes('ECONNREFUSED') ||
                            error.message.includes('ETIMEDOUT') ||
+                           error.message.includes('ECONNRESET') ||
+                           error.message.includes('socket hang up') ||
                            error.message.includes('Gemini request timeout') ||
                            error.message.includes('Empty response from Gemini - retryable') ||
                            error.message.includes('Invalid response structure') ||
@@ -658,19 +781,23 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                              error.message.includes('ECONNREFUSED') ||
                              error.message.includes('network');
         
-        // If network error on first attempt, skip retries to fail fast and allow fallback
-        if (isNetworkError && attempt === 1) {
-          console.log(`[GEMINI TEXT] ❌ Network error on first attempt, failing fast for fallback: ${error.message}`);
+        // For transient network errors, allow at least 2 retries before failing
+        // Only fail fast if it's a persistent connection error (ENOTFOUND, ECONNREFUSED)
+        const isPersistentNetworkError = error.message.includes('ENOTFOUND') || 
+                                         error.message.includes('ECONNREFUSED');
+        
+        if (isPersistentNetworkError && attempt === 1) {
+          console.log(`[GEMINI TEXT] ❌ Persistent network error detected, failing fast: ${error.message}`);
           throw error;
         }
         
         if (isRetryable && attempt < maxRetries) {
           // Exponential backoff with jitter to prevent thundering herd
-          // For 503 Service Unavailable (model overloaded), use longer delays
-          const baseDelay = isServiceUnavailable ? 3000 : 1000; // 3s base for 503, 1s for others
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 3s, 6s, 12s for 503; 1s, 2s, 4s for others
-          const jitter = Math.random() * 1000; // Add up to 1s jitter
-          const delay = Math.min(exponentialDelay + jitter, isServiceUnavailable ? 15000 : 8000); // Max 15s for 503, 8s for others
+          // For 503 Service Unavailable (model overloaded), use much longer delays
+          const baseDelay = isServiceUnavailable ? 10000 : 1000; // 10s base for 503, 1s for others
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 10s, 20s for 503; 1s, 2s for others
+          const jitter = Math.random() * 2000; // Add up to 2s jitter
+          const delay = Math.min(exponentialDelay + jitter, isServiceUnavailable ? 30000 : 8000); // Max 30s for 503, 8s for others
 
           console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
           console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
@@ -678,6 +805,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           console.log(`[GEMINI TEXT] Service unavailable (503):`, isServiceUnavailable);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
+          console.log(`[GEMINI TEXT] 🚀 IMPROVED 503 HANDLING: Longer delays for overloaded service`);
           
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -748,6 +876,12 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     };
 
     // Ensure weekly schedule has proper structure - PRESERVE ORIGINAL EXERCISES
+    // Safety check: ensure weekly_schedule is an array before mapping
+    if (!Array.isArray(validated.weekly_schedule)) {
+      console.error('[GEMINI TEXT] ❌ weekly_schedule is not an array:', typeof validated.weekly_schedule);
+      validated.weekly_schedule = [];
+    }
+    
     validated.weekly_schedule = validated.weekly_schedule.map(day => ({
       day: day.day || 1,
       day_name: day.day_name || day.focus || "Workout Day",
@@ -868,6 +1002,42 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
   }
 
   /**
+   * Minimal JSON cleaning that only fixes the most basic issues
+   */
+  minimalJsonClean(jsonString) {
+    if (!jsonString || typeof jsonString !== 'string') {
+      throw new Error('Invalid JSON string provided');
+    }
+
+    let cleaned = jsonString.trim();
+    
+    // Only fix the most basic issues that are definitely wrong
+    // Remove markdown code block markers
+    cleaned = cleaned.replace(/^```\s*json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```\s*$/i, '');
+    
+    // Fix smart quotes (common AI issue)
+    cleaned = cleaned.replace(/[\u201C\u201D]/g, '"');
+    cleaned = cleaned.replace(/[\u2018\u2019]/g, "'");
+    
+    // Remove trailing commas before closing braces/brackets
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Fix missing quotes around property names
+    cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    
+    // Fix the specific problematic pattern we're seeing: "Push:"Chest", Shoulders & Triceps"
+    // This is a very targeted fix for the exact error pattern
+    cleaned = cleaned.replace(/"Push:"Chest", Shoulders & Triceps"/g, '"Push: Chest, Shoulders & Triceps"');
+    cleaned = cleaned.replace(/"Pull:"Back", Biceps & Rear Delts"/g, '"Pull: Back, Biceps & Rear Delts"');
+    cleaned = cleaned.replace(/"Legs:"Quads", Hamstrings & Glutes"/g, '"Legs: Quads, Hamstrings & Glutes"');
+    
+    // More general fix for similar patterns
+    cleaned = cleaned.replace(/"([^"]*):\"([^"]*)\",?\s*([^"]*)"(\s*[,}\]])/g, '"$1: $2, $3"$4');
+    
+    return cleaned;
+  }
+
+  /**
    * Enhanced JSON cleaning with better error handling and fallback mechanisms
    */
   cleanJsonString(jsonString) {
@@ -888,6 +1058,12 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       throw new Error('Empty JSON string after cleaning');
     }
     
+    // Fix curly quotes (smart quotes) - MUST BE FIRST
+    // This is critical for Gemini responses which often use smart quotes
+    // Remove curly single quotes entirely to avoid breaking JSON strings (possessives like "Smith's" become "Smiths")
+    cleaned = cleaned.replace(/[\u2018\u2019]/g, ''); // Remove curly single quotes (apostrophes)
+    cleaned = cleaned.replace(/[\u201C\u201D]/g, '"'); // Replace curly double quotes with straight double quote
+    
     // Fix common JSON syntax errors
     // Remove trailing commas before closing braces/brackets
     cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
@@ -895,8 +1071,23 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     // Fix missing quotes around property names (but be careful not to over-escape)
     cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
     
-    // Fix single quotes to double quotes (but preserve escaped quotes)
-    cleaned = cleaned.replace(/(?<!\\)'/g, '"');
+    // CRITICAL FIX: Handle apostrophes and quotes more carefully
+    // First, fix smart quotes that Gemini often uses
+    cleaned = cleaned.replace(/[\u2018\u2019\u2032]/g, ''); // Remove curly single quotes and prime symbols
+    
+    // Remove apostrophes in possessive forms BEFORE any other quote processing
+    // This must be done early to prevent JSON corruption
+    cleaned = cleaned.replace(/([a-zA-Z])'s(\s|"|,|:)/g, '$1s$2'); // "User's " -> "Users "
+    cleaned = cleaned.replace(/([a-zA-Z])'(\s|"|,|:)/g, '$1$2');   // "Users' " -> "Users "
+    
+    // Remove any remaining single quotes/apostrophes that could break JSON
+    cleaned = cleaned.replace(/'/g, '');
+    
+    // Additional safety: remove any stray apostrophes that might have been missed
+    cleaned = cleaned.replace(/'/g, '');
+    
+    // Now this line won't break anything since all single quotes are already removed
+    // cleaned = cleaned.replace(/(?<!\\)'/g, '"');
     
     // Fix common array/object syntax issues
     cleaned = cleaned.replace(/,\s*}/g, '}');
@@ -1160,7 +1351,8 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     }
     
     // Check for truncated decimal numbers that would cause parsing errors
-    const truncatedDecimals = trimmed.match(/\d+\.\s*[",}\]]/g);
+    // Only match if preceded by : or , (actual JSON number context, not inside a string)
+    const truncatedDecimals = trimmed.match(/[,:]\s*\d+\.\s*[",}\]]/g);
     if (truncatedDecimals) {
       return { valid: false, error: `Contains truncated decimal numbers: ${truncatedDecimals.slice(0, 3).join(', ')}` };
     }
@@ -1258,7 +1450,32 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       console.log(`[GEMINI TEXT] Characters around position 334:`, preview.substring(320, 350));
     }
 
-    // First, validate the JSON structure
+    // Strategy 1: Extract from markdown code blocks FIRST (before validation)
+    try {
+      const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        let jsonContent = codeBlockMatch[1].trim();
+        console.log(`[GEMINI TEXT] 📦 Extracted from code block for ${context}:`, jsonContent.substring(0, 200) + '...');
+
+        // Try parsing WITHOUT aggressive cleaning first
+        try {
+          const parsed = JSON.parse(jsonContent);
+          console.log(`[GEMINI TEXT] ✅ Code block extraction successful WITHOUT cleaning for ${context}`);
+          return parsed;
+        } catch (directError) {
+          console.log(`[GEMINI TEXT] Direct parsing failed, trying with minimal cleaning:`, directError.message);
+          // Only do minimal cleaning if direct parsing fails
+          const cleaned = this.minimalJsonClean(jsonContent);
+          const parsed = JSON.parse(cleaned);
+          console.log(`[GEMINI TEXT] ✅ Code block extraction successful with minimal cleaning for ${context}`);
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.log(`[GEMINI TEXT] ❌ Code block extraction failed for ${context}:`, error.message);
+    }
+
+    // Strategy 2: Validate the JSON structure (for non-code-block content)
     const validation = this.validateJsonStructure(text);
     if (validation.valid) {
       console.log(`[GEMINI TEXT] ✅ JSON structure validation passed for ${context}`);
@@ -1267,7 +1484,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       console.log(`[GEMINI TEXT] Issues found:`, validation.issues);
     }
 
-    // Strategy 1: Direct JSON parsing
+    // Strategy 3: Direct JSON parsing (try without cleaning first)
     try {
       const parsed = JSON.parse(text);
       console.log(`[GEMINI TEXT] ✅ Direct JSON parsing successful for ${context}`);
@@ -1279,34 +1496,20 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       }
     }
     
-    // Strategy 2: Extract from markdown code blocks
-    try {
-      const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        let jsonContent = codeBlockMatch[1].trim();
-        console.log(`[GEMINI TEXT] 📦 Extracted from code block for ${context}:`, jsonContent.substring(0, 200) + '...');
-
-        // Validate extracted content
-        const codeBlockValidation = this.validateJsonStructure(jsonContent);
-        if (!codeBlockValidation.valid) {
-          console.log(`[GEMINI TEXT] ⚠️ Code block content validation failed:`, codeBlockValidation.error);
-        }
-
-        const cleaned = this.cleanJsonString(jsonContent);
-        const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ Code block extraction successful for ${context}`);
-        return parsed;
-      }
-    } catch (error) {
-      console.log(`[GEMINI TEXT] ❌ Code block extraction failed for ${context}:`, error.message);
-    }
-    
-    // Strategy 3: Find JSON object in text
+    // Strategy 4: Find JSON object in text
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         let jsonString = jsonMatch[0];
         console.log(`[GEMINI TEXT] 🔍 Found JSON object for ${context}:`, jsonString.substring(0, 200) + '...');
+
+        // Try direct parsing first
+        try {
+          const parsed = JSON.parse(jsonString);
+          console.log(`[GEMINI TEXT] ✅ JSON object extraction successful WITHOUT cleaning for ${context}`);
+          return parsed;
+        } catch (directError) {
+          console.log(`[GEMINI TEXT] Direct object parsing failed, trying with minimal cleaning:`, directError.message);
 
         // Validate found JSON
         const jsonValidation = this.validateJsonStructure(jsonString);
@@ -1314,21 +1517,30 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           console.log(`[GEMINI TEXT] ⚠️ Found JSON validation failed:`, jsonValidation.error);
         }
 
-        const cleaned = this.cleanJsonString(jsonString);
+          const cleaned = this.minimalJsonClean(jsonString);
         const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ JSON object extraction successful for ${context}`);
+          console.log(`[GEMINI TEXT] ✅ JSON object extraction successful with minimal cleaning for ${context}`);
         return parsed;
+        }
       }
     } catch (error) {
       console.log(`[GEMINI TEXT] ❌ JSON object extraction failed for ${context}:`, error.message);
     }
     
-    // Strategy 4: Find JSON array in text
+    // Strategy 5: Find JSON array in text
     try {
       const arrayMatch = text.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
         let jsonString = arrayMatch[0];
         console.log(`[GEMINI TEXT] 📋 Found JSON array for ${context}:`, jsonString.substring(0, 200) + '...');
+
+        // Try direct parsing first
+        try {
+          const parsed = JSON.parse(jsonString);
+          console.log(`[GEMINI TEXT] ✅ JSON array extraction successful WITHOUT cleaning for ${context}`);
+          return parsed;
+        } catch (directError) {
+          console.log(`[GEMINI TEXT] Direct array parsing failed, trying with minimal cleaning:`, directError.message);
 
         // Validate found JSON array
         const arrayValidation = this.validateJsonStructure(jsonString);
@@ -1336,16 +1548,17 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           console.log(`[GEMINI TEXT] ⚠️ Found JSON array validation failed:`, arrayValidation.error);
         }
 
-        const cleaned = this.cleanJsonString(jsonString);
+          const cleaned = this.minimalJsonClean(jsonString);
         const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ JSON array extraction successful for ${context}`);
+          console.log(`[GEMINI TEXT] ✅ JSON array extraction successful with minimal cleaning for ${context}`);
         return parsed;
+        }
       }
     } catch (error) {
       console.log(`[GEMINI TEXT] ❌ JSON array extraction failed for ${context}:`, error.message);
     }
     
-    // Strategy 5: Try to fix truncated JSON
+    // Strategy 6: Try to fix truncated JSON
     try {
       const partialMatch = text.match(/\{[\s\S]*$/);
       if (partialMatch) {
@@ -1382,22 +1595,31 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         
         console.log(`[GEMINI TEXT] 🔧 Attempting to parse fixed JSON for ${context}:`, partialJson.substring(0, 200) + '...');
 
+        // Try direct parsing first
+        try {
+          const parsed = JSON.parse(partialJson);
+          console.log(`[GEMINI TEXT] ✅ Truncated JSON fix successful WITHOUT cleaning for ${context}`);
+          return parsed;
+        } catch (directError) {
+          console.log(`[GEMINI TEXT] Direct truncated parsing failed, trying with minimal cleaning:`, directError.message);
+
         // Validate fixed JSON
         const fixedValidation = this.validateJsonStructure(partialJson);
         if (!fixedValidation.valid) {
           console.log(`[GEMINI TEXT] ⚠️ Fixed JSON validation failed:`, fixedValidation.error);
         }
 
-        const cleaned = this.cleanJsonString(partialJson);
+          const cleaned = this.minimalJsonClean(partialJson);
         const parsed = JSON.parse(cleaned);
-        console.log(`[GEMINI TEXT] ✅ Truncated JSON fix successful for ${context}`);
+          console.log(`[GEMINI TEXT] ✅ Truncated JSON fix successful with minimal cleaning for ${context}`);
         return parsed;
+        }
       }
     } catch (error) {
       console.log(`[GEMINI TEXT] ❌ Truncated JSON fix failed for ${context}:`, error.message);
     }
     
-    // Strategy 6: Last resort - create minimal valid JSON
+    // Strategy 7: Last resort - create minimal valid JSON
     console.log(`[GEMINI TEXT] 🚨 All parsing strategies failed for ${context}, creating minimal JSON`);
     console.log(`[GEMINI TEXT] Raw text causing fallback:`, text.substring(0, 1000));
     
@@ -1408,7 +1630,22 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         sessions_per_week: 3,
         target_level: "intermediate",
         primary_goal: "general_fitness",
-        weekly_schedule: [],
+        weekly_schedule: [
+          {
+            day: 1,
+            day_name: "Day 1",
+            focus: "Full Body",
+            exercises: [
+              {
+                name: "Push-ups",
+                sets: 3,
+                reps: "8-12",
+                rest: "60s",
+                notes: "Basic bodyweight exercise"
+              }
+            ]
+          }
+        ],
         progression_plan: {},
         nutrition_tips: ["Stay hydrated", "Eat balanced meals"],
         safety_guidelines: ["Warm up properly", "Listen to your body"],

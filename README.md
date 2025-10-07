@@ -1,15 +1,31 @@
 # GoFitAI
 
-A mobile fitness application built with React Native and Expo that uses AI to create personalized workout plans.
+**🟢 PRODUCTION LIVE** | [API](https://gofitai-production.up.railway.app) | [Quick Start](./QUICK_START.md) | [Documentation](./DOCS_INDEX.md)
 
-## Features
+A mobile fitness application built with React Native and Expo that uses AI to create personalized workout plans and nutrition tracking.
 
-- 🤖 **AI-powered workout plan generation** - DeepSeek integration for personalized fitness plans
+## 🎉 Now Live on Railway!
+
+✅ Production server deployed and operational  
+✅ Gemini AI integration for food analysis  
+✅ Supabase database connected  
+✅ Automated health checks  
+✅ Complete documentation  
+
+**Quick Start**: `npm run expo:start` to launch the app  
+**Check Status**: `npm run check-deployment` to verify server health
+
+---
+
+## ✨ Features
+
+- 🤖 **AI-powered workout plan generation** - Personalized fitness plans
 - 📊 **Workout tracking and history** - Complete exercise logging and progress monitoring
-- 🥗 **Nutrition planning** - Hugging Face Qwen vision AI for food analysis
+- 🥗 **Nutrition planning** - Gemini Vision AI for food analysis
 - 📈 **Progress tracking** - Body measurements, photos, and performance metrics
-- 🖼️ **Food photo analysis** - Upload photos for instant nutritional analysis
+- 🖼️ **Food photo analysis** - Upload photos for instant nutritional analysis via Gemini AI
 - 💪 **Bodybuilding specialization** - Expert-level training routines
+- 🎯 **Daily metrics tracking** - Weight, calories, macros, and more
 
 ## 🏗️ Project Structure
 
@@ -32,99 +48,145 @@ GoFitAI/
 └── ⚙️ Config files           # package.json, app.json, etc.
 ```
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js (v14 or later)
+- Node.js >= 18.0.0
 - npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
+- Expo Go app (for mobile testing)
 
-### Installation
+### Quick Start
 
-1. Clone the repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
+```bash
+# Install dependencies
+npm install
 
-### Running the App
+# Start the mobile app (connects to production Railway server)
+npm run expo:start
 
-For the best experience with AI features, use the dev script which starts both the server and the app:
+# Check deployment status
+npm run check-deployment
 
-```
-npm run dev
-```
-
-This will:
-1. Kill any existing server processes on port 4000
-2. Start the local AI server
-3. Start the Expo development server
-4. Allow you to run the app on a simulator or physical device
-
-For specific platforms:
-
-```
-npm run dev-ios     # For iOS
-npm run dev-android # For Android
+# View production logs
+npm run railway:logs
 ```
 
-### Troubleshooting AI Server Connection
+### Running on Your Device
 
-If you encounter issues with the AI features:
+**iOS Simulator:**
+```bash
+npm run expo:ios
+```
 
-1. Make sure the server is running:
-   ```
-   npm run kill-server       # Kill any existing server processes
-   npm run start-server-safe # Start a fresh server instance
-   ```
+**Android Emulator:**
+```bash
+npm run expo:android
+```
 
-2. Check that your device can connect to your development machine:
-   - For physical devices, make sure they're on the same network
-   - You may need to update the server URL in the app settings
+**Physical Device:**
+1. Install "Expo Go" from App Store or Google Play
+2. Scan the QR code from the terminal
 
-3. If you see "Network request failed" errors:
-   - The app will automatically try multiple server URLs
-   - You can manually start the server using the command above
+### 📚 Documentation
 
-## Development
+New to the project? Check out these guides:
+
+- **[QUICK_START.md](./QUICK_START.md)** - Get started in minutes
+- **[README_DEPLOYMENT.md](./README_DEPLOYMENT.md)** - Complete deployment guide
+- **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - Current status and metrics
+- **[DOCS_INDEX.md](./DOCS_INDEX.md)** - Full documentation index
+
+## 💻 Development
+
+### Architecture
+
+- **Frontend**: React Native + Expo
+- **Backend**: Express.js on Railway
+- **Database**: Supabase (PostgreSQL)
+- **AI**: Google Gemini Vision (gemini-2.5-flash)
 
 ### Project Structure
 
-- `app/` - Expo Router app files
-- `src/` - Source code
-  - `components/` - Reusable React components
-  - `services/` - API and data services
-  - `hooks/` - Custom React hooks
-  - `mock-data/` - Mock data for development
-- `server/` - Local AI server implementation
-
-### Running the Server Separately
-
-If you need to run the server separately:
-
 ```
-npm run start-server-safe
+app/              # Expo Router app files
+src/              # React Native source
+├── components/   # Reusable components
+├── services/     # API services
+├── hooks/        # Custom React hooks
+├── config/       # Configuration
+└── utils/        # Utility functions
+server/           # Express backend
+scripts/          # Utility scripts
+docs/             # Documentation
 ```
 
-This will kill any existing server processes and start a new server with automatic restart on crashes.
+### Available Scripts
 
-### Recent Fixes
+```bash
+# Mobile App
+npm run expo:start       # Start Expo dev server
+npm run expo:ios         # Run on iOS
+npm run expo:android     # Run on Android
 
-1. **Fixed Plan Application Issue**: 
-   - When applying a new plan from the preview screen, it now correctly sets the plan as active
-   - Deactivates any existing active plans to ensure only one plan is active at a time
-   - Works with both database and local storage
+# Backend (Railway)
+npm run check-deployment # Health check
+npm run railway:logs     # View logs
+npm run railway:status   # Check status
+npm run railway:deploy   # Manual deploy
 
-2. **Improved Server Connection Reliability**:
-   - Added automatic server discovery that tries multiple URLs
-   - Added kill-server script to prevent port conflicts
-   - Added better error handling and user feedback
+# Local Server (for development)
+npm run start            # Start local server
+npm run dev              # Start with nodemon
+```
 
-3. **Enhanced AI Chat Experience**:
-   - Chat history is now properly cleared when applying a new plan
-   - Fixed JSON parsing issues with AI responses
-   - Added robust fallback mechanisms
+## 🔧 Troubleshooting
+
+### App can't connect to server
+```bash
+# Check server health
+npm run check-deployment
+
+# View logs
+npm run railway:logs
+```
+
+### Food analysis not working
+- Check Gemini API quota in Google Cloud Console
+- Verify environment variables on Railway
+
+### Database issues
+- Check Supabase dashboard
+- Verify credentials in Railway environment variables
+
+**For detailed troubleshooting**, see [README_DEPLOYMENT.md](./README_DEPLOYMENT.md#-troubleshooting)
+
+## 📊 Monitoring
+
+```bash
+# Quick health check
+npm run check-deployment
+
+# View real-time logs
+npm run railway:logs
+
+# Check API directly
+curl https://gofitai-production.up.railway.app/api/health
+```
+
+## 🔄 Deploying Updates
+
+```bash
+# Commit changes
+git add .
+git commit -m "Your update message"
+
+# Push to deploy (Railway auto-deploys)
+git push origin main
+
+# Verify deployment
+npm run check-deployment
+```
 
 ## License
 

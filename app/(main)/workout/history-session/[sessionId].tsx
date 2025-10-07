@@ -10,7 +10,7 @@ import {
   Animated
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';

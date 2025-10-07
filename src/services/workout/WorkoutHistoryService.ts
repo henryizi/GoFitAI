@@ -24,6 +24,7 @@ export type SessionExerciseSummary = {
   total_reps: number;
   max_weight: number | null;
   total_volume: number; // weight × reps
+  is_cardio?: boolean; // Whether this is a cardio exercise
 };
 
 export type SessionExerciseLog = {
@@ -59,6 +60,17 @@ export class WorkoutHistoryService {
   private static isValidUUID(id: string): boolean {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(id);
+  }
+
+  /**
+   * Helper function to check if an exercise is cardio based on name
+   */
+  private static isCardioExercise(exerciseName: string): boolean {
+    const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
+                            'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
+                            'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];
+    
+    return cardioKeywords.some(keyword => exerciseName?.toLowerCase().includes(keyword));
   }
 
   static async getCompletedSessions(userId: string): Promise<CompletedSessionListItem[]> {
@@ -290,30 +302,58 @@ export class WorkoutHistoryService {
         return [];
       }
 
-      // Process the exercise data to create summaries
-      const exerciseSummaries: SessionExerciseSummary[] = exercisesData.map((exercise: any) => {
-        const logs = exercise.logs || [];
+      // Group logs by exercise name first
+      const exerciseGroups: Record<string, any[]> = {};
+      
+      exercisesData.forEach((exercise: any) => {
+        // Get exercise name from various possible locations in the data structure
+        const exerciseName = exercise.exercises?.name || // From nested exercises object (database query)
+                            exercise.exercise_name ||     // From saved exercises_data
+                            exercise.name ||              // Fallback
+                            'Unknown Exercise';
         
-        // Calculate summary statistics
+        // Get the logs/sets array - handle both database format (logs) and saved format (sets)
+        const logs = Array.isArray(exercise.logs) ? exercise.logs :      // Database query format
+                    Array.isArray(exercise.sets) ? exercise.sets :       // Saved exercises_data format
+                    [];
+        
+        if (!exerciseGroups[exerciseName]) {
+          exerciseGroups[exerciseName] = [];
+        }
+        
+        // Add all logs for this exercise
+        exerciseGroups[exerciseName].push(...logs);
+      });
+      
+      // Process the grouped data to create summaries
+      const exerciseSummaries: SessionExerciseSummary[] = Object.entries(exerciseGroups).map(([exerciseName, logs]) => {
+        // Check if this is a cardio exercise
+        const isCardio = this.isCardioExercise(exerciseName);
+        
+        // Calculate summary statistics from the logs
         const sets_completed = logs.length;
-        const total_reps = logs.reduce((sum: number, log: any) => sum + (log.actual_reps || 0), 0);
+        const total_reps = logs.reduce((sum: number, log: any) => {
+          const reps = log.actual_reps || log.reps || 0;
+          return sum + reps;
+        }, 0);
         const max_weight = logs.reduce((max: number | null, log: any) => {
-          const weight = log.actual_weight;
+          const weight = log.actual_weight ?? log.weight;
           if (weight == null) return max;
           return max == null ? weight : Math.max(max, weight);
         }, null);
         const total_volume = logs.reduce((sum: number, log: any) => {
-          const weight = log.actual_weight || 0;
-          const reps = log.actual_reps || 0;
+          const weight = log.actual_weight ?? log.weight ?? 0;
+          const reps = log.actual_reps ?? log.reps ?? 0;
           return sum + (weight * reps);
         }, 0);
 
         return {
-          exercise_name: exercise.exercise_name || exercise.name,
+          exercise_name: exerciseName,
           sets_completed,
           total_reps,
           max_weight,
-          total_volume
+          total_volume,
+          is_cardio: isCardio
         };
       });
 
@@ -1166,18 +1206,48 @@ export class WorkoutHistoryService {
             console.log('[WorkoutHistoryService] Using provided exercises_data:', exercisesData.length, 'exercises');
           } else if (historyData.session_id) {
             // Fallback: Get exercise sets data from database if no exercises_data provided
+            // Need to join exercise_sets with exercise_logs to get actual performance data
             const { data: setsData } = await supabase
               .from('exercise_sets')
               .select(`
-                id, exercise_id, set_number, target_reps, target_weight, 
-                actual_reps, actual_weight, rest_seconds, completed, rpe,
+                id, 
+                exercise_id, 
+                order_in_session,
+                target_sets,
+                target_reps, 
+                target_rpe,
+                rest_period,
                 exercises (name, category, muscle_groups)
               `)
-              .eq('session_id', historyData.session_id);
+              .eq('session_id', historyData.session_id)
+              .order('order_in_session');
             
             if (setsData && setsData.length > 0) {
-              exercisesData = setsData;
-              console.log('[WorkoutHistoryService] Using fallback exercises_data from database:', setsData.length, 'sets');
+              // Now fetch the exercise logs for these sets
+              const setIds = setsData.map(set => set.id);
+              const { data: logsData } = await supabase
+                .from('exercise_logs')
+                .select('set_id, actual_reps, actual_weight, actual_rpe, completed_at')
+                .in('set_id', setIds);
+              
+              // Group logs by set_id
+              const logsBySetId: Record<string, any[]> = {};
+              if (logsData) {
+                logsData.forEach(log => {
+                  if (!logsBySetId[log.set_id]) {
+                    logsBySetId[log.set_id] = [];
+                  }
+                  logsBySetId[log.set_id].push(log);
+                });
+              }
+              
+              // Transform the data to include logs with each set
+              exercisesData = setsData.map(set => ({
+                ...set,
+                logs: logsBySetId[set.id] || []
+              }));
+              
+              console.log('[WorkoutHistoryService] Using fallback exercises_data from database:', setsData.length, 'exercise sets with', logsData?.length || 0, 'logs');
             }
           }
         } catch (sessionError) {

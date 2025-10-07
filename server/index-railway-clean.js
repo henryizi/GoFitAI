@@ -466,6 +466,7 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
   // Return in app's expected format with enhanced data
   return {
     name: createPlanName(plan, profileData),
+    primaryGoal: profileData.primaryGoal || profileData.primary_goal || 'general_fitness', // ✅ ADD PRIMARY GOAL
     training_level: plan.target_level || profileData.fitnessLevel || profileData.training_level || 'intermediate',
     goal_fat_loss: profileData.fatLossGoal || profileData.goal_fat_reduction || 2,
     goal_muscle_gain: profileData.muscleGainGoal || profileData.goal_muscle_gain || 3,

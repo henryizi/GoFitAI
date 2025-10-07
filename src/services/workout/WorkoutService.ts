@@ -245,6 +245,13 @@ export class WorkoutService {
       }
 
       console.log('[WorkoutService] Generated plan successfully:', plan.name);
+      console.log('[WorkoutService] 🔍 Plan structure check:', {
+        hasWeeklySchedule: !!plan.weeklySchedule,
+        hasWeeklyScheduleSnake: !!plan.weekly_schedule,
+        weeklyScheduleLength: plan.weeklySchedule?.length || plan.weekly_schedule?.length || 0,
+        weeklyScheduleType: Array.isArray(plan.weeklySchedule) ? 'array' : typeof plan.weeklySchedule,
+        firstDayHasExercises: plan.weeklySchedule?.[0]?.exercises?.length || plan.weekly_schedule?.[0]?.exercises?.length || 0
+      });
 
       // Generate a unique plan ID
       const planId = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -269,6 +276,16 @@ export class WorkoutService {
         primary_goal: plan.primary_goal,
         workout_frequency: plan.workout_frequency
       };
+      
+      console.log('[WorkoutService] 🔍 Stored plan structure check:', {
+        hasWeeklySchedule: !!storedPlan.weeklySchedule,
+        hasWeeklyScheduleSnake: !!storedPlan.weekly_schedule,
+        weeklyScheduleLength: storedPlan.weeklySchedule?.length || storedPlan.weekly_schedule?.length || 0,
+        firstDayInStored: storedPlan.weeklySchedule?.[0] || storedPlan.weekly_schedule?.[0],
+        firstDayExercises: storedPlan.weeklySchedule?.[0]?.exercises || storedPlan.weekly_schedule?.[0]?.exercises,
+        fullFirstDay: JSON.stringify(storedPlan.weeklySchedule?.[0] || storedPlan.weekly_schedule?.[0])
+      });
+      console.log('[WorkoutService] 🔍 FULL STORED PLAN WEEKLY_SCHEDULE:', JSON.stringify(storedPlan.weeklySchedule || storedPlan.weekly_schedule, null, 2));
 
       // Save to local storage for offline access
       await WorkoutLocalStore.savePlan(params.userId, storedPlan);
@@ -351,10 +368,45 @@ export class WorkoutService {
    */
   static async getExerciseSetsForSession(sessionId: string): Promise<any[]> {
     try {
-      // This would typically come from workout history or sessions storage
-      // For now, return empty array as sessions are not stored in the current implementation
       console.log(`[WorkoutService] Getting exercise sets for session ${sessionId}`);
-      return [];
+      
+      const { data: sets, error: setsError } = await supabase
+        .from('exercise_sets')
+        .select(`
+          id, 
+          exercise_id, 
+          target_sets, 
+          target_reps, 
+          rest_period,
+          order_in_session, 
+          exercises:exercise_id(name, category, muscle_groups)
+        `)
+        .eq('session_id', sessionId)
+        .order('order_in_session');
+        
+      if (setsError) {
+        console.error('[WorkoutService] Error fetching exercise sets:', setsError);
+        return [];
+      }
+      
+      console.log(`[WorkoutService] Found ${sets?.length || 0} exercise sets for session ${sessionId}`);
+      
+      if (!sets || sets.length === 0) {
+        return [];
+      }
+      
+      // Transform the data to match the expected format
+      return sets.map((set: any) => ({
+        id: set.id,
+        exercise: {
+          name: set.exercises?.name || 'Exercise',
+          category: set.exercises?.category || 'compound',
+          muscle_groups: set.exercises?.muscle_groups || []
+        },
+        target_sets: set.target_sets || 3,
+        target_reps: set.target_reps || '8-12',
+        rest_period: set.rest_period || '60s'
+      }));
     } catch (error) {
       console.error('[WorkoutService] Error getting exercise sets for session:', error);
       return [];

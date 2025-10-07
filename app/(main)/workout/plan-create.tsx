@@ -58,10 +58,11 @@ const colors = {
 // Plan types
 const planTypes = [
   {
-    id: 'custom',
+    id: 'ai-custom',
     name: 'AI Custom Plan',
-    description: 'Generate a personalized workout plan based on your profile data',
-    icon: 'robot-outline'
+    description: 'Generate a personalized workout plan powered by Gemini AI',
+    icon: 'robot-outline',
+    route: '/workout/ai-custom-plan'
   },
   {
     id: 'bodybuilder',
@@ -496,23 +497,11 @@ export default function PlanCreateScreen() {
             successMessage = 'Offline workout plan generated successfully! This plan works great without internet connection.';
           }
             
-          Alert.alert(successTitle, successMessage, [
-            {
-              text: 'View Plan',
-              onPress: () => router.replace({
-                  pathname: '/(main)/workout/plan/[planId]',
-                  params: { planId: String((plan as any).id), planObject: JSON.stringify(plan) }
-              }),
-            },
-            {
-              text: 'View Plans List',
-              onPress: () => router.replace({
-                pathname: '/(main)/workout/plans',
-                params: { refresh: 'true' }
-              }),
-              style: 'default'
-            },
-          ]);
+          // Navigate directly to the generated plan
+          router.replace({
+            pathname: '/(main)/workout/plan/[planId]',
+            params: { planId: String((plan as any).id), planObject: JSON.stringify(plan) }
+          });
         }, 500);
       } else {
         console.log('Error: Plan creation failed');
@@ -722,9 +711,14 @@ export default function PlanCreateScreen() {
                   selectedPlanType === planType.id && styles.optionCardSelected
                 ]}
                 onPress={() => {
-                  setSelectedPlanType(planType.id);
-                  if (planType.id === 'custom') {
-                    setSelectedBodybuilder('');
+                  // If planType has a route, navigate directly
+                  if ((planType as any).route) {
+                    router.push((planType as any).route);
+                  } else {
+                    setSelectedPlanType(planType.id);
+                    if (planType.id === 'custom') {
+                      setSelectedBodybuilder('');
+                    }
                   }
                 }}
               >
@@ -917,71 +911,6 @@ export default function PlanCreateScreen() {
               <Text style={styles.statusText}>{statusMessage || 'Working...'}</Text>
             </View>
           )}
-          {error && (
-            <View style={styles.errorCard}>
-              <View style={styles.errorIconContainer}>
-                <Icon name="close-circle" size={24} color={colors.error} />
-              </View>
-              <Text style={styles.errorText}>{error}</Text>
-              <View style={styles.errorActions}>
-                <TouchableOpacity
-                  disabled={isSubmitting}
-                  onPress={handleGeneratePlan}
-                  style={[styles.retryButton, isSubmitting && styles.buttonDisabled]}
-                >
-                  <Text style={styles.retryButtonText}>{isSubmitting ? 'Please wait...' : 'Try Again'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Button */}
-          <View style={styles.buttonSection}>
-            <TouchableOpacity
-              style={[styles.button, isSubmitting && styles.buttonDisabled]}
-              onPress={showConfirmation}
-              disabled={isSubmitting}
-            >
-              <LinearGradient
-                colors={isSubmitting ? 
-                  ['rgba(255,107,53,0.5)', 'rgba(229,90,43,0.5)'] : 
-                  [colors.primary, colors.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buttonGradient}
-              >
-                {isSubmitting ? (
-                  <View style={styles.buttonContent}>
-                    <ActivityIndicator color={colors.white} size="small" />
-                    <Text style={styles.buttonText}>Generating...</Text>
-                  </View>
-                ) : (
-                  <View style={styles.buttonContent}>
-                    <Icon 
-                      name={selectedPlanType === 'build-your-own' ? 'hammer-wrench' : 'lightning-bolt'} 
-                      size={18} 
-                      color={colors.white} 
-                    />
-                    <Text style={styles.buttonText}>
-                      {selectedPlanType === 'build-your-own' 
-                        ? 'Start Building' 
-                        : selectedPlanType === 'bodybuilder' 
-                          ? 'Generate Plan'
-                          : 'Generate Plan'
-                      }
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Health Disclaimer */}
-            <View style={styles.disclaimerSection}>
-              <HealthDisclaimer variant="compact" />
-            </View>
-
-            <Text style={styles.disclaimer}>By generating, you agree to the AI usage policy and health disclaimer.</Text>
-          </View>
         </ScrollView>
       </View>
     </>

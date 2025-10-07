@@ -14,9 +14,6 @@ class APIKeyManager {
     // Load API keys from environment variables
     this.loadAPIKeys();
 
-    console.log('[API KEY] Manager initialized');
-    console.log('[API KEY] Keys loaded:', this.keys.length);
-    console.log('[API KEY] Key quota:', this.keyQuota);
   }
 
   /**
@@ -59,7 +56,6 @@ class APIKeyManager {
     const now = new Date();
 
     if (now >= this.keyResetTime) {
-      console.log('[API KEY] Resetting key quotas');
       this.keyUsage.clear();
       this.keyResetTime = this.getNextResetTime();
     }
@@ -103,7 +99,6 @@ class APIKeyManager {
     const remaining = Math.max(0, this.keyQuota - (currentUsage + 1));
     const percentage = Math.round(((currentUsage + 1) / this.keyQuota) * 100);
 
-    console.log(`[API KEY] Usage recorded for key ${this.currentKeyIndex + 1}: ${(currentUsage + 1)}/${this.keyQuota} (${percentage}%)`);
 
     if (remaining <= 5) {
       console.warn(`[API KEY] ⚠️ Low quota remaining for key ${this.currentKeyIndex + 1}: ${remaining} requests`);
@@ -150,7 +145,6 @@ class APIKeyManager {
 
     if (bestKey) {
       this.currentKeyIndex = bestIndex;
-      console.log(`[API KEY] Selected best key ${bestIndex + 1} with ${bestRemaining} requests remaining`);
     }
 
     return bestKey;
@@ -196,7 +190,6 @@ class APIKeyManager {
     }
 
     this.keys.push(key);
-    console.log(`[API KEY] Added new key, total keys: ${this.keys.length}`);
     return true;
   }
 
@@ -218,7 +211,6 @@ class APIKeyManager {
     // Clean up usage tracking
     this.keyUsage.delete(key);
 
-    console.log(`[API KEY] Removed key, remaining keys: ${this.keys.length}`);
     return true;
   }
 }

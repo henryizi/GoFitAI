@@ -864,19 +864,6 @@ const WorkoutPlansScreen = () => {
               <Text style={styles.trackProgressSubtitle}>
                 Monitor your fitness journey & celebrate milestones
               </Text>
-              
-              {/* Progress Indicator */}
-              <View style={styles.progressIndicatorWrapper}>
-                <View style={styles.progressTrack}>
-                  <LinearGradient
-                    colors={['#ffffff50', '#ffffff70']}
-                    style={styles.progressFill}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                </View>
-                <Text style={styles.progressText}>View History</Text>
-              </View>
             </View>
 
 
@@ -965,6 +952,36 @@ const WorkoutPlansScreen = () => {
               >
                 <Icon name="plus" size={16} color={colors.white} style={styles.buttonIcon} />
                 <Text style={styles.createButtonText}>Create First Plan</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            {/* Quick Workout Option */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            
+            <TouchableOpacity
+              onPress={() => {
+                analyticsTrack('quick_workout_tapped', { source: 'empty_state' });
+                router.push({
+                  pathname: '/(main)/workout/session/[sessionId]-premium',
+                  params: {
+                    sessionId: `quick-${Date.now()}`,
+                    sessionTitle: 'Quick Workout',
+                    fallbackExercises: JSON.stringify([]),
+                  },
+                });
+              }}
+              style={styles.quickWorkoutEmptyButton}
+            >
+              <LinearGradient
+                colors={[colors.purple, colors.pink]}
+                style={styles.quickWorkoutEmptyGradient}
+              >
+                <Icon name="lightning-bolt" size={16} color={colors.white} style={styles.buttonIcon} />
+                <Text style={styles.quickWorkoutEmptyText}>Start Quick Workout</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -1058,23 +1075,50 @@ const WorkoutPlansScreen = () => {
         }
       />
       
-      {/* Enhanced floating action button */}
+      {/* Enhanced floating action buttons */}
       {plans.length > 0 && (
-        <TouchableOpacity 
-          style={styles.floatingActionButton}
-          onPress={() => router.push('/(main)/workout/plan-create')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.fabShadow} />
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            style={styles.fabGradient}
+        <>
+          {/* Quick Workout Button */}
+          <TouchableOpacity 
+            style={styles.quickWorkoutButton}
+            onPress={() => {
+              analyticsTrack('quick_workout_tapped', { source: 'fab_button' });
+              router.push({
+                pathname: '/(main)/workout/session/[sessionId]-premium',
+                params: {
+                  sessionId: `quick-${Date.now()}`,
+                  sessionTitle: 'Quick Workout',
+                  fallbackExercises: JSON.stringify([]),
+                },
+              });
+            }}
+            activeOpacity={0.8}
           >
-            <Icon name="plus" size={28} color={colors.white} />
-          </LinearGradient>
-          <View style={styles.fabPulse} />
-          <View style={styles.fabRing} />
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[colors.purple, colors.pink]}
+              style={styles.quickWorkoutGradient}
+            >
+              <Icon name="lightning-bolt" size={24} color={colors.white} />
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          {/* Create Plan Button */}
+          <TouchableOpacity 
+            style={styles.floatingActionButton}
+            onPress={() => router.push('/(main)/workout/plan-create')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.fabShadow} />
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              style={styles.fabGradient}
+            >
+              <Icon name="plus" size={28} color={colors.white} />
+            </LinearGradient>
+            <View style={styles.fabPulse} />
+            <View style={styles.fabRing} />
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
@@ -1457,6 +1501,69 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
     letterSpacing: 0.5,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginHorizontal: 16,
+  },
+  quickWorkoutEmptyButton: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: colors.purple,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  quickWorkoutEmptyGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+  },
+  quickWorkoutEmptyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  quickWorkoutButton: {
+    position: 'absolute',
+    bottom: 200,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  quickWorkoutGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   floatingActionButton: {
     position: 'absolute',

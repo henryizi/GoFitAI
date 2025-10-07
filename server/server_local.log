@@ -1,0 +1,234 @@
+
+> gofitai-server@1.0.1 start
+> node index.js
+
+--- SERVER RESTARTED ---
+--- Code version: 4.0.2 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[VISION SERVICE] Initializing Gemini Vision Service
+[AI SERVICE] Initializing Gemini Text Service with API key rotation
+[GEMINI TEXT] Using key with best quota availability
+[GEMINI TEXT] Primary model: gemini-2.5-flash
+[GEMINI TEXT] Fallback chain: gemini-2.5-flash → gemini-2.0-flash-001 → gemini-flash-latest
+[GEMINI TEXT] Service initialized with model: gemini-2.5-flash
+[GEMINI TEXT] API Key rotation enabled: ✅ Yes
+[WORKOUT SERVICE] Initializing Gemini Workout Service
+=== AI CONFIGURATION ===
+Available AI Providers: [ 'gemini', 'fallback' ]
+GEMINI_API_KEY exists: true
+GEMINI_MODEL: gemini-2.5-flash
+Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+Gemini provider config: {
+  name: 'gemini',
+  apiKey: 'AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg',
+  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  model: 'gemini-2.5-flash',
+  enabled: true
+}
+Default AI_PROVIDER: gemini
+Total providers available: 2
+- gemini: ENABLED (gemini-2.5-flash)
+- fallback: ENABLED (rule-based)
+========================
+[SERVER] Timeout configuration:
+  - Request timeout: 600s
+  - Keep-alive timeout: 610s
+  - Headers timeout: 620s
+GoFitAI Server v2.0 running on port 4000
+Local IP: 192.168.0.174
+Server URL: http://192.168.0.174:4000
+Test API with: curl http://192.168.0.174:4000/api/test
+[WORKOUT] /api/generate-workout-plan called
+[WORKOUT] 🎯 Enhanced AI Workout Generation Starting
+[WORKOUT] Profile: {
+  name: 'Emma Wilson',
+  level: 'intermediate',
+  goal: 'strength',
+  frequency: '4_5',
+  age: 22,
+  gender: 'female'
+}
+[WORKOUT] 🚀 Using ENHANCED AI Workout Generator
+[WORKOUT] Gemini Model: gemini-2.5-flash
+[WORKOUT] 📝 Enhanced prompt generated (3979 chars)
+[WORKOUT] Prompt preview: You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
+
+═══════════════════════════════════════════════════════════
+CLIENT PROFILE
+═════════════════════...
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.2 - Model fallback enabled
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] Generating workout plan (Model: gemini-2.5-flash, attempt 1/3)
+[GEMINI TEXT] User level: N/A (using prompt-based generation)
+[GEMINI TEXT] Goal: N/A (using prompt-based generation)
+[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)
+[GEMINI TEXT] Prompt length: 3979
+[GEMINI TEXT] Attempt 1/2
+[GEMINI TEXT] Using optimized workout model config
+[GEMINI TEXT] About to call workoutModel.generateContent
+[GEMINI TEXT] Error in generateContentWithRetry attempt 1: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[GEMINI TEXT] Error stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13502:13
+    at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:397:20)
+    at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
+    at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:432:26)
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:2217:23
+[GEMINI TEXT] Error constructor: GoogleGenerativeAIError
+[GEMINI TEXT] ⚠️ Retryable error (attempt 1), retrying in 500ms...
+[GEMINI TEXT] Error type: GoogleGenerativeAIError
+[GEMINI TEXT] Error message: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed
+[GEMINI TEXT] Network error detected: true
+[GEMINI TEXT] Attempt 2/2
+[GEMINI TEXT] Using optimized workout model config
+[GEMINI TEXT] About to call workoutModel.generateContent
+[GEMINI TEXT] Model.generateContent completed successfully
+[GEMINI TEXT] ✅ Success on attempt 2
+[GEMINI TEXT] Response object: true
+[GEMINI TEXT] Response text: true length: 10193
+[GEMINI TEXT] Raw response from Gemini (first 1000 chars):
+```json
+{
+  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",
+      "exercises": [
+        {
+          "name": "Barbell Back Squat",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for progressive overload weekly."
+        },
+        {
+          "name": "Romanian Deadlift",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Hinge from the hips, keeping a slight bend in the knees. Feel the stretch in hamstrings and glutes. Keep the bar close to your body throughout the movement."
+        },
+        {
+          "name": "Leg Press",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Place feet shou
+[GEMINI TEXT] Workout plan generated in 96594ms
+[GEMINI TEXT] Raw response preview: ```json
+{
+  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",
+      "exercises": [
+        {
+          "name": "Barbell Back Squat",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for
+[GEMINI TEXT] Attempting to parse JSON for workout
+[GEMINI TEXT] Raw text length: 10193
+[GEMINI TEXT] Enhanced cleaned JSON preview: ```json { "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split", "weekly_schedule": [ { "day": "Monday", "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)", "exercises": [ { "name": "Barbell Back Squat", "sets": 4, "reps": "8-12", "rest": "90s", "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for progressive overload weekly." }, { "name": "Romanian Deadlift", "sets": 3, "reps": ...
+[GEMINI TEXT] Characters around position 334: . Focus on controlled depth, m
+[GEMINI TEXT] ⚠️ JSON structure validation failed for workout: JSON must start with { or [
+[GEMINI TEXT] Issues found: undefined
+[GEMINI TEXT] ❌ Direct JSON parsing failed for workout: Unexpected token '`', "```json
+{
+"... is not valid JSON
+[GEMINI TEXT] 🔧 Validation confirmed issues, will attempt cleaning strategies
+[GEMINI TEXT] 📦 Extracted from code block for workout: {
+  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back S...
+[GEMINI TEXT] 🔧 Starting decimal repair on text length: 9948
+[GEMINI TEXT] 🔧 Text around 300-400 before fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
+[GEMINI TEXT] 🔧 Before ultra-specific fixes
+[GEMINI TEXT] 🔧 Text sample before ultra-fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
+[GEMINI TEXT] 🔧 Text sample after ultra-fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
+[GEMINI TEXT] 🔍 Position 330: char=':' (58) context: "    "rest": "90s",  "
+[GEMINI TEXT] 🔍 Position 334: char='0' (48) context: ""rest": "90s",      "
+[GEMINI TEXT] 🔍 Position 335: char='s' (115) context: "rest": "90s",       "
+[GEMINI TEXT] 🔍 Position 340: char=' ' (32) context: ": "90s",          "n"
+[GEMINI TEXT] 🔧 Text around 300-400 after fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
+[GEMINI TEXT] Enhanced cleaned JSON preview: {"plan_name": "Emma Wilsons Strength & Hypertrophy Program - 4 Day Split",  "weekly_schedule": [    {"day": "Monday",      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",      "...
+[GEMINI TEXT] ✅ Code block extraction successful for workout
+[GEMINI TEXT] Successfully parsed workout data
+[GEMINI TEXT] Plan name: Emma Wilsons Strength & Hypertrophy Program - 4 Day Split
+[GEMINI TEXT] Starting workout plan validation...
+[GEMINI TEXT] 🔍 Day "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Chest & Triceps (Primary Strength Focus: Barbell Bench Press)" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Back & Biceps (Primary Strength Focus: Barbell Row)" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Shoulders & Core (Primary Strength Focus: Barbell Overhead Press)" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Progression, Recovery & Cardio" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 4,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] ✅ Validated plan with name: Emma Wilsons Strength & Hypertrophy Program - 4 Day Split
+[WORKOUT] ✅ Raw plan received from Gemini
+[WORKOUT] ✅ Plan transformed successfully
+[WORKOUT] Training days: 5
+[applyWeeklyDistribution] 🔍 Input workoutSessions length: 5
+[applyWeeklyDistribution] 🔍 workoutFrequency: 4_5
+[applyWeeklyDistribution] 🔍 boundedWorkoutDays: 5
+[applyWeeklyDistribution] 🔍 newWeeklySchedule length: 7
+[applyWeeklyDistribution] 🔍 newWeeklySchedule days: [
+  {
+    day: 'Monday',
+    focus: 'Legs & Glutes (Primary Strength Focus: Barbell Back Squat)'
+  },
+  {
+    day: 'Tuesday',
+    focus: 'Chest & Triceps (Primary Strength Focus: Barbell Bench Press)'
+  },
+  { day: 'Wednesday', focus: 'Rest Day' },
+  {
+    day: 'Thursday',
+    focus: 'Back & Biceps (Primary Strength Focus: Barbell Row)'
+  },
+  {
+    day: 'Friday',
+    focus: 'Shoulders & Core (Primary Strength Focus: Barbell Overhead Press)'
+  },
+  { day: 'Saturday', focus: 'Progression, Recovery & Cardio' },
+  { day: 'Sunday', focus: 'Rest Day' }
+]
+[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated
+[WORKOUT] Final schedule: 7 days
+{"level":30,"time":1759807315363,"pid":51387,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"259"},"remoteAddress":"127.0.0.1","remotePort":58307},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"5184","etag":"W/\"1440-EODm7jKMPn80qPKYVTZTWO7OXbg\""}},"responseTime":96614,"msg":"request completed"}

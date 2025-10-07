@@ -11,10 +11,6 @@ class RateLimiter {
     this.aiRequests = new Map(); // Track AI requests separately
     this.maxAIRequests = 10; // Max AI requests per hour
 
-    console.log('[RATE LIMITER] Rate limiter initialized');
-    console.log('[RATE LIMITER] Window:', this.windowMs / 1000, 'seconds');
-    console.log('[RATE LIMITER] Max requests:', this.maxRequests);
-    console.log('[RATE LIMITER] Max AI requests per hour:', this.maxAIRequests);
   }
 
   /**

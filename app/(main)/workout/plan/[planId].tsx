@@ -255,8 +255,18 @@ export default function PlanDetailScreen() {
               // Handle both old and new data structures
               let exercises = [];
               
-              if (Array.isArray(daySchedule.exercises)) {
-                // Old structure: direct exercises array
+              console.log(`[PLAN DETAIL] Processing day ${index}:`, {
+                day: daySchedule.day,
+                focus: daySchedule.focus,
+                hasExercises: !!daySchedule.exercises,
+                exercisesLength: daySchedule.exercises?.length || 0,
+                exercisesType: typeof daySchedule.exercises,
+                isArray: Array.isArray(daySchedule.exercises),
+                firstExercise: daySchedule.exercises?.[0]
+              });
+              
+              // Priority 1: Use exercises array if it has items
+              if (Array.isArray(daySchedule.exercises) && daySchedule.exercises.length > 0) {
                 exercises = daySchedule.exercises.map((ex: any, exIndex: number) => ({
                   id: ex.id || `ex-${index}-${exIndex}`,
                   name: ex.name || ex.exercise || 'Exercise',
@@ -265,7 +275,10 @@ export default function PlanDetailScreen() {
                   rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
                   restBetweenSets: ex.restBetweenSets || ex.rest || ex.rest_period || '60s'
                 }));
-              } else if (daySchedule.warm_up || daySchedule.main_workout || daySchedule.cool_down) {
+                console.log(`[PLAN DETAIL] Mapped ${exercises.length} exercises for day ${index}`);
+              } 
+              // Priority 2: Try main_workout structure if exercises is empty
+              else if (daySchedule.main_workout && Array.isArray(daySchedule.main_workout) && daySchedule.main_workout.length > 0) {
                 // New structure: separated warm_up, main_workout, cool_down arrays
                 const allExercises = [
                   ...(daySchedule.warm_up || []),
@@ -278,18 +291,41 @@ export default function PlanDetailScreen() {
                   name: ex.name || ex.exercise || 'Exercise',
                   sets: typeof ex.sets === 'number' ? ex.sets : Number(ex.sets) || 3,
                   reps: typeof ex.reps === 'string' ? ex.reps : String(ex.reps ?? '8-12'),
-                  rest: ex.rest || ex.restBetweenSets || ex.rest_period || '60s',
-                  restBetweenSets: ex.restBetweenSets || ex.rest || ex.rest_period || '60s',
+                  rest: ex.rest || ex.restBetweenSets || ex.rest_period || ex.rest_seconds || '60s',
+                  restBetweenSets: ex.restBetweenSets || ex.rest || ex.rest_period || ex.rest_seconds || '60s',
                   type: ex.type || 'main_workout'
                 }));
+                console.log(`[PLAN DETAIL] Mapped ${exercises.length} exercises from main_workout for day ${index}`);
+              }
+              // Priority 3: Check if it's explicitly a rest day
+              else if (daySchedule.focus && daySchedule.focus.toLowerCase().includes('rest')) {
+                console.log(`[PLAN DETAIL] Day ${index} is explicitly a rest day`);
+                exercises = [];
+              }
+              // Priority 4: If no exercises found but not a rest day, log warning
+              else {
+                console.warn(`[PLAN DETAIL] Day ${index} has no exercises but is not marked as rest day:`, {
+                  focus: daySchedule.focus,
+                  hasExercises: !!daySchedule.exercises,
+                  hasMainWorkout: !!daySchedule.main_workout
+                });
+                exercises = [];
               }
               
-              return {
+              const session = {
                 id: daySchedule.id || `session-${index}`,
                 day: daySchedule.day_name || daySchedule.day || daySchedule.dayName || `Day ${index + 1}`,
                 focus: daySchedule.focus || daySchedule.workout_type || 'Workout',
                 exercises
               };
+              
+              console.log(`[PLAN DETAIL] Final session ${index}:`, {
+                day: session.day,
+                focus: session.focus,
+                exerciseCount: session.exercises.length
+              });
+              
+              return session;
             })
               : [];
 
@@ -320,6 +356,12 @@ export default function PlanDetailScreen() {
         const realPlanData = await RealWorkoutService.getPlanById(planId as string);
         if (realPlanData) {
           console.log('[PlanDetail] Found plan with RealWorkoutService:', realPlanData.id);
+          console.log('[PlanDetail] 🔍 Plan data check:', {
+            hasWeeklySchedule: !!realPlanData.weekly_schedule,
+            hasWeeklyScheduleCamel: !!realPlanData.weeklySchedule,
+            weeklyScheduleLength: realPlanData.weekly_schedule?.length || realPlanData.weeklySchedule?.length || 0,
+            firstDayExercises: realPlanData.weekly_schedule?.[0]?.exercises?.length || realPlanData.weeklySchedule?.[0]?.exercises?.length || 0
+          });
           setPlan(realPlanData);
           
           // Always attempt to load sessions from DB first (prefer real UUID sessions)
@@ -446,6 +488,7 @@ export default function PlanDetailScreen() {
             })));
             
             // Ensure each session has a unique ID and exercises array
+            console.log('[PlanDetail] 🔍 RAW WEEKLY_SCHEDULE BEFORE PROCESSING:', JSON.stringify(weeklySchedule, null, 2));
             const processedSessions = weeklySchedule.map((day: any, index: number) => {
               if (!day) return null;
               
@@ -489,6 +532,8 @@ export default function PlanDetailScreen() {
               };
             }).filter((session): session is WorkoutSession => session !== null);
             
+            console.log('[PlanDetail] 🔍 PROCESSED SESSIONS LENGTH:', processedSessions.length);
+            console.log('[PlanDetail] 🔍 PROCESSED SESSIONS:', JSON.stringify(processedSessions.map(s => ({ day: s.day, focus: s.focus, exercisesCount: s.exercises?.length || 0 })), null, 2));
             setSessions(processedSessions);
             
             // Also update the plan's weekly schedule to match the sessions for consistency
@@ -676,25 +721,33 @@ export default function PlanDetailScreen() {
                 ).length === 0;
               
               if (hasScheduleButNoExercises) {
-                console.log('[PlanDetail] ⚠️ Detected corrupted plan - has schedule but no exercises. Attempting to regenerate...');
-                // If this is a server-generated plan, try to regenerate it
-                if (fetchedPlan.source === 'server_api') {
-                  Alert.alert(
-                    'Plan Data Issue',
-                    'This plan appears to have corrupted data. Would you like to regenerate it with fresh AI data?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Regenerate', 
-                        onPress: () => {
-                          // Navigate back to plan creation
-                          router.replace('/(main)/workout/plan-create');
+                console.log('[PlanDetail] ⚠️ Detected corrupted plan - has schedule but no exercises.');
+                console.log('[PlanDetail] Full plan data:', JSON.stringify(fetchedPlan, null, 2));
+                
+                // Show alert to user regardless of source
+                Alert.alert(
+                  'Corrupted Plan Data',
+                  'This workout plan has corrupted data (all exercises are empty). This may be caused by a bug in an older version.\n\nPlease delete this plan and generate a new one.',
+                  [
+                    { 
+                      text: 'Delete & Create New', 
+                      onPress: async () => {
+                        // Delete the corrupted plan
+                        try {
+                          await RealWorkoutService.deletePlan(fetchedPlan.id);
+                          console.log('[PlanDetail] Deleted corrupted plan:', fetchedPlan.id);
+                        } catch (error) {
+                          console.error('[PlanDetail] Error deleting corrupted plan:', error);
                         }
+                        // Navigate to plan creation
+                        router.replace('/(main)/workout/plan-create');
                       }
-                    ]
-                  );
-                  return;
-                }
+                    },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+                setIsLoading(false);
+                return;
               }
               
               if (weeklySchedule && Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
@@ -999,8 +1052,16 @@ export default function PlanDetailScreen() {
                 </View>
               ))}
               
-              {Array.isArray(plan.weeklySchedule) && plan.weeklySchedule.map((day: any, i: number) => {
+              {Array.isArray(plan.weekly_schedule || plan.weeklySchedule) && (plan.weekly_schedule || plan.weeklySchedule).map((day: any, i: number) => {
                 // Handle both data structures for preview
+                console.log(`[PlanDetail] 🎯 Rendering day ${i + 1}:`, {
+                  day: day.day,
+                  focus: day.focus,
+                  exercisesCount: day.exercises?.length || 0,
+                  hasWarmUp: !!day.warm_up,
+                  hasMainWorkout: !!day.main_workout,
+                  hasCoolDown: !!day.cool_down
+                });
                 let allExercises = [];
                 if (Array.isArray(day.exercises)) {
                   allExercises = day.exercises;
@@ -1164,7 +1225,12 @@ export default function PlanDetailScreen() {
         const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
         const dayText = String(day?.day || '').toLowerCase();
         const focusText = String(day?.focus || '').toLowerCase();
-        const isTraining = exercises.length > 0 || (!dayText.includes('rest') && !focusText.includes('rest'));
+        
+        // A day is a training day ONLY if it has exercises AND is not explicitly marked as rest
+        const isTraining = exercises.length > 0 && 
+                          !dayText.includes('rest') && 
+                          !focusText.includes('rest') &&
+                          !focusText.includes('off');
         return count + (isTraining ? 1 : 0);
       }, 0);
 
@@ -1254,22 +1320,56 @@ export default function PlanDetailScreen() {
           contentContainerStyle={[styles.classicContent, { paddingBottom: insets.bottom + 80 }]}
           showsVerticalScrollIndicator={false}
         >
-          {sessions.length === 0 ? (
-            <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateTitle}>No workout sessions found</Text>
-              <Text style={styles.emptyStateSubtitle}>
-                This plan may have corrupted data. Try creating a new AI plan with fresh data.
-              </Text>
-              <TouchableOpacity 
-                style={styles.regenerateButton}
-                onPress={() => router.replace('/(main)/workout/plan-create')}
-              >
-                <Text style={styles.regenerateButtonText}>Create New AI Plan</Text>
-              </TouchableOpacity>
-              {renderPlanSummary(plan)}
-            </View>
-          ) : (
-            sessions.map((session, index) => {
+          {(() => {
+            // Check if ALL sessions are empty (corrupted plan)
+            const allSessionsEmpty = sessions.length > 0 && sessions.every(s => 
+              !s.exercises || s.exercises.length === 0
+            );
+            
+            if (sessions.length === 0 || allSessionsEmpty) {
+              console.log('[PlanDetail] 🔴 CORRUPTED PLAN DETECTED in UI:', {
+                sessionCount: sessions.length,
+                allSessionsEmpty,
+                sessionsSample: sessions.slice(0, 2).map(s => ({
+                  id: s.id,
+                  day: s.day,
+                  exerciseCount: s.exercises?.length || 0
+                }))
+              });
+              
+              return (
+                <View style={styles.emptyStateContainer}>
+                  <Icon name="alert-circle-outline" size={64} color="#FF6B6B" />
+                  <Text style={styles.emptyStateTitle}>Corrupted Plan Data</Text>
+                  <Text style={styles.emptyStateSubtitle}>
+                    All exercises in this workout plan are empty. This may be caused by a bug in an older version.{'\n\n'}
+                    Please delete this plan and generate a new AI plan.
+                  </Text>
+                  <TouchableOpacity 
+                    style={[styles.regenerateButton, { backgroundColor: '#FF6B6B', marginBottom: 12 }]}
+                    onPress={async () => {
+                      try {
+                        await RealWorkoutService.deletePlan(plan?.id || planId as string);
+                        router.replace('/(main)/workout/plans');
+                      } catch (error) {
+                        console.error('Error deleting plan:', error);
+                        router.replace('/(main)/workout/plans');
+                      }
+                    }}
+                  >
+                    <Text style={styles.regenerateButtonText}>Delete This Plan</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.regenerateButton}
+                    onPress={() => router.replace('/(main)/workout/plan-create')}
+                  >
+                    <Text style={styles.regenerateButtonText}>Create New AI Plan</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+            
+            return sessions.map((session, index) => {
               const isRestDay = !session.exercises || session.exercises.length === 0 ||
                 (session.day && session.day.toLowerCase().includes('rest'));
               return (
@@ -1334,8 +1434,8 @@ export default function PlanDetailScreen() {
                   )}
                 </View>
               );
-            })
-          )}
+            });
+          })()}
         </ScrollView>
       </View>
     );

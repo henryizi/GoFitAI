@@ -29,6 +29,8 @@ export const colors = {
 
   // Common colors
   white: '#FFFFFF',         // Pure white
+  purple: '#AF52DE',        // Purple for quick workout feature
+  pink: '#FF2D92',          // Pink for quick workout feature
   
   // Utility colors
   border: '#2C2C2E',        // Dark gray for borders and dividers
