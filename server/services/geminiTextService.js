@@ -651,7 +651,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                 contentStr.length > 1500; // Workout plans are typically 2.5-6k chars, lower threshold
         // Use environment variables for timeout configuration with fallbacks
         const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 300000;
-        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 120000; // Increased from 180s to 120s for better balance
+        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // Increased from 120s to 180s for better reliability
         const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
         console.log(`[GEMINI TEXT] 🚀 UPDATED TIMEOUT LOGIC - Force deployment refresh`);
@@ -677,7 +677,12 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         }
 
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`)), timeoutDuration);
+          setTimeout(() => {
+            const timeoutError = new Error(`Gemini request timeout after ${timeoutDuration/1000} seconds`);
+            timeoutError.name = 'TimeoutError';
+            timeoutError.isTimeout = true;
+            reject(timeoutError);
+          }, timeoutDuration);
         });
         
         console.log('[GEMINI TEXT] About to call this.model.generateContent');
@@ -764,19 +769,22 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                    error.message.includes('quota') ||
                                    error.message.includes('rate limit');
         
+        const isTimeoutError = error.isTimeout || 
+                              error.name === 'TimeoutError' ||
+                              error.message.includes('timeout') ||
+                              error.message.includes('Gemini request timeout');
+        
         const isRetryable = isServiceUnavailable || 
+                           isTimeoutError ||
                            error.message.includes('network') ||
-                           error.message.includes('timeout') ||
                            error.message.includes('fetch failed') ||
                            error.message.includes('ENOTFOUND') ||
                            error.message.includes('ECONNREFUSED') ||
                            error.message.includes('ETIMEDOUT') ||
                            error.message.includes('ECONNRESET') ||
                            error.message.includes('socket hang up') ||
-                           error.message.includes('Gemini request timeout') ||
                            error.message.includes('Empty response from Gemini - retryable') ||
-                           error.message.includes('Invalid response structure') ||
-                           error.message.includes('30 seconds'); // Handle legacy timeout errors
+                           error.message.includes('Invalid response structure');
         
         const isNetworkError = error.message.includes('fetch failed') || 
                              error.message.includes('ENOTFOUND') ||
@@ -795,19 +803,33 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         
         if (isRetryable && attempt < maxRetries) {
           // Exponential backoff with jitter to prevent thundering herd
-          // For 503 Service Unavailable (model overloaded), use much longer delays
-          const baseDelay = isServiceUnavailable ? 10000 : 1000; // 10s base for 503, 1s for others
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1); // 10s, 20s for 503; 1s, 2s for others
+          // Different delays for different error types
+          let baseDelay;
+          let maxDelay;
+          
+          if (isServiceUnavailable) {
+            baseDelay = 10000; // 10s base for 503 Service Unavailable
+            maxDelay = 30000;  // Max 30s for overloaded service
+          } else if (isTimeoutError) {
+            baseDelay = 5000;  // 5s base for timeout errors
+            maxDelay = 15000;  // Max 15s for timeout retries
+          } else {
+            baseDelay = 1000;  // 1s base for other errors
+            maxDelay = 8000;   // Max 8s for other errors
+          }
+          
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
           const jitter = Math.random() * 2000; // Add up to 2s jitter
-          const delay = Math.min(exponentialDelay + jitter, isServiceUnavailable ? 30000 : 8000); // Max 30s for 503, 8s for others
+          const delay = Math.min(exponentialDelay + jitter, maxDelay);
 
           console.log(`[GEMINI TEXT] ⚠️ Retryable error (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`);
           console.log(`[GEMINI TEXT] Error type:`, error.constructor.name);
           console.log(`[GEMINI TEXT] Error message:`, error.message);
           console.log(`[GEMINI TEXT] Service unavailable (503):`, isServiceUnavailable);
+          console.log(`[GEMINI TEXT] Timeout error detected:`, isTimeoutError);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
-          console.log(`[GEMINI TEXT] 🚀 IMPROVED 503 HANDLING: Longer delays for overloaded service`);
+          console.log(`[GEMINI TEXT] 🚀 IMPROVED ERROR HANDLING: Different delays for timeout/503/network errors`);
           
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
