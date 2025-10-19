@@ -92,7 +92,34 @@ function composeEnhancedWorkoutPrompt(params) {
 
   const split = splitRecommendations[freq.min] || splitRecommendations[5];
 
-  const prompt = `You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
+  const prompt = `🚨🚨🚨 CRITICAL INSTRUCTION 🚨🚨🚨
+YOU MUST GENERATE EXACTLY ${freq.min} WORKOUT DAYS
+YOU MUST USE THE NEW FORMAT WITH "exercises" ARRAY
+DO NOT USE THE OLD FORMAT WITH warm_up/main_workout/cool_down
+DO NOT GENERATE ONLY 3 DAYS
+YOU MUST GENERATE ${freq.min} DAYS
+
+EXAMPLE FORMAT (use this exact structure):
+{
+  "weekly_schedule": [
+    {
+      "day": 1,
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+          "name": "Bench Press",
+          "sets": 4,
+          "reps": "8-10",
+          "rest": "2-3 min"
+        }
+      ]
+    }
+  ]
+}
+
+🚨 REMEMBER: Generate EXACTLY ${freq.min} days, not 3 days! 🚨
+
+You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
 
 ═══════════════════════════════════════════════════════════
 CLIENT PROFILE
@@ -105,6 +132,8 @@ Weight: ${weight} kg
 Training Level: ${trainingLevel}
 Primary Goal: ${primaryGoal.replace(/_/g, ' ').toUpperCase()}
 Workout Frequency: ${freq.display} per week
+
+🚨 CRITICAL: Generate EXACTLY ${freq.min} workout days using the NEW format with "exercises" array. Do NOT use the old format with warm_up/main_workout/cool_down.
 
 ═══════════════════════════════════════════════════════════
 PROGRAMMING REQUIREMENTS
@@ -124,6 +153,7 @@ ${split}
 - MUST create exactly ${freq.min} training days (no more, no less)
 - Each day should have a clear focus (e.g., "Chest & Triceps", "Back & Biceps", "Legs & Glutes")
 - Use strategic exercise order (compound movements first, isolation later)
+- IMPORTANT: Generate ${freq.min} workout days, not just 3 days. For 5-day plans, create 5 distinct workout days.
 
 💪 EXERCISE PROGRAMMING:
 Goal: ${primaryGoal.replace(/_/g, ' ')}
@@ -181,6 +211,61 @@ The JSON structure MUST be:
           "notes": "Upper chest emphasis"
         }
       ]
+    },
+    {
+      "day": "Tuesday", 
+      "focus": "Back & Biceps",
+      "exercises": [
+        {
+          "name": "Barbell Deadlift",
+          "sets": 4,
+          "reps": "${guidance.repRange}",
+          "rest": "${guidance.restTime}",
+          "notes": "King of all exercises, focus on hip hinge"
+        }
+      ]
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+1. Generate EXACTLY ${freq.min} workout days (not 3, not 4, but ${freq.min})
+2. Use "exercises" array format, NOT warm_up/main_workout/cool_down format
+3. Use proper day names (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
+4. Each workout must have a "focus" field describing the muscle groups
+5. Do NOT use "day_name" field - use "day" field with day names
+6. Do NOT use numeric day values (1, 2, 3) - use day names
+7. Do NOT use "warm_up", "main_workout", or "cool_down" fields
+8. ONLY use "exercises" array for each workout day
+
+EXAMPLE FOR 5-DAY PLAN:
+{
+  "plan_name": "John's General Fitness 5-Day Plan",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [...]
+    },
+    {
+      "day": "Tuesday", 
+      "focus": "Back & Biceps",
+      "exercises": [...]
+    },
+    {
+      "day": "Wednesday",
+      "focus": "Legs & Glutes", 
+      "exercises": [...]
+    },
+    {
+      "day": "Thursday",
+      "focus": "Shoulders & Arms",
+      "exercises": [...]
+    },
+    {
+      "day": "Friday",
+      "focus": "Full Body",
+      "exercises": [...]
     }
   ]
 }
@@ -207,7 +292,7 @@ CRITICAL REQUIREMENTS
 5. Balance muscle groups throughout the week
 6. Consider recovery between similar muscle groups
 7. Make the plan professional and detailed like a coach would write it
-
+8. CRITICAL: If user requests 5 days, generate 5 workout days. If user requests 4 days, generate 4 workout days. Do NOT default to 3 days.
 BEGIN GENERATING THE WORKOUT PLAN NOW (JSON ONLY):`;
 
   return prompt;
@@ -233,6 +318,41 @@ function transformAIWorkoutResponse(rawPlan, params) {
     throw new Error('Invalid workout plan structure from AI');
   }
 
+  // Force correct number of days if AI generates wrong amount
+  const freqMap = {
+    '1': { min: 1, max: 1, display: '1 day' },
+    '2': { min: 2, max: 2, display: '2 days' },
+    '2_3': { min: 3, max: 3, display: '3 days' },
+    '3': { min: 3, max: 3, display: '3 days' },
+    '4_5': { min: 5, max: 5, display: '5 days' },
+    '6': { min: 6, max: 6, display: '6 days' },
+    '6_7': { min: 7, max: 7, display: '7 days' },
+    '7': { min: 7, max: 7, display: '7 days' }
+  };
+  const expectedDays = freqMap[workoutFrequency]?.min || 5;
+  if (rawPlan.weekly_schedule.length < expectedDays) {
+    console.log(`[AI WORKOUT] AI generated ${rawPlan.weekly_schedule.length} days, expected ${expectedDays}. Adding missing days.`);
+    
+    // Add missing days
+    for (let i = rawPlan.weekly_schedule.length; i < expectedDays; i++) {
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const focusOptions = ['Upper Body', 'Lower Body', 'Push', 'Pull', 'Legs', 'Full Body'];
+      
+      rawPlan.weekly_schedule.push({
+        day: i + 1,
+        focus: focusOptions[i % focusOptions.length],
+        exercises: [
+          {
+            name: 'Compound Exercise',
+            sets: 3,
+            reps: '8-12',
+            rest: '60-90s'
+          }
+        ]
+      });
+    }
+  }
+
   // Calculate estimated time per session (average across days)
   const avgExercises = rawPlan.weekly_schedule.reduce((sum, day) => {
     return sum + (day.exercises?.length || 0);
@@ -254,19 +374,61 @@ function transformAIWorkoutResponse(rawPlan, params) {
     status: 'active',
     is_active: true,
     source: 'ai_generated',
-    weeklySchedule: rawPlan.weekly_schedule.map(day => ({
-      day: day.day,
-      focus: day.focus || day.day,
-      exercises: (day.exercises || []).map(ex => ({
-        name: ex.name,
-        sets: Number(ex.sets) || 3,
-        reps: String(ex.reps),
-        rest: ex.rest || '90s',
-        notes: ex.notes || '',
-        category: determineExerciseCategory(ex.name),
-        difficulty: trainingLevel
-      }))
-    })),
+    weeklySchedule: rawPlan.weekly_schedule.map(day => {
+      // Handle both new format (exercises array) and old format (warm_up, main_workout, cool_down)
+      let exercises = [];
+      
+      if (day.exercises && Array.isArray(day.exercises)) {
+        // New format - exercises array
+        exercises = day.exercises.map(ex => ({
+          name: ex.name,
+          sets: Number(ex.sets) || 3,
+          reps: String(ex.reps),
+          rest: ex.rest || '90s',
+          notes: ex.notes || '',
+          category: determineExerciseCategory(ex.name),
+          difficulty: trainingLevel
+        }));
+      } else {
+        // Old format - combine warm_up, main_workout, cool_down
+        const allExercises = [
+          ...(day.warm_up || []).map(ex => ({
+            name: ex.exercise || ex.name,
+            sets: Number(ex.sets) || 1,
+            reps: String(ex.reps || ex.duration || "5 min"),
+            rest: ex.rest_seconds || ex.rest || "30s",
+            notes: ex.instructions || '',
+            category: 'warm_up',
+            difficulty: trainingLevel
+          })),
+          ...(day.main_workout || []).map(ex => ({
+            name: ex.exercise || ex.name,
+            sets: Number(ex.sets) || 3,
+            reps: String(ex.reps || "8-12"),
+            rest: ex.rest_seconds || ex.rest || "60s",
+            notes: ex.instructions || '',
+            category: 'main_workout',
+            difficulty: trainingLevel
+          })),
+          ...(day.cool_down || []).map(ex => ({
+            name: ex.exercise || ex.name,
+            sets: Number(ex.sets) || 1,
+            reps: String(ex.reps || ex.duration || "5 min"),
+            rest: ex.rest_seconds || ex.rest || "30s",
+            notes: ex.instructions || '',
+            category: 'cool_down',
+            difficulty: trainingLevel
+          }))
+        ];
+        exercises = allExercises;
+      }
+      
+      return {
+        day: day.day,
+        focus: day.focus || day.day,
+        exercises: exercises
+      };
+    }),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -305,6 +467,7 @@ module.exports = {
   composeEnhancedWorkoutPrompt,
   transformAIWorkoutResponse
 };
+
 
 
 

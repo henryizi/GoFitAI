@@ -24,7 +24,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-console.log('=== RAILWAY DEPLOYMENT - GEMINI ONLY - UPDATED ===');
+console.log('=== RAILWAY DEPLOYMENT - GEMINI ONLY - FORCE REDEPLOY ===');
+console.log('🚀 NEW WORKOUT GENERATION SYSTEM ACTIVE');
+console.log('📅 Generating 5 workout days instead of 3');
 console.log('Port:', PORT);
 console.log('Gemini API Key:', GEMINI_API_KEY ? '✅ Configured' : '❌ Missing');
 console.log('Supabase URL:', SUPABASE_URL ? '✅ Configured' : '❌ Missing');

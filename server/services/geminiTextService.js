@@ -907,17 +907,16 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     }
     
     validated.weekly_schedule = validated.weekly_schedule.map(day => ({
-      day: day.day || 1,
-      day_name: day.day_name || day.focus || "Workout Day",
-      focus: day.focus || day.day_name || "Training",
+      day: day.day || "Monday",
+      focus: day.focus || "Training",
       workout_type: day.workout_type || "Training",
       duration_minutes: Math.max(day.duration_minutes || 45, 15),
       // PRESERVE ORIGINAL EXERCISES ARRAY - This is what Gemini returns!
       exercises: day.exercises || [],
-      // Also preserve structured format if it exists
-      warm_up: day.warm_up || [],
-      main_workout: day.main_workout || [],
-      cool_down: day.cool_down || []
+      // Only add old format fields if they exist in the original data
+      ...(day.warm_up && { warm_up: day.warm_up }),
+      ...(day.main_workout && { main_workout: day.main_workout }),
+      ...(day.cool_down && { cool_down: day.cool_down })
     }));
 
     // 🚨 CRITICAL VALIDATION: Check if ALL workout days have empty exercises

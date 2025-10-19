@@ -1,6 +1,6 @@
 
-> gofitai-server@1.0.1 start
-> node index.js
+> gofitai@1.0.0 start
+> node server/index.js
 
 --- SERVER RESTARTED ---
 --- Code version: 4.0.2 - Gemini-Only-Clean: AI generation with mathematical fallback ---
@@ -38,18 +38,20 @@ Local IP: 192.168.0.174
 Server URL: http://192.168.0.174:4000
 Test API with: curl http://192.168.0.174:4000/api/test
 [WORKOUT] /api/generate-workout-plan called
+{"level":30,"time":1759905336207,"pid":37476,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"114"},"remoteAddress":"127.0.0.1","remotePort":63592},"res":{"statusCode":400,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"48","etag":"W/\"30-2IPWqIeTZ4K8TE03urMQ9ViGvTY\""}},"responseTime":6,"msg":"request completed"}
+[WORKOUT] /api/generate-workout-plan called
 [WORKOUT] 🎯 Enhanced AI Workout Generation Starting
 [WORKOUT] Profile: {
-  name: 'Emma Wilson',
-  level: 'intermediate',
-  goal: 'strength',
-  frequency: '4_5',
-  age: 22,
-  gender: 'female'
+  name: undefined,
+  level: undefined,
+  goal: undefined,
+  frequency: undefined,
+  age: 25,
+  gender: 'male'
 }
 [WORKOUT] 🚀 Using ENHANCED AI Workout Generator
 [WORKOUT] Gemini Model: gemini-2.5-flash
-[WORKOUT] 📝 Enhanced prompt generated (3979 chars)
+[WORKOUT] 📝 Enhanced prompt generated (4006 chars)
 [WORKOUT] Prompt preview: You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
 
 ═══════════════════════════════════════════════════════════
@@ -62,7 +64,7 @@ CLIENT PROFILE
 [GEMINI TEXT] User level: N/A (using prompt-based generation)
 [GEMINI TEXT] Goal: N/A (using prompt-based generation)
 [GEMINI TEXT] Using dedicated workout model with extended timeout (240s)
-[GEMINI TEXT] Prompt length: 3979
+[GEMINI TEXT] Prompt length: 4006
 [GEMINI TEXT] Attempt 1/2
 [GEMINI TEXT] Using optimized workout model config
 [GEMINI TEXT] About to call workoutModel.generateContent
@@ -72,7 +74,7 @@ CLIENT PROFILE
     at async makeRequest (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:397:20)
     at async generateContent (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/@google/generative-ai/dist/index.js:867:22)
     at async GeminiTextService.generateWorkoutPlan (/Users/ngkwanho/Desktop/GoFitAI/server/services/geminiTextService.js:432:26)
-    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:2217:23
+    at async /Users/ngkwanho/Desktop/GoFitAI/server/index.js:2256:23
 [GEMINI TEXT] Error constructor: GoogleGenerativeAIError
 [GEMINI TEXT] ⚠️ Retryable error (attempt 1), retrying in 500ms...
 [GEMINI TEXT] Error type: GoogleGenerativeAIError
@@ -84,83 +86,67 @@ CLIENT PROFILE
 [GEMINI TEXT] Model.generateContent completed successfully
 [GEMINI TEXT] ✅ Success on attempt 2
 [GEMINI TEXT] Response object: true
-[GEMINI TEXT] Response text: true length: 10193
+[GEMINI TEXT] Response text: true length: 10025
 [GEMINI TEXT] Raw response from Gemini (first 1000 chars):
 ```json
 {
-  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "plan_name": "Client's Elite General Fitness Program: The 'Apex Physique' Plan",
   "weekly_schedule": [
     {
       "day": "Monday",
-      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",
+      "focus": "Push Day: Chest, Shoulders & Triceps",
       "exercises": [
         {
-          "name": "Barbell Back Squat",
+          "name": "Barbell Bench Press",
           "sets": 4,
           "reps": "8-12",
           "rest": "90s",
-          "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for progressive overload weekly."
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric and powerful concentric. Strive for progressive overload by increasing weight or reps over time."
         },
         {
-          "name": "Romanian Deadlift",
+          "name": "Incline Dumbbell Press",
           "sets": 3,
           "reps": "8-12",
           "rest": "90s",
-          "notes": "Hinge from the hips, keeping a slight bend in the knees. Feel the stretch in hamstrings and glutes. Keep the bar close to your body throughout the movement."
+          "notes": "Targets the upper chest. Maintain a slight arch in your lower back and control the dumbbells through the full range of motion."
         },
         {
-          "name": "Leg Press",
+          "name": "Seated Dumbbell Shoulder Press",
           "sets": 3,
           "reps": "8-12",
           "rest": "90s",
-          "notes": "Place feet shou
-[GEMINI TEXT] Workout plan generated in 96594ms
+          "notes": "Compound movement for
+[GEMINI TEXT] Workout plan generated in 93278ms
 [GEMINI TEXT] Raw response preview: ```json
 {
-  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "plan_name": "Client's Elite General Fitness Program: The 'Apex Physique' Plan",
   "weekly_schedule": [
     {
       "day": "Monday",
-      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",
+      "focus": "Push Day: Chest, Shoulders & Triceps",
       "exercises": [
         {
-          "name": "Barbell Back Squat",
+          "name": "Barbell Bench Press",
           "sets": 4,
           "reps": "8-12",
           "rest": "90s",
-          "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric and powerful concentric. Strive for progressive overload by increasin
 [GEMINI TEXT] Attempting to parse JSON for workout
-[GEMINI TEXT] Raw text length: 10193
-[GEMINI TEXT] Enhanced cleaned JSON preview: ```json { "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split", "weekly_schedule": [ { "day": "Monday", "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)", "exercises": [ { "name": "Barbell Back Squat", "sets": 4, "reps": "8-12", "rest": "90s", "notes": "Primary strength movement. Focus on controlled depth, maintaining a neutral spine, and driving through the heels. Aim for progressive overload weekly." }, { "name": "Romanian Deadlift", "sets": 3, "reps": ...
-[GEMINI TEXT] Characters around position 334: . Focus on controlled depth, m
-[GEMINI TEXT] ⚠️ JSON structure validation failed for workout: JSON must start with { or [
-[GEMINI TEXT] Issues found: undefined
-[GEMINI TEXT] ❌ Direct JSON parsing failed for workout: Unexpected token '`', "```json
-{
-"... is not valid JSON
-[GEMINI TEXT] 🔧 Validation confirmed issues, will attempt cleaning strategies
+[GEMINI TEXT] Raw text length: 10025
+[GEMINI TEXT] Enhanced cleaned JSON preview: ```json { "plan_name": "Client's Elite General Fitness Program: The 'Apex Physique' Plan", "weekly_schedule": [ { "day": "Monday", "focus": "Push Day: Chest, Shoulders & Triceps", "exercises": [ { "name": "Barbell Bench Press", "sets": 4, "reps": "8-12", "rest": "90s", "notes": "Primary compound movement for chest. Focus on controlled eccentric and powerful concentric. Strive for progressive overload by increasing weight or reps over time." }, { "name": "Incline Dumbbell Press", "sets": 3, "reps...
+[GEMINI TEXT] Characters around position 334: us on controlled eccentric and
 [GEMINI TEXT] 📦 Extracted from code block for workout: {
-  "plan_name": "Emma Wilson's Strength & Hypertrophy Program - 4 Day Split",
+  "plan_name": "Client's Elite General Fitness Program: The 'Apex Physique' Plan",
   "weekly_schedule": [
     {
       "day": "Monday",
-      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back S...
-[GEMINI TEXT] 🔧 Starting decimal repair on text length: 9948
-[GEMINI TEXT] 🔧 Text around 300-400 before fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
-[GEMINI TEXT] 🔧 Before ultra-specific fixes
-[GEMINI TEXT] 🔧 Text sample before ultra-fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
-[GEMINI TEXT] 🔧 Text sample after ultra-fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
-[GEMINI TEXT] 🔍 Position 330: char=':' (58) context: "    "rest": "90s",  "
-[GEMINI TEXT] 🔍 Position 334: char='0' (48) context: ""rest": "90s",      "
-[GEMINI TEXT] 🔍 Position 335: char='s' (115) context: "rest": "90s",       "
-[GEMINI TEXT] 🔍 Position 340: char=' ' (32) context: ": "90s",          "n"
-[GEMINI TEXT] 🔧 Text around 300-400 after fixes: reps": "8-12",          "rest": "90s",          "notes": "Primary strength movement. Focus on contro
-[GEMINI TEXT] Enhanced cleaned JSON preview: {"plan_name": "Emma Wilsons Strength & Hypertrophy Program - 4 Day Split",  "weekly_schedule": [    {"day": "Monday",      "focus": "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)",      "...
-[GEMINI TEXT] ✅ Code block extraction successful for workout
+      "focus": "Push Day: Chest, Shoulders & Triceps",
+      "e...
+[GEMINI TEXT] ✅ Code block extraction successful WITHOUT cleaning for workout
 [GEMINI TEXT] Successfully parsed workout data
-[GEMINI TEXT] Plan name: Emma Wilsons Strength & Hypertrophy Program - 4 Day Split
+[GEMINI TEXT] Plan name: Client's Elite General Fitness Program: The 'Apex Physique' Plan
 [GEMINI TEXT] Starting workout plan validation...
-[GEMINI TEXT] 🔍 Day "Legs & Glutes (Primary Strength Focus: Barbell Back Squat)" validation: {
+[GEMINI TEXT] 🔍 Day "Push Day: Chest, Shoulders & Triceps" validation: {
   hasExercisesArray: true,
   exercisesCount: 6,
   hasStructuredWorkout: false,
@@ -168,7 +154,7 @@ CLIENT PROFILE
   mainWorkoutCount: 0,
   coolDownCount: 0
 }
-[GEMINI TEXT] 🔍 Day "Chest & Triceps (Primary Strength Focus: Barbell Bench Press)" validation: {
+[GEMINI TEXT] 🔍 Day "Pull Day: Back & Biceps" validation: {
   hasExercisesArray: true,
   exercisesCount: 6,
   hasStructuredWorkout: false,
@@ -176,7 +162,7 @@ CLIENT PROFILE
   mainWorkoutCount: 0,
   coolDownCount: 0
 }
-[GEMINI TEXT] 🔍 Day "Back & Biceps (Primary Strength Focus: Barbell Row)" validation: {
+[GEMINI TEXT] 🔍 Day "Legs & Glutes" validation: {
   hasExercisesArray: true,
   exercisesCount: 6,
   hasStructuredWorkout: false,
@@ -184,51 +170,512 @@ CLIENT PROFILE
   mainWorkoutCount: 0,
   coolDownCount: 0
 }
-[GEMINI TEXT] 🔍 Day "Shoulders & Core (Primary Strength Focus: Barbell Overhead Press)" validation: {
+[GEMINI TEXT] 🔍 Day "Upper Body Focus & Core" validation: {
   hasExercisesArray: true,
-  exercisesCount: 6,
+  exercisesCount: 7,
   hasStructuredWorkout: false,
   warmUpCount: 0,
   mainWorkoutCount: 0,
   coolDownCount: 0
 }
-[GEMINI TEXT] 🔍 Day "Progression, Recovery & Cardio" validation: {
+[GEMINI TEXT] 🔍 Day "Lower Body Focus, Core & Conditioning" validation: {
   hasExercisesArray: true,
-  exercisesCount: 4,
+  exercisesCount: 7,
   hasStructuredWorkout: false,
   warmUpCount: 0,
   mainWorkoutCount: 0,
   coolDownCount: 0
 }
-[GEMINI TEXT] ✅ Validated plan with name: Emma Wilsons Strength & Hypertrophy Program - 4 Day Split
+[GEMINI TEXT] ✅ Validated plan with name: Client's Elite General Fitness Program: The 'Apex Physique' Plan
 [WORKOUT] ✅ Raw plan received from Gemini
 [WORKOUT] ✅ Plan transformed successfully
 [WORKOUT] Training days: 5
-[applyWeeklyDistribution] 🔍 Input workoutSessions length: 5
-[applyWeeklyDistribution] 🔍 workoutFrequency: 4_5
-[applyWeeklyDistribution] 🔍 boundedWorkoutDays: 5
-[applyWeeklyDistribution] 🔍 newWeeklySchedule length: 7
-[applyWeeklyDistribution] 🔍 newWeeklySchedule days: [
+[WORKOUT] 🔍 Transformed plan structure: [
   {
     day: 'Monday',
-    focus: 'Legs & Glutes (Primary Strength Focus: Barbell Back Squat)'
+    focus: 'Push Day: Chest, Shoulders & Triceps',
+    exerciseCount: 6,
+    hasExercises: true
   },
   {
     day: 'Tuesday',
-    focus: 'Chest & Triceps (Primary Strength Focus: Barbell Bench Press)'
+    focus: 'Pull Day: Back & Biceps',
+    exerciseCount: 6,
+    hasExercises: true
   },
-  { day: 'Wednesday', focus: 'Rest Day' },
+  {
+    day: 'Wednesday',
+    focus: 'Legs & Glutes',
+    exerciseCount: 6,
+    hasExercises: true
+  },
   {
     day: 'Thursday',
-    focus: 'Back & Biceps (Primary Strength Focus: Barbell Row)'
+    focus: 'Upper Body Focus & Core',
+    exerciseCount: 7,
+    hasExercises: true
   },
   {
     day: 'Friday',
-    focus: 'Shoulders & Core (Primary Strength Focus: Barbell Overhead Press)'
-  },
-  { day: 'Saturday', focus: 'Progression, Recovery & Cardio' },
+    focus: 'Lower Body Focus, Core & Conditioning',
+    exerciseCount: 7,
+    hasExercises: true
+  }
+]
+[applyWeeklyDistribution] 🔍 Input workoutSessions length: 5
+[applyWeeklyDistribution] 🔍 Workout sessions: [
+  { focus: 'Push Day: Chest, Shoulders & Triceps', exerciseCount: 6 },
+  { focus: 'Pull Day: Back & Biceps', exerciseCount: 6 },
+  { focus: 'Legs & Glutes', exerciseCount: 6 },
+  { focus: 'Upper Body Focus & Core', exerciseCount: 7 },
+  { focus: 'Lower Body Focus, Core & Conditioning', exerciseCount: 7 }
+]
+[applyWeeklyDistribution] 🔍 Sessions with exercises: 5
+[applyWeeklyDistribution] 🔍 workoutFrequency: 5
+[applyWeeklyDistribution] 🔍 boundedWorkoutDays: 5
+[applyWeeklyDistribution] 🔍 newWeeklySchedule length: 7
+[applyWeeklyDistribution] 🔍 newWeeklySchedule days: [
+  { day: 'Monday', focus: 'Push Day: Chest, Shoulders & Triceps' },
+  { day: 'Tuesday', focus: 'Pull Day: Back & Biceps' },
+  { day: 'Wednesday', focus: 'Rest Day' },
+  { day: 'Thursday', focus: 'Legs & Glutes' },
+  { day: 'Friday', focus: 'Upper Body Focus & Core' },
+  { day: 'Saturday', focus: 'Lower Body Focus, Core & Conditioning' },
   { day: 'Sunday', focus: 'Rest Day' }
 ]
 [WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated
 [WORKOUT] Final schedule: 7 days
-{"level":30,"time":1759807315363,"pid":51387,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"259"},"remoteAddress":"127.0.0.1","remotePort":58307},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"5184","etag":"W/\"1440-EODm7jKMPn80qPKYVTZTWO7OXbg\""}},"responseTime":96614,"msg":"request completed"}
+[WORKOUT] Final schedule preview: [
+  {
+    day: 'Monday',
+    focus: 'Push Day: Chest, Shoulders & Triceps',
+    exerciseCount: 6
+  },
+  {
+    day: 'Tuesday',
+    focus: 'Pull Day: Back & Biceps',
+    exerciseCount: 6
+  },
+  { day: 'Wednesday', focus: 'Rest Day', exerciseCount: 0 },
+  { day: 'Thursday', focus: 'Legs & Glutes', exerciseCount: 6 },
+  { day: 'Friday', focus: 'Upper Body Focus & Core', exerciseCount: 7 },
+  {
+    day: 'Saturday',
+    focus: 'Lower Body Focus, Core & Conditioning',
+    exerciseCount: 7
+  },
+  { day: 'Sunday', focus: 'Rest Day', exerciseCount: 0 }
+]
+{"level":30,"time":1759905445313,"pid":37476,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"127"},"remoteAddress":"127.0.0.1","remotePort":63598},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"5335","etag":"W/\"14d7-unYbngDhk7tow+GekP6roILVxjg\""}},"responseTime":93284,"msg":"request completed"}
+[WORKOUT] /api/generate-workout-plan called
+[WORKOUT] 🎯 Enhanced AI Workout Generation Starting
+[WORKOUT] Profile: {
+  name: undefined,
+  level: undefined,
+  goal: undefined,
+  frequency: undefined,
+  age: 25,
+  gender: 'male'
+}
+[WORKOUT] 🚀 Using ENHANCED AI Workout Generator
+[WORKOUT] Gemini Model: gemini-2.5-flash
+[WORKOUT] 📝 Enhanced prompt generated (4006 chars)
+[WORKOUT] Prompt preview: You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
+
+═══════════════════════════════════════════════════════════
+CLIENT PROFILE
+═════════════════════...
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.2 - Model fallback enabled
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] Generating workout plan (Model: gemini-2.5-flash, attempt 1/3)
+[GEMINI TEXT] User level: N/A (using prompt-based generation)
+[GEMINI TEXT] Goal: N/A (using prompt-based generation)
+[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)
+[GEMINI TEXT] Prompt length: 4006
+[GEMINI TEXT] Attempt 1/2
+[GEMINI TEXT] Using optimized workout model config
+[GEMINI TEXT] About to call workoutModel.generateContent
+[GEMINI TEXT] Model.generateContent completed successfully
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response object: true
+[GEMINI TEXT] Response text: true length: 9950
+[GEMINI TEXT] Raw response from Gemini (first 1000 chars):
+```json
+{
+  "plan_name": "Client's General Fitness 5-Day Hypertrophy & Strength Program",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Maintain a slight arch in the lower back and drive through your feet."
+        },
+        {
+          "name": "Incline Dumbbell Press",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Targets the upper chest. Ensure dumbbells are lowered to chest level for a full stretch. Keep elbows slightly tucked to protect shoulders."
+        },
+        {
+          "name": "Pec Deck Fly",
+          "sets": 3,
+          "reps": "10-15",
+          "rest": "90s",
+          "notes": "Isolation for chest contractio
+[GEMINI TEXT] Workout plan generated in 37786ms
+[GEMINI TEXT] Raw response preview: ```json
+{
+  "plan_name": "Client's General Fitness 5-Day Hypertrophy & Strength Program",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Maintain a slight arch in the lower back and d
+[GEMINI TEXT] Attempting to parse JSON for workout
+[GEMINI TEXT] Raw text length: 9950
+[GEMINI TEXT] Enhanced cleaned JSON preview: ```json { "plan_name": "Client's General Fitness 5-Day Hypertrophy & Strength Program", "weekly_schedule": [ { "day": "Monday", "focus": "Chest & Triceps", "exercises": [ { "name": "Barbell Bench Press", "sets": 4, "reps": "8-12", "rest": "90s", "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Maintain a slight arch in the lower back and drive through your feet." }, { "name": "Incline Dumbbell Press", "sets": 3, "reps": "...
+[GEMINI TEXT] Characters around position 334: ic (lowering) and powerful con
+[GEMINI TEXT] 📦 Extracted from code block for workout: {
+  "plan_name": "Client's General Fitness 5-Day Hypertrophy & Strength Program",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+ ...
+[GEMINI TEXT] ✅ Code block extraction successful WITHOUT cleaning for workout
+[GEMINI TEXT] Successfully parsed workout data
+[GEMINI TEXT] Plan name: Client's General Fitness 5-Day Hypertrophy & Strength Program
+[GEMINI TEXT] Starting workout plan validation...
+[GEMINI TEXT] 🔍 Day "Chest & Triceps" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Back & Biceps" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Legs & Glutes" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Shoulders & Abs" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Arms & Conditioning" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] ✅ Validated plan with name: Client's General Fitness 5-Day Hypertrophy & Strength Program
+[WORKOUT] ✅ Raw plan received from Gemini
+[WORKOUT] ✅ Plan transformed successfully
+[WORKOUT] Training days: 5
+[WORKOUT] 🔍 Transformed plan structure: [
+  {
+    day: 'Monday',
+    focus: 'Chest & Triceps',
+    exerciseCount: 6,
+    hasExercises: true
+  },
+  {
+    day: 'Tuesday',
+    focus: 'Back & Biceps',
+    exerciseCount: 6,
+    hasExercises: true
+  },
+  {
+    day: 'Wednesday',
+    focus: 'Legs & Glutes',
+    exerciseCount: 6,
+    hasExercises: true
+  },
+  {
+    day: 'Thursday',
+    focus: 'Shoulders & Abs',
+    exerciseCount: 6,
+    hasExercises: true
+  },
+  {
+    day: 'Friday',
+    focus: 'Arms & Conditioning',
+    exerciseCount: 6,
+    hasExercises: true
+  }
+]
+[applyWeeklyDistribution] 🔍 Input workoutSessions length: 5
+[applyWeeklyDistribution] 🔍 Workout sessions: [
+  { focus: 'Chest & Triceps', exerciseCount: 6 },
+  { focus: 'Back & Biceps', exerciseCount: 6 },
+  { focus: 'Legs & Glutes', exerciseCount: 6 },
+  { focus: 'Shoulders & Abs', exerciseCount: 6 },
+  { focus: 'Arms & Conditioning', exerciseCount: 6 }
+]
+[applyWeeklyDistribution] 🔍 Sessions with exercises: 5
+[applyWeeklyDistribution] 🔍 workoutFrequency: 5
+[applyWeeklyDistribution] 🔍 boundedWorkoutDays: 5
+[applyWeeklyDistribution] 🔍 newWeeklySchedule length: 7
+[applyWeeklyDistribution] 🔍 newWeeklySchedule days: [
+  { day: 'Monday', focus: 'Chest & Triceps' },
+  { day: 'Tuesday', focus: 'Back & Biceps' },
+  { day: 'Wednesday', focus: 'Rest Day' },
+  { day: 'Thursday', focus: 'Legs & Glutes' },
+  { day: 'Friday', focus: 'Shoulders & Abs' },
+  { day: 'Saturday', focus: 'Arms & Conditioning' },
+  { day: 'Sunday', focus: 'Rest Day' }
+]
+[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated
+[WORKOUT] Final schedule: 7 days
+[WORKOUT] Final schedule preview: [
+  { day: 'Monday', focus: 'Chest & Triceps', exerciseCount: 6 },
+  { day: 'Tuesday', focus: 'Back & Biceps', exerciseCount: 6 },
+  { day: 'Wednesday', focus: 'Rest Day', exerciseCount: 0 },
+  { day: 'Thursday', focus: 'Legs & Glutes', exerciseCount: 6 },
+  { day: 'Friday', focus: 'Shoulders & Abs', exerciseCount: 6 },
+  { day: 'Saturday', focus: 'Arms & Conditioning', exerciseCount: 6 },
+  { day: 'Sunday', focus: 'Rest Day', exerciseCount: 0 }
+]
+{"level":30,"time":1759906019420,"pid":37476,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"127"},"remoteAddress":"127.0.0.1","remotePort":63756},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"4801","etag":"W/\"12c1-/zmv9whnGqkbsito9+FqIriNfdA\""}},"responseTime":37788,"msg":"request completed"}
+[WORKOUT] /api/generate-workout-plan called
+[WORKOUT] 🎯 Enhanced AI Workout Generation Starting
+[WORKOUT] Profile: {
+  name: undefined,
+  level: undefined,
+  goal: undefined,
+  frequency: undefined,
+  age: 25,
+  gender: 'male'
+}
+[WORKOUT] 🚀 Using ENHANCED AI Workout Generator
+[WORKOUT] Gemini Model: gemini-2.5-flash
+[WORKOUT] 📝 Enhanced prompt generated (4006 chars)
+[WORKOUT] Prompt preview: You are an elite professional fitness coach and workout programmer. Create a comprehensive, professional-quality workout plan that rivals the best programs used by competitive bodybuilders and athletes.
+
+═══════════════════════════════════════════════════════════
+CLIENT PROFILE
+═════════════════════...
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.2 - Model fallback enabled
+[GEMINI TEXT] ════════════════════════════════════════════════
+[GEMINI TEXT] Generating workout plan (Model: gemini-2.5-flash, attempt 1/3)
+[GEMINI TEXT] User level: N/A (using prompt-based generation)
+[GEMINI TEXT] Goal: N/A (using prompt-based generation)
+[GEMINI TEXT] Using dedicated workout model with extended timeout (240s)
+[GEMINI TEXT] Prompt length: 4006
+[GEMINI TEXT] Attempt 1/2
+[GEMINI TEXT] Using optimized workout model config
+[GEMINI TEXT] About to call workoutModel.generateContent
+[GEMINI TEXT] Model.generateContent completed successfully
+[GEMINI TEXT] ✅ Success on attempt 1
+[GEMINI TEXT] Response object: true
+[GEMINI TEXT] Response text: true length: 11069
+[GEMINI TEXT] Raw response from Gemini (first 1000 chars):
+```json
+{
+  "plan_name": "Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Aim for progressive overload by increasing weight or reps over the 8-week cycle."
+        },
+        {
+          "name": "Incline Dumbbell Press",
+          "sets": 3,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Targets the upper chest. Maintain a slight arch in the back and ensure full range of motion. Avoid locking out elbows aggressively."
+        },
+        {
+          "name": "Pec Deck Fly",
+          "sets": 4,
+          "reps": "10-15",
+          "rest": "90s",
+          "notes": "Isola
+[GEMINI TEXT] Workout plan generated in 49369ms
+[GEMINI TEXT] Raw response preview: ```json
+{
+  "plan_name": "Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": "8-12",
+          "rest": "90s",
+          "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Aim for progressive overl
+[GEMINI TEXT] Attempting to parse JSON for workout
+[GEMINI TEXT] Raw text length: 11069
+[GEMINI TEXT] Enhanced cleaned JSON preview: ```json { "plan_name": "Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)", "weekly_schedule": [ { "day": "Monday", "focus": "Chest & Triceps", "exercises": [ { "name": "Barbell Bench Press", "sets": 4, "reps": "8-12", "rest": "90s", "notes": "Primary compound movement for chest. Focus on controlled eccentric (lowering) and powerful concentric (pressing). Aim for progressive overload by increasing weight or reps over the 8-week cycle." }, { "name": "Incline Dumbb...
+[GEMINI TEXT] Characters around position 334: on controlled eccentric (lower
+[GEMINI TEXT] 📦 Extracted from code block for workout: {
+  "plan_name": "Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)",
+  "weekly_schedule": [
+    {
+      "day": "Monday",
+      "focus": "Chest & Triceps",
+      "exer...
+[GEMINI TEXT] ✅ Code block extraction successful WITHOUT cleaning for workout
+[GEMINI TEXT] Successfully parsed workout data
+[GEMINI TEXT] Plan name: Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)
+[GEMINI TEXT] Starting workout plan validation...
+[GEMINI TEXT] 🔍 Day "Chest & Triceps" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 7,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Back & Biceps" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 8,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Legs (Quads & Glutes Focus)" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 6,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Shoulders & Traps" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 7,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] 🔍 Day "Hamstrings, Calves & Core" validation: {
+  hasExercisesArray: true,
+  exercisesCount: 8,
+  hasStructuredWorkout: false,
+  warmUpCount: 0,
+  mainWorkoutCount: 0,
+  coolDownCount: 0
+}
+[GEMINI TEXT] ✅ Validated plan with name: Client's Elite General Fitness Program: Hypertrophy & Strength Focus (5-Day Split)
+[WORKOUT] ✅ Raw plan received from Gemini
+[WORKOUT] ✅ Plan transformed successfully
+[WORKOUT] Training days: 5
+[WORKOUT] 🔍 Transformed plan structure: [
+  {
+    day: 'Monday',
+    focus: 'Chest & Triceps',
+    exerciseCount: 7,
+    hasExercises: true
+  },
+  {
+    day: 'Tuesday',
+    focus: 'Back & Biceps',
+    exerciseCount: 8,
+    hasExercises: true
+  },
+  {
+    day: 'Wednesday',
+    focus: 'Legs (Quads & Glutes Focus)',
+    exerciseCount: 6,
+    hasExercises: true
+  },
+  {
+    day: 'Thursday',
+    focus: 'Shoulders & Traps',
+    exerciseCount: 7,
+    hasExercises: true
+  },
+  {
+    day: 'Friday',
+    focus: 'Hamstrings, Calves & Core',
+    exerciseCount: 8,
+    hasExercises: true
+  }
+]
+[applyWeeklyDistribution] 🔍 Input workoutSessions length: 5
+[applyWeeklyDistribution] 🔍 Workout sessions: [
+  { focus: 'Chest & Triceps', exerciseCount: 7 },
+  { focus: 'Back & Biceps', exerciseCount: 8 },
+  { focus: 'Legs (Quads & Glutes Focus)', exerciseCount: 6 },
+  { focus: 'Shoulders & Traps', exerciseCount: 7 },
+  { focus: 'Hamstrings, Calves & Core', exerciseCount: 8 }
+]
+[applyWeeklyDistribution] 🔍 Sessions with exercises: 5
+[applyWeeklyDistribution] 🔍 workoutFrequency: 5
+[applyWeeklyDistribution] 🔍 boundedWorkoutDays: 5
+[applyWeeklyDistribution] 🔍 newWeeklySchedule length: 7
+[applyWeeklyDistribution] 🔍 newWeeklySchedule days: [
+  { day: 'Monday', focus: 'Chest & Triceps' },
+  { day: 'Tuesday', focus: 'Back & Biceps' },
+  { day: 'Wednesday', focus: 'Rest Day' },
+  { day: 'Thursday', focus: 'Legs (Quads & Glutes Focus)' },
+  { day: 'Friday', focus: 'Shoulders & Traps' },
+  { day: 'Saturday', focus: 'Hamstrings, Calves & Core' },
+  { day: 'Sunday', focus: 'Rest Day' }
+]
+[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated
+[WORKOUT] Final schedule: 7 days
+[WORKOUT] Final schedule preview: [
+  { day: 'Monday', focus: 'Chest & Triceps', exerciseCount: 7 },
+  { day: 'Tuesday', focus: 'Back & Biceps', exerciseCount: 8 },
+  { day: 'Wednesday', focus: 'Rest Day', exerciseCount: 0 },
+  {
+    day: 'Thursday',
+    focus: 'Legs (Quads & Glutes Focus)',
+    exerciseCount: 6
+  },
+  { day: 'Friday', focus: 'Shoulders & Traps', exerciseCount: 7 },
+  {
+    day: 'Saturday',
+    focus: 'Hamstrings, Calves & Core',
+    exerciseCount: 8
+  },
+  { day: 'Sunday', focus: 'Rest Day', exerciseCount: 0 }
+]
+{"level":30,"time":1759906277551,"pid":37476,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/generate-workout-plan","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"127"},"remoteAddress":"127.0.0.1","remotePort":63829},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"5454","etag":"W/\"154e-jICq20dVNxNVSOJfnHXgz71OSqc\""}},"responseTime":49371,"msg":"request completed"}

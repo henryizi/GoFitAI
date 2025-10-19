@@ -1961,7 +1961,6 @@ module.exports = {
 
 
 
-
  * 
  * This service handles webhook events from RevenueCat to keep user subscription
  * status synchronized on the server side.
@@ -2233,6 +2232,7 @@ module.exports = {
   processWebhookEvent,
   verifyWebhookSignature,
 };
+
 
 
 
