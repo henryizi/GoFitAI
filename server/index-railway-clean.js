@@ -1566,11 +1566,11 @@ app.post('/api/log-daily-metric', async (req, res) => {
 
 // Rule-based fallback workout plan generator
 function generateRuleBasedWorkoutPlan(profileData) {
-  console.log('[WORKOUT] Generating rule-based workout plan for:', profileData.primaryGoal || 'general_fitness');
+  console.log('[WORKOUT] Generating rule-based workout plan for:', profileData.primary_goal || 'general_fitness');
 
-  const fitnessLevel = profileData.fitnessLevel || 'intermediate';
-  const primaryGoal = profileData.primaryGoal || 'general_fitness';
-  const workoutFrequency = profileData.workoutFrequency || '4_5';
+  const fitnessLevel = profileData.training_level || 'intermediate';
+  const primaryGoal = profileData.primary_goal || 'general_fitness';
+  const workoutFrequency = profileData.workout_frequency || '4_5';
 
   // Determine number of days per week
   let daysPerWeek;
