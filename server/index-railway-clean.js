@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const GeminiVisionService = require('./services/geminiVisionService');
 const GeminiTextService = require('./services/geminiTextService');
+const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse } = require('./services/aiWorkoutGenerator');
 
 // Server Configuration
 const app = express();
@@ -544,16 +545,38 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         throw new Error('Gemini Text Service not available');
       }
 
-      // Build the prompt using composePrompt helper function
-      const prompt = composePrompt(profileData);
-      console.log('[WORKOUT] Generated prompt (first 500 chars):', prompt.substring(0, 500) + '...');
-      console.log('[WORKOUT] Prompt length:', prompt.length);
+      // Use ENHANCED prompt generation instead of old composePrompt
+      console.log('[WORKOUT] 🚀 Using ENHANCED AI Workout Generator');
+      console.log('[WORKOUT] Gemini Model:', process.env.GEMINI_MODEL || 'gemini-1.5-flash');
+      
+      const enhancedPrompt = composeEnhancedWorkoutPrompt({
+        gender: profileData.gender,
+        primaryGoal: profileData.primary_goal,
+        workoutFrequency: profileData.workout_frequency,
+        trainingLevel: profileData.training_level,
+        age: profileData.age,
+        weight: profileData.weight_kg,
+        height: profileData.height_cm,
+        fullName: profileData.full_name
+      });
+      
+      console.log('[WORKOUT] 📝 Enhanced prompt generated (' + enhancedPrompt.length + ' chars)');
+      console.log('[WORKOUT] Prompt preview:', enhancedPrompt.substring(0, 300) + '...');
 
-      const plan = await geminiTextService.generateWorkoutPlan(prompt);
+      const plan = await geminiTextService.generateWorkoutPlan(enhancedPrompt);
       console.log('[WORKOUT] Raw plan from Gemini:', JSON.stringify(plan, null, 2));
 
-      // Transform the plan to match app's expected format
-      const transformedPlan = transformGeminiPlanToAppFormat(plan, profileData);
+      // Transform to app format using enhanced transformer
+      const transformedPlan = transformAIWorkoutResponse(plan, {
+        trainingLevel: profileData.training_level,
+        primaryGoal: profileData.primary_goal,
+        workoutFrequency: profileData.workout_frequency,
+        age: profileData.age,
+        weight: profileData.weight_kg,
+        height: profileData.height_cm,
+        gender: profileData.gender,
+        fullName: profileData.full_name
+      });
       console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
 
       // Return in Railway format expected by client
