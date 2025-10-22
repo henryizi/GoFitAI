@@ -648,31 +648,21 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                                 contentStr.includes('personal trainer') || contentStr.includes('fitness expert') ||
                                 contentStr.includes('workout') || contentStr.includes('training') ||
                                 contentStr.length > 1500; // Workout plans are typically 2.5-6k chars, lower threshold
+        
+        // IMPROVED: Increase timeout duration for complex requests
         // Use environment variables for timeout configuration with fallbacks
-        const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 300000;
-        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 180000; // Increased from 120s to 180s for better reliability
+        // Increased timeouts: complex=360s (6min), simple=240s (4min) - Gemini can take time for large responses
+        const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 360000;
+        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 240000; // Increased from 180s to 240s
         const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
-        console.log(`[GEMINI TEXT] 🚀 UPDATED TIMEOUT LOGIC - Force deployment refresh`);
 
-        // Add exponential backoff delay for retries
+        // IMPROVED: Reduced backoff delay for retries to prevent excessive wait
+        // For timeout errors specifically, we want to retry faster since the timeout might be due to API slowness
         if (attempt > 1) {
-          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 5000); // 1s, 2s, 4s max
-          console.log(`[GEMINI TEXT] Applying exponential backoff delay: ${backoffDelay}ms`);
+          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 2), 3000); // 1s, 2s, 3s max (reduced from 5s)
+          console.log(`[GEMINI TEXT] Applying backoff delay: ${backoffDelay}ms before retry`);
           await new Promise(resolve => setTimeout(resolve, backoffDelay));
-          
-          // Quick connectivity check before retry
-          try {
-            console.log('[GEMINI TEXT] Testing connectivity to Google API...');
-            const testResponse = await fetch('https://generativelanguage.googleapis.com/', { 
-              method: 'HEAD', 
-              timeout: 5000 
-            });
-            console.log(`[GEMINI TEXT] Connectivity test result: ${testResponse.status}`);
-          } catch (connectError) {
-            console.log(`[GEMINI TEXT] Connectivity test failed: ${connectError.message}`);
-            // Continue anyway - the test might fail but the actual request might work
-          }
         }
 
         const timeoutPromise = new Promise((_, reject) => {
@@ -801,17 +791,18 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         }
         
         if (isRetryable && attempt < maxRetries) {
-          // Exponential backoff with jitter to prevent thundering herd
-          // Different delays for different error types
+          // IMPROVED: Optimized exponential backoff with different strategies for timeout vs other errors
           let baseDelay;
           let maxDelay;
           
           if (isServiceUnavailable) {
-            baseDelay = 15000; // 15s base for 503 Service Unavailable (increased from 10s)
-            maxDelay = 45000;  // Max 45s for overloaded service (increased from 30s)
+            baseDelay = 15000; // 15s base for 503 Service Unavailable
+            maxDelay = 45000;  // Max 45s for overloaded service
           } else if (isTimeoutError) {
-            baseDelay = 5000;  // 5s base for timeout errors
-            maxDelay = 15000;  // Max 15s for timeout retries
+            // IMPROVED: Timeout errors get shorter backoff - API might just be slow
+            // Use very short delays to retry quickly instead of waiting
+            baseDelay = 2000;  // 2s base for timeout errors (reduced from 5s)
+            maxDelay = 8000;   // Max 8s for timeout retries (reduced from 15s)
           } else {
             baseDelay = 1000;  // 1s base for other errors
             maxDelay = 8000;   // Max 8s for other errors
@@ -828,7 +819,6 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           console.log(`[GEMINI TEXT] Timeout error detected:`, isTimeoutError);
           console.log(`[GEMINI TEXT] Network error detected:`, isNetworkError);
           console.log(`[GEMINI TEXT] Backoff delay: ${Math.round(delay)}ms (exponential + jitter)`);
-          console.log(`[GEMINI TEXT] 🚀 IMPROVED ERROR HANDLING: Different delays for timeout/503/network errors`);
           
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
