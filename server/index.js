@@ -72,10 +72,22 @@ function getLocalIpAddress() {
 function formatWorkoutFrequency(frequency) {
   if (!frequency) return '4-5';
   const freqStr = String(frequency);
+  
+  // Handle numeric frequencies (1-7)
+  if (/^\d+$/.test(freqStr)) {
+    return freqStr;
+  }
+  
+  // Handle string patterns like "4_5"
   return freqStr.replace('_', '-');
 }
 
 function getMinFrequency(frequency) {
+  // Handle numeric frequencies
+  if (typeof frequency === 'number' && frequency >= 1 && frequency <= 7) {
+    return frequency;
+  }
+  
   const minMap = {
     '2_3': 2,
     '4_5': 4,
@@ -85,15 +97,32 @@ function getMinFrequency(frequency) {
 }
 
 function getMaxFrequency(frequency) {
+  // Handle numeric frequencies
+  if (typeof frequency === 'number' && frequency >= 1 && frequency <= 7) {
+    return frequency;
+  }
+  
   const maxMap = {
     '2_3': 3,
     '4_5': 5,
+    '5': 5,
     '6': 6
   };
   return maxMap[frequency] || 5;
 }
 
 function getFrequencyExplanation(frequency) {
+  // Handle numeric frequencies
+  if (typeof frequency === 'number') {
+    if (frequency <= 3) {
+      return '- This is a LOW FREQUENCY plan (' + frequency + ' training days per week)\n- Example schedule: Monday (Upper Body), Wednesday (Lower Body), Friday (Full Body)\n- Include ' + (7 - frequency) + ' rest days';
+    } else if (frequency <= 5) {
+      return '- This is a MODERATE-HIGH FREQUENCY plan (' + frequency + ' training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Wednesday (Legs), Thursday (Rest), Friday (Upper), Saturday (Lower), Sunday (Rest)\n- Include only ' + (7 - frequency) + ' rest days';
+    } else {
+      return '- This is a HIGH FREQUENCY plan (' + frequency + ' training days per week)\n- Example schedule: Monday through Saturday with training, only Sunday as rest\n- Include only ' + (7 - frequency) + ' rest days';
+    }
+  }
+  
   const explanations = {
     '2_3': '- This is a LOW FREQUENCY plan (2-3 training days per week)\n- Example schedule: Monday (Upper Body), Wednesday (Lower Body), Friday (Full Body)\n- Include 4-5 rest days',
     '4_5': '- This is a MODERATE-HIGH FREQUENCY plan (4-5 training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Wednesday (Legs), Thursday (Rest), Friday (Upper), Saturday (Lower), Sunday (Rest)\n- Include only 2-3 rest days',
@@ -465,6 +494,15 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   
   console.log('[applyWeeklyDistribution] 🔍 newWeeklySchedule length:', newWeeklySchedule.length);
   console.log('[applyWeeklyDistribution] 🔍 newWeeklySchedule days:', newWeeklySchedule.map(d => ({ day: d.day, focus: d.focus })));
+  
+  // Add exercise count logging
+  const daysWithExercises = newWeeklySchedule.filter(d => 
+    (d.exercises && d.exercises.length > 0) ||
+    (d.warm_up && d.warm_up.length > 0) ||
+    (d.main_workout && d.main_workout.length > 0) ||
+    (d.cool_down && d.cool_down.length > 0)
+  ).length;
+  console.log('[applyWeeklyDistribution] 🔍 Days with exercises:', daysWithExercises, '/', newWeeklySchedule.length);
   
   return {
     ...aiWorkoutPlan,
@@ -2050,7 +2088,6 @@ function composePrompt(profile) {
     throw error;
   }
 }
-
 /**
  * Transforms GeminiTextService plan format to app's expected format
  */

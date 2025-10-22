@@ -33,7 +33,9 @@ function composeEnhancedWorkoutPrompt(params) {
     '2': { min: 2, max: 2, display: '2 days' },
     '2_3': { min: 3, max: 3, display: '3 days' }, // Always use upper limit
     '3': { min: 3, max: 3, display: '3 days' },
+    '4': { min: 4, max: 4, display: '4 days' },
     '4_5': { min: 5, max: 5, display: '5 days' }, // Always use upper limit to match system expectation
+    '5': { min: 5, max: 5, display: '5 days' },
     '6': { min: 6, max: 6, display: '6 days' },
     '6_7': { min: 7, max: 7, display: '7 days' }, // Always use upper limit
     '7': { min: 7, max: 7, display: '7 days' }
@@ -93,11 +95,11 @@ function composeEnhancedWorkoutPrompt(params) {
   const split = splitRecommendations[freq.min] || splitRecommendations[5];
 
   const prompt = `🚨🚨🚨 CRITICAL INSTRUCTION 🚨🚨🚨
-YOU MUST GENERATE EXACTLY ${freq.min} WORKOUT DAYS
+YOU MUST GENERATE EXACTLY ${freq.min} WORKOUT DAYS - NOT 3 DAYS!
 YOU MUST USE THE NEW FORMAT WITH "exercises" ARRAY
 DO NOT USE THE OLD FORMAT WITH warm_up/main_workout/cool_down
-DO NOT GENERATE ONLY 3 DAYS
-YOU MUST GENERATE ${freq.min} DAYS
+DO NOT GENERATE ONLY 3 DAYS - GENERATE ${freq.min} DAYS!
+IF YOU GENERATE 3 DAYS, THE REQUEST WILL BE REJECTED!
 
 EXAMPLE FORMAT (use this exact structure):
 {
@@ -324,29 +326,53 @@ function transformAIWorkoutResponse(rawPlan, params) {
     '2': { min: 2, max: 2, display: '2 days' },
     '2_3': { min: 3, max: 3, display: '3 days' },
     '3': { min: 3, max: 3, display: '3 days' },
+    '4': { min: 4, max: 4, display: '4 days' },
     '4_5': { min: 5, max: 5, display: '5 days' },
+    '5': { min: 5, max: 5, display: '5 days' },
     '6': { min: 6, max: 6, display: '6 days' },
     '6_7': { min: 7, max: 7, display: '7 days' },
     '7': { min: 7, max: 7, display: '7 days' }
   };
-  const expectedDays = freqMap[workoutFrequency]?.min || 5;
+  const expectedDays = freqMap[workoutFrequency.toString()]?.min || 5;
+  
+  console.log(`[AI WORKOUT] Debug: workoutFrequency=${workoutFrequency}, expectedDays=${expectedDays}, actualDays=${rawPlan.weekly_schedule.length}`);
+  
   if (rawPlan.weekly_schedule.length < expectedDays) {
     console.log(`[AI WORKOUT] AI generated ${rawPlan.weekly_schedule.length} days, expected ${expectedDays}. Adding missing days.`);
     
-    // Add missing days
+    // Add missing days with proper structure
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const focusOptions = ['Upper Body', 'Lower Body', 'Push', 'Pull', 'Legs', 'Full Body', 'Core & Cardio'];
+    
     for (let i = rawPlan.weekly_schedule.length; i < expectedDays; i++) {
-      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const focusOptions = ['Upper Body', 'Lower Body', 'Push', 'Pull', 'Legs', 'Full Body'];
-      
+      const focusType = focusOptions[i % focusOptions.length];
       rawPlan.weekly_schedule.push({
         day: i + 1,
-        focus: focusOptions[i % focusOptions.length],
+        day_name: dayNames[i],
+        focus: focusType,
+        workout_type: 'Strength Training',
+        duration_minutes: 60,
         exercises: [
           {
-            name: 'Compound Exercise',
+            name: `${focusType} - Compound Movement`,
             sets: 3,
             reps: '8-12',
-            rest: '60-90s'
+            rest_seconds: 90,
+            instructions: 'Focus on proper form and controlled movement'
+          },
+          {
+            name: `${focusType} - Isolation Exercise`,
+            sets: 3,
+            reps: '10-15',
+            rest_seconds: 60,
+            instructions: 'Target specific muscle groups'
+          },
+          {
+            name: 'Core Work',
+            sets: 3,
+            reps: '10-15',
+            rest_seconds: 45,
+            instructions: 'Strengthen your core'
           }
         ]
       });
@@ -355,14 +381,23 @@ function transformAIWorkoutResponse(rawPlan, params) {
 
   // Calculate estimated time per session (average across days)
   const avgExercises = rawPlan.weekly_schedule.reduce((sum, day) => {
-    return sum + (day.exercises?.length || 0);
+    // Handle both new format (exercises array) and old format (warm_up/main_workout/cool_down)
+    if (day.exercises && Array.isArray(day.exercises)) {
+      return sum + day.exercises.length;
+    } else {
+      // Old format - count exercises from warm_up, main_workout, cool_down
+      const warmUpCount = day.warm_up?.length || 0;
+      const mainWorkoutCount = day.main_workout?.length || 0;
+      const coolDownCount = day.cool_down?.length || 0;
+      return sum + warmUpCount + mainWorkoutCount + coolDownCount;
+    }
   }, 0) / rawPlan.weekly_schedule.length;
 
   const estimatedTime = avgExercises <= 5 ? '45-60 min' :
                        avgExercises <= 7 ? '60-75 min' : '75-90 min';
 
   // Transform to app format
-  return {
+  const transformedPlan = {
     name: rawPlan.plan_name || `${fullName}'s ${primaryGoal.replace(/_/g, ' ')} Plan`,
     training_level: trainingLevel,
     primary_goal: primaryGoal,
@@ -378,7 +413,13 @@ function transformAIWorkoutResponse(rawPlan, params) {
       // Handle both new format (exercises array) and old format (warm_up, main_workout, cool_down)
       let exercises = [];
       
-      if (day.exercises && Array.isArray(day.exercises)) {
+      // Check if this is a rest day
+      const isRestDay = day.focus && day.focus.toLowerCase().includes('rest');
+      
+      if (isRestDay) {
+        // Rest days have no exercises
+        exercises = [];
+      } else if (day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0) {
         // New format - exercises array
         exercises = day.exercises.map(ex => ({
           name: ex.name,
@@ -389,7 +430,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
           category: determineExerciseCategory(ex.name),
           difficulty: trainingLevel
         }));
-      } else {
+      } else if ((day.warm_up && day.warm_up.length > 0) || (day.main_workout && day.main_workout.length > 0) || (day.cool_down && day.cool_down.length > 0)) {
         // Old format - combine warm_up, main_workout, cool_down
         const allExercises = [
           ...(day.warm_up || []).map(ex => ({
@@ -421,17 +462,88 @@ function transformAIWorkoutResponse(rawPlan, params) {
           }))
         ];
         exercises = allExercises;
+      } else {
+        // No exercises found - this shouldn't happen for workout days, but if it does, create placeholder
+        console.warn(`[AI WORKOUT] Day ${day.day_name} has no exercises, creating placeholder`);
+        if (!isRestDay) {
+          // Only add placeholder for non-rest days
+          exercises = [
+            {
+              name: 'Placeholder Exercise',
+              sets: 3,
+              reps: '8-12',
+              rest: '90s',
+              notes: 'Replace with actual exercise',
+              category: 'main_workout',
+              difficulty: trainingLevel
+            }
+          ];
+        }
       }
       
       return {
-        day: day.day,
-        focus: day.focus || day.day,
+        day: day.day || day.day_name || 'Workout Day',
+        focus: day.focus || day.day || day.day_name || 'Workout',
         exercises: exercises
       };
     }),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
+  
+  // Log the transformed plan for debugging
+  console.log('[AI WORKOUT] 🔍 Transformed plan structure:');
+  console.log('[AI WORKOUT] - Total days:', transformedPlan.weeklySchedule?.length || 0);
+  console.log('[AI WORKOUT] - Days with exercises:', transformedPlan.weeklySchedule?.filter((d) => d.exercises?.length > 0).length || 0);
+  transformedPlan.weeklySchedule?.forEach((day, idx) => {
+    console.log(`[AI WORKOUT] - Day ${idx + 1} (${day.focus}): ${day.exercises?.length || 0} exercises`);
+  });
+  
+  // CRITICAL VALIDATION: Ensure all non-rest days have exercises
+  transformedPlan.weeklySchedule = transformedPlan.weeklySchedule.map((day, idx) => {
+    const isRestDay = day.focus && day.focus.toLowerCase().includes('rest');
+    
+    if (!isRestDay && (!day.exercises || day.exercises.length === 0)) {
+      console.warn(`[AI WORKOUT] ⚠️ Day ${idx + 1} (${day.focus}) has no exercises, adding placeholders`);
+      return {
+        ...day,
+        exercises: [
+          {
+            name: `${day.focus} - Primary Compound`,
+            sets: 4,
+            reps: '8-12',
+            rest: '90s',
+            notes: 'Main strength movement',
+            category: 'main_workout',
+            difficulty: trainingLevel
+          },
+          {
+            name: `${day.focus} - Secondary Movement`,
+            sets: 3,
+            reps: '10-15',
+            rest: '60s',
+            notes: 'Secondary strength focus',
+            category: 'main_workout',
+            difficulty: trainingLevel
+          },
+          {
+            name: `${day.focus} - Accessory Work`,
+            sets: 3,
+            reps: '12-15',
+            rest: '45s',
+            notes: 'Accessory/isolation exercise',
+            category: 'main_workout',
+            difficulty: trainingLevel
+          }
+        ]
+      };
+    }
+    return day;
+  });
+  
+  console.log('[AI WORKOUT] ✅ Final validation complete - All non-rest days have exercises');
+  
+  return transformedPlan;
 }
 
 /**

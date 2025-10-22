@@ -1,4 +1,3 @@
-
 /**
  * Gemini Text Service for Recipe Generation and Workout Plans
  * Provides AI-powered content generation using Google's Gemini API
@@ -154,7 +153,7 @@ class GeminiTextService {
 
       const prompt = this.createRecipePrompt(mealType, targets, ingredients, strict);
       
-      const result = await this.generateContentWithRetry([prompt]);
+      const result = await this.generateContentWithRetry([prompt], 5);
       const response = await result.response;
       const text = response.text();
 
@@ -615,7 +614,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     try {
       // For simple text prompts, Gemini expects either a string or array format
       // Let's use the string format for simplicity
-      const result = await this.generateContentWithRetry(prompt);
+      const result = await this.generateContentWithRetry(prompt, 5);
       const response = await result.response;
       const text = response.text();
       
@@ -808,8 +807,8 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           let maxDelay;
           
           if (isServiceUnavailable) {
-            baseDelay = 10000; // 10s base for 503 Service Unavailable
-            maxDelay = 30000;  // Max 30s for overloaded service
+            baseDelay = 15000; // 15s base for 503 Service Unavailable (increased from 10s)
+            maxDelay = 45000;  // Max 45s for overloaded service (increased from 30s)
           } else if (isTimeoutError) {
             baseDelay = 5000;  // 5s base for timeout errors
             maxDelay = 15000;  // Max 15s for timeout retries

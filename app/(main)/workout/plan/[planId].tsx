@@ -1198,6 +1198,17 @@ export default function PlanDetailScreen() {
           ? (plan as any).weekly_schedule
           : (Array.isArray((plan as any)?.weeklySchedule) ? (plan as any).weeklySchedule : []);
 
+    console.log('[REST DAYS DEBUG] Weekly source:', {
+      sourceName: Array.isArray(sessions) && sessions.length > 0 ? 'sessions' : 'weekly_schedule',
+      sourceLength: weeklySource.length,
+      fullSource: weeklySource.map(day => ({
+        day: day.day,
+        focus: day.focus,
+        exercisesLength: day.exercises?.length || 0,
+        dayObj: day
+      }))
+    });
+
     // 🏆 FOR BODYBUILDER AUTHENTIC SPLITS: Count explicit rest days
     const planName = (plan as any)?.name || '';
     const isBodybuilderPlan = planName.includes('(Authentic Training Split)');
@@ -1218,9 +1229,10 @@ export default function PlanDetailScreen() {
         return count + (isRestDay ? 1 : 0);
       }, 0);
       
+      console.log('[REST DAYS DEBUG] Bodybuilder plan - restDaysInSchedule:', restDaysInSchedule);
       return restDaysInSchedule;
     } else {
-      // 📅 FOR REGULAR PLANS: Use traditional 7-day week calculation
+      // 📅 FOR REGULAR PLANS: Count actual rest days instead of assuming 7-day week
       const trainingDaysCount = weeklySource.reduce((count, day) => {
         const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
         const dayText = String(day?.day || '').toLowerCase();
@@ -1234,8 +1246,23 @@ export default function PlanDetailScreen() {
         return count + (isTraining ? 1 : 0);
       }, 0);
 
-      const rest = 7 - trainingDaysCount;
-      return Math.max(0, Math.min(7, rest));
+      // Count actual rest days instead of using formula
+      const restDaysInSchedule = weeklySource.reduce((count, day) => {
+        const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+        const dayText = String(day?.day || '').toLowerCase();
+        const focusText = String(day?.focus || '').toLowerCase();
+        
+        // A day is a rest day if it has no exercises OR is explicitly labeled as rest
+        const isRestDay = exercises.length === 0 || 
+                          dayText.includes('rest') || 
+                          focusText.includes('rest') ||
+                          focusText.includes('off');
+        
+        return count + (isRestDay ? 1 : 0);
+      }, 0);
+
+      console.log('[REST DAYS DEBUG] Regular plan - trainingDaysCount:', trainingDaysCount, 'restDaysInSchedule:', restDaysInSchedule);
+      return Math.max(0, restDaysInSchedule);
     }
   }, [sessions, plan]);
 
@@ -1584,7 +1611,15 @@ export default function PlanDetailScreen() {
               {renderPlanSummary(plan)}
             </View>
           )}
-        {sessions.map((session, index) => {
+        {(() => {
+          const restDaysSessions = sessions.filter(s => !s.exercises || s.exercises.length === 0 || (s.day && s.day.toLowerCase().includes('rest')));
+          console.log('[REST DAYS RENDER DEBUG]', {
+            totalSessions: sessions.length,
+            restDaysInSessions: restDaysSessions.length,
+            calculatedRestDaysCount: restDaysCount,
+            restDaysSessions: restDaysSessions.map(s => ({ day: s.day, focus: s.focus, exercisesLength: s.exercises?.length || 0 }))
+          });
+          return sessions.map((session, index) => {
             // Check if this is a rest day
             const isRestDay = !session.exercises || session.exercises.length === 0 ||
                             (session.day && session.day.toLowerCase().includes('rest'));
@@ -1845,7 +1880,8 @@ export default function PlanDetailScreen() {
 
             </Animated.View>
         );
-        })}
+        });
+        })()}
         </Animated.View>
       </Animated.ScrollView>
 
