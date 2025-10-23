@@ -665,8 +665,9 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         const envSimpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT);
         
         // Enforce minimum timeouts: 120s for workout/recipe, 60s for other requests
-        const complexTimeout = envComplexTimeout ? Math.max(envComplexTimeout, 360000) : 360000;
-        const simpleTimeout = envSimpleTimeout ? Math.max(envSimpleTimeout, 120000) : 120000; // Minimum 120s instead of 60s
+        // CRITICAL FIX: Check if parseInt returned a valid number (not NaN) before using Math.max
+        const complexTimeout = (!isNaN(envComplexTimeout) && envComplexTimeout > 0) ? Math.max(envComplexTimeout, 360000) : 360000;
+        const simpleTimeout = (!isNaN(envSimpleTimeout) && envSimpleTimeout > 0) ? Math.max(envSimpleTimeout, 120000) : 120000; // Minimum 120s instead of 60s
         
         const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
