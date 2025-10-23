@@ -307,8 +307,24 @@ CREATE POLICY "Users can manage their own workout sessions"
 DROP POLICY IF EXISTS "Users can manage their own exercise sets" ON exercise_sets;
 CREATE POLICY "Users can manage their own exercise sets"
     ON exercise_sets FOR ALL
-    USING (auth.uid() = (SELECT wp.user_id FROM workout_plans wp JOIN workout_sessions ws ON wp.id = ws.plan_id WHERE ws.id = exercise_sets.session_id))
-    WITH CHECK (auth.uid() = (SELECT wp.user_id FROM workout_plans wp JOIN workout_sessions ws ON wp.id = ws.plan_id WHERE ws.id = exercise_sets.session_id));
+    USING (
+        session_id IN (
+            SELECT id FROM workout_sessions 
+            WHERE plan_id IN (
+                SELECT id FROM workout_plans 
+                WHERE user_id = auth.uid()
+            )
+        )
+    )
+    WITH CHECK (
+        session_id IN (
+            SELECT id FROM workout_sessions 
+            WHERE plan_id IN (
+                SELECT id FROM workout_plans 
+                WHERE user_id = auth.uid()
+            )
+        )
+    );
 
 -- Policies for exercise_logs
 DROP POLICY IF EXISTS "Users can manage their own exercise logs" ON exercise_logs;
