@@ -49,7 +49,7 @@ function composeEnhancedWorkoutPrompt(params) {
   const goalGuidance = {
     'muscle_gain': {
       repRange: '6-12',
-      restTime: '90-120s',
+      restTime: '90s',
       intensity: 'moderate to heavy',
       focus: 'compound movements with progressive overload',
       exercises: 'Barbell Bench Press, Deadlifts, Squats, Overhead Press, Bent Over Rows',
@@ -57,7 +57,7 @@ function composeEnhancedWorkoutPrompt(params) {
     },
     'fat_loss': {
       repRange: '12-15',
-      restTime: '60-90s',
+      restTime: '60s',
       intensity: 'moderate with higher volume',
       focus: 'circuit training and supersets',
       exercises: 'Compound movements combined with metabolic conditioning',
@@ -65,7 +65,7 @@ function composeEnhancedWorkoutPrompt(params) {
     },
     'athletic_performance': {
       repRange: '5-8',
-      restTime: '120-180s',
+      restTime: '120s',
       intensity: 'explosive and powerful',
       focus: 'power and functional movements',
       exercises: 'Power Cleans, Box Jumps, Olympic Lifts, Plyometrics',
@@ -162,7 +162,7 @@ ${split}
 💪 EXERCISE PROGRAMMING:
 Goal: ${primaryGoal.replace(/_/g, ' ')}
 - Rep Range: ${guidance.repRange} reps per set
-- Rest Time: ${guidance.restTime} between sets
+- Rest Time: ${guidance.restTime} between sets (MUST be a single value like "90s", NOT a range like "90-120s")
 - Intensity: ${guidance.intensity} loads
 - Focus: ${guidance.focus}
 
@@ -365,21 +365,21 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: `${focusType} - Compound Movement`,
             sets: 3,
             reps: '8-12',
-            rest_seconds: 90,
+            rest: '90s',
             instructions: 'Focus on proper form and controlled movement'
           },
           {
             name: `${focusType} - Isolation Exercise`,
             sets: 3,
             reps: '10-15',
-            rest_seconds: 60,
+            rest: '60s',
             instructions: 'Target specific muscle groups'
           },
           {
             name: 'Core Work',
             sets: 3,
             reps: '10-15',
-            rest_seconds: 45,
+            rest: '45s',
             instructions: 'Strengthen your core'
           }
         ]
@@ -433,7 +433,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
           name: ex.name,
           sets: Number(ex.sets) || 3,
           reps: String(ex.reps),
-          rest: ex.rest || '90s',
+          rest: parseRestTime(ex.rest || '90s'),
           notes: ex.notes || '',
           category: determineExerciseCategory(ex.name),
           difficulty: trainingLevel
@@ -445,7 +445,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: ex.exercise || ex.name,
             sets: Number(ex.sets) || 1,
             reps: String(ex.reps || ex.duration || "5 min"),
-            rest: ex.rest_seconds || ex.rest || "30s",
+            rest: parseRestTime(ex.rest_seconds || ex.rest || "30s"),
             notes: ex.instructions || '',
             category: 'warm_up',
             difficulty: trainingLevel
@@ -454,7 +454,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: ex.exercise || ex.name,
             sets: Number(ex.sets) || 3,
             reps: String(ex.reps || "8-12"),
-            rest: ex.rest_seconds || ex.rest || "60s",
+            rest: parseRestTime(ex.rest_seconds || ex.rest || "60s"),
             notes: ex.instructions || '',
             category: 'main_workout',
             difficulty: trainingLevel
@@ -463,7 +463,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: ex.exercise || ex.name,
             sets: Number(ex.sets) || 1,
             reps: String(ex.reps || ex.duration || "5 min"),
-            rest: ex.rest_seconds || ex.rest || "30s",
+            rest: parseRestTime(ex.rest_seconds || ex.rest || "30s"),
             notes: ex.instructions || '',
             category: 'cool_down',
             difficulty: trainingLevel
@@ -480,7 +480,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
               name: 'Placeholder Exercise',
               sets: 3,
               reps: '8-12',
-              rest: '90s',
+              rest: parseRestTime('90s'),
               notes: 'Replace with actual exercise',
               category: 'main_workout',
               difficulty: trainingLevel
@@ -520,7 +520,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: `${day.focus} - Primary Compound`,
             sets: 4,
             reps: '8-12',
-            rest: '90s',
+            rest: parseRestTime('90s'),
             notes: 'Main strength movement',
             category: 'main_workout',
             difficulty: trainingLevel
@@ -529,7 +529,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: `${day.focus} - Secondary Movement`,
             sets: 3,
             reps: '10-15',
-            rest: '60s',
+            rest: parseRestTime('60s'),
             notes: 'Secondary strength focus',
             category: 'main_workout',
             difficulty: trainingLevel
@@ -538,7 +538,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
             name: `${day.focus} - Accessory Work`,
             sets: 3,
             reps: '12-15',
-            rest: '45s',
+            rest: parseRestTime('45s'),
             notes: 'Accessory/isolation exercise',
             category: 'main_workout',
             difficulty: trainingLevel
@@ -552,6 +552,40 @@ function transformAIWorkoutResponse(rawPlan, params) {
   console.log('[AI WORKOUT] ✅ Final validation complete - All non-rest days have exercises');
   
   return transformedPlan;
+}
+
+/**
+ * Parse and normalize rest time to a single value
+ * Handles ranges like "90-120s" by taking the midpoint
+ */
+function parseRestTime(restValue) {
+  if (!restValue) return '90s';
+  
+  const restStr = String(restValue).trim();
+  
+  // If it's already a single value with 's' or 'min', return as is
+  if (/^\d+[s]?$/i.test(restStr) || /^\d+\s*(min|minutes?)$/i.test(restStr)) {
+    return restStr.endsWith('s') || restStr.endsWith('S') ? restStr : restStr + 's';
+  }
+  
+  // Handle ranges like "90-120s" or "2-3 min"
+  const rangeMatch = restStr.match(/^(\d+)-(\d+)([smin]+)?$/i);
+  if (rangeMatch) {
+    const [, min, max, unit] = rangeMatch;
+    const avg = Math.round((parseInt(min) + parseInt(max)) / 2);
+    return avg + (unit || 's');
+  }
+  
+  // Handle ranges with spaces like "90 - 120 s"
+  const spacedRangeMatch = restStr.match(/^(\d+)\s*-\s*(\d+)\s*([smin]+)?$/i);
+  if (spacedRangeMatch) {
+    const [, min, max, unit] = spacedRangeMatch;
+    const avg = Math.round((parseInt(min) + parseInt(max)) / 2);
+    return avg + (unit || 's');
+  }
+  
+  // Default fallback
+  return '90s';
 }
 
 /**
