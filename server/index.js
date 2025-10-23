@@ -2361,11 +2361,36 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       });
       console.log('[WORKOUT] Prompt preview:', enhancedPrompt.substring(0, 300) + '...');
       
+      // Track timing for timeout detection
+      const startTime = Date.now();
+      const longTimeout = 150000; // 150 seconds (2.5 minutes)
+      const shortTimeout = 90000; // 90 seconds (1.5 minutes)
+      
       // Call Gemini AI with timeout - increased for Railway deployment
+      const generatePromise = geminiTextService.generateWorkoutPlan(enhancedPrompt);
+      
+      // Monitor timing
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > longTimeout && elapsed < longTimeout + 1000) {
+          console.log(`[WORKOUT] ⚠️ Complex request detected - ${elapsed/1000}s elapsed, may need long timeout`);
+        }
+      }, 1000);
+      
       const rawPlan = await Promise.race([
-        geminiTextService.generateWorkoutPlan(enhancedPrompt),
+        generatePromise.then(result => {
+          clearInterval(timer);
+          const duration = Date.now() - startTime;
+          console.log(`[WORKOUT] Request stats - Duration: ${duration}ms (${(duration/1000).toFixed(1)}s)`);
+          return result;
+        }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Workout generation timeout after 300 seconds')), 300000)
+          setTimeout(() => {
+            clearInterval(timer);
+            const duration = Date.now() - startTime;
+            console.log(`[WORKOUT] ❌ Timeout reached - Duration: ${duration}ms (${(duration/1000).toFixed(1)}s)`);
+            reject(new Error('Workout generation timeout after 300 seconds'));
+          }, 300000)
         )
       ]);
       
