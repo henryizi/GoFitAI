@@ -243,6 +243,7 @@ export default function PlanDetailScreen() {
     setEditedRest(null);
   };
 
+
   const loadPlanDetails = useCallback(async () => {
     if (planObject) {
         try {
@@ -534,6 +535,7 @@ export default function PlanDetailScreen() {
             
             console.log('[PlanDetail] 🔍 PROCESSED SESSIONS LENGTH:', processedSessions.length);
             console.log('[PlanDetail] 🔍 PROCESSED SESSIONS:', JSON.stringify(processedSessions.map(s => ({ day: s.day, focus: s.focus, exercisesCount: s.exercises?.length || 0 })), null, 2));
+            
             setSessions(processedSessions);
             
             // Also update the plan's weekly schedule to match the sessions for consistency
@@ -1261,8 +1263,11 @@ export default function PlanDetailScreen() {
         return count + (isRestDay ? 1 : 0);
       }, 0);
 
-      console.log('[REST DAYS DEBUG] Regular plan - trainingDaysCount:', trainingDaysCount, 'restDaysInSchedule:', restDaysInSchedule);
-      return Math.max(0, restDaysInSchedule);
+      // If the schedule has fewer than 7 days, add the missing days as rest days
+      const missingDays = Math.max(0, 7 - weeklySource.length);
+
+      console.log('[REST DAYS DEBUG] Regular plan - trainingDaysCount:', trainingDaysCount, 'restDaysInSchedule:', restDaysInSchedule, 'totalDays:', weeklySource.length, 'missingDays:', missingDays);
+      return Math.max(0, restDaysInSchedule + missingDays);
     }
   }, [sessions, plan]);
 

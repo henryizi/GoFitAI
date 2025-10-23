@@ -1,3 +1,17 @@
+import Constants from 'expo-constants';
+import {
+  SUPPORTED_EXERCISES,
+  getExerciseNamesForPrompt,
+  getExercisesByEquipment,
+  isSupportedExercise,
+  getExerciseInfo,
+  ExerciseInfo
+} from '../../constants/exerciseNames';
+import { generateWeeklyWorkoutPrompt } from './exercisePrompts';
+import { bodybuilderWorkouts, BodybuilderWorkout } from '../../data/bodybuilder-workouts';
+import { WorkoutPlan as AppWorkoutPlan, WorkoutDay as AppWorkoutDay, ExerciseItem } from '../../types/chat';
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import { WorkoutHistoryService } from './WorkoutHistoryService';
 import { ExerciseService } from './ExerciseService';
 import { WorkoutLocalStore } from './WorkoutLocalStore';
@@ -302,7 +316,7 @@ export class WorkoutService {
       });
 
       // Generate a unique plan ID
-      const planId = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const planId = uuidv4();
 
       // Create the stored plan object - handle both new database structure and old structure
       const storedPlan: StoredWorkoutPlan = {
@@ -584,7 +598,7 @@ export class WorkoutService {
 
       // Create the workout plan structure
       const customPlan = {
-        id: `custom-${Date.now()}`,
+        id: uuidv4(),
         user_id: userId,
         name: name,
         description: description || '',

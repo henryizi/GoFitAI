@@ -1,5 +1,6 @@
 import { supabase } from '../supabase/client';
 import { Database } from '../../types/database';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Validate if a string is a valid UUID
@@ -537,13 +538,13 @@ export class WorkoutHistoryService {
       if (sessionData.plan_name || sessionData.session_name) {
         console.log(`📝 [WorkoutHistoryService] Creating placeholder entry for deleted plan`);
         placeholderExercises.push({
-          id: 'placeholder',
-          exercise_id: 'placeholder',
+          id: uuidv4(),
+          exercise_id: uuidv4(),
           exercise_name: 'Workout Data Lost',
           muscle_groups: [],
           equipment_needed: [],
           logs: [{
-            id: 'placeholder-log',
+            id: uuidv4(),
             actual_reps: 0,
             actual_weight: null,
             rpe: null,
@@ -757,7 +758,7 @@ export class WorkoutHistoryService {
           for (const set of exercise.sets) {
             if (set.reps !== undefined || set.weight !== undefined) {
               exerciseLogs.push({
-                id: set.set_id || set.id || `backup-log-${Date.now()}-${Math.random()}`,
+                id: uuidv4(),
                 actual_reps: set.reps || 0,
                 actual_weight: set.weight || null,
                 actual_rpe: set.rpe || null,
@@ -768,7 +769,7 @@ export class WorkoutHistoryService {
               // Legacy format: actual_logs array within sets
               console.log(`[WorkoutHistoryService] Processing ${set.actual_logs.length} actual_logs within set`);
               exerciseLogs.push(...set.actual_logs.map((log: any) => ({
-                id: log.log_id || log.id || `backup-log-${Date.now()}-${Math.random()}`,
+                id: uuidv4(),
                 actual_reps: log.actual_reps || 0,
                 actual_weight: log.actual_weight || null,
                 actual_rpe: log.actual_rpe || null,
@@ -781,7 +782,7 @@ export class WorkoutHistoryService {
           // Legacy format: actual_logs array at exercise level
           console.log(`[WorkoutHistoryService] Processing ${exercise.actual_logs.length} actual_logs at exercise level`);
           exerciseLogs.push(...exercise.actual_logs.map((log: any) => ({
-            id: log.log_id || log.id || `backup-log-${Date.now()}-${Math.random()}`,
+            id: uuidv4(),
             actual_reps: log.actual_reps || 0,
             actual_weight: log.actual_weight || null,
             actual_rpe: log.actual_rpe || null,
@@ -792,7 +793,7 @@ export class WorkoutHistoryService {
           // Alternative format: logs array
           console.log(`[WorkoutHistoryService] Processing ${exercise.logs.length} logs array`);
           exerciseLogs.push(...exercise.logs.map((log: any) => ({
-            id: log.log_id || log.id || `backup-log-${Date.now()}-${Math.random()}`,
+            id: uuidv4(),
             actual_reps: log.actual_reps || log.reps || 0,
             actual_weight: log.actual_weight || log.weight || null,
             actual_rpe: log.actual_rpe || log.rpe || null,
@@ -807,7 +808,7 @@ export class WorkoutHistoryService {
           
           for (let i = 0; i < repsArray.length; i++) {
             exerciseLogs.push({
-              id: `backup-log-${Date.now()}-${Math.random()}`,
+              id: uuidv4(),
               actual_reps: repsArray[i] || 0,
               actual_weight: weightsArray[i] || null,
               actual_rpe: null,
@@ -832,7 +833,7 @@ export class WorkoutHistoryService {
           }, null as number | null);
 
           exercises.push({
-            exercise_set_id: exercise.exercise_id || exercise.id || `backup-exercise-${Date.now()}-${Math.random()}`,
+            exercise_set_id: exercise.exercise_id || exercise.id || uuidv4(),
             exercise_name: exercise.exercise_name || exercise.name || 'Unknown Exercise',
             target_sets: exerciseLogs.length, // Use actual number of sets performed
             target_reps: '0', // Not available in backup data
@@ -893,7 +894,7 @@ export class WorkoutHistoryService {
         
         // Add this set as a log
         exerciseGroups.get(exerciseId)!.logs.push({
-          id: set.id,
+          id: uuidv4(),
           actual_reps: set.actual_reps || 0,
           actual_weight: set.actual_weight || null,
           actual_rpe: set.rpe || null,

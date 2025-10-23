@@ -46,6 +46,7 @@ const pino = require('pino');
 const pinoHttp = require('pino-http');
 const { z } = require('zod');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 const GeminiVisionService = require('./services/geminiVisionService.js');
 const BasicFoodAnalyzer = require('./services/basicFoodAnalyzer.js');
 const GeminiTextService = require('./services/geminiTextService.js');
@@ -2955,10 +2956,42 @@ app.post('/api/ai-chat', async (req, res) => {
     });
   }
 });
+
 app.post('/api/save-plan', async (req, res) => {
-  const { plan, user } = req.body;
-  console.log('[SAVE PLAN] Calling database function to save plan for user:', user.id);
-  console.log('[SAVE PLAN] Plan status:', plan.status || 'active');
+  // Support multiple parameter formats
+  const { plan, user, user_id, plan_name, training_level, primary_goal, workout_frequency, weeklySchedule } = req.body;
+  
+  // Determine user_id from either parameter
+  const userId = user?.id || user_id;
+  
+  // Build the plan object from either full plan or individual fields
+  let planData = plan || {
+    name: plan_name,
+    training_level,
+    primary_goal,
+    workout_frequency,
+    weeklySchedule,
+    status: 'active'
+  };
+  
+  if (!userId) {
+    console.error('[SAVE PLAN] No user ID provided in request');
+    return res.status(400).json({ 
+      success: false, 
+      error: 'user_id or user.id is required' 
+    });
+  }
+  
+  if (!planData || !planData.name) {
+    console.error('[SAVE PLAN] No plan data provided');
+    return res.status(400).json({ 
+      success: false, 
+      error: 'plan with name field is required' 
+    });
+  }
+  
+  console.log('[SAVE PLAN] Calling database function to save plan for user:', userId);
+  console.log('[SAVE PLAN] Plan status:', planData.status || 'active');
 
   try {
     let newPlanId = '';
@@ -2967,11 +3000,11 @@ app.post('/api/save-plan', async (req, res) => {
     if (supabase) {
       // First, deactivate any existing active plans for this user
       try {
-        console.log('[SAVE PLAN] Deactivating existing active plans for user:', user.id);
+        console.log('[SAVE PLAN] Deactivating existing active plans for user:', userId);
         const { error: deactivateError } = await supabase
           .from('workout_plans')
           .update({ status: 'archived' }) // Use 'status' field instead of 'is_active'
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('status', 'active');
         
         if (deactivateError) {
@@ -2990,27 +3023,27 @@ app.post('/api/save-plan', async (req, res) => {
         console.log('[SAVE PLAN] Inserting new plan with status=active');
           
           // Extract only the fields that exist in the workout_plans table
-        const planToInsert = {
-          user_id: user.id,
-            name: plan.name || 'AI Generated Plan',
+        const insertPlan = {
+          user_id: userId,
+            name: planData.name || 'AI Generated Plan',
             status: 'active',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-            mesocycle_length_weeks: plan.mesocycle_length_weeks || 4,
-            current_week: plan.current_week || 1,
-            training_level: plan.training_level || 'intermediate',
-            volume_landmarks: plan.volume_landmarks || {},
-            deload_week: plan.deload_week || false,
-            goal_fat_loss: plan.goal_fat_loss || 3,
-            goal_muscle_gain: plan.goal_muscle_gain || 3,
-            estimated_time_per_session: plan.estimated_time_per_session || '45-60 minutes',
+            mesocycle_length_weeks: planData.mesocycle_length_weeks || 4,
+            current_week: planData.current_week || 1,
+            training_level: planData.training_level || 'intermediate',
+            volume_landmarks: planData.volume_landmarks || {},
+            deload_week: planData.deload_week || false,
+            goal_fat_loss: planData.goal_fat_loss || 3,
+            goal_muscle_gain: planData.goal_muscle_gain || 3,
+            estimated_time_per_session: planData.estimated_time_per_session || '45-60 minutes',
             // CRITICAL FIX: Save the weekly schedule data
-            weekly_schedule: plan.weekly_schedule || plan.weeklySchedule || []
+            weekly_schedule: planData.weekly_schedule || planData.weeklySchedule || []
           };
         
         const { data: newPlan, error: insertError } = await supabase
           .from('workout_plans')
-          .insert(planToInsert)
+          .insert(insertPlan)
           .select()
           .single();
 
@@ -3025,7 +3058,7 @@ app.post('/api/save-plan', async (req, res) => {
         // Also materialize splits, sessions and sets so users can start workouts immediately
         try {
           console.log('[SAVE PLAN] Starting to create training splits and sessions');
-          const weeklySchedule = plan.weeklySchedule || plan.weekly_schedule || [];
+          const weeklySchedule = planData.weeklySchedule || planData.weekly_schedule || [];
           
           if (!Array.isArray(weeklySchedule) || weeklySchedule.length === 0) {
             console.warn('[SAVE PLAN] No weekly schedule found in plan');
@@ -3336,7 +3369,7 @@ app.post('/api/save-plan', async (req, res) => {
     // If we're here, either database save succeeded or we're using mock store
     // If we didn't get a plan ID from the database, generate one for the mock store
     if (!newPlanId) {
-      newPlanId = `ai-${Date.now().toString(36)}`;
+      newPlanId = uuidv4();
       console.log('[SAVE PLAN] Generated mock plan ID:', newPlanId);
     }
     
@@ -3347,7 +3380,7 @@ app.post('/api/save-plan', async (req, res) => {
     try {
       // First deactivate any existing active plans
       mockWorkoutPlansStore.plans.forEach(p => {
-        if (p.user_id === user.id && p.is_active) {
+        if (p.user_id === userId && p.is_active) {
           console.log('[SAVE PLAN] Deactivating mock plan:', p.id);
           p.is_active = false;
           p.status = 'archived';
@@ -3356,9 +3389,9 @@ app.post('/api/save-plan', async (req, res) => {
 
       // Then add the new plan
       const mockPlan = {
-        ...plan,
+        ...planData,
         id: newPlanId,
-        user_id: user.id,
+        user_id: userId,
         is_active: true, // For backward compatibility with mock store
         status: 'active', // Use 'status' field
         created_at: new Date().toISOString(),
@@ -4422,7 +4455,7 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
     }
 
     // Fallback: Generate a unique ID for the plan if database save failed
-    const planId = `traditional-${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+    const planId = uuidv4();
 
     // Return nutrition plan with traditional calculations (fallback)
         return res.json({
@@ -4866,7 +4899,6 @@ DAILY NUTRITION TARGETS:
 - Carbohydrates: ${targetCarbs}g
 - Fat: ${targetFat}g
 DIETARY PREFERENCES: ${preferences ? preferences.join(', ') : 'None specified'}
-
 MEAL DISTRIBUTION GUIDELINES:
 - Breakfast: ~25% of daily calories (${Math.round(targetCalories * 0.25)} kcal)
 - Lunch: ~35% of daily calories (${Math.round(targetCalories * 0.35)} kcal)

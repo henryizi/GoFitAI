@@ -10,6 +10,8 @@ import {
 import { generateWeeklyWorkoutPrompt } from './exercisePrompts';
 import { bodybuilderWorkouts, BodybuilderWorkout } from '../../data/bodybuilder-workouts';
 import { WorkoutPlan as AppWorkoutPlan, WorkoutDay as AppWorkoutDay, ExerciseItem } from '../../types/chat';
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 // Exercise data structure for offline fallback
 const BASE_EXERCISES = {
@@ -868,7 +870,7 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           });
           
           const appPlan: AppWorkoutPlan = {
-            id: `server-${Date.now()}`, // Generate client ID
+            id: uuidv4(), // Generate proper UUID v4
             name: serverPlan.name || serverPlan.plan_name || 'AI Generated Plan',
             weeklySchedule: serverPlan.weekly_schedule || serverPlan.weeklySchedule || [],
             training_level: serverPlan.training_level,
