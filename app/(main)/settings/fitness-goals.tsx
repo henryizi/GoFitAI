@@ -88,9 +88,13 @@ const fitnessStrategies = [
 ];
 
 const workoutFrequencies = [
-  { id: '2_3', title: '2-3 times per week', subtitle: 'Light activity' },
-  { id: '4_5', title: '4-5 times per week', subtitle: 'Moderate activity' },
-  { id: '6', title: '6+ times per week', subtitle: 'High activity' },
+  { id: '1', title: '1 Day', subtitle: 'Light routine' },
+  { id: '2', title: '2 Days', subtitle: 'Maintenance' },
+  { id: '3', title: '3 Days', subtitle: 'Balanced' },
+  { id: '4', title: '4 Days', subtitle: 'Active' },
+  { id: '5', title: '5 Days', subtitle: 'Intensive' },
+  { id: '6', title: '6 Days', subtitle: 'Very active' },
+  { id: '7', title: '7 Days', subtitle: 'Elite routine' },
 ];
 
 export default function FitnessGoalsScreen() {
@@ -103,7 +107,7 @@ export default function FitnessGoalsScreen() {
 
   // Handle migration from old 'hypertrophy' value to new 'muscle_gain' value
   const effectiveSelectedGoal = selectedGoal === 'hypertrophy' ? 'muscle_gain' : selectedGoal;
-  const [selectedFrequency, setSelectedFrequency] = useState<string>('4_5');
+  const [selectedFrequency, setSelectedFrequency] = useState<string>('5');
 
   // Debug log initial values and profile changes
   useEffect(() => {
@@ -151,7 +155,7 @@ export default function FitnessGoalsScreen() {
       // Handle migration from 'hypertrophy' to 'muscle_gain'
       const goal = profile.primary_goal === 'hypertrophy' ? 'muscle_gain' : (profile.primary_goal || 'general_fitness');
       setSelectedGoal(goal);
-      setSelectedFrequency(profile.workout_frequency || '4_5');
+      setSelectedFrequency(profile.workout_frequency || '5');
       setSelectedFitnessStrategy(profile.fitness_strategy || 'maintenance');
 
       console.log('✅ Fitness Goals: Local state updated from profile');
@@ -161,7 +165,7 @@ export default function FitnessGoalsScreen() {
       console.log('⚠️ Fitness Goals: Profile is null - using defaults');
       setSelectedTrainingLevel('beginner');
       setSelectedGoal('general_fitness');
-      setSelectedFrequency('4_5');
+      setSelectedFrequency('5');
       setSelectedFitnessStrategy('maintenance');
     }
   }, [profile, userHasModified]);
@@ -174,7 +178,7 @@ export default function FitnessGoalsScreen() {
       const updateData = {
         training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
         primary_goal: selectedGoal as 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_performance',
-        workout_frequency: selectedFrequency as '2_3' | '4_5' | '6',
+        workout_frequency: selectedFrequency as '1' | '2' | '3' | '4' | '5' | '6' | '7',
         fitness_strategy: selectedFitnessStrategy as 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining',
       };
 

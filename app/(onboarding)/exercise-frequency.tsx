@@ -12,7 +12,7 @@ import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayo
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 import { LinearGradient } from 'expo-linear-gradient';
 
-type WorkoutFrequency = '1' | '2-3' | '4-5' | '6-7';
+type WorkoutFrequency = '1' | '2' | '3' | '4' | '5' | '6' | '7';
 
 // This screen collects the user's preferred workout frequency 
 // which will be used to generate personalized workout plans
@@ -21,17 +21,22 @@ const ExerciseFrequencyScreen = () => {
   const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
 
   // Map exercise frequency to workout plan frequency
-  const mapToWorkoutFrequency = (exerciseFreq: WorkoutFrequency): '2_3' | '4_5' | '6' => {
+  const mapToWorkoutFrequency = (exerciseFreq: WorkoutFrequency): '1' | '2' | '3' | '4_5' | '6_7' => {
     switch (exerciseFreq) {
       case '1':
-      case '2-3':
-        return '2_3';
-      case '4-5':
+        return '1';
+      case '2':
+        return '2';
+      case '3':
+        return '3';
+      case '4':
+      case '5':
         return '4_5';
-      case '6-7':
-        return '6';
+      case '6':
+      case '7':
+        return '6_7';
       default:
-        return '2_3'; // Default for beginners
+        return '3'; // Default to 3 days
     }
   };
 
@@ -85,22 +90,44 @@ const ExerciseFrequencyScreen = () => {
   const options = [
     {
       value: '1' as WorkoutFrequency,
-      title: '1 workout per week',
-      icon: 'sleep' as const,
+      title: '1 Day',
+      subtitle: 'Light routine',
+      icon: 'numeric-1-circle' as const,
     },
     {
-      value: '2-3' as WorkoutFrequency,
-      title: '2-3 workouts per week',
-      icon: 'walk' as const,
+      value: '2' as WorkoutFrequency,
+      title: '2 Days',
+      subtitle: 'Maintenance',
+      icon: 'numeric-2-circle' as const,
     },
     {
-      value: '4-5' as WorkoutFrequency,
-      title: '4-5 workouts per week',
-      icon: 'run' as const,
+      value: '3' as WorkoutFrequency,
+      title: '3 Days',
+      subtitle: 'Balanced',
+      icon: 'numeric-3-circle' as const,
     },
     {
-      value: '6-7' as WorkoutFrequency,
-      title: '6-7 workouts per week',
+      value: '4' as WorkoutFrequency,
+      title: '4 Days',
+      subtitle: 'Active',
+      icon: 'numeric-4-circle' as const,
+    },
+    {
+      value: '5' as WorkoutFrequency,
+      title: '5 Days',
+      subtitle: 'Intensive',
+      icon: 'numeric-5-circle' as const,
+    },
+    {
+      value: '6' as WorkoutFrequency,
+      title: '6 Days',
+      subtitle: 'Very active',
+      icon: 'numeric-6-circle' as const,
+    },
+    {
+      value: '7' as WorkoutFrequency,
+      title: '7 Days',
+      subtitle: 'Elite routine',
       icon: 'dumbbell' as const,
     },
   ];
@@ -145,6 +172,7 @@ const ExerciseFrequencyScreen = () => {
                   <Text style={[styles.cardTitle, frequency === option.value && styles.selectedText]}>
                     {option.title}
                   </Text>
+                  <Text style={styles.cardSubtitle}>{option.subtitle}</Text>
                 </View>
                 <View style={[styles.radioButton, frequency === option.value && styles.radioButtonSelected]}>
                   {frequency === option.value && (
@@ -217,6 +245,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   selectedText: {
     color: '#FFFFFF',

@@ -96,8 +96,10 @@ export default function AICustomPlanScreen() {
     { value: '1', label: '1 Day', description: 'Light routine', icon: 'numeric-1-circle' },
     { value: '2', label: '2 Days', description: 'Maintenance', icon: 'numeric-2-circle' },
     { value: '3', label: '3 Days', description: 'Balanced', icon: 'numeric-3-circle' },
-    { value: '4_5', label: '4-5 Days', description: 'Optimal', icon: 'numeric-4-circle', recommended: true },
-    { value: '6_7', label: '6-7 Days', description: 'Intense', icon: 'numeric-6-circle' }
+    { value: '4', label: '4 Days', description: 'Active', icon: 'numeric-4-circle' },
+    { value: '5', label: '5 Days', description: 'Optimal', icon: 'numeric-5-circle', recommended: true },
+    { value: '6', label: '6 Days', description: 'Intense', icon: 'numeric-6-circle' },
+    { value: '7', label: '7 Days', description: 'Elite routine', icon: 'dumbbell' }
   ];
 
   const handleGeneratePlan = async () => {

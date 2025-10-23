@@ -1,8 +1,6 @@
-const fetch = require('node-fetch');
-
 async function testAPI() {
   try {
-    console.log('🧪 Testing AI Workout Plan Generation...\n');
+    console.log('🧪 Testing AI Workout Plan Generation with 7-Day Schedule...\n');
     
     const response = await fetch('https://gofitai-production.up.railway.app/api/generate-workout-plan', {
       method: 'POST',
@@ -29,11 +27,61 @@ async function testAPI() {
       const days = data.workoutPlan.weeklySchedule;
       console.log(`✅ API Response received!`);
       console.log(`📅 Workout plan has ${days.length} days`);
-      console.log('\nDaily breakdown:');
+      
+      if (days.length === 7) {
+        console.log('✅ CORRECT: Plan has 7 days as expected\n');
+      } else {
+        console.log(`❌ ERROR: Plan should have 7 days, but has ${days.length}\n`);
+      }
+      
+      console.log('Daily breakdown:');
+      let trainingDays = 0;
+      let restDays = 0;
+      
       days.forEach((day, index) => {
         const exerciseCount = day.exercises ? day.exercises.length : 0;
-        console.log(`  Day ${index + 1} (${day.focusArea}): ${exerciseCount} exercises`);
+        const isRestDay = day.focus && day.focus.toLowerCase().includes('rest');
+        
+        if (isRestDay) {
+          restDays++;
+          console.log(`  Day ${index + 1} (${day.focus}): ✅ Rest Day - 0 exercises`);
+        } else {
+          trainingDays++;
+          console.log(`  Day ${index + 1} (${day.focus}): 💪 ${exerciseCount} exercises`);
+        }
       });
+      
+      console.log(`\n📊 Summary:`);
+      console.log(`  Training Days: ${trainingDays}`);
+      console.log(`  Rest Days: ${restDays}`);
+      console.log(`  Total Days: ${trainingDays + restDays}`);
+      
+      if (restDays > 0) {
+        console.log('✅ CORRECT: Plan includes rest days\n');
+      } else {
+        console.log('❌ ERROR: Plan should include rest days but does not\n');
+      }
+      
+      // Now test the save plan endpoint to ensure all days are saved to the database
+      if (data.workoutPlan.id) {
+        console.log(`Now testing if all ${days.length} days were saved to the database...`);
+        console.log(`Plan ID: ${data.workoutPlan.id}\n`);
+        
+        const savePlanResponse = await fetch('https://gofitai-production.up.railway.app/api/save-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            plan: data.workoutPlan,
+            userId: 'test-user-' + Date.now()
+          })
+        });
+        
+        const saveResult = await savePlanResponse.json();
+        console.log('Save plan response:', saveResult);
+      }
+      
     } else {
       console.log('❌ Unexpected response format');
       console.log(JSON.stringify(data, null, 2));

@@ -421,11 +421,8 @@ export class WorkoutService {
         return [];
       }
       
-      // Validate planId is a proper UUID
-      if (!isValidUUID(planId)) {
-        console.error('[WorkoutService] Invalid plan ID format:', planId);
-        return [];
-      }
+      // Log the plan ID for debugging
+      console.log('[WorkoutService] getSessionsForPlan called with planId:', planId);
       
       // First attempt: try to fetch with estimated_calories
       let { data: sessions, error } = await supabase

@@ -33,9 +33,11 @@ function composeEnhancedWorkoutPrompt(params) {
     '2': { min: 2, max: 2, display: '2 days' },
     '2_3': { min: 3, max: 3, display: '3 days' }, // Always use upper limit
     '3': { min: 3, max: 3, display: '3 days' },
+    '3_4': { min: 4, max: 4, display: '4 days' }, // Always use upper limit
     '4': { min: 4, max: 4, display: '4 days' },
     '4_5': { min: 5, max: 5, display: '5 days' }, // Always use upper limit to match system expectation
     '5': { min: 5, max: 5, display: '5 days' },
+    '5_6': { min: 6, max: 6, display: '6 days' }, // Always use upper limit
     '6': { min: 6, max: 6, display: '6 days' },
     '6_7': { min: 7, max: 7, display: '7 days' }, // Always use upper limit
     '7': { min: 7, max: 7, display: '7 days' }
@@ -326,9 +328,11 @@ function transformAIWorkoutResponse(rawPlan, params) {
     '2': { min: 2, max: 2, display: '2 days' },
     '2_3': { min: 3, max: 3, display: '3 days' },
     '3': { min: 3, max: 3, display: '3 days' },
+    '3_4': { min: 4, max: 4, display: '4 days' },
     '4': { min: 4, max: 4, display: '4 days' },
     '4_5': { min: 5, max: 5, display: '5 days' },
     '5': { min: 5, max: 5, display: '5 days' },
+    '5_6': { min: 6, max: 6, display: '6 days' },
     '6': { min: 6, max: 6, display: '6 days' },
     '6_7': { min: 7, max: 7, display: '7 days' },
     '7': { min: 7, max: 7, display: '7 days' }
@@ -337,7 +341,11 @@ function transformAIWorkoutResponse(rawPlan, params) {
   
   console.log(`[AI WORKOUT] Debug: workoutFrequency=${workoutFrequency}, expectedDays=${expectedDays}, actualDays=${rawPlan.weekly_schedule.length}`);
   
-  if (rawPlan.weekly_schedule.length < expectedDays) {
+  // CRITICAL: Trim excess days if AI generated too many
+  if (rawPlan.weekly_schedule.length > expectedDays) {
+    console.log(`[AI WORKOUT] AI generated ${rawPlan.weekly_schedule.length} days, expected ${expectedDays}. Trimming excess days.`);
+    rawPlan.weekly_schedule = rawPlan.weekly_schedule.slice(0, expectedDays);
+  } else if (rawPlan.weekly_schedule.length < expectedDays) {
     console.log(`[AI WORKOUT] AI generated ${rawPlan.weekly_schedule.length} days, expected ${expectedDays}. Adding missing days.`);
     
     // Add missing days with proper structure

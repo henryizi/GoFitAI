@@ -394,8 +394,16 @@ class GeminiTextService {
         console.log(`[GEMINI TEXT] 🚀 DEPLOYMENT VERSION: v1.0.2 - Model fallback enabled`);
         console.log('[GEMINI TEXT] ════════════════════════════════════════════════');
         console.log(`[GEMINI TEXT] Generating workout plan (Model: ${this.modelName}, attempt ${modelAttempt + 1}/${this.modelFallbackChain.length})`);
+        
+        // Extract actual primary goal from the prompt for logging
+        let primaryGoalFromPrompt = 'N/A';
+        const goalMatch = prompt.match(/Primary Goal:\s*([^\n]+)/);
+        if (goalMatch && goalMatch[1]) {
+          primaryGoalFromPrompt = goalMatch[1].trim();
+        }
+        
         console.log('[GEMINI TEXT] User level: N/A (using prompt-based generation)');
-        console.log('[GEMINI TEXT] Goal: N/A (using prompt-based generation)');
+        console.log('[GEMINI TEXT] Goal: ' + primaryGoalFromPrompt + ' (extracted from prompt)');
 
       const startTime = Date.now();
 
