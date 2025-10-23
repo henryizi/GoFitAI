@@ -114,7 +114,7 @@ EXAMPLE FORMAT (use this exact structure):
           "name": "Bench Press",
           "sets": 4,
           "reps": "8-10",
-          "rest": "2-3 min"
+          "rest": "90s"
         }
       ]
     }
@@ -162,7 +162,7 @@ ${split}
 💪 EXERCISE PROGRAMMING:
 Goal: ${primaryGoal.replace(/_/g, ' ')}
 - Rep Range: ${guidance.repRange} reps per set
-- Rest Time: ${guidance.restTime} between sets (MUST be a single value like "90s", NOT a range like "90-120s")
+- Rest Time: ${guidance.restTime} between sets (CRITICAL: Use ONLY single values like "90s", "60s", "120s" - NEVER use ranges like "90-120s")
 - Intensity: ${guidance.intensity} loads
 - Focus: ${guidance.focus}
 
@@ -188,6 +188,8 @@ Advanced: 20-25+ sets per muscle group per week
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (CRITICAL - MUST FOLLOW EXACTLY)
 ═══════════════════════════════════════════════════════════
+
+🚨 CRITICAL REST TIME RULE: Use ONLY single values like "90s", "60s", "120s" - NEVER ranges like "90-120s" or "2-3 min" 🚨
 
 You MUST respond with a valid JSON object. Do not include any markdown, explanations, or text outside the JSON.
 
@@ -556,7 +558,7 @@ function transformAIWorkoutResponse(rawPlan, params) {
 
 /**
  * Parse and normalize rest time to a single value
- * Handles ranges like "90-120s" by taking the midpoint
+ * Handles ranges like "90-120s" by taking the lower bound (shorter rest)
  */
 function parseRestTime(restValue) {
   if (!restValue) return '90s';
@@ -568,20 +570,20 @@ function parseRestTime(restValue) {
     return restStr.endsWith('s') || restStr.endsWith('S') ? restStr : restStr + 's';
   }
   
-  // Handle ranges like "90-120s" or "2-3 min"
+  // Handle ranges like "90-120s" or "2-3 min" - take the lower bound
   const rangeMatch = restStr.match(/^(\d+)-(\d+)([smin]+)?$/i);
   if (rangeMatch) {
     const [, min, max, unit] = rangeMatch;
-    const avg = Math.round((parseInt(min) + parseInt(max)) / 2);
-    return avg + (unit || 's');
+    console.warn(`[AI WORKOUT] ⚠️ Rest time range detected: "${restStr}" - using lower bound: ${min}${unit || 's'}`);
+    return min + (unit || 's');
   }
   
-  // Handle ranges with spaces like "90 - 120 s"
+  // Handle ranges with spaces like "90 - 120 s" - take the lower bound
   const spacedRangeMatch = restStr.match(/^(\d+)\s*-\s*(\d+)\s*([smin]+)?$/i);
   if (spacedRangeMatch) {
     const [, min, max, unit] = spacedRangeMatch;
-    const avg = Math.round((parseInt(min) + parseInt(max)) / 2);
-    return avg + (unit || 's');
+    console.warn(`[AI WORKOUT] ⚠️ Rest time range detected: "${restStr}" - using lower bound: ${min}${unit || 's'}`);
+    return min + (unit || 's');
   }
   
   // Default fallback
