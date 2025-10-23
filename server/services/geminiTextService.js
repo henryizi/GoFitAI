@@ -430,9 +430,9 @@ class GeminiTextService {
           console.log('[GEMINI TEXT] Using optimized workout model config');
           console.log('[GEMINI TEXT] About to call workoutModel.generateContent');
 
-          // Create timeout promise - increased to 240 seconds for complex workouts
+          // Create timeout promise - increased to 300 seconds for complex workouts
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Gemini request timeout after 240 seconds')), 240000);
+            setTimeout(() => reject(new Error('Gemini request timeout after 300 seconds')), 300000);
           });
 
           // Race between generation and timeout
@@ -659,9 +659,15 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         
         // IMPROVED: Increase timeout duration for complex requests
         // Use environment variables for timeout configuration with fallbacks
-        // Increased timeouts: complex=360s (6min), simple=240s (4min) - Gemini can take time for large responses
-        const complexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS) || 360000;
-        const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 240000; // Increased from 180s to 240s
+        // CRITICAL: Minimum 60s for any request, 120s for workout/recipe generation
+        // Increased timeouts: complex=360s (6min), simple=120s (2min) - Gemini can take time for large responses
+        const envComplexTimeout = parseInt(process.env.AI_COMPLEX_TIMEOUT) || parseInt(process.env.GEMINI_TIMEOUT_MS);
+        const envSimpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT);
+        
+        // Enforce minimum timeouts: 120s for workout/recipe, 60s for other requests
+        const complexTimeout = envComplexTimeout ? Math.max(envComplexTimeout, 360000) : 360000;
+        const simpleTimeout = envSimpleTimeout ? Math.max(envSimpleTimeout, 120000) : 120000; // Minimum 120s instead of 60s
+        
         const timeoutDuration = isComplexRequest ? complexTimeout : simpleTimeout;
         console.log(`[GEMINI TEXT] Complex request detected: ${isComplexRequest}, timeout: ${timeoutDuration/1000}s`);
 
