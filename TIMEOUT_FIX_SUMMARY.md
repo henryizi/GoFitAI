@@ -16,7 +16,7 @@ Users experiencing timeout errors during workout plan generation:
 ```
 
 **Root Cause:**  
-Environment variables (`AI_REQUEST_TIMEOUT`, `AI_COMPLEX_TIMEOUT`, `GEMINI_TIMEOUT_MS`) were overriding default timeouts, causing extremely short 30-second timeouts that were insufficient for workout plan generation.
+Railway environment variable `AI_REQUEST_TIMEOUT=30000` (30 seconds) was overriding default timeouts. The old deployed code didn't enforce minimums, so it used the 30-second value instead of 240 seconds. Additionally, `parseInt()` could return `NaN` which would cause `Math.max(NaN, 120000)` to return `NaN` as well.
 
 ---
 
@@ -26,10 +26,11 @@ Updated `server/services/geminiTextService.js` to enforce minimum timeout values
 
 ### Changes Made:
 
-1. **Enforced Minimum Timeouts** (Lines 660-672)
+1. **Enforced Minimum Timeouts** (Lines 660-673)
    - Simple requests: **Minimum 120 seconds** (was allowing 30s from env vars)
    - Complex requests: **Minimum 360 seconds** (6 minutes)
    - Both values now have `Math.max()` guards to prevent env var overrides
+   - **CRITICAL FIX**: Added `isNaN()` validation to prevent `parseInt()` returning `NaN` from causing timeout failures
 
 2. **Increased Workout-Specific Timeout** (Lines 433-436)
    - Workout generation: **300 seconds** (increased from 240s)
@@ -40,10 +41,13 @@ Updated `server/services/geminiTextService.js` to enforce minimum timeout values
 ```javascript
 // Before: Allowed environment variables to set any timeout (even 30s)
 const simpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT) || 240000;
+// If env var = 30000, it uses 30000 ❌
 
-// After: Enforces minimum of 120s
+// After: Enforces minimum of 120s with NaN validation
 const envSimpleTimeout = parseInt(process.env.AI_REQUEST_TIMEOUT);
-const simpleTimeout = envSimpleTimeout ? Math.max(envSimpleTimeout, 120000) : 120000;
+const simpleTimeout = (!isNaN(envSimpleTimeout) && envSimpleTimeout > 0) 
+  ? Math.max(envSimpleTimeout, 120000) : 120000;
+// Even if env var = 30000, it enforces minimum 120000 ✅
 ```
 
 ---
