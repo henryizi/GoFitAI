@@ -431,15 +431,22 @@ function transformAIWorkoutResponse(rawPlan, params) {
         exercises = [];
       } else if (day.exercises && Array.isArray(day.exercises) && day.exercises.length > 0) {
         // New format - exercises array
-        exercises = day.exercises.map(ex => ({
-          name: ex.name,
-          sets: Number(ex.sets) || 3,
-          reps: String(ex.reps),
-          rest: parseRestTime(ex.rest || '90s'),
-          notes: ex.notes || '',
-          category: determineExerciseCategory(ex.name),
-          difficulty: trainingLevel
-        }));
+        exercises = day.exercises.map(ex => {
+          const originalRest = ex.rest || '90s';
+          const parsedRest = parseRestTime(originalRest);
+          if (originalRest !== parsedRest) {
+            console.log(`[AI WORKOUT] ⚠️ Parsed rest time: "${originalRest}" -> "${parsedRest}"`);
+          }
+          return {
+            name: ex.name,
+            sets: Number(ex.sets) || 3,
+            reps: String(ex.reps),
+            rest: parsedRest,
+            notes: ex.notes || '',
+            category: determineExerciseCategory(ex.name),
+            difficulty: trainingLevel
+          };
+        });
       } else if ((day.warm_up && day.warm_up.length > 0) || (day.main_workout && day.main_workout.length > 0) || (day.cool_down && day.cool_down.length > 0)) {
         // Old format - combine warm_up, main_workout, cool_down
         const allExercises = [
@@ -564,29 +571,35 @@ function parseRestTime(restValue) {
   if (!restValue) return '90s';
   
   const restStr = String(restValue).trim();
+  console.log(`[PARSE REST] Input: "${restStr}"`);
   
   // If it's already a single value with 's' or 'min', return as is
   if (/^\d+[s]?$/i.test(restStr) || /^\d+\s*(min|minutes?)$/i.test(restStr)) {
-    return restStr.endsWith('s') || restStr.endsWith('S') ? restStr : restStr + 's';
+    const result = restStr.endsWith('s') || restStr.endsWith('S') ? restStr : restStr + 's';
+    console.log(`[PARSE REST] Single value detected, result: "${result}"`);
+    return result;
   }
   
   // Handle ranges like "90-120s" or "2-3 min" - take the lower bound
   const rangeMatch = restStr.match(/^(\d+)-(\d+)([smin]+)?$/i);
   if (rangeMatch) {
     const [, min, max, unit] = rangeMatch;
-    console.warn(`[AI WORKOUT] ⚠️ Rest time range detected: "${restStr}" - using lower bound: ${min}${unit || 's'}`);
-    return min + (unit || 's');
+    const result = min + (unit || 's');
+    console.warn(`[PARSE REST] ⚠️ Range detected: "${restStr}" -> "${result}"`);
+    return result;
   }
   
   // Handle ranges with spaces like "90 - 120 s" - take the lower bound
   const spacedRangeMatch = restStr.match(/^(\d+)\s*-\s*(\d+)\s*([smin]+)?$/i);
   if (spacedRangeMatch) {
     const [, min, max, unit] = spacedRangeMatch;
-    console.warn(`[AI WORKOUT] ⚠️ Rest time range detected: "${restStr}" - using lower bound: ${min}${unit || 's'}`);
-    return min + (unit || 's');
+    const result = min + (unit || 's');
+    console.warn(`[PARSE REST] ⚠️ Spaced range detected: "${restStr}" -> "${result}"`);
+    return result;
   }
   
   // Default fallback
+  console.log(`[PARSE REST] Using default fallback`);
   return '90s';
 }
 

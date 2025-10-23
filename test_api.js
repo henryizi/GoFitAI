@@ -48,6 +48,14 @@ async function testAPI() {
         } else {
           trainingDays++;
           console.log(`  Day ${index + 1} (${day.focus}): 💪 ${exerciseCount} exercises`);
+          
+          // Show rest times for first day
+          if (index === 0 && day.exercises && day.exercises.length > 0) {
+            console.log('\n  📋 Rest times for Day 1 exercises:');
+            day.exercises.forEach((ex, exIdx) => {
+              console.log(`    ${exIdx + 1}. ${ex.name}: rest = "${ex.rest}"`);
+            });
+          }
         }
       });
       
