@@ -4,6 +4,17 @@ import { WorkoutLocalStore } from './WorkoutLocalStore';
 import { GeminiService } from '../ai/GeminiService';
 import { supabase } from '../supabase/client';
 
+/**
+ * Validate if a string is a valid UUID
+ */
+function isValidUUID(value: any): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
 // Re-export all workout-related services for convenience
 export { WorkoutHistoryService } from './WorkoutHistoryService';
 export { ExerciseService } from './ExerciseService';
@@ -87,13 +98,35 @@ export class WorkoutService {
    * Get the first active workout plan (single plan)
    */
   static async getActivePlan(userId: string): Promise<StoredWorkoutPlan | null> {
-    const activePlans = this.getActivePlans();
-    if (activePlans.length === 0) {
+    try {
+      // First try to get from Supabase database
+      if (supabase) {
+        const { data: plans, error } = await supabase
+          .from('workout_plans')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (!error && plans && plans.length > 0) {
+          console.log('[WorkoutService] Found active plan in database:', plans[0].id);
+          return plans[0] as StoredWorkoutPlan;
+        }
+      }
+      
+      // Fallback to local memory
+      const activePlans = this.getActivePlans();
+      if (activePlans.length === 0) {
+        return null;
+      }
+
+      // Return the first active plan
+      return activePlans[0];
+    } catch (error) {
+      console.error('[WorkoutService] Error getting active plan:', error);
       return null;
     }
-
-    // Return the first active plan
-    return activePlans[0];
   }
 
   /**
@@ -101,6 +134,21 @@ export class WorkoutService {
    */
   static async getPlansForUser(userId: string): Promise<StoredWorkoutPlan[]> {
     try {
+      // First try to get from Supabase database
+      if (supabase) {
+        const { data: plans, error } = await supabase
+          .from('workout_plans')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        
+        if (!error && plans && plans.length > 0) {
+          console.log('[WorkoutService] Found', plans.length, 'plans in database for user');
+          return plans as StoredWorkoutPlan[];
+        }
+      }
+      
+      // Fallback to local storage
       return await WorkoutLocalStore.getPlans(userId);
     } catch (error) {
       console.error('[WorkoutService] Error getting plans for user:', error);
@@ -340,6 +388,21 @@ export class WorkoutService {
    */
   static async getPlanById(planId: string): Promise<StoredWorkoutPlan | null> {
     try {
+      // First try to get from Supabase database
+      if (supabase) {
+        const { data: plan, error } = await supabase
+          .from('workout_plans')
+          .select('*')
+          .eq('id', planId)
+          .single();
+        
+        if (!error && plan) {
+          console.log('[WorkoutService] Found plan in database:', planId);
+          return plan as StoredWorkoutPlan;
+        }
+      }
+      
+      // Fallback to local storage
       const allPlans = await WorkoutLocalStore.getAllPlans();
       return allPlans.find(p => p.id === planId) || null;
     } catch (error) {
@@ -353,10 +416,94 @@ export class WorkoutService {
    */
   static async getSessionsForPlan(planId: string): Promise<any[]> {
     try {
-      // This would typically come from workout history or sessions storage
-      // For now, return empty array as sessions are not stored in the current implementation
-      console.log(`[WorkoutService] Getting sessions for plan ${planId}`);
-      return [];
+      if (!supabase) {
+        console.warn('[WorkoutService] Supabase not available');
+        return [];
+      }
+      
+      // Validate planId is a proper UUID
+      if (!isValidUUID(planId)) {
+        console.error('[WorkoutService] Invalid plan ID format:', planId);
+        return [];
+      }
+      
+      // First attempt: try to fetch with estimated_calories
+      let { data: sessions, error } = await supabase
+        .from('workout_sessions')
+        .select(`
+          id,
+          plan_id,
+          split_id,
+          day_number,
+          week_number,
+          status,
+          completed_at,
+          estimated_calories,
+          training_splits:split_id (
+            id,
+            name,
+            focus_areas,
+            order_in_week
+          )
+        `)
+        .eq('plan_id', planId)
+        .order('day_number', { ascending: true });
+      
+      // If error is due to missing estimated_calories column, retry without it
+      if (error && error.message && error.message.includes('estimated_calories')) {
+        console.log('[WorkoutService] estimated_calories column not found, retrying without it');
+        
+        const { data: sessionsRetry, error: errorRetry } = await supabase
+          .from('workout_sessions')
+          .select(`
+            id,
+            plan_id,
+            split_id,
+            day_number,
+            week_number,
+            status,
+            completed_at,
+            training_splits:split_id (
+              id,
+              name,
+              focus_areas,
+              order_in_week
+            )
+          `)
+          .eq('plan_id', planId)
+          .order('day_number', { ascending: true });
+        
+        if (errorRetry) {
+          console.error('[WorkoutService] Error fetching sessions (retry):', errorRetry);
+          return [];
+        }
+        
+        sessions = sessionsRetry;
+      } else if (error) {
+        // Check if error is related to invalid UUID format
+        if (error.message && error.message.includes('invalid input syntax for type uuid')) {
+          console.error('[WorkoutService] UUID validation error - invalid format in database. Plan ID:', planId);
+          console.error('[WorkoutService] Error details:', error);
+          return [];
+        }
+        console.error('[WorkoutService] Error fetching sessions:', error);
+        return [];
+      }
+      
+      // Validate that split_ids in returned data are valid UUIDs
+      if (sessions && Array.isArray(sessions)) {
+        sessions = sessions.filter(session => {
+          if (!isValidUUID(session.split_id)) {
+            console.warn('[WorkoutService] Filtering out session with invalid split_id:', session.split_id);
+            return false;
+          }
+          return true;
+        });
+      }
+      
+      console.log(`[WorkoutService] Found ${sessions?.length || 0} valid sessions for plan ${planId}`);
+      
+      return sessions || [];
     } catch (error) {
       console.error('[WorkoutService] Error getting sessions for plan:', error);
       return [];

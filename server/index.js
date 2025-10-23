@@ -90,7 +90,9 @@ function getMinFrequency(frequency) {
   
   const minMap = {
     '2_3': 2,
+    '3_4': 3,
     '4_5': 4,
+    '5_6': 5,
     '6': 6
   };
   return minMap[frequency] || 4;
@@ -104,7 +106,9 @@ function getMaxFrequency(frequency) {
   
   const maxMap = {
     '2_3': 3,
+    '3_4': 4,
     '4_5': 5,
+    '5_6': 6,
     '5': 5,
     '6': 6
   };
@@ -125,7 +129,9 @@ function getFrequencyExplanation(frequency) {
   
   const explanations = {
     '2_3': '- This is a LOW FREQUENCY plan (2-3 training days per week)\n- Example schedule: Monday (Upper Body), Wednesday (Lower Body), Friday (Full Body)\n- Include 4-5 rest days',
+    '3_4': '- This is a LOW-MODERATE FREQUENCY plan (3-4 training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Thursday (Legs), Friday (Full Body)\n- Include 3-4 rest days',
     '4_5': '- This is a MODERATE-HIGH FREQUENCY plan (4-5 training days per week)\n- Example schedule: Monday (Push), Tuesday (Pull), Wednesday (Legs), Thursday (Rest), Friday (Upper), Saturday (Lower), Sunday (Rest)\n- Include only 2-3 rest days',
+    '5_6': '- This is a HIGH FREQUENCY plan (5-6 training days per week)\n- Example schedule: Monday through Friday with training, Saturday optional, Sunday as rest\n- Include only 1-2 rest days',
     '6': '- This is a HIGH FREQUENCY plan (6 training days per week)\n- Example schedule: Monday through Saturday with training, only Sunday as rest\n- Include only 1 rest day'
   };
   return explanations[frequency] || explanations['4_5'];
@@ -309,7 +315,6 @@ function adjustWeeklyScheduleForFrequency(plan, targetWorkoutDays, goal) {
     sessions_per_week: targetWorkoutDays
   };
 }
-
 // Apply strategic weekly distribution to AI-generated workout plans
 function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   
@@ -346,8 +351,14 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
       case '2_3':
         targetWorkoutDays = 3;
         break;
+      case '3_4':
+        targetWorkoutDays = 4;
+        break;
       case '4_5':
         targetWorkoutDays = 5;
+        break;
+      case '5_6':
+        targetWorkoutDays = 6;
         break;
       case '6':
         targetWorkoutDays = 6;
@@ -462,8 +473,7 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
               reps: ex.reps || "8-12",
               rest: ex.rest_seconds || ex.rest || "60s",
               type: "main_workout",
-              instructions: ex.instructions,
-              modifications: ex.modifications
+              instructions: ex.instructions
             })),
             // Keep cool-down exercises
             ...(originalWorkout.cool_down || []).map(ex => ({
@@ -476,6 +486,12 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
             }))
           ]
       };
+      
+      // CRITICAL FIX: Ensure exercises is an array
+      if (!Array.isArray(transformedWorkout.exercises)) {
+        console.warn(`[applyWeeklyDistribution] ⚠️ WARNING: Exercises is not an array for ${transformedWorkout.focus}, initializing as empty array`);
+        transformedWorkout.exercises = [];
+      }
       
       newWeeklySchedule.push(transformedWorkout);
       workoutIndex++;
@@ -504,6 +520,25 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
   ).length;
   console.log('[applyWeeklyDistribution] 🔍 Days with exercises:', daysWithExercises, '/', newWeeklySchedule.length);
   
+  // CRITICAL VALIDATION: Ensure we have exactly 7 days
+  if (newWeeklySchedule.length !== 7) {
+    console.error(`[applyWeeklyDistribution] ❌ ERROR: Generated schedule has ${newWeeklySchedule.length} days instead of 7!`);
+    // Pad with rest days if necessary
+    while (newWeeklySchedule.length < 7) {
+      const index = newWeeklySchedule.length;
+      newWeeklySchedule.push({
+        day: dayNames[index],
+        day_name: `Day ${index + 1}`,
+        focus: "Rest Day",
+        type: "Rest",
+        workout_type: "Rest",
+        duration_minutes: 0,
+        exercises: []
+      });
+    }
+    console.log('[applyWeeklyDistribution] ✅ Padded schedule to 7 days');
+  }
+  
   return {
     ...aiWorkoutPlan,
     weekly_schedule: newWeeklySchedule,
@@ -511,7 +546,6 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
     distribution_applied: true
   };
 }
-
 // Generate personalized exercises based on user profile
 function generatePersonalizedExercises(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays) {
   // Exercise database categorized by type, equipment, and difficulty
@@ -537,7 +571,7 @@ function generatePersonalizedExercises(userProfile, goal, level, age, gender, wo
         { name: "Leg Swings", sets: 3, reps: "10-15", restBetweenSets: "60s" },
         { name: "Chest Opener", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
         { name: "Hip Openers", sets: 3, reps: "30-60s", restBetweenSets: "60s" },
-        { name: "Spinal Twists", sets: 3, reps: "10-15", restBetweenSets: "60s" }
+        { name: "Spinal Twists", sets: 3, reps: "10-15", restBetweenSets: "30s" }
       ]
     },
     // General strength exercises
@@ -756,8 +790,12 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       daysPerWeek = 1;
     } else if (workoutFrequency === '2_3') {
       daysPerWeek = 3;  // Always 3 for 2-3 range
+    } else if (workoutFrequency === '3_4') {
+      daysPerWeek = 4;  // Always 4 for 3-4 range
     } else if (workoutFrequency === '4_5') {
       daysPerWeek = 5;  // Always 5 for 4-5 range (was randomly 4 or 5, causing issues)
+    } else if (workoutFrequency === '5_6') {
+      daysPerWeek = 6;  // Always 6 for 5-6 range
     } else if (workoutFrequency === '6') {
       daysPerWeek = 6;
     } else if (workoutFrequency === '7') {
@@ -936,9 +974,13 @@ function generateRuleBasedWorkoutPlan(userProfile) {
       targetWorkoutDays = 1;
     } else if (workoutFrequency === '2_3') {
       targetWorkoutDays = Math.random() < 0.5 ? 2 : 3;
+    } else if (workoutFrequency === '3_4') {
+      targetWorkoutDays = Math.random() < 0.5 ? 3 : 4;
     } else if (workoutFrequency === '4_5') {
       // For intermediate users, favor 5 days for better results
       targetWorkoutDays = fitnessLevel === 'intermediate' ? 5 : (Math.random() < 0.5 ? 4 : 5);
+    } else if (workoutFrequency === '5_6') {
+      targetWorkoutDays = Math.random() < 0.5 ? 5 : 6;
     } else if (workoutFrequency === '6') {
       targetWorkoutDays = 6;
     } else if (workoutFrequency === '7') {
@@ -1237,7 +1279,6 @@ function calculateGoalCalories(
 
   return { goalCalories, adjustment, adjustmentReason };
 }
-
 /**
  * Get macronutrient ratios based on fitness strategy
  * Returns protein, carbs, and fat percentages that sum to 100%
@@ -1731,7 +1772,6 @@ if (GEMINI_API_KEY) {
   geminiTextService = null;
   geminiWorkoutService = null;
 }
-
 // AI Provider Priority List (Gemini only)
 const AI_PROVIDERS = [
   {
@@ -1751,7 +1791,6 @@ const AI_PROVIDERS = [
 ]
   // Filter to enabled providers first
   .filter(provider => provider.enabled);
-
 // Validate provider configurations
 function isValidUrl(string) {
   if (!string) return false;
@@ -1917,8 +1956,12 @@ function validateAndFixWorkoutFrequency(plan, profile) {
   // Parse target frequency - always use the UPPER limit of ranges
   if (targetFrequency === '2_3') {
     targetTrainingDays = 3; // Upper limit: 3 days
+  } else if (targetFrequency === '3_4') {
+    targetTrainingDays = 4; // Upper limit: 4 days
   } else if (targetFrequency === '4_5') {
     targetTrainingDays = 5; // Upper limit: 5 days (was 4, causing the issue)
+  } else if (targetFrequency === '5_6') {
+    targetTrainingDays = 6; // Upper limit: 6 days
   } else if (targetFrequency === '6') {
     targetTrainingDays = 6; // Exactly 6 days
   } else {
@@ -2215,10 +2258,8 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
     estimatedTimePerSession: plan.estimatedTimePerSession || `${plan.sessions_per_week ? Math.round(60 * plan.sessions_per_week / 7) : 60} minutes`
   };
 }
-
 // Enhanced AI Workout Generator
 const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse } = require('./services/aiWorkoutGenerator');
-
 // Add a new endpoint for generating personalized workout plans
 app.post('/api/generate-workout-plan', async (req, res) => {
   console.log('[WORKOUT] /api/generate-workout-plan called');
@@ -2264,6 +2305,19 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       gender: profileData.gender
     });
 
+    // 🔧 VALIDATE PROFILE DATA BEFORE SENDING TO AI
+    if (!profileData.primary_goal || profileData.primary_goal === 'general_fitness') {
+      console.warn('[WORKOUT] ⚠️ WARNING: primary_goal might be using default value. Checking normalization...');
+      console.log('[WORKOUT] Raw profileData received:', {
+        has_primary_goal: !!profileData.primary_goal,
+        primary_goal_value: profileData.primary_goal,
+        from_userProfile: userProfile?.primaryGoal,
+        from_profile_snake: profile?.primary_goal,
+        userProfile_exists: !!userProfile,
+        profile_exists: !!profile
+      });
+    }
+
     // Check if Gemini service is available
     if (!geminiTextService) {
       console.log('[WORKOUT] Gemini Text Service not available, using rule-based fallback');
@@ -2294,6 +2348,16 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       });
       
       console.log('[WORKOUT] 📝 Enhanced prompt generated (' + enhancedPrompt.length + ' chars)');
+      console.log('[WORKOUT] ✅ Parameters passed to composeEnhancedWorkoutPrompt:', {
+        gender: profileData.gender,
+        primaryGoal: profileData.primary_goal,
+        workoutFrequency: profileData.workout_frequency,
+        trainingLevel: profileData.training_level,
+        age: profileData.age,
+        weight_kg: profileData.weight_kg,
+        height_cm: profileData.height_cm,
+        fullName: profileData.full_name
+      });
       console.log('[WORKOUT] Prompt preview:', enhancedPrompt.substring(0, 300) + '...');
       
       // Call Gemini AI with timeout - increased for Railway deployment
@@ -2305,6 +2369,14 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       ]);
       
       console.log('[WORKOUT] ✅ Raw plan received from Gemini');
+      console.log('[WORKOUT] 🔍 Raw plan structure - weekly_schedule length:', rawPlan?.weekly_schedule?.length || 0);
+      if (rawPlan?.weekly_schedule?.length > 0) {
+        console.log('[WORKOUT] 🔍 Raw plan days:', rawPlan.weekly_schedule.map(d => ({ 
+          day: d.day_name || d.day, 
+          focus: d.focus, 
+          exerciseCount: d.exercises?.length || 0 
+        })));
+      }
 
       // Check if plan is valid
       if (!rawPlan || !rawPlan.weekly_schedule) {
@@ -2337,7 +2409,17 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         ...transformedPlan,
         weekly_schedule: transformedPlan.weeklySchedule
       };
+      
+      console.log('[WORKOUT] 🔍 Before applyWeeklyDistribution - workoutDays:', transformedPlan.weeklySchedule.length);
+      
       const finalPlan = applyWeeklyDistribution(planForDistribution, profileData);
+      
+      console.log('[WORKOUT] 🔍 After applyWeeklyDistribution - total days:', finalPlan.weekly_schedule?.length || 0);
+      if (finalPlan.weekly_schedule) {
+        const workoutDays = finalPlan.weekly_schedule.filter(d => d.exercises && d.exercises.length > 0);
+        const restDays = finalPlan.weekly_schedule.filter(d => !d.exercises || d.exercises.length === 0);
+        console.log('[WORKOUT] 🔍 Final distribution - Workout days:', workoutDays.length, '| Rest days:', restDays.length);
+      }
 
       // Convert back to app format
       const appFormatPlan = {
@@ -2394,7 +2476,6 @@ You are a professional fitness coach helping a client modify their workout plan.
 
 ${planStatus} WORKOUT PLAN:
 ${JSON.stringify(currentPlan, null, 2)}
-
 INSTRUCTIONS:
 1. Listen carefully to the client's request for changes to their workout plan.
 2. If they want to modify the plan, create an updated version based on their specific requests.
@@ -2684,9 +2765,6 @@ async function callAI(messages, responseFormat = null, temperature = 0.7, prefer
     troubleshooting: 'Check Railway environment variables and API key validity.'
   };
 }
-
-
-
 // Fallback responses for when AI is unavailable
 const fallbackResponses = {
   'harder': "I've increased the intensity of your workout by adding more sets and reducing rest time. You can preview the updated plan below.",
@@ -2960,11 +3038,70 @@ app.post('/api/save-plan', async (req, res) => {
           for (let i = 0; i < weeklySchedule.length; i++) {
             const day = weeklySchedule[i];
             
-            // Skip rest days
-            if (!day || !day.focus || day.focus.toLowerCase().includes('rest') || day.focus.toLowerCase().includes('off')) {
-              console.log(`[SAVE PLAN] Skipping rest day: ${day?.focus || 'unknown'}`);
-          continue;
-        }
+            const isRestDay = !day || !day.focus || day.focus.toLowerCase().includes('rest') || day.focus.toLowerCase().includes('off');
+            
+            if (isRestDay) {
+              console.log(`[SAVE PLAN] Creating rest day entry for day ${i+1}`);
+              
+              // Create a rest day entry in the database so all 7 days are represented
+              const restDayData = {
+                plan_id: newPlanId,
+                day_number: i + 1,
+                week_number: 1,
+                status: 'pending'
+              };
+              
+              // For rest days, we still need a split_id, so create a "Rest" training split
+              const { data: restSplit, error: restSplitError } = await supabase
+                .from('training_splits')
+                .insert({
+                  plan_id: newPlanId,
+                  name: 'Rest Day',
+                  focus_areas: ['rest'],
+                  order_in_week: i + 1,
+                  frequency_per_week: 0
+                })
+                .select()
+                .single();
+              
+              if (restSplitError) {
+                console.error(`[SAVE PLAN] Error creating rest split for day ${i+1}:`, restSplitError);
+                continue;
+              }
+              
+              // Validate that split ID is a proper UUID
+              if (!restSplit || !restSplit.id) {
+                console.error(`[SAVE PLAN] No split ID returned for rest day ${i+1}:`, restSplit);
+                continue;
+              }
+              
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              if (!uuidRegex.test(restSplit.id)) {
+                console.error(`[SAVE PLAN] Invalid UUID format for rest day ${i+1}: "${restSplit.id}"`, {
+                  type: typeof restSplit.id,
+                  value: restSplit.id,
+                  fullData: restSplit
+                });
+                continue;
+              }
+              
+              console.log(`[SAVE PLAN] Created rest split with valid UUID: ${restSplit.id}`);
+              
+              restDayData.split_id = restSplit.id;
+              
+              const { data: restSession, error: restSessionError } = await supabase
+                .from('workout_sessions')
+                .insert(restDayData)
+                .select()
+                .single();
+              
+              if (restSessionError) {
+                console.error(`[SAVE PLAN] Error creating rest day session for day ${i+1}:`, restSessionError);
+              } else {
+                console.log(`[SAVE PLAN] Created rest day session: ${restSession.id}`);
+              }
+              continue;
+            }
             
             console.log(`[SAVE PLAN] Processing day ${i+1}: ${day.focus}`);
             
@@ -2986,6 +3123,22 @@ app.post('/api/save-plan', async (req, res) => {
               continue;
             }
             
+            // Validate that split ID is a proper UUID
+            if (!split || !split.id) {
+              console.error(`[SAVE PLAN] No split ID returned for training day ${i+1}:`, split);
+              continue;
+            }
+            
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(split.id)) {
+              console.error(`[SAVE PLAN] Invalid UUID format for training day ${i+1}: "${split.id}"`, {
+                type: typeof split.id,
+                value: split.id,
+                fullData: split
+              });
+              continue;
+            }
+            
             console.log(`[SAVE PLAN] Created split: ${split.id} - ${split.name}`);
             
             // 2. Create the workout session
@@ -2993,13 +3146,12 @@ app.post('/api/save-plan', async (req, res) => {
             const estimatedCalories = Math.floor(Math.random() * 200 + 200); // Random calories between 200-400
             
             let sessionData = {
-                plan_id: newPlanId,
-                split_id: split.id,
-                day_number: i + 1,
-                week_number: 1,
+              plan_id: newPlanId,
+              split_id: split.id,
+              day_number: i + 1,
+              week_number: 1,
               estimated_calories: estimatedCalories,
-                status: 'pending',
-                name: day.focus // Add the focus as the session name
+              status: 'pending'
             };
 
             let { data: session, error: sessionError } = await supabase
@@ -3017,8 +3169,7 @@ app.post('/api/save-plan', async (req, res) => {
                 split_id: split.id,
                 day_number: i + 1,
                 week_number: 1,
-                status: 'pending',
-                name: day.focus
+                status: 'pending'
               };
 
               const result = await supabase
@@ -3533,7 +3684,6 @@ function generateMealTemplates(dailyTargets, fitnessStrategy, preferences) {
   console.log('[MEAL TEMPLATES] Generated schedule:', schedule.map(s => `${s.time_slot}: ${s.meal}`));
   return schedule;
 }
-
 // Function to filter food suggestions based on dietary preferences
 function filterFoodSuggestions(preferences) {
   try {
@@ -4033,7 +4183,6 @@ function generateMathematicalMealPlan(targets, dietaryPreferences = []) {
   
   return mealPlan;
 }
-
 // Nutrition plan generation using mathematical calculations (no AI)
 app.post('/api/generate-nutrition-plan', async (req, res) => {
   console.log(`[${new Date().toISOString()}] Received request for /api/generate-nutrition-plan`);
@@ -4306,7 +4455,6 @@ app.post('/api/generate-nutrition-plan', async (req, res) => {
     });
   }
 });
-
 app.post('/api/customize-meal', async (req, res) => {
   console.log(
     `[${new Date().toISOString()}] Received request for /api/customize-meal`
@@ -4717,7 +4865,6 @@ DAILY NUTRITION TARGETS:
 - Protein: ${targetProtein}g
 - Carbohydrates: ${targetCarbs}g
 - Fat: ${targetFat}g
-
 DIETARY PREFERENCES: ${preferences ? preferences.join(', ') : 'None specified'}
 
 MEAL DISTRIBUTION GUIDELINES:
@@ -4848,7 +4995,6 @@ CRITICAL: Return ONLY valid JSON in this exact format:
     }
   ]
 }
-
 IMPORTANT JSON FORMATTING RULES:
 1. Use ONLY double quotes (") for strings, never single quotes (')
 2. Ensure all property names are quoted
@@ -5036,7 +5182,6 @@ You are a world-class bodybuilding judge and AI fitness expert. Your task is to 
 IMAGE URLS:
 - Front Photo: ${frontPhotoUrl}
 - Back Photo: ${backPhotoUrl}
-
 INSTRUCTIONS:
 1.  Analyze the user's physique from both photos, focusing on key muscle groups: Chest, Arms (Biceps & Triceps), Back (Lats & Traps), Legs (Quads & Hamstrings), and Waist (Abs & Obliques).
 2.  For each of these 5 body parts, provide a rating from 1 to 10.
@@ -5044,7 +5189,6 @@ INSTRUCTIONS:
 4.  Identify the user's single "strongest_body_part" and single "weakest_body_part".
 5.  Write a concise, encouraging "ai_feedback" paragraph (3-5 sentences) that summarizes their physique, highlights their strengths, and provides actionable advice on how to improve their weakest areas.
 6.  You MUST return ONLY a valid JSON object with the specified keys. Do not include any other text or markdown.
-
 EXAMPLE RESPONSE:
 {
   "chest_rating": 7,
@@ -5344,7 +5488,6 @@ Please respond with a JSON object in this EXACT format:
     "Helpful cooking tip 3"
   ]
 }
-
 CRITICAL REQUIREMENTS:
 1. The sum of all meal calories must equal ${dailyCalories} (±50 calories acceptable)
 2. The sum of all meal macros must match the targets (±5g acceptable)
@@ -5819,7 +5962,6 @@ app.post('/api/generate-daily-meal-plan', async (req, res) => {
         }
       }
     }
-    
     // Fallback to mathematical generation if AI failed
     if (!mealPlan || mealPlan.length === 0) {
       console.log('[MEAL PLAN] 🧮 Using mathematical meal plan generation as fallback');
@@ -7202,7 +7344,6 @@ app.get('/api/debug-env', (req, res) => {
   
   res.status(200).json(envCheck);
 });
-
 // Test Supabase connection endpoint
 app.get('/api/test-supabase-connection', async (req, res) => {
   if (!supabase) {
@@ -7382,7 +7523,6 @@ app.post('/api/clear-cache', (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 // Food analysis endpoint
 app.post('/api/analyze-food', async (req, res) => {
   const { description } = req.body;
@@ -7674,7 +7814,6 @@ app.get('/api/profile/:userId', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 // Get weight metrics for a user
 app.get('/api/weight-metrics/:userId', async (req, res) => {
   const { userId } = req.params;
@@ -8156,7 +8295,6 @@ app.get('/api/simple-recipe', (req, res) => {
     return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
   }
 });
-
 // ===================
 // ERROR HANDLING MIDDLEWARE (must be last)
 // ===================

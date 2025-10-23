@@ -1,6 +1,17 @@
 import { supabase } from '../supabase/client';
 import { Database } from '../../types/database';
 
+/**
+ * Validate if a string is a valid UUID
+ */
+function isValidUUID(value: any): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
 export type CompletedSessionListItem = {
   id: string;
   completed_at: string;
@@ -138,6 +149,30 @@ export class WorkoutHistoryService {
         return mappedData;
       }
 
+      // FALLBACK: If query failed due to missing columns, try with only base columns
+      if (historyError && historyError.message && historyError.message.includes('column')) {
+        console.log(`[WorkoutHistoryService] Some columns missing in workout_history, retrying with base columns only`);
+        
+        const { data: baseHistoryData, error: baseHistoryError } = await supabase
+          .from('workout_history')
+          .select(`
+            id,
+            completed_at,
+            total_sets,
+            total_exercises,
+            duration_minutes,
+            notes
+          `)
+          .eq('user_id', actualUserId)
+          .order('completed_at', { ascending: false });
+
+        if (!baseHistoryError && baseHistoryData && baseHistoryData.length > 0) {
+          console.log(`[WorkoutHistoryService] Found ${baseHistoryData.length} completed sessions in workout_history (base columns)`);
+          const mappedData = baseHistoryData.map(this.mapHistoryData);
+          return mappedData;
+        }
+      }
+
       // FALLBACK APPROACH: Try to get from workout_sessions table (legacy)
       console.log(`[WorkoutHistoryService] No history found, trying workout_sessions table as fallback`);
       
@@ -149,8 +184,8 @@ export class WorkoutHistoryService {
         .eq('status', 'active')
         .maybeSingle();
 
-      // Base selection for sessions
-      const baseSelect = `
+      // Base selection for sessions - try with estimated_calories first
+      const baseSelectWithCalories = `
         id,
         completed_at,
         week_number,
@@ -158,19 +193,47 @@ export class WorkoutHistoryService {
         estimated_calories,
         split_id
       `;
+      
+      // Fallback without estimated_calories if column doesn't exist
+      const baseSelectWithoutCalories = `
+        id,
+        completed_at,
+        week_number,
+        day_number,
+        split_id
+      `;
 
       // Helper to apply completed filter that works across schemas
       const applyCompletedFilter = (q: any) => q.or('status.eq.completed,completed_at.not.is.null');
+      
+      // Helper function to try fetching with calories, fall back without
+      const fetchSessionsWithFallback = async (query: any, baseSelect: string, fallbackSelect: string) => {
+        const { data, error } = await applyCompletedFilter(
+          query.select(baseSelect)
+        );
+        
+        // If error is about missing column, try without that column
+        if (error && error.message && error.message.includes('estimated_calories')) {
+          console.log('[WorkoutHistoryService] estimated_calories column not found, retrying without it');
+          return await applyCompletedFilter(query.select(fallbackSelect));
+        }
+        
+        return { data, error };
+      };
 
       // First approach: Filter by active plan
       if (activePlan?.id && this.isValidUUID(activePlan.id)) {
         console.log(`[WorkoutHistoryService] Filtering by active plan: ${activePlan.id}`);
-        const { data: activeData, error: activeError } = await applyCompletedFilter(
-          supabase
-            .from('workout_sessions')
-            .select(baseSelect)
-            .eq('plan_id', activePlan.id)
-            .order('completed_at', { ascending: false })
+        
+        const query = supabase
+          .from('workout_sessions')
+          .eq('plan_id', activePlan.id)
+          .order('completed_at', { ascending: false });
+        
+        const { data: activeData, error: activeError } = await fetchSessionsWithFallback(
+          query,
+          baseSelectWithCalories,
+          baseSelectWithoutCalories
         );
 
         if (!activeError && activeData && activeData.length > 0) {
@@ -191,12 +254,16 @@ export class WorkoutHistoryService {
       
       if (planIds.length > 0) {
         console.log(`[WorkoutHistoryService] Found ${planIds.length} plans, filtering sessions`);
-        const { data: planData, error: planError } = await applyCompletedFilter(
-          supabase
-            .from('workout_sessions')
-            .select(baseSelect)
-            .in('plan_id', planIds)
-            .order('completed_at', { ascending: false })
+        
+        const query = supabase
+          .from('workout_sessions')
+          .in('plan_id', planIds)
+          .order('completed_at', { ascending: false });
+        
+        const { data: planData, error: planError } = await fetchSessionsWithFallback(
+          query,
+          baseSelectWithCalories,
+          baseSelectWithoutCalories
         );
         
         if (!planError && planData && planData.length > 0) {
@@ -212,7 +279,7 @@ export class WorkoutHistoryService {
         supabase
           .from('workout_sessions')
           .select(`
-            ${baseSelect},
+            ${baseSelectWithoutCalories},
             workout_plans!inner(user_id)
           `)
           .eq('workout_plans.user_id', userId)
