@@ -1091,33 +1091,9 @@ export default function SessionExecutionScreen() {
 
     // Check if we're about to exceed the planned sets
     if (setNumber >= currentSet.target_sets) {
-      Alert.alert(
-        'Maximum Sets Reached',
-        `This exercise is planned for ${currentSet.target_sets} sets. You've completed all planned sets for this exercise.`,
-        [
-          {
-            text: 'Finish Exercise',
-            onPress: () => handleFinishExercise(),
-            style: 'default'
-          },
-          {
-            text: 'Add Another Exercise',
-            onPress: () => {
-              console.log('[Session] User chose to add another exercise');
-              setShowExercisePicker(true);
-            },
-            style: 'default'
-          },
-          {
-            text: 'Continue Anyway',
-            onPress: () => {
-      setSetNumber(prev => prev + 1);
-              console.log('[Session] User chose to continue beyond planned sets');
-            },
-            style: 'destructive'
-          }
-        ]
-      );
+      // Automatically move to next exercise without alert
+      console.log('[Session] All sets completed, moving to next exercise');
+      handleFinishExercise();
     } else {
       // Normal case: continue to next set
       setSetNumber(prev => prev + 1);
