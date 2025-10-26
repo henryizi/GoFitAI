@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "LSMinimumSystemVersion": "13.4",
         "NSAppTransportSecurity": {
