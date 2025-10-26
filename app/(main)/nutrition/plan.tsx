@@ -35,6 +35,7 @@ import { useSubscription } from '../../../src/hooks/useSubscription';
 import PaywallPreview from '../../../src/components/nutrition/PaywallPreview';
 import DailyMenuCard from '../../../src/components/nutrition/DailyMenuCard';
 import { mockPlansStore, mockNutritionPlan } from '../../../src/mock-data';
+import { typography } from '../../../src/styles/fonts';
 
 const { width, height } = Dimensions.get('window');
 
@@ -803,8 +804,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
+    ...typography.body1,
     color: colors.white,
-    fontSize: 16,
     marginTop: 16,
     fontWeight: '600',
   },
@@ -827,14 +828,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...typography.h3,
     textAlign: 'center',
     marginBottom: 16,
     color: colors.white,
   },
   errorMessage: {
-    fontSize: 16,
+    ...typography.body1,
     textAlign: 'center',
     marginBottom: 24,
     color: colors.gray,
@@ -858,8 +858,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    ...typography.h3,
+    fontWeight: '800',
+    letterSpacing: 1,
     color: colors.white,
     marginBottom: 20,
   },
@@ -879,13 +880,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overviewLabel: {
-    fontSize: 14,
+    ...typography.caption,
     color: colors.gray,
     marginBottom: 4,
   },
   overviewValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.body1,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   macroGrid: {
     flexDirection: 'row',
@@ -905,19 +907,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   macroLabel: {
-    fontSize: 14,
+    ...typography.caption,
     color: colors.gray,
     marginBottom: 4,
     textAlign: 'center',
   },
   macroValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...typography.metric,
+    fontWeight: '800',
+    letterSpacing: 1,
     color: colors.white,
     textAlign: 'center',
   },
   macroUnit: {
-    fontSize: 16,
+    ...typography.body2,
     fontWeight: 'normal',
     color: colors.gray,
   },
@@ -945,12 +948,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   micronutrientName: {
-    fontSize: 16,
+    ...typography.body1,
     color: colors.white,
     fontWeight: '600',
   },
   micronutrientValue: {
-    fontSize: 14,
+    ...typography.caption,
     color: colors.gray,
     marginTop: 2,
   },
@@ -979,33 +982,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 12,
+    marginRight: 16, // Add margin to prevent overlap with value
   },
   metabolicEmoji: {
     fontSize: 20,
   },
   metabolicTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.labelLarge,
     color: colors.white,
     marginBottom: 2,
   },
   metabolicSubtitle: {
-    fontSize: 13,
+    ...typography.caption,
     color: colors.gray,
     lineHeight: 16,
+    flexWrap: 'wrap', // Allow text to wrap
+    maxWidth: '90%', // Limit width to prevent overlap
   },
   metabolicValue: {
-    fontSize: 16,
+    ...typography.labelLarge,
     fontWeight: '700',
     color: colors.white,
     textAlign: 'right',
+    minWidth: 100, // Ensure minimum width for the value
+    flexShrink: 0, // Prevent shrinking
   },
   finalTargetValue: {
+    ...typography.body1,
     fontSize: 18,
+    fontWeight: '700',
     color: colors.primary,
   },
   metabolicUnit: {
-    fontSize: 14,
+    ...typography.caption,
     fontWeight: '400',
     color: colors.gray,
   },

@@ -182,15 +182,18 @@ const famousBodybuilders = [
 
 export default function PlanCreateScreen() {
   const { user, profile } = useAuth();
+  const insets = useSafeAreaInsets();
+  
+  // Tab bar height is 60px + bottom safe area (matches the layout tabBarStyle height)
+  const tabBarHeight = 60 + insets.bottom;
 
   console.log('[PlanCreate] User from useAuth:', { id: user?.id, email: user?.email });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlanType, setSelectedPlanType] = useState('custom');
+  const [selectedPlanType, setSelectedPlanType] = useState('');
   const [selectedBodybuilder, setSelectedBodybuilder] = useState('');
   const [apiKeyAvailable] = useState<boolean | null>(true);
-  const insets = useSafeAreaInsets();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -680,7 +683,7 @@ export default function PlanCreateScreen() {
         </View>
 
         {/* Content */}
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + tabBarHeight }]}>
           {/* Title section */}
           <View style={styles.titleSection}>
             <Text style={styles.titlePreheading}>PERSONALIZED</Text>
@@ -715,6 +718,7 @@ export default function PlanCreateScreen() {
                   if ((planType as any).route) {
                     router.push((planType as any).route);
                   } else {
+                    console.log('[DEBUG] Setting selectedPlanType to:', planType.id);
                     setSelectedPlanType(planType.id);
                     if (planType.id === 'custom') {
                       setSelectedBodybuilder('');
@@ -912,6 +916,50 @@ export default function PlanCreateScreen() {
             </View>
           )}
         </ScrollView>
+
+        {/* Action Button */}
+        {console.log('[DEBUG] selectedPlanType:', selectedPlanType, 'shouldShow:', selectedPlanType && selectedPlanType !== 'ai-custom')}
+        {selectedPlanType && selectedPlanType !== 'ai-custom' && (
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
+            <TouchableOpacity
+              style={[
+                styles.actionButton, 
+                (selectedPlanType === 'bodybuilder' && !selectedBodybuilder) && styles.actionButtonDisabled
+              ]}
+              onPress={showConfirmation}
+              disabled={(selectedPlanType === 'bodybuilder' && !selectedBodybuilder) || isSubmitting}
+            >
+              <LinearGradient
+                colors={
+                  (selectedPlanType === 'bodybuilder' && !selectedBodybuilder) || isSubmitting
+                    ? ['#666', '#555'] 
+                    : [colors.primary, colors.primaryDark]
+                }
+                style={styles.actionButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.white} />
+                    <Text style={styles.actionButtonText}>Processing...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon 
+                      name={selectedPlanType === 'build-your-own' ? 'arrow-right' : 'check'} 
+                      size={20} 
+                      color={colors.white} 
+                    />
+                    <Text style={styles.actionButtonText}>
+                      {selectedPlanType === 'build-your-own' ? 'Continue to Builder' : 'Generate Plan'}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </>
   );
@@ -1316,5 +1364,38 @@ const styles = StyleSheet.create({
   guestButtonsContainer: {
     width: '100%',
     alignItems: 'center',
-  }
+  },
+  footer: {
+    backgroundColor: colors.dark,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  actionButton: {
+    width: '100%',
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  actionButtonDisabled: {
+    shadowOpacity: 0.1,
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  actionButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
 }); 

@@ -305,6 +305,35 @@ export class ProgressService {
   /**
    * Add a new weight entry to daily_user_metrics table
    */
+  /**
+   * Check if user has any existing weight entries
+   */
+  static async hasExistingWeightEntries(userId: string): Promise<boolean> {
+    try {
+      if (!supabase) {
+        console.warn('Supabase not configured, returning false for existing weight entries');
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('daily_user_metrics')
+        .select('id')
+        .eq('user_id', userId)
+        .not('weight_kg', 'is', null)
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking existing weight entries:', error);
+        return false;
+      }
+
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Error checking existing weight entries:', error);
+      return false;
+    }
+  }
+
   static async addWeightEntry(data: {
     user_id: string;
     weight_kg: number;

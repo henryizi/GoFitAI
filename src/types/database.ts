@@ -36,6 +36,11 @@ export interface Database {
           weight_original_value: string | null;
           goal_fat_reduction: number | null;
           goal_muscle_gain: number | null;
+          body_analysis: Json | null;
+          fitness_level: 'beginner' | 'intermediate' | 'advanced' | null;
+          age: number | null;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
           id: string;
@@ -63,6 +68,11 @@ export interface Database {
           weight_original_value?: string | null;
           goal_fat_reduction?: number | null;
           goal_muscle_gain?: number | null;
+          body_analysis?: Json | null;
+          fitness_level?: 'beginner' | 'intermediate' | 'advanced' | null;
+          age?: number | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -81,6 +91,7 @@ export interface Database {
           onboarding_completed?: boolean;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
+          activity_level?: 'sedentary' | 'moderately_active' | 'very_active' | null;
           fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining' | null;
           gender?: 'male' | 'female' | null;
           height_unit_preference?: 'cm' | 'ft' | null;
@@ -89,6 +100,11 @@ export interface Database {
           weight_original_value?: string | null;
           goal_fat_reduction?: number | null;
           goal_muscle_gain?: number | null;
+          body_analysis?: Json | null;
+          fitness_level?: 'beginner' | 'intermediate' | 'advanced' | null;
+          age?: number | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       body_photos: {
@@ -98,9 +114,8 @@ export interface Database {
           photo_type: string;
           photo_url: string;
           storage_path: string;
-          uploaded_at: string;
-          is_analyzed: boolean;
-          analysis_status: string;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -108,9 +123,8 @@ export interface Database {
           photo_type: string;
           photo_url: string;
           storage_path: string;
-          uploaded_at?: string;
-          is_analyzed?: boolean;
-          analysis_status?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -118,168 +132,128 @@ export interface Database {
           photo_type?: string;
           photo_url?: string;
           storage_path?: string;
-          uploaded_at?: string;
-          is_analyzed?: boolean;
-          analysis_status?: string;
-        };
-      }
-      body_analysis: {
-        Row: {
-          id: string;
-          user_id: string;
-          photo_session_id: string | null;
-          chest_rating: number | null;
-          arms_rating: number | null;
-          back_rating: number | null;
-          legs_rating: number | null;
-          waist_rating: number | null;
-          overall_rating: number | null;
-          strongest_body_part: string | null;
-          weakest_body_part: string | null;
-          ai_feedback: string | null;
-          analysis_data: Json | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          photo_session_id?: string | null;
-          chest_rating?: number | null;
-          arms_rating?: number | null;
-          back_rating?: number | null;
-          legs_rating?: number | null;
-          waist_rating?: number | null;
-          overall_rating?: number | null;
-          strongest_body_part?: string | null;
-          weakest_body_part?: string | null;
-          ai_feedback?: string | null;
-          analysis_data?: Json | null;
           created_at?: string;
+          updated_at?: string;
         };
-        Update: {
-          id?: string;
-          user_id?: string;
-          photo_session_id?: string | null;
-          chest_rating?: number | null;
-          arms_rating?: number | null;
-          back_rating?: number | null;
-          legs_rating?: number | null;
-          waist_rating?: number | null;
-          overall_rating?: number | null;
-          strongest_body_part?: string | null;
-          weakest_body_part?: string | null;
-          ai_feedback?: string | null;
-          analysis_data?: Json | null;
-          created_at?: string;
-        };
-      }
-      progress_entries: {
-        Row: {
-          id: string;
-          user_id: string;
-          date: string;
-          weight_kg: number | null;
-          front_photo_id: string | null;
-          back_photo_id: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          date: string;
-          weight_kg?: number | null;
-          front_photo_id?: string | null;
-          back_photo_id?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          date?: string;
-          weight_kg?: number | null;
-          front_photo_id?: string | null;
-          back_photo_id?: string | null;
-          created_at?: string;
-        };
-      }
-
+      };
       workout_plans: {
         Row: {
           id: string;
           user_id: string;
           name: string;
+          description: string;
+          training_level: string;
+          primary_goal: string;
+          days_per_week: number;
+          estimated_time_per_session: string;
+          is_active: boolean;
+          status: 'active' | 'archived' | 'completed';
           created_at: string;
           updated_at: string;
-          status: 'active' | 'completed' | 'archived';
-          mesocycle_length_weeks: number;
-          current_week: number;
-          training_level: 'beginner' | 'intermediate' | 'advanced';
-          volume_landmarks: {
-            [muscle: string]: {
-              MEV: number; // Minimum Effective Volume
-              MAV: number; // Maximum Adaptive Volume
-              MRV: number; // Maximum Recoverable Volume
-            };
-          };
-          deload_week: boolean;
-          goal_fat_loss: number;
-          goal_muscle_gain: number;
-          estimated_time_per_session: string;
-        };
-        Insert: Omit<Database['public']['Tables']['workout_plans']['Row'], 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Database['public']['Tables']['workout_plans']['Insert']>;
-      };
-
-      training_splits: {
-        Row: {
-          id: string;
+          mesocycle_length: number;
+          goal_fat_loss: number | null;
+          goal_muscle_gain: number | null;
+          image_url: string | null;
           plan_id: string;
-          name: string;
-          frequency_per_week: number;
-          order_in_week: number;
-          focus_areas: string[];
+          split_id: string | null;
+          estimated_calories: number | null;
+          training_splits: Json | null;
         };
-        Insert: Omit<Database['public']['Tables']['training_splits']['Row'], 'id'>;
-        Update: Partial<Database['public']['Tables']['training_splits']['Insert']>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          description: string;
+          training_level: string;
+          primary_goal: string;
+          days_per_week: number;
+          estimated_time_per_session: string;
+          is_active?: boolean;
+          status?: 'active' | 'archived' | 'completed';
+          created_at?: string;
+          updated_at?: string;
+          mesocycle_length?: number;
+          goal_fat_loss?: number | null;
+          goal_muscle_gain?: number | null;
+          image_url?: string | null;
+          plan_id?: string;
+          split_id?: string | null;
+          estimated_calories?: number | null;
+          training_splits?: Json | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          description?: string;
+          training_level?: string;
+          primary_goal?: string;
+          days_per_week?: number;
+          estimated_time_per_session?: string;
+          is_active?: boolean;
+          status?: 'active' | 'archived' | 'completed';
+          created_at?: string;
+          updated_at?: string;
+          mesocycle_length?: number;
+          goal_fat_loss?: number | null;
+          goal_muscle_gain?: number | null;
+          image_url?: string | null;
+          plan_id?: string;
+          split_id?: string | null;
+          estimated_calories?: number | null;
+          training_splits?: Json | null;
+        };
       };
-
       exercises: {
         Row: {
           id: string;
-          plan_id: string | null;
           name: string;
-          category: string; // Changed to string for more flexibility
+          is_custom: boolean;
+          plan_id: string;
+          category: string;
           muscle_groups: string[];
-          difficulty: 'beginner' | 'intermediate' | 'advanced';
+          difficulty: string;
           equipment_needed: string[];
-          description: string | null;
+          description: string;
           form_tips: string[];
           rpe_recommendation: number | null;
-          is_custom: boolean;
-          animation_url: string | null; // Add the new field
+          animation_url: string | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['exercises']['Row'], 'id'>;
-        Update: Partial<Database['public']['Tables']['exercises']['Insert']>;
-      };
-
-      workout_sessions: {
-        Row: {
-          id: string;
+        Insert: {
+          id?: string;
+          name: string;
+          is_custom?: boolean;
           plan_id: string;
-          split_id: string;
-          week_number: number;
-          day_number: number;
-          status: 'pending' | 'completed' | 'skipped';
-          completed_at: string | null;
-          session_feedback: string | null;
-          session_rpe: number | null;
-          recovery_score: number | null;
-          estimated_calories: number | null;
+          category: string;
+          muscle_groups?: string[];
+          difficulty: string;
+          equipment_needed?: string[];
+          description: string;
+          form_tips?: string[];
+          rpe_recommendation?: number | null;
+          animation_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
-        Insert: Omit<Database['public']['Tables']['workout_sessions']['Row'], 'id' | 'completed_at'>;
-        Update: Partial<Database['public']['Tables']['workout_sessions']['Insert']>;
+        Update: {
+          id?: string;
+          name?: string;
+          is_custom?: boolean;
+          plan_id?: string;
+          category?: string;
+          muscle_groups?: string[];
+          difficulty?: string;
+          equipment_needed?: string[];
+          description?: string;
+          form_tips?: string[];
+          rpe_recommendation?: number | null;
+          animation_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       exercise_sets: {
         Row: {
           id: string;
@@ -288,83 +262,169 @@ export interface Database {
           order_in_session: number;
           target_sets: number;
           target_reps: string;
-          target_rpe: number | null;
+          target_rpe: number;
           rest_period: string;
           progression_scheme: 'double_progression' | 'linear_progression' | 'rpe_based';
-          notes: string | null;
+          notes: string;
+          target_weight: number | null;
+          rest_seconds: number | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['exercise_sets']['Row'], 'id'>;
-        Update: Partial<Database['public']['Tables']['exercise_sets']['Insert']>;
+        Insert: {
+          id?: string;
+          session_id: string;
+          exercise_id: string;
+          order_in_session: number;
+          target_sets: number;
+          target_reps: string;
+          target_rpe: number;
+          rest_period: string;
+          progression_scheme?: 'double_progression' | 'linear_progression' | 'rpe_based';
+          notes?: string;
+          target_weight?: number | null;
+          rest_seconds?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          exercise_id?: string;
+          order_in_session?: number;
+          target_sets?: number;
+          target_reps?: string;
+          target_rpe?: number;
+          rest_period?: string;
+          progression_scheme?: 'double_progression' | 'linear_progression' | 'rpe_based';
+          notes?: string;
+          target_weight?: number | null;
+          rest_seconds?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
       exercise_logs: {
         Row: {
           id: string;
           set_id: string;
           actual_reps: number;
-          actual_weight: number | null;
+          actual_weight: number;
           actual_rpe: number | null;
           completed_at: string;
-          notes: string | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['exercise_logs']['Row'], 'id' | 'completed_at'>;
-        Update: Partial<Database['public']['Tables']['exercise_logs']['Insert']>;
+        Insert: {
+          id?: string;
+          set_id: string;
+          actual_reps: number;
+          actual_weight: number;
+          actual_rpe?: number | null;
+          completed_at: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          set_id?: string;
+          actual_reps?: number;
+          actual_weight?: number;
+          actual_rpe?: number | null;
+          completed_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
-      workout_history: {
+      workout_sessions: {
         Row: {
           id: string;
           user_id: string;
-          plan_id: string | null; // Made nullable since plan might be deleted
-          session_id: string | null; // Made nullable since session might be deleted
-          completed_at: string;
-          duration_minutes: number | null;
-          total_sets: number | null;
-          total_exercises: number | null;
-          estimated_calories: number | null;
-          notes: string | null;
-          created_at: string;
-          // New permanent storage fields
-          plan_name: string | null;
-          session_name: string | null;
-          week_number: number | null;
-          day_number: number | null;
-          exercises_data: any | null; // JSONB storing complete exercise data
-        };
-        Insert: Omit<Database['public']['Tables']['workout_history']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['workout_history']['Insert']>;
-      };
-
-      volume_tracking: {
-        Row: {
-          id: string;
           plan_id: string;
-          week_number: number;
-          muscle_group: string;
-          weekly_sets: number;
-          average_rpe: number | null;
-          recovery_rating: number | null;
-          volume_category: 'MEV' | 'MAV' | 'MRV';
-          notes: string | null;
+          status: string;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['volume_tracking']['Row'], 'id'>;
-        Update: Partial<Database['public']['Tables']['volume_tracking']['Insert']>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_id: string;
+          status?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          plan_id?: string;
+          status?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-
-      progression_tracking: {
+      saved_recipes: {
         Row: {
           id: string;
-          exercise_id: string;
+          user_id: string;
+          recipe_data: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          recipe_data: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          recipe_data?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      progress_entries: {
+        Row: {
+          id: string;
           user_id: string;
           date: string;
-          top_set_weight: number | null;
-          top_set_reps: number | null;
-          top_set_rpe: number | null;
-          e1rm: number | null;
+          weight_kg: number | null;
+          body_fat_percentage: number | null;
+          front_photo_id: string | null;
+          back_photo_id: string | null;
           notes: string | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['progression_tracking']['Row'], 'id' | 'date'>;
-        Update: Partial<Database['public']['Tables']['progression_tracking']['Insert']>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          date: string;
+          weight_kg?: number | null;
+          body_fat_percentage?: number | null;
+          front_photo_id?: string | null;
+          back_photo_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          weight_kg?: number | null;
+          body_fat_percentage?: number | null;
+          front_photo_id?: string | null;
+          back_photo_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       daily_user_metrics: {
         Row: {
@@ -373,235 +433,244 @@ export interface Database {
           metric_date: string;
           weight_kg: number | null;
           trend_weight_kg: number | null;
+          activity_calories: number | null;
           sleep_hours: number | null;
           stress_level: number | null;
-          activity_calories: number | null;
-          notes: string | null;
           habit_score: number | null;
           body_fat_percentage: number | null;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['daily_user_metrics']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['daily_user_metrics']['Insert']
-        >;
+        Insert: {
+          id?: string;
+          user_id: string;
+          metric_date: string;
+          weight_kg?: number | null;
+          trend_weight_kg?: number | null;
+          activity_calories?: number | null;
+          sleep_hours?: number | null;
+          stress_level?: number | null;
+          habit_score?: number | null;
+          body_fat_percentage?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          metric_date?: string;
+          weight_kg?: number | null;
+          trend_weight_kg?: number | null;
+          activity_calories?: number | null;
+          sleep_hours?: number | null;
+          stress_level?: number | null;
+          habit_score?: number | null;
+          body_fat_percentage?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-      nutrition_plans: {
+      data_deletion_requests: {
         Row: {
           id: string;
-          user_id: string;
-          plan_name: string;
-          goal_type: string;
-          preferences: Json | null;
-          status: string;
+          user_id: string | null;
+          user_email: string;
+          requested_at: string;
+          deletion_reason: string | null;
+          status: 'pending' | 'completed' | 'failed';
+          compliance_notes: string;
+          processing_notes: string | null;
+          completed_at: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['nutrition_plans']['Row'],
-          'id' | 'created_at' | 'updated_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['nutrition_plans']['Insert']
-        >;
-      };
-      historical_nutrition_targets: {
-        Row: {
-          id: string;
-          nutrition_plan_id: string;
-          start_date: string;
-          end_date: string | null;
-          daily_calories: number | null;
-          protein_grams: number | null;
-          carbs_grams: number | null;
-          fat_grams: number | null;
-          micronutrients_targets: Json | null;
-          reasoning: string | null;
-          created_at: string;
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          user_email: string;
+          requested_at?: string;
+          deletion_reason?: string | null;
+          status?: 'pending' | 'completed' | 'failed';
+          compliance_notes?: string;
+          processing_notes?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['historical_nutrition_targets']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['historical_nutrition_targets']['Insert']
-        >;
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          user_email?: string;
+          requested_at?: string;
+          deletion_reason?: string | null;
+          status?: 'pending' | 'completed' | 'failed';
+          compliance_notes?: string;
+          processing_notes?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
-      nutrition_log_entries: {
+      workout_history: {
         Row: {
           id: string;
           user_id: string;
-          logged_at: string;
-          food_name: string;
-          serving_size_grams: number | null;
-          calories: number | null;
-          protein_grams: number | null;
-          carbs_grams: number | null;
-          fat_grams: number | null;
-          micronutrients: Json | null;
+          plan_id: string | null;
+          session_id: string | null;
+          completed_at: string;
+          week_number: number | null;
+          day_number: number | null;
+          plan_name: string | null;
+          session_name: string | null;
+          exercises_data: Json | null;
+          total_exercises: number | null;
+          estimated_calories: number | null;
+          created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['nutrition_log_entries']['Row'],
-          'id' | 'logged_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['nutrition_log_entries']['Insert']
-        >;
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_id?: string | null;
+          session_id?: string | null;
+          completed_at: string;
+          week_number?: number | null;
+          day_number?: number | null;
+          plan_name?: string | null;
+          session_name?: string | null;
+          exercises_data?: Json | null;
+          total_exercises?: number | null;
+          estimated_calories?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          plan_id?: string | null;
+          session_id?: string | null;
+          completed_at?: string;
+          week_number?: number | null;
+          day_number?: number | null;
+          plan_name?: string | null;
+          session_name?: string | null;
+          exercises_data?: Json | null;
+          total_exercises?: number | null;
+          estimated_calories?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       meal_plan_suggestions: {
         Row: {
           id: string;
           nutrition_plan_id: string;
           suggestion_date: string;
-          meal_type: string;
-          meal_description: string | null;
+          meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+          suggested_foods: Json;
           calories: number | null;
-          protein_grams: number | null;
-          carbs_grams: number | null;
-          fat_grams: number | null;
+          protein: number | null;
+          carbs: number | null;
+          fat: number | null;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['meal_plan_suggestions']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['meal_plan_suggestions']['Insert']
-        >;
+        Insert: {
+          id?: string;
+          nutrition_plan_id: string;
+          suggestion_date: string;
+          meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+          suggested_foods: Json;
+          calories?: number | null;
+          protein?: number | null;
+          carbs?: number | null;
+          fat?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          nutrition_plan_id?: string;
+          suggestion_date?: string;
+          meal_type?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+          suggested_foods?: Json;
+          calories?: number | null;
+          protein?: number | null;
+          carbs?: number | null;
+          fat?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       behavioral_insights: {
         Row: {
           id: string;
           user_id: string;
-          insight_date: string;
           insight_type: string;
-          insight_message: string;
+          insight_data: Json;
           is_acknowledged: boolean;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['behavioral_insights']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['behavioral_insights']['Insert']
-        >;
+        Insert: {
+          id?: string;
+          user_id: string;
+          insight_type: string;
+          insight_data: Json;
+          is_acknowledged?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          insight_type?: string;
+          insight_data?: Json;
+          is_acknowledged?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       motivational_messages: {
         Row: {
           id: string;
           user_id: string;
-          trigger_event: string;
-          message: string;
+          message_type: string;
+          message_data: Json;
           is_seen: boolean;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['motivational_messages']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['motivational_messages']['Insert']
-        >;
-      };
-      progress_predictions: {
-        Row: {
-          id: string;
+        Insert: {
+          id?: string;
           user_id: string;
-          prediction_date: string;
-          predicted_weight_kg: number | null;
-          confidence_level: string | null;
-          prediction_summary: string | null;
-          warning_flags: string[] | null;
-          created_at: string;
+          message_type: string;
+          message_data: Json;
+          is_seen?: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['progress_predictions']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['progress_predictions']['Insert']
-        >;
-      };
-
-      saved_recipes: {
-        Row: {
-          id: string;
-          user_id: string;
-          recipe_name: string;
-          ingredients: Json | null;
-          instructions: string | null;
-          nutritional_info: Json | null;
-          prep_time: number | null;
-          cook_time: number | null;
-          servings: number | null;
-          created_at: string;
+        Update: {
+          id?: string;
+          user_id?: string;
+          message_type?: string;
+          message_data?: Json;
+          is_seen?: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
-        Insert: Omit<
-          Database['public']['Tables']['saved_recipes']['Row'],
-          'id' | 'created_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['saved_recipes']['Insert']
-        >;
-      };
-
-      data_deletion_requests: {
-        Row: {
-          id: string;
-          user_id: string;
-          user_email: string;
-          requested_at: string;
-          deletion_reason: string;
-          status: string;
-          compliance_notes: string | null;
-          processed_at: string | null;
-        };
-        Insert: Omit<
-          Database['public']['Tables']['data_deletion_requests']['Row'],
-          'id' | 'requested_at'
-        >;
-        Update: Partial<
-          Database['public']['Tables']['data_deletion_requests']['Insert']
-        >;
       };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      upsert_ai_workout_plan: {
-        Args: {
-          user_id_param: string;
-          plan_data: {
-            name: string;
-            training_level: 'beginner' | 'intermediate' | 'advanced';
-            goal_fat_loss: number;
-            goal_muscle_gain: number;
-            mesocycle_length_weeks: number;
-            estimated_time_per_session: any;
-            weeklySchedule: any;
-          };
-        };
-        Returns: any;
-      };
-      update_meal_in_schedule: {
-        Args: {
-          [key: string]: any;
-        };
-        Returns: any;
-      };
-      get_table_info: {
-        Args: {
-          table_name: string;
-        };
-        Returns: any;
-      };
+      [_ in never]: never;
     };
     Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
       [_ in never]: never;
     };
   };

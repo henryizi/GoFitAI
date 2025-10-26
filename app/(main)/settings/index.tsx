@@ -1,12 +1,14 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, IconButton, Badge } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../src/styles/colors';
 import { useAuth, signOut } from '../../../src/hooks/useAuth';
 
 export default function SettingsScreen() {
   const { profile, user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
     Alert.alert(
@@ -72,7 +74,13 @@ export default function SettingsScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: 60 + insets.bottom + 20 } // Tab bar height + safe area + extra padding
+      ]}
+    >
       {/* Header */}
       <View style={styles.header}>
         <IconButton 
@@ -81,15 +89,22 @@ export default function SettingsScreen() {
           onPress={() => router.back()} 
           style={styles.backButton} 
         />
-        <Text variant="headlineSmall" style={styles.title}>Settings</Text>
+        <Text style={styles.title}>Settings</Text>
       </View>
 
       {/* Profile Section */}
       <View style={styles.profileSection}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
-          </Text>
+          {profile?.avatar_url ? (
+            <Image 
+              source={{ uri: profile.avatar_url }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
+            </Text>
+          )}
         </View>
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{profile?.full_name || profile?.username || 'User'}</Text>
@@ -127,6 +142,12 @@ export default function SettingsScreen() {
 
       {/* App Settings */}
       {renderSettingsSection('App Settings', [
+        {
+          title: 'Workout Reminders',
+          subtitle: 'Schedule workout notifications',
+          icon: 'bell-ring',
+          onPress: () => handleNavigation('/(main)/settings/workout-reminders'),
+        },
         {
           title: 'Notifications',
           subtitle: 'Manage notification preferences',
@@ -183,6 +204,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  contentContainer: {
+    flexGrow: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,6 +218,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.text,
     flex: 1,
   },
@@ -220,6 +246,11 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   profileInfo: {
     flex: 1,
@@ -279,7 +310,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     marginTop: 24,
-    marginBottom: 32,
   },
   logoutText: {
     color: colors.accent,

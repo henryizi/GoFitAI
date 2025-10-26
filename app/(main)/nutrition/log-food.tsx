@@ -75,6 +75,7 @@ export default function LogFoodScreen() {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
   
   // Loading overlay timing/progress - disabled during rebuild
   // const [analyzeElapsedMs, setAnalyzeElapsedMs] = useState(0);
@@ -299,8 +300,8 @@ export default function LogFoodScreen() {
     setIsLoading(true);
 
     try {
-      // Call the NutritionService to analyze the food image
-      const result = await NutritionService.analyzeFoodImage(imageUri);
+      // Call the NutritionService to analyze the food image with additional context
+      const result = await NutritionService.analyzeFoodImage(imageUri, additionalInfo);
       
       console.log('[FOOD ANALYZE] Analysis result:', result);
       
@@ -388,6 +389,25 @@ export default function LogFoodScreen() {
           <TouchableOpacity onPress={() => setImageUri(null)} style={styles.closeIcon}>
             <Icon name="close" size={24} color={colors.text} />
           </TouchableOpacity>
+          
+          {/* Additional context input field */}
+          <View style={styles.contextInputContainer}>
+            <Text style={styles.contextLabel}>Additional details (optional)</Text>
+            <TextInput
+              placeholder="e.g., 'small portion', 'steamed not fried', 'extra sauce'"
+              placeholderTextColor={colors.textSecondary}
+              value={additionalInfo}
+              onChangeText={setAdditionalInfo}
+              style={styles.contextInput}
+              multiline={true}
+              numberOfLines={2}
+              maxLength={200}
+            />
+            <Text style={styles.contextHint}>
+              Help improve accuracy by describing portion size, cooking method, or ingredients
+            </Text>
+          </View>
+          
           <TouchableOpacity
             onPress={handleAnalyzeFood}
             disabled={isLoading}
@@ -845,9 +865,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imagePreview: {
-    width: width - 48,
-    height: (width - 48) * (16/9),
-    borderRadius: 20,
+    width: width - 32,
+    height: (width - 32) * 0.6,
+    borderRadius: 16,
     marginBottom: 20,
     resizeMode: 'cover',
     borderWidth: 2,
@@ -1180,6 +1200,34 @@ const styles = StyleSheet.create({
   },
   logButtonDisabled: {
     opacity: 0.6,
+  },
+  contextInputContainer: {
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  contextLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  contextInput: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 12,
+    padding: 16,
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    textAlignVertical: 'top',
+    minHeight: 60,
+  },
+  contextHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 16,
   },
 });
 

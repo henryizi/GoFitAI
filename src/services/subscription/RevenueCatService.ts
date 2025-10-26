@@ -11,7 +11,7 @@ import { REVENUECAT_CONFIG } from '../../config/revenuecat';
 import { MockRevenueCatService } from './MockRevenueCatService';
 
 // Toggle this to use mock service for testing
-const USE_MOCK_SERVICE = true; // Set to false to use real RevenueCat integration
+const USE_MOCK_SERVICE = false; // Set to false to use real RevenueCat integration
 
 // Re-export types for easier importing
 export type SubscriptionPackage = PurchasesPackage;
@@ -45,7 +45,7 @@ const detectEnvironment = () => {
   if (isExpoGo || isWeb) {
     return {
       platform: 'web' as const,
-      apiKey: REVENUECAT_CONFIG.ios.apiKey, // Use iOS key for web fallback
+      apiKey: REVENUECAT_CONFIG.web.apiKey, // Use web API key for Expo Go/web
       reason: isExpoGo ? 'Expo Go detected' : 'Web platform detected'
     };
   }
@@ -70,13 +70,14 @@ const detectEnvironment = () => {
   // Fallback to web for unknown platforms
   return {
     platform: 'web' as const,
-    apiKey: REVENUECAT_CONFIG.ios.apiKey, // Use iOS key for web fallback
+    apiKey: REVENUECAT_CONFIG.web.apiKey, // Use web API key for fallback
     reason: 'Unknown platform, defaulting to web'
   };
 };
 
 export class RevenueCatService {
   private static isInitialized = false;
+  private static isEnabled = false; // Track if RevenueCat is actually functional
   private static pendingUserId: string | null = null;
   private static initializationPromise: Promise<void> | null = null;
 
@@ -153,13 +154,19 @@ export class RevenueCatService {
       const env = detectEnvironment();
       console.log('[RevenueCat] Environment detected:', env.platform, '(' + env.reason + ')');
       
-      if (!env.apiKey) {
-        console.error(`[RevenueCat] ❌ ${env.platform.toUpperCase()} API key is missing from environment variables`);
+      if (!env.apiKey || env.apiKey.includes('dummy_key')) {
+        console.warn(`[RevenueCat] ⚠️  ${env.platform.toUpperCase()} API key is missing or using dummy key`);
         
         if (env.platform === 'web') {
-          console.error('[RevenueCat] ℹ️  For Expo Go development, you need a Web Billing API key');
-          console.error('[RevenueCat] ℹ️  Get it from: RevenueCat Dashboard > Apps > [Your App] > API Keys > Web Billing API Key');
-          console.error('[RevenueCat] ℹ️  Add it to your .env as: EXPO_PUBLIC_REVENUECAT_WEB_API_KEY=your_web_key_here');
+          console.warn('[RevenueCat] ℹ️  For Expo Go development, you need a Web Billing API key');
+          console.warn('[RevenueCat] ℹ️  Get it from: RevenueCat Dashboard > Apps > [Your App] > API Keys > Web Billing API Key');
+          console.warn('[RevenueCat] ℹ️  Add it to your .env as: EXPO_PUBLIC_REVENUECAT_WEB_API_KEY=your_web_key_here');
+          console.warn('[RevenueCat] ℹ️  Continuing without RevenueCat - subscription features will be disabled');
+          
+          // Mark as initialized but disabled for Expo Go without proper keys
+          this.isInitialized = true;
+          this.isEnabled = false;
+          return;
         }
         
         throw new Error(`${env.platform.toUpperCase()} RevenueCat API key not configured`);
@@ -197,6 +204,7 @@ export class RevenueCatService {
       }
 
       this.isInitialized = true;
+      this.isEnabled = true;
       console.log('[RevenueCat] Successfully initialized');
       
       // Set pending user ID if available
@@ -237,6 +245,7 @@ export class RevenueCatService {
       }
       
       this.isInitialized = false;
+      this.isEnabled = false;
       throw error;
     } finally {
       // Reset the initialization promise so we can retry if needed
@@ -253,6 +262,12 @@ export class RevenueCatService {
         // Store user ID for when RevenueCat is initialized
         this.pendingUserId = userId;
         console.log('[RevenueCat] Not initialized yet, storing user ID for later:', userId);
+        return;
+      }
+      
+      if (!this.isEnabled) {
+        console.warn('[RevenueCat] setUserId() called but RevenueCat is disabled - storing for later');
+        this.pendingUserId = userId;
         return;
       }
       
@@ -275,12 +290,23 @@ export class RevenueCatService {
   }
 
   /**
+   * Check if RevenueCat is enabled and functional
+   */
+  private static isRevenueCatEnabled(): boolean {
+    return this.isInitialized && this.isEnabled;
+  }
+
+  /**
    * Ensure RevenueCat is initialized before any operations (private method)
    */
   private static async ensureInitializedPrivate(): Promise<void> {
     if (!this.isInitialized) {
       console.log('[RevenueCat] Service not initialized, initializing now...');
       await this.initialize();
+    }
+    
+    if (!this.isEnabled) {
+      throw new Error('RevenueCat is not enabled - subscription features are disabled');
     }
     
     if (!this.isInitialized) {
@@ -295,6 +321,12 @@ export class RevenueCatService {
     if (USE_MOCK_SERVICE) {
       const mockOfferings = await MockRevenueCatService.getOfferings();
       return mockOfferings;
+    }
+    
+    // Check if RevenueCat is enabled
+    if (!this.isRevenueCatEnabled()) {
+      console.warn('[RevenueCat] getOfferings() called but RevenueCat is disabled - returning empty offerings');
+      return [];
     }
     
     try {
@@ -385,6 +417,12 @@ export class RevenueCatService {
     try {
       console.log('[RevenueCat] getCurrentOffering() called, checking initialization...');
       
+      // Check if RevenueCat is enabled
+      if (!this.isRevenueCatEnabled()) {
+        console.warn('[RevenueCat] getCurrentOffering() called but RevenueCat is disabled - returning null');
+        return null;
+      }
+      
       // Ensure we're properly initialized
       await this.ensureInitializedPrivate();
       
@@ -415,6 +453,10 @@ export class RevenueCatService {
    * Check if user has active premium subscription
    */
   static async isPremiumActive(): Promise<boolean> {
+    if (USE_MOCK_SERVICE) {
+      return MockRevenueCatService.isPremiumActive();
+    }
+    
     try {
       await this.initialize();
       const customerInfo = await Purchases.getCustomerInfo();
@@ -475,6 +517,15 @@ export class RevenueCatService {
       return MockRevenueCatService.purchasePackage(packageToPurchase);
     }
     
+    // Check if RevenueCat is enabled
+    if (!this.isRevenueCatEnabled()) {
+      console.warn('[RevenueCat] purchasePackage() called but RevenueCat is disabled');
+      return {
+        success: false,
+        error: 'Subscription features are currently disabled'
+      };
+    }
+    
     try {
       await this.initialize();
       
@@ -512,6 +563,15 @@ export class RevenueCatService {
    * Restore purchases
    */
   static async restorePurchases(): Promise<PurchaseResult> {
+    // Check if RevenueCat is enabled
+    if (!this.isRevenueCatEnabled()) {
+      console.warn('[RevenueCat] restorePurchases() called but RevenueCat is disabled');
+      return {
+        success: false,
+        error: 'Subscription features are currently disabled'
+      };
+    }
+    
     try {
       await this.initialize();
       
@@ -563,6 +623,13 @@ export class RevenueCatService {
       if (USE_MOCK_SERVICE) {
         return await MockRevenueCatService.getCustomerInfo();
       }
+      
+      // Check if RevenueCat is enabled
+      if (!this.isRevenueCatEnabled()) {
+        console.warn('[RevenueCat] getCustomerInfo() called but RevenueCat is disabled - returning null');
+        return null;
+      }
+      
       await this.initialize();
       return await Purchases.getCustomerInfo();
     } catch (error) {
@@ -580,7 +647,13 @@ export class RevenueCatService {
         console.log('MockRevenueCatService: User logged out');
         return;
       }
-      await this.initialize();
+      
+      // Check if RevenueCat is enabled before trying to log out
+      if (!this.isRevenueCatEnabled()) {
+        console.warn('[RevenueCat] logOut() called but RevenueCat is disabled');
+        return;
+      }
+      
       await Purchases.logOut();
       console.log('[RevenueCat] User logged out successfully');
     } catch (error) {

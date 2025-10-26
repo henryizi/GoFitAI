@@ -11,13 +11,10 @@ import { typography } from '../../styles/fonts';
 import { ProgressService } from '../../services/progressService';
 import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
-import { SafeImage } from '../ui/SafeImage';
 import { Image } from 'react-native';
 import { ImageOptimizer } from '../../services/storage/imageOptimizer';
 import HealthDisclaimer from '../legal/HealthDisclaimer';
 import ContentSafetyWarning from '../legal/ContentSafetyWarning';
-import PrivacyModeToggle from './PrivacyModeToggle';
-import { PhotoPrivacyService, PrivacyOptions } from '../../services/privacy/PhotoPrivacyService';
 
 type BodyPhoto = Database['public']['Tables']['body_photos']['Row'];
 
@@ -57,7 +54,6 @@ export default function BeforeAfterComparison({
   const [afterIndex, setAfterIndex] = useState<number>(0);
   const [openSelector, setOpenSelector] = useState<null | 'before' | 'after'>(null);
   const [showContentWarning, setShowContentWarning] = useState(false);
-  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
 
@@ -233,26 +229,14 @@ export default function BeforeAfterComparison({
       console.log('About to capture ViewShot...');
       console.log('Before photo:', beforePhoto);
       console.log('After photo:', afterPhoto);
-      console.log('Before photo URL:', getPhotoUrl(beforePhoto || null));
-      console.log('After photo URL:', getPhotoUrl(afterPhoto || null));
-      console.log('Privacy mode enabled:', isPrivacyMode);
+      console.log('Before photo URL:', beforePhoto?.storage_path);
+      console.log('After photo URL:', afterPhoto?.storage_path);
       
       // Capture the comparison view
-      let uri = await viewShotRef.current.capture();
+      const uri = await viewShotRef.current.capture();
       console.log('ViewShot captured:', uri);
       
-      // Apply privacy filters if enabled
-      if (isPrivacyMode) {
-        console.log('Applying privacy filters...');
-        const privacyOptions = PhotoPrivacyService.getDefaultPrivacyOptions();
-        uri = await PhotoPrivacyService.applyPrivacyFilters(uri, privacyOptions);
-        console.log('Privacy filters applied:', uri);
-      }
-      
-      const filename = PhotoPrivacyService.generatePrivacyFilename(
-        generateProgressFilename(),
-        isPrivacyMode
-      );
+      const filename = generateProgressFilename();
       
       // Create a copy with the proper filename in the document directory
       const documentDirectory = FileSystem.documentDirectory || '';
@@ -268,7 +252,7 @@ export default function BeforeAfterComparison({
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(newUri, {
           mimeType: 'image/png',
-          dialogTitle: isPrivacyMode ? 'Share Your Progress (Privacy Mode)' : 'Share Your Progress',
+          dialogTitle: 'Share Your Progress',
           UTI: 'public.png'
         });
         
@@ -283,7 +267,7 @@ export default function BeforeAfterComparison({
         }
         
         // Show success message (you could add a toast notification here)
-        console.log(`Progress shared successfully${isPrivacyMode ? ' with privacy protection' : ''}!`);
+        console.log('Progress shared successfully!');
       } else {
         Alert.alert('Error', 'Sharing is not available on this device.');
       }
@@ -300,11 +284,6 @@ export default function BeforeAfterComparison({
     setShowContentWarning(false);
   };
 
-  const getPhotoUrl = (photo: BodyPhoto | null) => {
-    if (!photo?.storage_path) return null;
-    // Photos are now stored locally, so storage_path contains the local URI
-    return photo.storage_path;
-  };
 
   const renderPhotoComparison = () => {
     if (comparisonMode === 'beforeAfter') {
@@ -340,18 +319,23 @@ export default function BeforeAfterComparison({
           <View style={styles.photoContainer}>
             <Card style={styles.photoCard}>
               <Card.Content style={styles.photoContent}>
-                {beforePhoto ? (
-                  <SafeImage 
-                    sourceUrl={getPhotoUrl(beforePhoto) || ''} 
-                    style={styles.photoImage}
-                    enableCache={true}
-                  />
-                ) : (
-                  <View style={styles.noPhotoPlaceholder}>
-                    <Icon name="image-off" size={48} color={colors.textSecondary} />
-                    <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
+                <View style={styles.photoImageContainer}>
+                  {beforePhoto ? (
+                    <Image 
+                      source={{ uri: beforePhoto.storage_path }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.noPhotoPlaceholder}>
+                      <Icon name="image-off" size={48} color={colors.textSecondary} />
+                      <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
+                    </View>
+                  )}
+                  <View style={styles.photoLabelOverlay}>
+                    <Text style={styles.photoLabelOverlayText}>BEFORE</Text>
                   </View>
-                )}
+                </View>
               </Card.Content>
             </Card>
             <View style={styles.photoLabel}>
@@ -364,18 +348,23 @@ export default function BeforeAfterComparison({
           <View style={styles.photoContainer}>
             <Card style={styles.photoCard}>
               <Card.Content style={styles.photoContent}>
-                {afterPhoto ? (
-                  <SafeImage 
-                    sourceUrl={getPhotoUrl(afterPhoto) || ''} 
-                    style={styles.photoImage}
-                    enableCache={true}
-                  />
-                ) : (
-                  <View style={styles.noPhotoPlaceholder}>
-                    <Icon name="image-off" size={48} color={colors.textSecondary} />
-                    <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
+                <View style={styles.photoImageContainer}>
+                  {afterPhoto ? (
+                    <Image 
+                      source={{ uri: afterPhoto.storage_path }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.noPhotoPlaceholder}>
+                      <Icon name="image-off" size={48} color={colors.textSecondary} />
+                      <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
+                    </View>
+                  )}
+                  <View style={styles.photoLabelOverlay}>
+                    <Text style={styles.photoLabelOverlayText}>AFTER</Text>
                   </View>
-                )}
+                </View>
               </Card.Content>
             </Card>
             <View style={styles.photoLabel}>
@@ -445,7 +434,7 @@ export default function BeforeAfterComparison({
             <View style={styles.sharePhotoContainer}>
               {beforePhoto ? (
                 <Image 
-                  source={{ uri: getPhotoUrl(beforePhoto) || '' }} 
+                  source={{ uri: beforePhoto.storage_path }} 
                   style={styles.shareImage}
                   resizeMode="cover"
                 />
@@ -468,7 +457,7 @@ export default function BeforeAfterComparison({
             <View style={styles.sharePhotoContainer}>
               {afterPhoto ? (
                 <Image 
-                  source={{ uri: getPhotoUrl(afterPhoto) || '' }} 
+                  source={{ uri: afterPhoto.storage_path }} 
                   style={styles.shareImage}
                   resizeMode="cover"
                 />
@@ -513,17 +502,22 @@ export default function BeforeAfterComparison({
               <Text style={styles.timelineDate}>{entry.date}</Text>
               <Card style={[styles.timelinePhotoCard, isFirst && styles.firstPhoto, isLast && styles.lastPhoto]}>
                 <Card.Content style={styles.timelinePhotoContent}>
-                  {photo ? (
-                    <SafeImage 
-                      sourceUrl={getPhotoUrl(photo) || ''} 
-                      style={styles.timelineImage}
-                      enableCache={true}
-                    />
-                  ) : (
-                    <View style={styles.timelineNoPhoto}>
-                      <Icon name="image-off" size={32} color={colors.textSecondary} />
+                  <View style={styles.timelineImageContainer}>
+                    {photo ? (
+                      <Image 
+                        source={{ uri: photo.storage_path }} 
+                        style={styles.timelineImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.timelineNoPhoto}>
+                        <Icon name="image-off" size={32} color={colors.textSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.timelineLabelOverlay}>
+                      <Text style={styles.timelineLabelText}>{selectedView.toUpperCase()}</Text>
                     </View>
-                  )}
+                  </View>
                 </Card.Content>
               </Card>
               {index < sortedEntries.length - 1 && (
@@ -659,12 +653,6 @@ export default function BeforeAfterComparison({
         showAcceptButton={false}
       />
 
-      {/* Privacy Mode Toggle */}
-      <PrivacyModeToggle
-        isPrivacyMode={isPrivacyMode}
-        onToggle={setIsPrivacyMode}
-        variant="compact"
-      />
       
       {/* Compact controls card */}
       <Card style={styles.controlsCard}>
@@ -989,7 +977,7 @@ const styles = StyleSheet.create({
   },
   comparisonImage: {
     width: '100%',
-    height: 280,
+    height: 200,
     borderRadius: 12,
   },
   comparisonImageLarge: {
@@ -997,7 +985,7 @@ const styles = StyleSheet.create({
   },
   noPhotoPlaceholder: {
     width: '100%',
-    height: 280,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -1228,10 +1216,29 @@ const styles = StyleSheet.create({
   timelinePhotoContent: {
     padding: 0,
   },
+  timelineImageContainer: {
+    position: 'relative',
+    width: '100%',
+  },
   timelineImage: {
     width: '100%',
     height: 200,
+    borderRadius: 16,
+  },
+  timelineLabelOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
+  },
+  timelineLabelText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   timelineNoPhoto: {
     width: '100%',
@@ -1500,10 +1507,29 @@ const styles = StyleSheet.create({
     width: '49.5%',
     alignItems: 'center',
   },
+  photoImageContainer: {
+    position: 'relative',
+    width: '100%',
+  },
   photoImage: {
     width: '100%',
-    height: 280,
-    borderRadius: 12,
+    height: 200,
+    borderRadius: 16,
+  },
+  photoLabelOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  photoLabelOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   photoLabelMainText: {
     color: colors.primary,

@@ -168,7 +168,13 @@ const PhotoUploadForm: React.FC<PhotoUploadFormProps> = ({ userId, initialDate }
         <View style={styles.photoContainer}>
           <Text style={{color: 'white'}}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
           <TouchableOpacity style={styles.photoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage sourceUrl={newUri} style={styles.previewImage} />
+            <SafeImage 
+              sourceUrl={newUri} 
+              style={styles.previewImage}
+              quality={1.0}
+              maxWidth={2400}
+              maxHeight={3200}
+            />
           </TouchableOpacity>
         </View>
       );
@@ -183,7 +189,13 @@ const PhotoUploadForm: React.FC<PhotoUploadFormProps> = ({ userId, initialDate }
         <View style={styles.photoContainer}>
           <Text style={{color: 'white'}}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
           <TouchableOpacity style={styles.photoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage sourceUrl={photoUrl} style={styles.previewImage} />
+            <SafeImage 
+              sourceUrl={photoUrl} 
+              style={styles.previewImage}
+              quality={1.0}
+              maxWidth={2400}
+              maxHeight={3200}
+            />
           </TouchableOpacity>
         </View>
       );

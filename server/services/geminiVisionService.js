@@ -32,7 +32,7 @@ class GeminiVisionService {
    * @param {string} mimeType - The MIME type of the image (e.g., 'image/jpeg')
    * @returns {Promise<Object>} Nutritional analysis results
    */
-  async analyzeFoodImage(imageBuffer, mimeType = 'image/jpeg') {
+  async analyzeFoodImage(imageBuffer, mimeType = 'image/jpeg', additionalInfo = null) {
     try {
 
       const startTime = Date.now();
@@ -49,15 +49,41 @@ class GeminiVisionService {
       };
 
       // Focused prompt for direct food analysis and nutrition estimation
-      const prompt = `Analyze this food photo and identify the dish or food items. 
+      let prompt = `Analyze this food photo and identify the dish or food items. 
 
-CRITICAL PORTION SIZE ANALYSIS:
+${additionalInfo ? `
+ADDITIONAL CONTEXT PROVIDED BY USER:
+"${additionalInfo}"
+
+IMPORTANT: Use this context to improve your analysis accuracy. The user has provided specific details about:
+- Portion size (e.g., "small portion", "large serving")
+- Cooking method (e.g., "steamed", "fried", "grilled")
+- Ingredients or preparation (e.g., "extra sauce", "no oil", "lean meat")
+- Any other relevant details
+
+Incorporate this information into your portion size assessment and nutritional calculations.
+
+` : ''}
+
+CRITICAL PORTION SIZE ANALYSIS WITH DEPTH PERCEPTION:
 1. CAREFULLY assess the ACTUAL VISIBLE PORTION SIZE in the image
 2. Look for visual cues: plate size, bowl fullness, food volume, comparison to utensils/hands if visible
-3. Classify the portion as: "Small" (child-size/snack), "Medium" (half portion), "Regular" (standard meal), "Large" (1.5x normal), or "Extra Large" (2x+ normal)
-4. Adjust calorie estimates based on the ACTUAL portion you see, NOT a standard serving
-5. If the portion looks smaller than typical restaurant/home serving, reduce calories proportionally
-6. If the portion looks larger, increase calories proportionally
+3. DEPTH & DISTANCE ASSESSMENT - CRITICAL FOR ACCURACY:
+   - If food appears very close to camera (fills most of frame): REDUCE portion estimate by 20-30%
+   - If food appears far from camera (small in frame): Look for reference objects to gauge true size
+   - Check for perspective distortion: closer items appear disproportionately larger
+   - Look for depth cues: shadows, overlapping items, background objects for scale
+4. REFERENCE OBJECT SCALING:
+   - Utensils (fork/spoon): ~6 inches long - use as size reference
+   - Plates: Standard dinner plate ~10-11 inches, salad plate ~7-8 inches
+   - Bowls: Standard bowl ~6 inches diameter, small bowl ~4 inches
+   - Hands/fingers visible: Use as approximate size reference
+5. CONSERVATIVE ESTIMATION BIAS:
+   - When uncertain about distance/size: DEFAULT to SMALLER portion estimate
+   - Better to underestimate than overestimate calories
+   - If portion looks ambiguous, classify as "Medium" rather than "Regular" or "Large"
+6. Classify the portion as: "Small" (child-size/snack), "Medium" (half portion), "Regular" (standard meal), "Large" (1.5x normal), or "Extra Large" (2x+ normal)
+7. Adjust calorie estimates based on the ACTUAL portion you see, NOT a standard serving
 
 PORTION SIZE EXAMPLES:
 - Small bowl of rice (1/2 cup) = ~100 cal, not a full bowl (1 cup) = ~200 cal
@@ -92,7 +118,8 @@ CRITICAL: Respond ONLY with valid JSON in this exact format:
     }
   ],
   "assumptions": [
-    "MUST include portion size assessment - e.g., 'Portion appears smaller than standard serving, calories adjusted to ~70% of typical'",
+    "MUST include portion size assessment with distance consideration - e.g., 'Food appears close to camera, reduced portion estimate by 25%' or 'Used plate size as reference, portion appears medium-sized'",
+    "MUST mention depth perception factors - e.g., 'No clear reference objects visible, defaulted to conservative estimate'",
     "Other key assumptions about preparation"
   ],
   "notes": "Brief analysis summary including portion size observation"

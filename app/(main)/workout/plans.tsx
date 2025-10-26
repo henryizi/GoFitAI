@@ -214,7 +214,7 @@ const WorkoutPlansScreen = () => {
               const finalPlans = updatedPlans.map(p => ({
                 ...p,
                 is_active: p.id === validatedActivePlan.id,
-                status: p.id === validatedActivePlan.id ? 'active' : 'inactive'
+                status: p.id === validatedActivePlan.id ? 'active' : 'archived'
               }));
               
               setPlans(finalPlans);
@@ -313,19 +313,26 @@ const WorkoutPlansScreen = () => {
               }
             }
 
+            // Ensure only the active plan is marked as active
+            const finalMergedPlans = mergedPlans.map((plan: any) => ({
+              ...plan,
+              is_active: activePlanId ? plan.id === activePlanId : false,
+              status: activePlanId && plan.id === activePlanId ? 'active' : 'archived'
+            }));
+
             // Sort: active plans first, then newest created
-            mergedPlans.sort((a: any, b: any) => {
+            finalMergedPlans.sort((a: any, b: any) => {
               if (!!a.is_active !== !!b.is_active) return a.is_active ? -1 : 1;
               const aDate = new Date(a.created_at || a.updated_at || 0).getTime();
               const bDate = new Date(b.created_at || b.updated_at || 0).getTime();
               return bDate - aDate;
             });
 
-            console.log(`[WorkoutPlans] Merged ${validPlans.length} local plans with ${uniqueDbPlans.length} database plans = ${mergedPlans.length} total plans`);
-            setPlans(mergedPlans as any);
+            console.log(`[WorkoutPlans] Merged ${validPlans.length} local plans with ${uniqueDbPlans.length} database plans = ${finalMergedPlans.length} total plans`);
+            setPlans(finalMergedPlans as any);
 
             // Also update local storage with merged plans (preserves bodybuilder plans)
-            await WorkoutLocalStore.savePlans(user.id, mergedPlans as any);
+            await WorkoutLocalStore.savePlans(user.id, finalMergedPlans as any);
           }
         } catch (dbError) {
           console.error('[WorkoutPlans] Error fetching plans from database:', dbError);
@@ -562,52 +569,20 @@ const WorkoutPlansScreen = () => {
               setLoading(true);
               console.log(`[WorkoutPlans] Deleting plan: ${planId} (${planName})`);
               
-              // Try multiple approaches to delete the plan
+              // Use the improved WorkoutService deletion methods
               let success = false;
               
               if (planId) {
-                console.log('[WorkoutPlans] Attempting deletion by ID');
-                success = await WorkoutLocalStore.deletePlan(planId);
+                console.log('[WorkoutPlans] Attempting deletion by ID using WorkoutService');
+                success = await WorkoutService.deletePlan(planId, user?.id);
               }
               
-              if (!success && planName && planName !== 'Unknown Plan') {
-                console.log('[WorkoutPlans] Attempting deletion by name');
-                success = await WorkoutLocalStore.deletePlansByName(planName);
-              }
-              
-              // Fallback: try to find and delete by any available property
-              if (!success) {
-                console.log('[WorkoutPlans] Fallback: attempting to delete by object comparison');
-                // Get all plans and try to find a match
-                const allStoredPlans = await WorkoutLocalStore.getAllPlans();
-                console.log('[WorkoutPlans] All stored plans:', allStoredPlans.map(p => ({ id: p.id, name: p.name })));
-                
-                // Try to match by any available properties
-                const matchingPlan = allStoredPlans.find(storedPlan => {
-                  return (
-                    (planId && storedPlan.id === planId) ||
-                    (planName !== 'Unknown Plan' && storedPlan.name === planName)
-                  );
-                });
-                
-                if (matchingPlan) {
-                  console.log('[WorkoutPlans] Found matching plan:', matchingPlan);
-                  success = await WorkoutLocalStore.deletePlan(matchingPlan.id);
-                }
+              if (!success && planName && planName !== 'Unknown Plan' && user?.id) {
+                console.log('[WorkoutPlans] Attempting deletion by name using WorkoutService');
+                success = await WorkoutService.deletePlanByName(planName, user.id);
               }
               
               if (success) {
-                // Also try to delete from database if it's a real UUID
-                if (planId && WorkoutService.isValidUUID(planId)) {
-                  try {
-                    await WorkoutService.deletePlan(planId);
-                    console.log(`[WorkoutPlans] Successfully deleted plan from database: ${planId}`);
-                  } catch (dbError) {
-                    console.error(`[WorkoutPlans] Error deleting plan from database: ${dbError}`);
-                    // Continue even if database delete fails
-                  }
-                }
-                
                 // Remove from local state - filter by multiple criteria to be safe
                 setPlans(prev => prev.filter(p => {
                   const currentPlanName = p.name?.trim().toLowerCase();
@@ -623,6 +598,9 @@ const WorkoutPlansScreen = () => {
                 
                 // Show success message
                 Alert.alert('Success', `"${planName}" has been deleted.`);
+                
+                // Don't refresh from database immediately - let the local deletion persist
+                // The next natural refresh will sync with database
               } else {
                 Alert.alert('Error', 'Failed to delete the workout plan. Please check the console for debugging info.');
               }
@@ -652,7 +630,7 @@ const WorkoutPlansScreen = () => {
         setPlans(prev => prev.map(p => ({
           ...p,
           is_active: p.id === plan.id,
-          status: p.id === plan.id ? 'active' : 'inactive'
+          status: p.id === plan.id ? 'active' : 'archived'
         })));
         
         // Update active plan ID
@@ -1429,7 +1407,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   emptyCard: {
     width: '100%',
@@ -1439,7 +1418,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   emptyImageBackground: {
-    height: 400,
+    minHeight: 500,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1453,6 +1432,7 @@ const styles = StyleSheet.create({
   emptyContent: {
     alignItems: 'center',
     padding: 32,
+    paddingBottom: 40,
   },
   emptyIconContainer: {
     marginBottom: 24,

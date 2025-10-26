@@ -244,14 +244,14 @@ export default function SessionExecutionScreen() {
 
   const { sessionId, sessionTitle, fallbackExercises } = useLocalSearchParams<{ sessionId: string; sessionTitle: string; fallbackExercises?: string }>();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const [sets, setSets] = useState<ExerciseSet[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [setNumber, setSetNumber] = useState(1);
   const [actualReps, setActualReps] = useState('');
   const [actualWeight, setActualWeight] = useState('');
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(user?.profile?.weight_unit_preference || 'kg');
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(profile?.weight_unit_preference || 'kg');
   const [sessionWeightUnit, setSessionWeightUnit] = useState<'kg' | 'lbs' | null>(null);
   const [exerciseMap, setExerciseMap] = useState<Record<string, { name: string }>>({});
   const [loading, setLoading] = useState(true);
@@ -283,10 +283,10 @@ export default function SessionExecutionScreen() {
 
   // Update weight unit when user profile changes
   useEffect(() => {
-    if (user?.profile?.weight_unit_preference) {
-      setWeightUnit(user.profile.weight_unit_preference);
+    if (profile?.weight_unit_preference) {
+      setWeightUnit(profile.weight_unit_preference);
     }
-  }, [user?.profile?.weight_unit_preference]);
+  }, [profile?.weight_unit_preference]);
 
   // Set weight unit to session preference when starting new exercises
   useEffect(() => {
@@ -332,7 +332,7 @@ export default function SessionExecutionScreen() {
     
     // Calculate completed calories
     if (completedExerciseData.length > 0) {
-      const userWeight = user?.profile?.weight || 70;
+      const userWeight = profile?.weight || 70;
       const { totalCalories } = calculateWorkoutCalories(completedExerciseData, userWeight);
       completedCalories = totalCalories;
     }
@@ -360,7 +360,7 @@ export default function SessionExecutionScreen() {
     
     // Calculate projected calories for remaining work
     if (remainingExerciseData.length > 0) {
-      const userWeight = user?.profile?.weight || 70;
+      const userWeight = profile?.weight || 70;
       const { totalCalories } = calculateWorkoutCalories(remainingExerciseData, userWeight);
       projectedCalories = totalCalories;
     }
@@ -369,9 +369,9 @@ export default function SessionExecutionScreen() {
     const totalCalories = completedCalories + projectedCalories;
     
     // Adjust based on user profile if available
-    const fitnessLevel = user?.profile?.fitness_level || 'intermediate';
-    const age = user?.profile?.age;
-    const gender = user?.profile?.gender;
+    const fitnessLevel = profile?.fitness_level || 'intermediate';
+    const age = profile?.age;
+    const gender = profile?.gender;
     
     const adjustedCalories = adjustCaloriesForUserProfile(totalCalories, {
       fitnessLevel: fitnessLevel as 'beginner' | 'intermediate' | 'advanced',
@@ -1942,9 +1942,7 @@ export default function SessionExecutionScreen() {
             
             <Text style={styles.headerTitle}>{splitName || sessionTitle || 'Workout'}</Text>
             
-            <TouchableOpacity style={styles.menuButton}>
-              <Icon name="dots-vertical" size={24} color={colors.text} />
-            </TouchableOpacity>
+            <View style={styles.menuButton} />
           </LinearGradient>
         </Animated.View>
         
@@ -2230,7 +2228,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   menuButton: {
-    padding: 8,
+    width: 40, // Maintain layout balance
   },
   progressContainer: {
     paddingHorizontal: 16,

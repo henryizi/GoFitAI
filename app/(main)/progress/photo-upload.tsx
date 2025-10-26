@@ -244,7 +244,13 @@ export default function PhotoUploadScreen() {
       >
         {photoUri ? (
           <View style={styles.photoContainer}>
-            <SafeImage sourceUrl={photoUri} style={styles.photoPreview} />
+            <SafeImage 
+              sourceUrl={photoUri} 
+              style={styles.photoPreview}
+              quality={1.0}
+              maxWidth={2400}
+              maxHeight={3200}
+            />
             <View style={styles.photoOverlay}>
               <Icon name="camera" size={24} color={colors.text} />
               <Text style={styles.photoOverlayText}>Tap to change</Text>

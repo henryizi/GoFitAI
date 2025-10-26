@@ -58,7 +58,7 @@ export function useSubscription(): SubscriptionState {
 
   // Development bypass: treat user as premium in development
   const isDevelopment = __DEV__;
-  const bypassPaywall = isDevelopment;
+  const bypassPaywall = isDevelopment; // Only bypass in development mode
 
   // Initialize RevenueCat and load subscription status
   const initializeSubscription = useCallback(async () => {

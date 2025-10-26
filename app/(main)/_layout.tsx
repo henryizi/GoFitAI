@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs, router, Redirect } from 'expo-router';
+import { Tabs, router, Redirect, usePathname } from 'expo-router';
 import { StyleSheet, View, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons as Icon, Ionicons } from '@expo/vector-icons';
 import { Text } from 'react-native';
@@ -31,10 +31,11 @@ export const SAFE_AREA_PADDING_BOTTOM = 34;
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const { isPremium, isLoading } = useSubscription();
+  const pathname = usePathname();
 
   // Development bypass: allow access in development mode
   const isDevelopment = __DEV__;
-  const bypassPaywall = isDevelopment;
+  const bypassPaywall = isDevelopment; // Only bypass in development mode
 
   // 如果订阅状态正在加载，显示加载界面
   if (isLoading) {
@@ -48,7 +49,9 @@ export default function MainLayout() {
 
   // 如果用户没有付费，重定向到付费墙 (除非在开发模式)
   if (!isPremium && !bypassPaywall) {
-    return <Redirect href="/paywall" />;
+    console.log('🎯 Main Layout: Redirecting to paywall - user not premium');
+    console.log('🎯 Current pathname:', pathname);
+    return <Redirect href="/(paywall)" />;
   }
 
   // Development bypass message

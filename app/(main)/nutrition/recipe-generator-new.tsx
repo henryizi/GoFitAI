@@ -34,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 import { ShareService } from '../../../src/services/sharing/ShareService';
+import { useSubscription } from '../../../src/hooks/useSubscription';
 import { colors } from '../../../src/styles/colors';
 import { theme } from '../../../src/styles/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -61,6 +62,7 @@ const RecipeGeneratorScreen = () => {
   const insets = useSafeAreaInsets();
   const paperTheme = useTheme();
   const { user } = useAuth();
+  const { isPremium, useRecipe, openPaywall } = useSubscription();
   const [ingredients, setIngredients] = useState('');
   const [selectedMealType, setSelectedMealType] = useState('Dinner');
   const [isLoading, setIsLoading] = useState(false);
@@ -100,6 +102,15 @@ const RecipeGeneratorScreen = () => {
     if (!ingredients.trim()) {
       Alert.alert('Missing Ingredients', 'Please enter some ingredients.');
       return;
+    }
+
+    // Check subscription limits for free users
+    if (!isPremium) {
+      const ok = useRecipe();
+      if (!ok) {
+        openPaywall();
+        return;
+      }
     }
 
     setIsLoading(true);

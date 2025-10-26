@@ -25,6 +25,7 @@ import { WorkoutService } from '../src/services/workout/WorkoutService';
 import { ImageOptimizer } from '../src/services/storage/imageOptimizer';
 import { clearSafeImageCache } from '../src/components/ui/SafeImage';
 import { RevenueCatService } from '../src/services/subscription/RevenueCatService';
+import { NotificationInitializer } from '../src/services/notifications/NotificationInitializer';
 
 const InitialLayout = () => {
   return (
@@ -38,7 +39,7 @@ const InitialLayout = () => {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="(paywall)" options={{ headerShown: false, presentation: 'modal' }} />
       </Stack>
   )
 }
@@ -78,6 +79,15 @@ export default function RootLayout() {
         } catch (error) {
           console.warn('RevenueCat initialization failed, will retry when needed:', error.message);
           // Don't block app startup if RevenueCat fails to initialize
+        }
+
+        // Initialize notification system
+        try {
+          await NotificationInitializer.initialize();
+          console.log('Notification system initialization complete');
+        } catch (error) {
+          console.warn('Notification system initialization failed:', error.message);
+          // Don't block app startup if notifications fail to initialize
         }
       } catch (error) {
         console.error('Error initializing app data:', error);

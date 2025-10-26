@@ -32,7 +32,7 @@ const colors = {
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(profile?.avatar_url || null);
   
@@ -40,6 +40,16 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [username, setUsername] = useState(profile?.username || '');
   const [birthday, setBirthday] = useState(profile?.birthday || '');
+
+  // Sync local state with profile context when it updates
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setUsername(profile.username || '');
+      setBirthday(profile.birthday || '');
+      setProfileImage(profile.avatar_url || null);
+    }
+  }, [profile]);
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -57,6 +67,9 @@ export default function EditProfileScreen() {
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Refresh the profile context to reflect the changes
+      await refreshProfile();
 
       Alert.alert('Success', 'Profile updated successfully!', [
         { text: 'OK', onPress: () => router.back() }

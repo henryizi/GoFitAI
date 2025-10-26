@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ImageBackground,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -20,14 +21,102 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { colors } from '../../src/styles/colors';
 import { NutritionService } from '../../src/services/nutrition/NutritionService';
 import { WorkoutHistoryService, CompletedSessionListItem } from '../../src/services/workout/WorkoutHistoryService';
+import { WorkoutReminderCard } from '../../src/components/workout/WorkoutReminderCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Daily motivational content that rotates based on date
+const dailyFocusContent = [
+  {
+    icon: 'target' as const,
+    title: 'Start Strong',
+    description: 'Every journey begins with a single step. Make today count with intention and purpose.'
+  },
+  {
+    icon: 'fire' as const,
+    title: 'Ignite Your Energy',
+    description: 'Channel your inner fire today. Let passion fuel your progress and drive your success.'
+  },
+  {
+    icon: 'heart-pulse' as const,
+    title: 'Listen to Your Body',
+    description: 'Your body is your temple. Honor it with movement, rest, and mindful choices today.'
+  },
+  {
+    icon: 'trophy' as const,
+    title: 'Chase Excellence',
+    description: 'Excellence is not a destination but a daily practice. Strive for your personal best.'
+  },
+  {
+    icon: 'lightning-bolt' as const,
+    title: 'Power Through',
+    description: 'You have the strength within you. Push past limits and discover what you\'re capable of.'
+  },
+  {
+    icon: 'meditation' as const,
+    title: 'Mind-Body Connection',
+    description: 'True fitness starts in the mind. Focus your thoughts and let your body follow.'
+  },
+  {
+    icon: 'rocket' as const,
+    title: 'Launch Forward',
+    description: 'Today is your launchpad. Use this momentum to propel yourself toward your goals.'
+  },
+  {
+    icon: 'diamond' as const,
+    title: 'Pressure Makes Diamonds',
+    description: 'Embrace the challenge. Every rep, every step, every choice shapes the diamond within you.'
+  },
+  {
+    icon: 'compass' as const,
+    title: 'Stay on Course',
+    description: 'Your goals are your north star. Let them guide every decision you make today.'
+  },
+  {
+    icon: 'weather-sunny' as const,
+    title: 'Rise and Shine',
+    description: 'Each sunrise brings new possibilities. Greet today with energy and optimism.'
+  },
+  {
+    icon: 'image-filter-hdr' as const,
+    title: 'Conquer Your Peak',
+    description: 'Every mountain is climbed one step at a time. Focus on the step in front of you.'
+  },
+  {
+    icon: 'waves' as const,
+    title: 'Flow with Purpose',
+    description: 'Like water shapes stone, consistent effort shapes your future. Stay fluid, stay focused.'
+  },
+  {
+    icon: 'leaf' as const,
+    title: 'Grow Stronger',
+    description: 'Growth happens in the quiet moments between effort and rest. Trust the process.'
+  },
+  {
+    icon: 'star' as const,
+    title: 'Shine Bright',
+    description: 'You are capable of extraordinary things. Let your light shine through your actions today.'
+  },
+  {
+    icon: 'shield-check' as const,
+    title: 'Build Resilience',
+    description: 'Strength isn\'t just physical—it\'s mental. Build your resilience one challenge at a time.'
+  }
+];
+
+// Function to get today's focus content based on date
+const getTodaysFocus = () => {
+  const today = new Date();
+  const startOfYear = new Date(today.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((today.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+  const index = dayOfYear % dailyFocusContent.length;
+  return dailyFocusContent[index];
+};
 
 const { width: screenWidth } = Dimensions.get('window');
 
 interface QuickAction {
   id: string;
   title: string;
-  subtitle: string;
   icon: string;
   route: string;
   gradient: string[];
@@ -37,7 +126,6 @@ const quickActions: QuickAction[] = [
   {
     id: 'workout',
     title: 'Start Workout',
-    subtitle: 'Begin your training session',
     icon: 'dumbbell',
     route: '/(main)/workout',
     gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
@@ -45,7 +133,6 @@ const quickActions: QuickAction[] = [
   {
     id: 'nutrition',
     title: 'Nutrition Plan',
-    subtitle: 'Track your daily nutrition',
     icon: 'food-apple-outline',
     route: '/(main)/nutrition',
     gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
@@ -53,7 +140,6 @@ const quickActions: QuickAction[] = [
   {
     id: 'progress',
     title: 'Track Progress',
-    subtitle: 'Log your body metrics',
     icon: 'chart-line',
     route: '/(main)/progress',
     gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
@@ -61,7 +147,6 @@ const quickActions: QuickAction[] = [
   {
     id: 'settings',
     title: 'Settings',
-    subtitle: 'Customize your experience',
     icon: 'cog',
     route: '/(main)/settings',
     gradient: ['rgba(255,107,53,0.25)', 'rgba(0,0,0,0.2)'],
@@ -80,6 +165,9 @@ export default function Dashboard() {
   const { user, profile } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Get today's focus content once
+  const todaysFocus = getTodaysFocus();
   const [showRemaining, setShowRemaining] = useState(false);
   const [nutritionProgress, setNutritionProgress] = useState<NutritionProgress | null>(null);
   const [recentActivities, setRecentActivities] = useState<CompletedSessionListItem[]>([]);
@@ -246,9 +334,19 @@ export default function Dashboard() {
           >
             <View style={styles.welcomeContent}>
               <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.userName}>
-                {profile?.full_name || profile?.username || 'Champion'}! 👋
-              </Text>
+              <View style={styles.userNameContainer}>
+                <Text style={styles.userName}>
+                  {profile?.full_name || profile?.username || 'Champion'}! 👋
+                </Text>
+                {profile?.avatar_url && (
+                  <View style={styles.avatarContainer}>
+                    <Image 
+                      source={{ uri: profile.avatar_url }} 
+                      style={styles.avatarImage}
+                    />
+                  </View>
+                )}
+              </View>
               <Text style={styles.motivationalText}>
                 {getMotivationalMessage()}
               </Text>
@@ -279,15 +377,25 @@ export default function Dashboard() {
             style={styles.focusCard}
           >
             <View style={styles.focusContent}>
-              <Icon name="target" size={28} color={colors.primary} />
+              <Icon name={todaysFocus.icon} size={28} color={colors.primary} />
               <View style={styles.focusText}>
-                <Text style={styles.focusTitle}>Stay Consistent</Text>
+                <Text style={styles.focusTitle}>{todaysFocus.title}</Text>
                 <Text style={styles.focusDescription}>
-                  Small daily actions lead to big results. Choose one thing to focus on today.
+                  {todaysFocus.description}
                 </Text>
               </View>
             </View>
           </LinearGradient>
+        </View>
+
+        {/* Workout Reminders */}
+        <View style={styles.sectionContainer}>
+          <WorkoutReminderCard 
+            onReminderCreated={() => {
+              // Optional: Refresh dashboard data when reminder is created
+              console.log('Workout reminder created!');
+            }}
+          />
         </View>
 
         {/* Quick Actions */}
@@ -308,22 +416,14 @@ export default function Dashboard() {
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.actionContent}>
-                    <View style={[styles.actionIconContainer, {
-                      backgroundColor: 'rgba(255,107,53,0.3)',
-                      borderColor: 'rgba(255,107,53,0.5)',
-                      borderWidth: 1,
-                      shadowColor: colors.primary,
-                    }]}>
-                      <Icon 
-                        name={action.icon as any} 
-                        size={28} 
-                        color={colors.white} 
-                      />
-                    </View>
+                    <Icon 
+                      name={action.icon as any} 
+                      size={48} 
+                      color={colors.white} 
+                    />
                     
                     <View style={styles.actionTextContainer}>
                       <Text style={styles.actionTitle}>{action.title}</Text>
-                      <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                     </View>
                   </View>
                   
@@ -639,12 +739,27 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
   },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
   userName: {
     fontSize: 24,
     color: colors.white,
     fontWeight: 'bold',
-    marginTop: 4,
-    marginBottom: 8,
+    flex: 1,
+  },
+  avatarContainer: {
+    marginLeft: 12,
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   motivationalText: {
     fontSize: 14,
@@ -670,8 +785,10 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 20,
@@ -686,38 +803,50 @@ const styles = StyleSheet.create({
   nutritionActions: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   nutritionActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(255,107,53,0.2)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,107,53,0.3)',
+    minWidth: 0,
+    flexShrink: 1,
   },
   nutritionActionText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   nutritionActionButtonSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    minWidth: 0,
+    flexShrink: 1,
   },
   nutritionActionTextSecondary: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   nutritionActionButtonActive: {
     backgroundColor: 'rgba(255,107,53,0.15)',
@@ -751,36 +880,19 @@ const styles = StyleSheet.create({
   actionContent: {
     flex: 1,
     padding: 18,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   actionTextContainer: {
-    flex: 1,
-    marginTop: 8,
+    marginTop: 16,
+    alignItems: 'center',
   },
   actionTitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: colors.white,
     fontWeight: '700',
-    marginBottom: 2,
+    textAlign: 'center',
     letterSpacing: 0.2,
-  },
-  actionSubtitle: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 14,
-    fontWeight: '500',
   },
   actionHighlight: {
     position: 'absolute',

@@ -7580,15 +7580,128 @@ app.post('/api/clear-cache', (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-// Food analysis endpoint
-app.post('/api/analyze-food', async (req, res) => {
+// Food analysis endpoint - handles both text descriptions and image uploads
+app.post('/api/analyze-food', upload.single('foodImage'), async (req, res) => {
   const { description } = req.body;
   
-  if (!description) {
-    return res.status(400).json({ error: 'Food description is required' });
+  // Check if we have either a text description, image file, or base64 image
+  if (!description && !req.file && !req.body.image) {
+    return res.status(400).json({ error: 'Food description or image is required' });
   }
 
   try {
+    // If we have an image (file upload or base64), use image analysis
+    if (req.file || req.body.image) {
+      console.log('[FOOD ANALYZE] Processing image analysis request');
+      let base64Image, mimeType;
+      
+      // Handle image processing
+      if (req.body.image) {
+        console.log('[FOOD ANALYZE] Processing base64 image');
+        const imageData = req.body.image;
+        if (imageData.startsWith('data:')) {
+          const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            base64Image = matches[2];
+          }
+        } else {
+          base64Image = imageData;
+          mimeType = 'image/jpeg';
+        }
+      } else if (req.file) {
+        console.log('[FOOD ANALYZE] Processing uploaded file');
+        const imageBuffer = fs.readFileSync(req.file.path);
+
+        // Validate image
+        try {
+          const metadata = await sharp(imageBuffer).metadata();
+          if (!metadata.format) throw new Error('Invalid image');
+        } catch (sharpError) {
+          console.error('[FOOD ANALYZE] Image validation failed:', sharpError.message);
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid image format. Please upload JPG, PNG, or HEIC.'
+          });
+        }
+
+        // Convert HEIC to JPEG if needed
+        let processedBuffer = imageBuffer;
+        const isHeic = req.file.mimetype?.includes('heic') || req.file.originalname?.includes('.heic');
+        if (isHeic) {
+          processedBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
+          mimeType = 'image/jpeg';
+        }
+
+        // Compress if too large
+        if (processedBuffer.length > 2_000_000) {
+          processedBuffer = await compressImageForVision(processedBuffer);
+        }
+
+        base64Image = processedBuffer.toString('base64');
+        mimeType = mimeType || req.file.mimetype || 'image/jpeg';
+        console.log('[FOOD ANALYZE] Processed image, mimeType:', mimeType);
+      }
+
+      // Use Gemini Vision for image analysis
+      console.log('[FOOD ANALYZE] Using Gemini Vision API for image analysis');
+
+      if (!visionService) {
+        console.warn('[FOOD ANALYZE] Vision service unavailable. Using basic fallback analyzer');
+
+        // Clean up uploaded file if present
+        if (req.file?.path) {
+          try { fs.unlinkSync(req.file.path); } catch (_) {}
+        }
+
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Vision service not available',
+          message: 'AI vision service unavailable. Please try again later.'
+        });
+      }
+
+      // Get additional context from request body if provided
+      const additionalInfo = req.body.additionalInfo;
+      console.log('[FOOD ANALYZE] Additional context:', additionalInfo);
+
+      // Convert base64 to Buffer for GeminiVisionService
+      const imageBuffer = Buffer.from(base64Image, 'base64');
+      const visionResult = await visionService.analyzeFoodImage(imageBuffer, mimeType, additionalInfo);
+      
+      console.log('[FOOD ANALYZE] Gemini vision analysis completed successfully');
+      console.log('[FOOD ANALYZE] Food identified:', visionResult.foodName);
+      console.log('[FOOD ANALYZE] Confidence:', visionResult.confidence);
+
+      // Clean up uploaded file
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (error) {
+          console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
+        }
+      }
+
+      // Return the vision analysis result directly with consistent format
+      return res.json({
+        success: true,
+        data: {
+          foodName: visionResult.foodName,
+          confidence: visionResult.confidence,
+          estimatedServingSize: visionResult.estimatedServingSize,
+          nutrition: visionResult.totalNutrition,
+          totalNutrition: visionResult.totalNutrition,
+          foodItems: visionResult.foodItems || [],
+          assumptions: visionResult.assumptions || [],
+          notes: visionResult.notes || "Nutritional analysis completed successfully",
+          analysisProvider: 'gemini_vision_only',
+          timestamp: new Date().toISOString(),
+          message: `Food analysis completed with ${visionResult.confidence}% confidence using Gemini Vision`
+        }
+      });
+    } else if (description) {
+      // Text-only analysis
+      console.log('[FOOD ANALYZE] Processing text-only analysis request');
       const messages = [
         {
           role: 'system',
@@ -7641,7 +7754,7 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           geminiRequestBody,
           {
             headers: { 'Content-Type': 'application/json' },
-            timeout: 5000 // 5 second timeout for fast fallback
+            timeout: 30000 // 30 second timeout for AI processing
           }
         );
 
@@ -7684,108 +7797,12 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
           error: 'Food analysis failed',
           message: 'AI service unavailable. Please try again later.'
         });
-    }
-
-    // Handle image input
-    if (req.body.image) {
-      console.log('[FOOD ANALYZE] Processing base64 image');
-      const imageData = req.body.image;
-      if (imageData.startsWith('data:')) {
-        const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1];
-          base64Image = matches[2];
-        }
-        } else {
-          base64Image = imageData;
-        mimeType = 'image/jpeg';
-    }
-    } else if (req.file) {
-      console.log('[FOOD ANALYZE] Processing uploaded file');
-      const imageBuffer = fs.readFileSync(req.file.path);
-
-      // Validate image
-    try {
-      const metadata = await sharp(imageBuffer).metadata();
-        if (!metadata.format) throw new Error('Invalid image');
-    } catch (sharpError) {
-        console.error('[FOOD ANALYZE] Image validation failed:', sharpError.message);
-      return res.status(400).json({
-          success: false,
-          error: 'Invalid image format. Please upload JPG, PNG, or HEIC.'
-      });
-    }
-
-      // Convert HEIC to JPEG if needed
-      let processedBuffer = imageBuffer;
-      const isHeic = req.file.mimetype?.includes('heic') || req.file.originalname?.includes('.heic');
-      if (isHeic) {
-        processedBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
-          mimeType = 'image/jpeg';
       }
-
-      // Compress if too large
-      if (processedBuffer.length > 2_000_000) {
-        processedBuffer = await compressImageForVision(processedBuffer);
-      }
-
-      base64Image = processedBuffer.toString('base64');
-      mimeType = mimeType || req.file.mimetype || 'image/jpeg';
-      console.log('[FOOD ANALYZE] Processed image, mimeType:', mimeType);
+    } else {
+      // This should not happen due to validation above, but just in case
+      return res.status(400).json({ error: 'No valid input provided' });
     }
 
-    // Use Gemini Vision for image analysis
-    console.log('[FOOD ANALYZE] Using Gemini Vision API for image analysis');
-
-    if (!visionService) {
-      console.warn('[FOOD ANALYZE] Vision service unavailable. Using basic fallback analyzer');
-
-        // Clean up uploaded file if present
-        if (req.file?.path) {
-          try { fs.unlinkSync(req.file.path); } catch (_) {}
-        }
-
-      return res.status(503).json({ 
-        success: false, 
-        error: 'Vision service not available',
-        message: 'AI vision service unavailable. Please try again later.'
-      });
-    }
-
-    // Convert base64 to Buffer for GeminiVisionService
-    const imageBuffer = Buffer.from(base64Image, 'base64');
-    const visionResult = await visionService.analyzeFoodImage(imageBuffer, mimeType);
-    
-    console.log('[FOOD ANALYZE] Gemini vision analysis completed successfully');
-    console.log('[FOOD ANALYZE] Food identified:', visionResult.foodName);
-    console.log('[FOOD ANALYZE] Confidence:', visionResult.confidence);
-
-    // Clean up uploaded file
-    if (req.file?.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (error) {
-        console.warn('[FOOD ANALYZE] Failed to cleanup file:', error.message);
-      }
-    }
-
-    // Return the vision analysis result directly with consistent format
-    res.json({
-      success: true,
-      data: {
-        foodName: visionResult.foodName, // ✅ CRITICAL: Add missing foodName field!
-        confidence: visionResult.confidence,
-        estimatedServingSize: visionResult.estimatedServingSize,
-        nutrition: visionResult.totalNutrition,
-        totalNutrition: visionResult.totalNutrition, // Keep for backward compatibility
-        foodItems: visionResult.foodItems || [],
-        assumptions: visionResult.assumptions || [],
-        notes: visionResult.notes || "Nutritional analysis completed successfully",
-        analysisProvider: 'gemini_vision_local',
-        timestamp: new Date().toISOString(),
-        message: `Analyzed using Gemini Vision. Confidence: ${visionResult.confidence}%`
-      }
-    });
   } catch (error) {
     console.error('[FOOD ANALYZE] Error:', error.message);
 

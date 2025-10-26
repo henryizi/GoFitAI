@@ -38,29 +38,29 @@ const mockOfferings: PurchasesOffering[] = [
         },
       },
       {
-        identifier: '$rc_annual',
+        identifier: '$rc_lifetime',
         offeringIdentifier: 'default',
         product: {
           identifier: 'gofitai_premium_lifetime1',
-          description: 'Premium Annual Subscription',
-          title: 'Premium Annual',
-          price: 99.99,
-          priceString: '$99.99',
+          description: 'Premium Lifetime Access',
+          title: 'Premium Lifetime',
+          price: 199.99,
+          priceString: '$199.99',
           currencyCode: 'USD',
           introPrice: null,
           discounts: [],
-          pricePerWeek: 1.92,
-          pricePerMonth: 8.33,
-          pricePerYear: 99.99,
-          pricePerWeekString: '$1.92',
-          pricePerMonthString: '$8.33',
-          pricePerYearString: '$99.99',
+          pricePerWeek: 0,
+          pricePerMonth: 0,
+          pricePerYear: 0,
+          pricePerWeekString: '$0.00',
+          pricePerMonthString: '$0.00',
+          pricePerYearString: '$0.00',
           subscriptionPeriod: null,
           introductoryPrice: null,
           subscriptionGroupIdentifier: null,
           presentedOfferingIdentifier: 'default',
         } as any,
-        packageType: 'ANNUAL' as any,
+        packageType: 'LIFETIME' as any,
         presentedOfferingContext: {
           offeringIdentifier: 'default',
           placementIdentifier: null,
@@ -116,6 +116,12 @@ export class MockRevenueCatService {
   static async getCustomerInfo(): Promise<CustomerInfo> {
     console.log('MockRevenueCatService: Getting customer info');
     return Promise.resolve(mockCustomerInfo);
+  }
+
+  static async isPremiumActive(): Promise<boolean> {
+    console.log('MockRevenueCatService: Checking premium status');
+    // Return false for testing paywall functionality
+    return Promise.resolve(false);
   }
 
   static async getSubscriptionInfo(): Promise<{ isPremium: boolean; productId?: string; expirationDate?: string; willRenew?: boolean; periodType?: 'monthly' | 'lifetime' }> {

@@ -39,9 +39,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>16.0</string>
+    <string>4</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>
@@ -50,6 +48,31 @@
       <false/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>gofitai-production.up.railway.app</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <false/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <false/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+        <key>up.railway.app</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <false/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <false/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow GoFitAI to access your camera to take photos of your food and progress.</string>

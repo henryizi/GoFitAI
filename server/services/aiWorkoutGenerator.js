@@ -167,7 +167,7 @@ Goal: ${primaryGoal.replace(/_/g, ' ')}
 - Focus: ${guidance.focus}
 
 🏋️ EXERCISE SELECTION:
-- Include 5-7 exercises per training day
+- Include 4-6 exercises per training day (maximum 6 exercises to keep workouts manageable)
 - Start with compound movements (Bench Press, Squats, Deadlifts, Overhead Press, Rows)
 - Follow with accessory movements for muscle development
 - Include ${guidance.exercises}
@@ -555,6 +555,13 @@ function transformAIWorkoutResponse(rawPlan, params) {
         ]
       };
     }
+    
+    // Limit exercises to maximum 6 per day for workout manageability
+    if (day.exercises && day.exercises.length > 6) {
+      console.warn(`[AI WORKOUT] ⚠️ Day "${day.focus}" has ${day.exercises.length} exercises, limiting to 6 for manageability`);
+      day.exercises = day.exercises.slice(0, 6);
+    }
+    
     return day;
   });
   
@@ -580,26 +587,35 @@ function parseRestTime(restValue) {
     return result;
   }
   
-  // Handle ranges like "90-120s" or "2-3 min" - take the lower bound
-  const rangeMatch = restStr.match(/^(\d+)-(\d+)([smin]+)?$/i);
-  if (rangeMatch) {
-    const [, min, max, unit] = rangeMatch;
-    const result = min + (unit || 's');
-    console.warn(`[PARSE REST] ⚠️ Range detected: "${restStr}" -> "${result}"`);
+  // Handle ranges where unit is at the end like "90-120s" or "60-90s"
+  const rangeWithUnitAtEnd = restStr.match(/^(\d+)\s*-\s*(\d+)([sS])$/i);
+  if (rangeWithUnitAtEnd) {
+    const [, min] = rangeWithUnitAtEnd;
+    const result = min + 's';
+    console.warn(`[PARSE REST] ⚠️ Range with unit at end detected: "${restStr}" -> "${result}"`);
     return result;
   }
   
-  // Handle ranges with spaces like "90 - 120 s" - take the lower bound
-  const spacedRangeMatch = restStr.match(/^(\d+)\s*-\s*(\d+)\s*([smin]+)?$/i);
-  if (spacedRangeMatch) {
-    const [, min, max, unit] = spacedRangeMatch;
-    const result = min + (unit || 's');
-    console.warn(`[PARSE REST] ⚠️ Spaced range detected: "${restStr}" -> "${result}"`);
+  // Handle ranges where unit is repeated like "90s-120s"
+  const repeatedUnitMatch = restStr.match(/^(\d+)([sS])\s*-\s*\d+([sS])$/i);
+  if (repeatedUnitMatch) {
+    const [, min, unit] = repeatedUnitMatch;
+    const result = min + unit.toLowerCase();
+    console.warn(`[PARSE REST] ⚠️ Repeated unit range detected: "${restStr}" -> "${result}"`);
+    return result;
+  }
+  
+  // Handle ranges without explicit unit like "90-120" (assume seconds)
+  const rangeNoUnit = restStr.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (rangeNoUnit) {
+    const [, min] = rangeNoUnit;
+    const result = min + 's';
+    console.warn(`[PARSE REST] ⚠️ Range without unit detected: "${restStr}" -> "${result}"`);
     return result;
   }
   
   // Default fallback
-  console.log(`[PARSE REST] Using default fallback`);
+  console.log(`[PARSE REST] Using default fallback for: "${restStr}"`);
   return '90s';
 }
 

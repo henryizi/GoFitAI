@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, IconButton, List, Divider, Badge } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../../src/styles/colors';
@@ -89,9 +89,16 @@ export default function SettingsScreen() {
       {/* Profile Section */}
       <View style={styles.profileSection}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
-          </Text>
+          {profile?.avatar_url ? (
+            <Image 
+              source={{ uri: profile.avatar_url }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
+            </Text>
+          )}
         </View>
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{profile?.full_name || profile?.username || 'User'}</Text>
@@ -236,6 +243,11 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   profileInfo: {
     flex: 1,

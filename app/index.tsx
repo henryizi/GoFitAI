@@ -65,12 +65,13 @@ export default function Index() {
 
   // DEVELOPMENT BYPASS: Skip paywall during development
   const isDevelopment = __DEV__; // This will be true in development builds
-  const bypassPaywall = isDevelopment; // Set to true to bypass paywall for development
+  const bypassPaywall = isDevelopment; // Only bypass in development mode
 
   // If onboarding is completed but user is not premium, show paywall (unless in development)
   if (session && profile && profile.onboarding_completed && !isPremium && !bypassPaywall) {
     console.log('🔍 User completed onboarding but not premium, redirecting to paywall');
-    return <Redirect href="/paywall" />;
+    console.log('🎯 About to redirect to /(paywall)');
+    return <Redirect href="/(paywall)" />;
   }
 
   // Development bypass message

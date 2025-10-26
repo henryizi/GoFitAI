@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { colors } from '../../styles/colors';
+import { RevenueCatService } from '../../services/subscription/RevenueCatService';
 
 interface PaywallScreenProps {
   onClose: () => void;
@@ -10,6 +11,70 @@ interface PaywallScreenProps {
 }
 
 export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, offeringId }) => {
+  console.log('🎯 PaywallScreen rendered with props:', { source, offeringId });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const isDevelopment = __DEV__;
+
+  const handleUpgrade = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get available offerings
+      const offerings = await RevenueCatService.getOfferings();
+      
+      if (!offerings || !offerings.current) {
+        Alert.alert('Error', 'No subscription packages available');
+        return;
+      }
+
+      // Get the first available package (usually monthly)
+      const availablePackages = offerings.current.availablePackages;
+      if (availablePackages.length === 0) {
+        Alert.alert('Error', 'No subscription packages found');
+        return;
+      }
+
+      const packageToPurchase = availablePackages[0];
+      console.log('🎯 Attempting to purchase package:', packageToPurchase.identifier);
+
+      // Attempt purchase
+      const result = await RevenueCatService.purchasePackage(packageToPurchase);
+      
+      if (result.success) {
+        Alert.alert(
+          'Success!', 
+          'Welcome to GoFit AI Premium! You now have access to all premium features.',
+          [{ text: 'Continue', onPress: onClose }]
+        );
+      } else {
+        if (result.error !== 'Purchase was cancelled by user') {
+          Alert.alert('Purchase Failed', result.error || 'Unknown error occurred');
+        }
+      }
+    } catch (error) {
+      console.error('🎯 Purchase error:', error);
+      Alert.alert('Error', 'Failed to process purchase. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSkip = () => {
+    if (isDevelopment) {
+      Alert.alert(
+        'Development Mode',
+        'Skip paywall for testing?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Skip for Testing', onPress: onClose }
+        ]
+      );
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Premium Features</Text>
@@ -17,18 +82,25 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
       
       <View style={styles.features}>
         <Text style={styles.feature}>• Unlimited AI workout plans</Text>
-        <Text style={styles.feature}>• Advanced nutrition tracking</Text>
-        <Text style={styles.feature}>• Custom meal planning</Text>
-        <Text style={styles.feature}>• Progress analytics</Text>
-        <Text style={styles.feature}>• Priority support</Text>
+        <Text style={styles.feature}>• Unlimited AI nutrition plans</Text>
+        <Text style={styles.feature}>• Unlimited AI recipe generator</Text>
+        <Text style={styles.feature}>• Unlimited AI nutrition chat</Text>
+        <Text style={styles.feature}>• Advanced progress tracking</Text>
+        <Text style={styles.feature}>• Custom workout builder</Text>
       </View>
       
       <View style={styles.actions}>
-        <Button mode="contained" onPress={onClose} style={styles.upgradeButton}>
-          Upgrade to Premium
+        <Button 
+          mode="contained" 
+          onPress={handleUpgrade} 
+          style={styles.upgradeButton}
+          loading={isLoading}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Processing...' : 'Upgrade to Premium'}
         </Button>
-        <Button mode="text" onPress={onClose} style={styles.closeButton}>
-          Maybe Later
+        <Button mode="text" onPress={handleSkip} style={styles.closeButton}>
+          {isDevelopment ? 'Skip for Testing' : 'Maybe Later'}
         </Button>
       </View>
     </View>

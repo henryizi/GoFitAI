@@ -1,9 +1,11 @@
 import { supabase } from '../supabase/client';
-// import { Database } from '../../types/database';
+import { Database } from '../../types/database';
 import { mockNutritionPlan, mockPlansStore, mockMotivationalMessage } from '../../mock-data';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 // TODO: Update database types to include nutrition_plans
 export type NutritionPlan = any;
@@ -657,21 +659,22 @@ export class NutritionService {
           .single();
 
         if (profile) {
-          const age = profile.birthday ? 
-            new Date().getFullYear() - new Date(profile.birthday).getFullYear() : 30;
+          const typedProfile = profile as Profile;
+          const age = typedProfile.birthday ? 
+            new Date().getFullYear() - new Date(typedProfile.birthday).getFullYear() : 30;
 
           userPlans.forEach(plan => {
             if (!plan.metabolic_calculations) {
               const metabolicData = this.getMetabolicData({
                 id: userId,
                 goal_type: plan.goal_type || 'maintenance',
-                height: profile.height || 170,
-                weight: profile.weight || 70,
+                height: typedProfile.height || 170,
+                weight: typedProfile.weight || 70,
                 age: age,
-                gender: profile.gender || 'male',
-                goal_fat_reduction: profile.goal_fat_reduction || 5,
-                goal_muscle_gain: profile.goal_muscle_gain || 5,
-                full_name: profile.full_name || 'User'
+                gender: typedProfile.gender || 'male',
+                goal_fat_reduction: typedProfile.goal_fat_reduction || 5,
+                goal_muscle_gain: typedProfile.goal_muscle_gain || 5,
+                full_name: typedProfile.full_name || 'User'
               }, 'moderately_active');
 
               plan.metabolic_calculations = {
@@ -1809,9 +1812,151 @@ export class NutritionService {
     }
   }
 
-  static async analyzeFoodImage(imageUri: string): Promise<any> {
+  /**
+   * Get food history for a specific date
+   */
+  static async getFoodHistoryForDate(userId: string, date: string): Promise<any[]> {
+    try {
+      const storageKey = `nutrition_log_${userId}_${date}`;
+      const entries = await this.readPersisted<any[]>(storageKey) || [];
+      console.log(`[NUTRITION] Retrieved ${entries.length} food entries for ${date}`);
+      return entries;
+    } catch (error) {
+      console.error('[NUTRITION] Error fetching food history for date:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get food history for a date range (last N days)
+   */
+  static async getFoodHistoryRange(userId: string, days: number = 7): Promise<{ [date: string]: any[] }> {
+    try {
+      const history: { [date: string]: any[] } = {};
+      const today = new Date();
+      
+      for (let i = 0; i < days; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateString = date.toISOString().split('T')[0];
+        
+        const entries = await this.getFoodHistoryForDate(userId, dateString);
+        if (entries.length > 0) {
+          history[dateString] = entries;
+        }
+      }
+      
+      console.log(`[NUTRITION] Retrieved food history for ${Object.keys(history).length} days out of ${days} requested`);
+      return history;
+    } catch (error) {
+      console.error('[NUTRITION] Error fetching food history range:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get all available food history dates for a user
+   */
+  static async getAllFoodHistoryDates(userId: string): Promise<string[]> {
+    try {
+      // Since we're using AsyncStorage, we need to check for keys that match our pattern
+      // This is a simplified approach - in a real app, you might want to maintain an index
+      const dates: string[] = [];
+      const today = new Date();
+      
+      // Check the last 30 days for any stored data
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateString = date.toISOString().split('T')[0];
+        
+        const entries = await this.getFoodHistoryForDate(userId, dateString);
+        if (entries.length > 0) {
+          dates.push(dateString);
+        }
+      }
+      
+      console.log(`[NUTRITION] Found food history for ${dates.length} dates`);
+      return dates.sort((a, b) => b.localeCompare(a)); // Sort newest first
+    } catch (error) {
+      console.error('[NUTRITION] Error fetching food history dates:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Delete a specific food entry
+   */
+  static async deleteFoodEntry(userId: string, date: string, entryId: string): Promise<boolean> {
+    try {
+      const storageKey = `nutrition_log_${userId}_${date}`;
+      let entries = await this.readPersisted<any[]>(storageKey) || [];
+      
+      const initialLength = entries.length;
+      entries = entries.filter(entry => entry.id !== entryId);
+      
+      if (entries.length < initialLength) {
+        await this.writePersisted(storageKey, entries);
+        console.log(`[NUTRITION] Deleted food entry ${entryId} from ${date}`);
+        return true;
+      } else {
+        console.log(`[NUTRITION] Food entry ${entryId} not found for ${date}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[NUTRITION] Error deleting food entry:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get nutrition summary for a specific date
+   */
+  static async getNutritionSummaryForDate(userId: string, date: string): Promise<{
+    totalCalories: number;
+    totalProtein: number;
+    totalCarbs: number;
+    totalFat: number;
+    entryCount: number;
+  }> {
+    try {
+      const entries = await this.getFoodHistoryForDate(userId, date);
+      
+      let totalCalories = 0;
+      let totalProtein = 0;
+      let totalCarbs = 0;
+      let totalFat = 0;
+
+      entries.forEach((entry: any) => {
+        totalCalories += entry.calories || 0;
+        totalProtein += entry.protein_grams || 0;
+        totalCarbs += entry.carbs_grams || 0;
+        totalFat += entry.fat_grams || 0;
+      });
+
+      return {
+        totalCalories: Math.round(totalCalories),
+        totalProtein: Math.round(totalProtein * 10) / 10,
+        totalCarbs: Math.round(totalCarbs * 10) / 10,
+        totalFat: Math.round(totalFat * 10) / 10,
+        entryCount: entries.length
+      };
+    } catch (error) {
+      console.error('[NUTRITION] Error calculating nutrition summary:', error);
+      return {
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        entryCount: 0
+      };
+    }
+  }
+
+  static async analyzeFoodImage(imageUri: string, additionalInfo?: string): Promise<any> {
     console.log('[FOOD ANALYZE] Starting food photo analysis');
     console.log('[FOOD ANALYZE] Image URI:', imageUri);
+    console.log('[FOOD ANALYZE] Additional info:', additionalInfo);
     
     try {
       // Create FormData for image upload
@@ -1825,6 +1970,11 @@ export class NutritionService {
       } as any;
       
       formData.append('foodImage', imageFile);
+      
+      // Add additional context if provided
+      if (additionalInfo && additionalInfo.trim()) {
+        formData.append('additionalInfo', additionalInfo.trim());
+      }
       
       console.log('[FOOD ANALYZE] Sending request to:', `${NutritionService.API_URL}/api/analyze-food`);
       
@@ -2493,7 +2643,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
   static async acknowledgeInsight(insightId: string): Promise<void> {
     const { error } = await supabase
       .from('behavioral_insights')
-      .update({ is_acknowledged: true } as any)
+      .update({ is_acknowledged: true })
       .eq('id', insightId);
 
     if (error) {
@@ -2525,7 +2675,7 @@ const existingPlanIndex = mockPlansStore.mealPlans.findIndex(
   static async markMessageAsSeen(messageId: string): Promise<void> {
     const { error } = await supabase
       .from('motivational_messages')
-      .update({ is_seen: true } as any)
+      .update({ is_seen: true })
       .eq('id', messageId);
 
     if (error) {

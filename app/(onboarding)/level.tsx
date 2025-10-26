@@ -43,7 +43,7 @@ const LevelScreen = () => {
         }
         
         // 入门完成后显示付费墙
-        router.replace('/paywall');
+        router.replace('/(paywall)');
       }
     } catch (error) {
       console.error('Error completing onboarding:', error);

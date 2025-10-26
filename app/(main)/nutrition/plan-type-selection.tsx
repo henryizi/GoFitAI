@@ -9,6 +9,7 @@ import {
   Modal,
   Animated,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import {
   Text,
@@ -137,12 +138,20 @@ const PlanTypeSelectionScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Clean background */}
-      <View style={[styles.background, { backgroundColor: colors.background }]}>
-        <View style={[styles.pattern, { backgroundColor: colors.overlay }]} />
-      </View>
+      {/* Background Image with Gradient Overlay */}
+      <ImageBackground
+        source={{ 
+          uri: 'https://images.unsplash.com/photo-1505253758473-96b7015fcd40?q=80&w=2000&auto=format&fit=crop' 
+        }}
+        style={styles.backgroundImage}
+      >
+        <LinearGradient
+          colors={['rgba(18,18,18,0.9)', 'rgba(18,18,18,0.7)', '#121212']}
+          style={styles.overlay}
+        />
+      </ImageBackground>
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -301,19 +310,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  background: {
+  backgroundImage: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 120, // Leave space for bottom navigation
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
-  pattern: {
+  overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 120, // Leave space for bottom navigation
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -372,17 +385,17 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   optionCard: {
-    backgroundColor: colors.card,
+    backgroundColor: 'rgba(28, 28, 30, 0.9)',
     borderRadius: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   selectedOptionCard: {
     borderColor: colors.primary,
@@ -469,7 +482,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 20,
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(18, 18, 20, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     zIndex: 10,
     elevation: 10,
   },

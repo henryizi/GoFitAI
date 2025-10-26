@@ -7,7 +7,7 @@ import {
   getExerciseInfo,
   ExerciseInfo
 } from '../../constants/exerciseNames';
-import { generateWeeklyWorkoutPrompt } from './exercisePrompts';
+// import { generateWeeklyWorkoutPrompt } from './exercisePrompts';
 import { bodybuilderWorkouts, BodybuilderWorkout } from '../../data/bodybuilder-workouts';
 import { WorkoutPlan as AppWorkoutPlan, WorkoutDay as AppWorkoutDay, ExerciseItem } from '../../types/chat';
 import axios from 'axios';
@@ -17,6 +17,9 @@ import { ExerciseService } from './ExerciseService';
 import { WorkoutLocalStore } from './WorkoutLocalStore';
 import { GeminiService } from '../ai/GeminiService';
 import { supabase } from '../supabase/client';
+import { Database } from '../../types/database';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 /**
  * Validate if a string is a valid UUID
@@ -45,6 +48,13 @@ interface StoredWorkoutPlan {
   weeklySchedule?: any[];
   created_at: string;
   updated_at: string;
+  training_level?: string;
+  goal_fat_loss?: number;
+  goal_muscle_gain?: number;
+  mesocycle_length_weeks?: number;
+  estimated_time_per_session?: string;
+  primary_goal?: string;
+  workout_frequency?: string;
 }
 
 // Main WorkoutService class that combines functionality
@@ -190,6 +200,23 @@ export class WorkoutService {
     try {
       console.log(`[WorkoutService] Setting plan ${planId} as active for user ${userId}`);
 
+      // First, try to update via server API to ensure database consistency
+      try {
+        const serverUrl = Constants.expoConfig?.extra?.serverUrl || 'https://gofitai-production.up.railway.app';
+        const response = await axios.post(`${serverUrl}/api/set-active-plan`, {
+          userId,
+          planId
+        });
+
+        if (response.data.success) {
+          console.log('[WorkoutService] Successfully updated active plan via server API');
+        } else {
+          console.warn('[WorkoutService] Server API failed to set active plan, continuing with local update');
+        }
+      } catch (apiError) {
+        console.warn('[WorkoutService] API call failed, continuing with local update:', apiError);
+      }
+
       // Get current plans for the user
       const userPlans = await WorkoutLocalStore.getPlans(userId);
 
@@ -200,7 +227,7 @@ export class WorkoutService {
         return false;
       }
 
-      // Deactivate all other plans
+      // Deactivate all other plans locally
       userPlans.forEach(plan => {
         if (plan.id === planId) {
           plan.is_active = true;
@@ -211,7 +238,7 @@ export class WorkoutService {
         }
       });
 
-      // Save the updated plans
+      // Save the updated plans locally
       await WorkoutLocalStore.savePlans(userId, userPlans);
 
       console.log(`[WorkoutService] Successfully set plan ${planId} as active`);
@@ -257,7 +284,7 @@ export class WorkoutService {
       }
 
       // Use the fetched profile data if available, otherwise fall back to params
-      const profile = profileData || {};
+      const profile: Partial<Profile> = profileData || {};
 
       // Convert parameters to the format expected by GeminiService
       const geminiInput = {
@@ -269,7 +296,7 @@ export class WorkoutService {
         fatLossGoal: params.fatLossGoal,
         muscleGainGoal: params.muscleGainGoal,
         trainingLevel: params.trainingLevel,
-        primaryGoal: params.primaryGoal || profile.primary_goal || 'general_fitness',
+        primaryGoal: (params.primaryGoal || profile.primary_goal || 'general_fitness') as 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain',
         emulateBodybuilder: params.emulateBodybuilder,
         workoutFrequency: params.workoutFrequency || profile.workout_frequency || '4_5',
         exerciseFrequency: profile.exercise_frequency,
@@ -277,15 +304,15 @@ export class WorkoutService {
         bodyFat: profile.body_fat,
         weightTrend: profile.weight_trend,
         bodyAnalysis: profile.body_analysis ? {
-          chest_rating: profile.body_analysis.chest_rating,
-          arms_rating: profile.body_analysis.arms_rating,
-          back_rating: profile.body_analysis.back_rating,
-          legs_rating: profile.body_analysis.legs_rating,
-          waist_rating: profile.body_analysis.waist_rating,
-          overall_rating: profile.body_analysis.overall_rating,
-          strongest_body_part: profile.body_analysis.strongest_body_part,
-          weakest_body_part: profile.body_analysis.weakest_body_part,
-          ai_feedback: profile.body_analysis.ai_feedback,
+          chest_rating: (profile.body_analysis as any).chest_rating,
+          arms_rating: (profile.body_analysis as any).arms_rating,
+          back_rating: (profile.body_analysis as any).back_rating,
+          legs_rating: (profile.body_analysis as any).legs_rating,
+          waist_rating: (profile.body_analysis as any).waist_rating,
+          overall_rating: (profile.body_analysis as any).overall_rating,
+          strongest_body_part: (profile.body_analysis as any).strongest_body_part,
+          weakest_body_part: (profile.body_analysis as any).weakest_body_part,
+          ai_feedback: (profile.body_analysis as any).ai_feedback,
         } : undefined
       };
 
@@ -333,7 +360,7 @@ export class WorkoutService {
         training_level: plan.training_level,
         goal_fat_loss: plan.goal_fat_loss,
         goal_muscle_gain: plan.goal_muscle_gain,
-        mesocycle_length_weeks: plan.mesocycle_length_weeks,
+        mesocycle_length_weeks: plan.mesocycle_length || plan.mesocycle_length_weeks,
         estimated_time_per_session: plan.estimated_time_per_session,
         primary_goal: plan.primary_goal,
         workout_frequency: plan.workout_frequency
@@ -366,33 +393,124 @@ export class WorkoutService {
 
 
   /**
-   * Delete a workout plan
+   * Delete a workout plan from both database and local storage
    */
-  static async deletePlan(planId: string): Promise<boolean> {
+  static async deletePlan(planId: string, userId?: string): Promise<boolean> {
     try {
       console.log(`[WorkoutService] Deleting plan ${planId}`);
 
-      // Get all plans from storage
-      const allPlans = await WorkoutLocalStore.getAllPlans();
+      let dbSuccess = false;
+      let localSuccess = false;
 
-      // Find and remove the plan
-      const updatedPlans = allPlans.filter(p => p.id !== planId);
-
-      if (updatedPlans.length === allPlans.length) {
-        console.warn(`[WorkoutService] Plan ${planId} not found for deletion`);
-        return false;
+      // First, try to delete from database if it's a valid UUID
+      if (this.isValidUUID(planId)) {
+        try {
+          console.log(`[WorkoutService] Attempting to delete plan from database: ${planId}`);
+          
+          // Try using the API endpoint first (more reliable)
+          try {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/delete-workout-plan/${planId}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (response.ok) {
+              console.log(`[WorkoutService] Successfully deleted plan from database via API: ${planId}`);
+              dbSuccess = true;
+            } else {
+              console.warn('[WorkoutService] API deletion failed, trying direct Supabase');
+              throw new Error('API deletion failed');
+            }
+          } catch (apiError) {
+            // Fallback to direct Supabase deletion
+            const { error: dbDeleteError } = await supabase
+              .from('workout_plans')
+              .delete()
+              .eq('id', planId);
+            
+            if (dbDeleteError) {
+              console.error('[WorkoutService] Database deletion failed:', dbDeleteError);
+            } else {
+              console.log(`[WorkoutService] Successfully deleted plan from database via Supabase: ${planId}`);
+              dbSuccess = true;
+            }
+          }
+        } catch (dbError) {
+          console.error(`[WorkoutService] Error deleting plan from database: ${dbError}`);
+        }
       }
 
-      // Save updated plans
-      await WorkoutLocalStore.saveAllPlans(updatedPlans);
+      // Delete from local storage
+      try {
+        localSuccess = await WorkoutLocalStore.deletePlan(planId);
+        if (localSuccess) {
+          console.log(`[WorkoutService] Successfully deleted plan from local storage: ${planId}`);
+        }
+      } catch (localError) {
+        console.error(`[WorkoutService] Error deleting plan from local storage: ${localError}`);
+      }
 
-      // Reload plans
-      await this.initializeFromStorage();
+      // Reload plans if any deletion was successful
+      const success = dbSuccess || localSuccess;
+      if (success) {
+        await this.initializeFromStorage();
+      }
 
-      console.log(`[WorkoutService] Plan ${planId} deleted successfully`);
-      return true;
+      return success;
     } catch (error) {
       console.error('[WorkoutService] Error deleting plan:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete a workout plan by name (for cases where ID is not available)
+   */
+  static async deletePlanByName(planName: string, userId: string): Promise<boolean> {
+    try {
+      console.log(`[WorkoutService] Deleting plan by name: ${planName} for user: ${userId}`);
+
+      let success = false;
+
+      // Try to delete from database by name
+      try {
+        const { error: dbDeleteError } = await supabase
+          .from('workout_plans')
+          .delete()
+          .eq('user_id', userId)
+          .eq('name', planName);
+        
+        if (dbDeleteError) {
+          console.error('[WorkoutService] Database deletion by name failed:', dbDeleteError);
+        } else {
+          console.log(`[WorkoutService] Successfully deleted plan from database by name: ${planName}`);
+          success = true;
+        }
+      } catch (dbError) {
+        console.error(`[WorkoutService] Error deleting plan from database by name: ${dbError}`);
+      }
+
+      // Delete from local storage by name
+      try {
+        const localSuccess = await WorkoutLocalStore.deletePlansByName(planName);
+        if (localSuccess) {
+          success = true;
+          console.log(`[WorkoutService] Successfully deleted plan from local storage by name: ${planName}`);
+        }
+      } catch (localError) {
+        console.error(`[WorkoutService] Error deleting plan from local storage by name: ${localError}`);
+      }
+
+      // Reload plans if any deletion was successful
+      if (success) {
+        await this.initializeFromStorage();
+      }
+
+      return success;
+    } catch (error) {
+      console.error('[WorkoutService] Error deleting plan by name:', error);
       return false;
     }
   }

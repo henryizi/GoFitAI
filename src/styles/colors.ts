@@ -23,8 +23,8 @@ export const colors = {
   
   // Text colors
   text: '#FFFFFF',          // White - sophisticated and readable
-  textSecondary: 'rgba(235, 235, 245, 0.6)', // Semi-transparent white for secondary text
-  textTertiary: 'rgba(235, 235, 245, 0.4)',  // More transparent white for tertiary text
+  textSecondary: 'rgba(255, 255, 255, 0.85)', // High contrast white for secondary text
+  textTertiary: 'rgba(255, 255, 255, 0.7)',  // Medium contrast white for tertiary text
   textInverse: '#000000',   // Black text for use on light backgrounds
 
   // Common colors

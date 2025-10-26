@@ -20,44 +20,65 @@ const ExerciseFrequencyScreen = () => {
   const { user, refreshProfile } = useAuth();
   const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
 
-  // Map exercise frequency to workout plan frequency
-  const mapToWorkoutFrequency = (exerciseFreq: WorkoutFrequency): '1' | '2' | '3' | '4_5' | '6_7' => {
+  // Map exercise frequency to database-compatible values
+  const mapToExerciseFrequency = (exerciseFreq: WorkoutFrequency): '1' | '2-3' | '4-5' | '6-7' => {
     switch (exerciseFreq) {
       case '1':
         return '1';
       case '2':
-        return '2';
       case '3':
-        return '3';
+        return '2-3';
+      case '4':
+      case '5':
+        return '4-5';
+      case '6':
+      case '7':
+        return '6-7';
+      default:
+        return '2-3'; // Default to 2-3 days
+    }
+  };
+
+  // Map exercise frequency to workout plan frequency
+  const mapToWorkoutFrequency = (exerciseFreq: WorkoutFrequency): '2_3' | '4_5' | '6' => {
+    switch (exerciseFreq) {
+      case '1':
+      case '2':
+      case '3':
+        return '2_3';
       case '4':
       case '5':
         return '4_5';
       case '6':
       case '7':
-        return '6_7';
+        return '6';
       default:
-        return '3'; // Default to 3 days
+        return '2_3'; // Default to 2_3 days
     }
   };
 
   const handleNext = async () => {
     if (user && frequency) {
+      const exerciseFrequency = mapToExerciseFrequency(frequency);
       const workoutFrequency = mapToWorkoutFrequency(frequency);
       console.log('💾 Onboarding: Saving exercise frequency:', {
         user_id: user.id,
         selected_frequency: frequency,
-        mapped_workout_frequency: workoutFrequency,
-        exercise_frequency: frequency,
-        workout_frequency: workoutFrequency
+        mapped_exercise_frequency: exerciseFrequency,
+        mapped_workout_frequency: workoutFrequency
       });
       const { error } = await supabase.from('profiles').update({
-        exercise_frequency: frequency,
+        exercise_frequency: exerciseFrequency,
         workout_frequency: workoutFrequency
       }).eq('id', user.id);
       
       if (error) {
         console.error('❌ Error saving exercise frequency:', error);
-        console.error('Exercise frequency values:', { frequency, workoutFrequency });
+        console.error('Exercise frequency values:', { 
+          selected: frequency, 
+          exerciseFrequency, 
+          workoutFrequency 
+        });
         // Continue anyway to prevent blocking the user
       } else {
         console.log('✅ Exercise frequency saved successfully');
@@ -72,7 +93,7 @@ const ExerciseFrequencyScreen = () => {
       }
       
       try { identify(user.id, {
-        exercise_frequency: frequency,
+        exercise_frequency: exerciseFrequency,
         workout_frequency: workoutFrequency
       }); } catch {}
       router.push('/(onboarding)/activity-level');

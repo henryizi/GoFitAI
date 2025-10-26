@@ -7,12 +7,15 @@ export const REVENUECAT_CONFIG = {
   android: {
     apiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || 'goog_dummy_key',
   },
+  web: {
+    apiKey: process.env.EXPO_PUBLIC_REVENUECAT_WEB_API_KEY || 'web_dummy_key',
+  },
   
   // Product IDs
   products: {
     premium: {
       monthly: 'gofitai_premium_monthly1',
-      yearly: 'gofitai_premium_lifetime1',
+      lifetime: 'gofitai_premium_lifetime1',
     },
   },
   
@@ -37,10 +40,11 @@ export const REVENUECAT_CONFIG = {
 // Premium features list
 export const PREMIUM_FEATURES = [
   'Unlimited AI workout plans',
-  'Advanced nutrition tracking',
-  'Custom meal planning',
-  'Progress analytics',
-  'Priority support',
+  'Unlimited AI nutrition plans',
+  'Unlimited AI recipe generator',
+  'Unlimited AI nutrition chat',
+  'Advanced progress tracking',
+  'Custom workout builder',
   'Ad-free experience',
 ] as const;
 

@@ -52,6 +52,9 @@ export default function LogProgressScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [activeSection, setActiveSection] = useState<'weight' | 'photos'>('weight');
+  const [hasExistingWeightEntries, setHasExistingWeightEntries] = useState<boolean | null>(null);
+  const [showUnitSelectionDialog, setShowUnitSelectionDialog] = useState(false);
+  const [isFirstWeightEntry, setIsFirstWeightEntry] = useState(false);
   
   // Animations
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -80,9 +83,37 @@ export default function LogProgressScreen() {
   // Update unit when profile changes
   useEffect(() => {
     if (profile?.weight_unit_preference) {
-      setUnit(profile.weight_unit_preference);
+      const newUnit = profile.weight_unit_preference;
+      if (newUnit !== unit) {
+        // Convert existing weight value if there is one
+        if (weight) {
+          const currentWeightNum = parseFloat(weight);
+          if (!Number.isNaN(currentWeightNum)) {
+            let convertedWeight;
+            if (unit === 'kg' && newUnit === 'lbs') {
+              convertedWeight = convertWeight(currentWeightNum, 'kg', 'lbs');
+            } else if (unit === 'lbs' && newUnit === 'kg') {
+              convertedWeight = convertWeight(currentWeightNum, 'lbs', 'kg');
+            } else {
+              convertedWeight = currentWeightNum;
+            }
+            setWeight(convertedWeight.toFixed(1));
+          }
+        }
+        setUnit(newUnit);
+      }
     }
-  }, [profile?.weight_unit_preference]);
+  }, [profile?.weight_unit_preference, unit, weight]);
+
+  // Check if user has existing weight entries
+  useEffect(() => {
+    if (user) {
+      ProgressService.hasExistingWeightEntries(user.id).then((hasEntries) => {
+        setHasExistingWeightEntries(hasEntries);
+        setIsFirstWeightEntry(!hasEntries);
+      });
+    }
+  }, [user]);
 
   // Fetch progress entries for calendar
   useEffect(() => {
@@ -120,7 +151,33 @@ export default function LogProgressScreen() {
     setWeight(normalized);
   };
 
-  const weightNum = weight ? parseFloat(weight) : NaN;
+  // Get weight value in the current unit for input field
+  const getWeightInCurrentUnit = () => {
+    if (!weight) return '';
+    const weightNum = parseFloat(weight);
+    if (Number.isNaN(weightNum)) return weight;
+    
+    // Weight is stored in kg, convert to display unit if needed
+    if (unit === 'lbs') {
+      return convertWeight(weightNum, 'kg', 'lbs').toFixed(1);
+    }
+    return weightNum.toFixed(1);
+  };
+
+  // Get weight value in kg for calculations and saving
+  const getWeightInKg = () => {
+    if (!weight) return NaN;
+    const weightNum = parseFloat(weight);
+    if (Number.isNaN(weightNum)) return NaN;
+    
+    // If current unit is lbs, convert to kg; otherwise it's already in kg
+    if (unit === 'lbs') {
+      return convertWeight(weightNum, 'lbs', 'kg');
+    }
+    return weightNum;
+  };
+
+  const weightNum = getWeightInKg();
   const isWeightInvalid = Number.isNaN(weightNum) || weightNum <= 0;
   const todayLabel = new Date().toLocaleDateString();
 
@@ -142,16 +199,107 @@ export default function LogProgressScreen() {
   };
 
   const getDisplayWeight = () => {
-    if (!weight) return '';
-    const weightNum = parseFloat(weight);
-    if (Number.isNaN(weightNum)) return weight;
-    return unit === 'kg' ? weightNum.toFixed(1) : convertWeight(weightNum, 'kg', 'lbs').toFixed(1);
+    return getWeightInCurrentUnit();
+  };
+
+  // Handle first-time unit selection
+  const handleFirstTimeUnitSelection = () => {
+    if (hasExistingWeightEntries) {
+      // User already has weight entries, don't allow unit change
+      Alert.alert(
+        "Unit Already Set",
+        "You've already logged weight entries. Your unit preference is locked to maintain data consistency.",
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
+
+    // Show unit selection dialog for first-time users
+    setShowUnitSelectionDialog(true);
+  };
+
+  // Handle unit selection with commitment alert
+  const selectUnit = (selectedUnit: 'kg' | 'lbs') => {
+    Alert.alert(
+      "Confirm Weight Unit",
+      `You've selected ${selectedUnit.toUpperCase()} as your weight unit.\n\nThis unit will be used for all future weight logging to keep your data consistent.\n\nYou can continue logging your weight in ${selectedUnit.toUpperCase()}.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Confirm",
+          style: "default",
+          onPress: async () => {
+            // Convert current weight value to new unit if needed
+            if (weight && unit !== selectedUnit) {
+              const currentWeightNum = parseFloat(weight);
+              if (!Number.isNaN(currentWeightNum)) {
+                const convertedWeight = convertWeight(currentWeightNum, unit, selectedUnit);
+                setWeight(convertedWeight.toFixed(1));
+              }
+            }
+            
+            setUnit(selectedUnit);
+            setShowUnitSelectionDialog(false);
+            
+            // Update user's weight unit preference in profile
+            if (user) {
+              try {
+                await supabase
+                  .from('profiles')
+                  .update({ weight_unit_preference: selectedUnit })
+                  .eq('id', user.id);
+                console.log('Weight unit preference updated to:', selectedUnit);
+              } catch (error) {
+                console.error('Error updating weight unit preference:', error);
+              }
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle unit toggle with proper conversion (only for existing users)
+  const handleUnitToggle = () => {
+    if (isFirstWeightEntry) {
+      handleFirstTimeUnitSelection();
+      return;
+    }
+
+    const newUnit = unit === 'kg' ? 'lbs' : 'kg';
+    
+    // Convert current weight value to new unit
+    if (weight) {
+      const currentWeightNum = parseFloat(weight);
+      if (!Number.isNaN(currentWeightNum)) {
+        let convertedWeight;
+        if (unit === 'kg' && newUnit === 'lbs') {
+          // Currently in kg, switching to lbs: convert kg to lbs
+          convertedWeight = convertWeight(currentWeightNum, 'kg', 'lbs');
+        } else if (unit === 'lbs' && newUnit === 'kg') {
+          // Currently in lbs, switching to kg: convert lbs to kg
+          convertedWeight = convertWeight(currentWeightNum, 'lbs', 'kg');
+        } else {
+          convertedWeight = currentWeightNum;
+        }
+        setWeight(convertedWeight.toFixed(1));
+      }
+    }
+    
+    setUnit(newUnit);
   };
 
   const adjustWeight = (delta: number) => {
-    const current = Number.isNaN(weightNum) ? 0 : weightNum;
-    const adjustedDelta = unit === 'lbs' ? delta / 2.20462 : delta; // Convert delta to kg for storage
-    const next = Math.max(0, current + adjustedDelta);
+    // Get current weight in the display unit
+    const currentInUnit = weight ? parseFloat(weight) : 0;
+    if (Number.isNaN(currentInUnit)) return;
+    
+    // Adjust in the current unit
+    const adjustedDelta = unit === 'lbs' ? delta * 2.20462 : delta; // Scale delta for lbs
+    const next = Math.max(0, currentInUnit + adjustedDelta);
     setWeight(next ? next.toFixed(1) : '');
     
     // Haptic feedback
@@ -266,7 +414,13 @@ export default function LogProgressScreen() {
         <View style={styles.calendarPhotoContainer}>
           <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
           <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage sourceUrl={newUri} style={styles.calendarPreviewImage} />
+            <SafeImage 
+              sourceUrl={newUri} 
+              style={styles.calendarPreviewImage}
+              quality={1.0}
+              maxWidth={2400}
+              maxHeight={3200}
+            />
           </TouchableOpacity>
         </View>
       );
@@ -278,7 +432,13 @@ export default function LogProgressScreen() {
         <View style={styles.calendarPhotoContainer}>
           <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
           <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage sourceUrl={photo.storage_path} style={styles.calendarPreviewImage} />
+            <SafeImage 
+              sourceUrl={photo.storage_path} 
+              style={styles.calendarPreviewImage}
+              quality={1.0}
+              maxWidth={2400}
+              maxHeight={3200}
+            />
           </TouchableOpacity>
         </View>
       );
@@ -382,10 +542,10 @@ export default function LogProgressScreen() {
     setIsSaving(true);
     
     try {
-      const weightToSave = unit === 'lbs' ? convertWeight(weightNum, 'lbs', 'kg') : weightNum;
+      // Always save in kg - weightNum is already converted by getWeightInKg()
       await ProgressService.addWeightEntry({
         user_id: user.id,
-        weight_kg: weightToSave,
+        weight_kg: weightNum,
         metric_date: selectedDate,
         notes: notes || null,
         body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
@@ -408,6 +568,14 @@ export default function LogProgressScreen() {
       setWeight('');
       setBodyFat('');
       setNotes('');
+
+      // Refresh weight entries check since user now has at least one entry
+      if (user) {
+        ProgressService.hasExistingWeightEntries(user.id).then((hasEntries) => {
+          setHasExistingWeightEntries(hasEntries);
+          setIsFirstWeightEntry(!hasEntries);
+        });
+      }
 
       showSuccessAlert();
     } catch (error) {
@@ -561,12 +729,22 @@ export default function LogProgressScreen() {
                   <Text style={styles.weightLabel}>Today's Weight</Text>
                   <View style={styles.weightValueContainer}>
                     <Text style={styles.weightValue}>{getDisplayWeight() || '0.0'}</Text>
-                    <TouchableOpacity 
-                      style={styles.unitToggle}
-                      onPress={() => setUnit(unit === 'kg' ? 'lbs' : 'kg')}
-                    >
-                      <Text style={styles.unitText}>{unit.toUpperCase()}</Text>
-                    </TouchableOpacity>
+                    {isFirstWeightEntry ? (
+                      <TouchableOpacity 
+                        style={[styles.unitToggle, styles.unitToggleSelectable]}
+                        onPress={handleUnitToggle}
+                      >
+                        <Text style={[styles.unitText, styles.unitTextSelectable]}>
+                          {unit.toUpperCase()} ⚙️
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[styles.unitToggle, styles.unitToggleFixed]}>
+                        <Text style={[styles.unitText, styles.unitTextFixed]}>
+                          {unit.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
 
@@ -583,7 +761,7 @@ export default function LogProgressScreen() {
                     style={styles.weightInput}
                     value={weight}
                     onChangeText={handleWeightChange}
-                    placeholder="Enter weight"
+                    placeholder={`Enter weight (${unit})`}
                     placeholderTextColor={colors.textSecondary}
                     keyboardType="numeric"
                     textAlign="center"
@@ -731,6 +909,58 @@ export default function LogProgressScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Unit Selection Dialog */}
+      {showUnitSelectionDialog && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.unitSelectionModal}>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.1)']}
+              style={styles.modalGradient}
+            >
+              <Text style={styles.modalTitle}>Choose Your Weight Unit</Text>
+              <Text style={styles.modalSubtitle}>
+                This will be your default unit for all future weight logging
+              </Text>
+              
+              <View style={styles.unitOptions}>
+                <TouchableOpacity 
+                  style={styles.unitOption}
+                  onPress={() => selectUnit('kg')}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={styles.unitOptionGradient}
+                  >
+                    <Text style={styles.unitOptionText}>Kilograms (kg)</Text>
+                    <Text style={styles.unitOptionSubtext}>Metric system</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.unitOption}
+                  onPress={() => selectUnit('lbs')}
+                >
+                  <LinearGradient
+                    colors={[colors.secondary, colors.secondaryDark]}
+                    style={styles.unitOptionGradient}
+                  >
+                    <Text style={styles.unitOptionText}>Pounds (lbs)</Text>
+                    <Text style={styles.unitOptionSubtext}>Imperial system</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => setShowUnitSelectionDialog(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </View>
+      )}
+
       {/* Success Animation */}
       {showSuccessAnimation && (
         <Animated.View style={[styles.successOverlay, { opacity: successOpacity }]}>
@@ -871,6 +1101,20 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
+  },
+  unitToggleSelectable: {
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    borderColor: 'rgba(255, 107, 53, 0.4)',
+  },
+  unitToggleFixed: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  unitTextSelectable: {
+    color: colors.primary,
+  },
+  unitTextFixed: {
+    color: colors.textSecondary,
   },
   weightAdjuster: {
     flexDirection: 'row',
@@ -1059,6 +1303,77 @@ const styles = StyleSheet.create({
     width: 140,
     height: 200,
     borderRadius: 12,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  unitSelectionModal: {
+    width: width * 0.85,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  modalGradient: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  unitOptions: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 20,
+  },
+  unitOption: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  unitOptionGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  unitOptionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  unitOptionSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  modalCancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  modalCancelText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
 });
 

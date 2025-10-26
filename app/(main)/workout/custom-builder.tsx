@@ -480,9 +480,12 @@ export default function CustomBuilderScreen() {
   const renderExerciseRow = useCallback(({ item }: { item: Exercise }) => (
     <ExerciseListItem
       exercise={item}
-      onPress={() => addExerciseToDay(selectedDay, item)}
+      onPress={() => {
+        setSelectedExerciseForSets(item);
+        setNumberOfSets('3');
+      }}
     />
-  ), [addExerciseToDay, selectedDay]);
+  ), []);
 
   // Memoized day selection handler to prevent unnecessary re-renders
   const handleDaySelection = useCallback((dayName: string) => {
@@ -941,6 +944,7 @@ export default function CustomBuilderScreen() {
                         <TouchableOpacity
                           key={exercise.id}
                           onPress={() => {
+                            console.log('Step 2: Exercise selected for sets:', exercise.name);
                             setSelectedExerciseForSets(exercise);
                             setNumberOfSets('3');
                           }}
@@ -1015,6 +1019,59 @@ export default function CustomBuilderScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Set Picker Modal */}
+        {selectedExerciseForSets && (
+          <View style={styles.setPickerOverlay}>
+            <View style={styles.setPickerCard}>
+              <Text style={styles.setPickerTitle}>How many sets?</Text>
+              <Text style={styles.setPickerExerciseName}>{selectedExerciseForSets.name}</Text>
+              
+              <View style={styles.setInputContainer}>
+                <TextInput
+                  style={styles.setInput}
+                  value={numberOfSets}
+                  onChangeText={setNumberOfSets}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholder="3"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <Text style={styles.setInputLabel}>sets</Text>
+              </View>
+              
+              <Text style={styles.setInputHint}>Enter 1-50 sets</Text>
+
+              <View style={styles.setPickerActions}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setSelectedExerciseForSets(null);
+                    setNumberOfSets('3');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.confirmButton}
+                  onPress={() => {
+                    if (selectedExerciseForSets) {
+                      const sets = parseInt(numberOfSets, 10);
+                      if (sets > 0 && sets <= 50) {
+                        addExerciseToDay(selectedDay, selectedExerciseForSets, sets);
+                        setSelectedExerciseForSets(null);
+                        setNumberOfSets('3');
+                      }
+                    }
+                  }}
+                >
+                  <Text style={styles.confirmButtonText}>Add Exercise</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -1200,59 +1257,6 @@ export default function CustomBuilderScreen() {
           Go Back
         </Button>
       </View>
-
-      {/* Set Picker Modal */}
-      {selectedExerciseForSets && (
-        <View style={styles.setPickerOverlay}>
-          <View style={styles.setPickerCard}>
-            <Text style={styles.setPickerTitle}>How many sets?</Text>
-            <Text style={styles.setPickerExerciseName}>{selectedExerciseForSets.name}</Text>
-            
-            <View style={styles.setInputContainer}>
-              <TextInput
-                style={styles.setInput}
-                value={numberOfSets}
-                onChangeText={setNumberOfSets}
-                keyboardType="number-pad"
-                maxLength={2}
-                placeholder="3"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <Text style={styles.setInputLabel}>sets</Text>
-            </View>
-            
-            <Text style={styles.setInputHint}>Enter 1-50 sets</Text>
-
-            <View style={styles.setPickerActions}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={() => {
-                  setSelectedExerciseForSets(null);
-                  setNumberOfSets('3');
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.confirmButton}
-                onPress={() => {
-                  if (selectedExerciseForSets) {
-                    const sets = parseInt(numberOfSets, 10);
-                    if (sets > 0 && sets <= 50) {
-                      addExerciseToDay(selectedDay, selectedExerciseForSets, sets);
-                      setSelectedExerciseForSets(null);
-                      setNumberOfSets('3');
-                    }
-                  }
-                }}
-              >
-                <Text style={styles.confirmButtonText}>Add Exercise</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </View>
   );
 }

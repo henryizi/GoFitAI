@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 // Remove mock data import - using real WorkoutService only
-import { WorkoutService as RealWorkoutService } from '../../../../src/services/workout/WorkoutService';
+import { WorkoutService } from '../../../../src/services/workout/WorkoutService';
 import { WorkoutLocalStore } from '../../../../src/services/workout/WorkoutLocalStore';
 import { useAuth } from '../../../../src/hooks/useAuth';
 // environment import removed; no longer used here
@@ -46,8 +46,7 @@ const colors = {
   cyan: '#5AC8FA',
 };
 
-// Use the real WorkoutService instead of mock data
-const WorkoutService = RealWorkoutService;
+// Using real WorkoutService directly
 
 type WorkoutPlan = { 
     id: string;
@@ -103,6 +102,7 @@ export default function PlanDetailScreen() {
   const [editedSets, setEditedSets] = useState<number | null>(null);
   const [editedReps, setEditedReps] = useState<string | null>(null);
   const [editedRest, setEditedRest] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState<string | null>(null);
   const [scrollY] = useState(new Animated.Value(0));
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -122,11 +122,24 @@ export default function PlanDetailScreen() {
     try {
       if (!plan) return;
 
-      // Best-effort real deletion
-      try {
-        await RealWorkoutService.deletePlan(plan.id);
-      } catch (e) {
-        console.log('[PlanDetail] Real deletion failed (continuing):', e);
+      // Best-effort database deletion
+      if (plan.id && WorkoutService.isValidUUID(plan.id)) {
+        try {
+          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/delete-workout-plan/${plan.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            console.log(`[PlanDetail] Successfully deleted plan from database: ${plan.id}`);
+          } else {
+            console.warn('[PlanDetail] Database deletion failed:', await response.text());
+          }
+        } catch (e) {
+          console.log('[PlanDetail] Database deletion failed (continuing):', e);
+        }
       }
 
       try {
@@ -155,7 +168,7 @@ export default function PlanDetailScreen() {
       console.log(`[PlanDetail] Setting plan ${plan.id} as active`);
       
       // Set the plan as active using WorkoutService
-      const success = await RealWorkoutService.setActivePlan(user.id, plan.id);
+      const success = await WorkoutService.setActivePlan(user.id, plan.id);
       
       if (success) {
         // Update local state to reflect the change
@@ -193,16 +206,17 @@ export default function PlanDetailScreen() {
 
   
 
-  const handleEditExercise = (sessionId: string, exerciseId: string, sets: number, reps: string, rest: string) => {
+  const handleEditExercise = (sessionId: string, exerciseId: string, sets: number, reps: string, rest: string, name: string) => {
     setEditingSession(sessionId);
     setEditingExercise(exerciseId);
     setEditedSets(sets);
     setEditedReps(reps);
     setEditedRest(rest);
+    setEditedName(name);
   };
 
   const handleSaveExerciseChanges = async () => {
-    if (!editingSession || !editingExercise || !editedSets || !editedReps || !editedRest) return;
+    if (!editingSession || !editingExercise || !editedSets || !editedReps || !editedRest || !editedName) return;
 
     const updatedSessions = sessions.map(session => {
       if (session.id === editingSession) {
@@ -212,6 +226,7 @@ export default function PlanDetailScreen() {
             if (exercise.id === editingExercise) {
               return {
                 ...exercise,
+                name: editedName,
                 sets: editedSets,
                 reps: editedReps,
                 rest: editedRest
@@ -231,6 +246,7 @@ export default function PlanDetailScreen() {
     setEditedSets(null);
     setEditedReps(null);
     setEditedRest(null);
+    setEditedName(null);
 
     Alert.alert("Updated", "Exercise details have been updated successfully.");
   };
@@ -241,6 +257,7 @@ export default function PlanDetailScreen() {
     setEditedSets(null);
     setEditedReps(null);
     setEditedRest(null);
+    setEditedName(null);
   };
 
 
@@ -299,7 +316,7 @@ export default function PlanDetailScreen() {
                 console.log(`[PLAN DETAIL] Mapped ${exercises.length} exercises from main_workout for day ${index}`);
               }
               // Priority 3: Check if it's explicitly a rest day
-              else if (daySchedule.focus && daySchedule.focus.toLowerCase().includes('rest')) {
+              else if (daySchedule.focus && typeof daySchedule.focus === 'string' && daySchedule.focus.toLowerCase().includes('rest')) {
                 console.log(`[PLAN DETAIL] Day ${index} is explicitly a rest day`);
                 exercises = [];
               }
@@ -337,7 +354,7 @@ export default function PlanDetailScreen() {
         
             // Fallback: if weekly_schedule is missing or empty, fetch sessions by plan id
             try {
-          const realSessions = await RealWorkoutService.getSessionsForPlan(parsedPlan.id || planId as string);
+          const realSessions = await WorkoutService.getSessionsForPlan(parsedPlan.id || planId as string);
               if (realSessions && realSessions.length > 0) {
                 setSessions(realSessions);
                 return;
@@ -354,9 +371,9 @@ export default function PlanDetailScreen() {
     try {
       // First try to get the plan from the real service
       try {
-        const realPlanData = await RealWorkoutService.getPlanById(planId as string);
+        const realPlanData = await WorkoutService.getPlanById(planId as string);
         if (realPlanData) {
-          console.log('[PlanDetail] Found plan with RealWorkoutService:', realPlanData.id);
+          console.log('[PlanDetail] Found plan with WorkoutService:', realPlanData.id);
           console.log('[PlanDetail] 🔍 Plan data check:', {
             hasWeeklySchedule: !!realPlanData.weekly_schedule,
             hasWeeklyScheduleCamel: !!realPlanData.weeklySchedule,
@@ -367,7 +384,7 @@ export default function PlanDetailScreen() {
           
           // Always attempt to load sessions from DB first (prefer real UUID sessions)
           try {
-            const realSessionData = await RealWorkoutService.getSessionsForPlan(realPlanData.id);
+            const realSessionData = await WorkoutService.getSessionsForPlan(realPlanData.id);
             if (realSessionData && realSessionData.length > 0) {
               console.log(`[PlanDetail] Found ${realSessionData.length} sessions from database`);
               
@@ -424,7 +441,7 @@ export default function PlanDetailScreen() {
                     }
                   } else {
                     // For valid UUID sessions, fetch from database
-                    const sets = await RealWorkoutService.getExerciseSetsForSession(s.id);
+                    const sets = await WorkoutService.getExerciseSetsForSession(s.id);
                     
                     if (sets && sets.length > 0) {
                       console.log(`[PlanDetail] Found ${sets.length} exercise sets for session ${s.id}`);
@@ -550,7 +567,7 @@ export default function PlanDetailScreen() {
             
             // Try to reconstruct weekly schedule from database sessions
             try {
-              const reconstructedSessions = await RealWorkoutService.getSessionsForPlan(realPlanData.id);
+              const reconstructedSessions = await WorkoutService.getSessionsForPlan(realPlanData.id);
               if (reconstructedSessions && reconstructedSessions.length > 0) {
                 console.log('[PlanDetail] Reconstructed weekly schedule from database sessions:', reconstructedSessions.length);
                 
@@ -598,14 +615,14 @@ export default function PlanDetailScreen() {
         setIsLoading(true);
         
         // First try to get the plan from the real service
-        const fetchedPlan = await RealWorkoutService.getPlanById(planId as string);
+        const fetchedPlan = await WorkoutService.getPlanById(planId as string);
         if (fetchedPlan) {
-          console.log('[PlanDetail] Found plan with RealWorkoutService:', fetchedPlan.id);
+          console.log('[PlanDetail] Found plan with WorkoutService:', fetchedPlan.id);
           setPlan(fetchedPlan);
           
           // Load sessions for this plan
           try {
-            const realSessionData = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+            const realSessionData = await WorkoutService.getSessionsForPlan(fetchedPlan.id);
             if (realSessionData && realSessionData.length > 0) {
               console.log(`[PlanDetail] Found ${realSessionData.length} sessions from database`);
               
@@ -646,7 +663,7 @@ export default function PlanDetailScreen() {
                     }
                   } else {
                     // For valid UUID sessions, fetch from database
-                    const sets = await RealWorkoutService.getExerciseSetsForSession(s.id);
+                    const sets = await WorkoutService.getExerciseSetsForSession(s.id);
                     
                     if (sets && sets.length > 0) {
                       console.log(`[PlanDetail] Found ${sets.length} exercise sets for session ${s.id}`);
@@ -736,7 +753,7 @@ export default function PlanDetailScreen() {
                       onPress: async () => {
                         // Delete the corrupted plan
                         try {
-                          await RealWorkoutService.deletePlan(fetchedPlan.id);
+                          await WorkoutService.deletePlan(fetchedPlan.id);
                           console.log('[PlanDetail] Deleted corrupted plan:', fetchedPlan.id);
                         } catch (error) {
                           console.error('[PlanDetail] Error deleting corrupted plan:', error);
@@ -785,7 +802,7 @@ export default function PlanDetailScreen() {
                 
                 // Try to reconstruct weekly schedule from database sessions
                 try {
-                  const reconstructedSessions = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+                  const reconstructedSessions = await WorkoutService.getSessionsForPlan(fetchedPlan.id);
                   if (reconstructedSessions && reconstructedSessions.length > 0) {
                     console.log('[PlanDetail] Reconstructed weekly schedule from database sessions:', reconstructedSessions.length);
                     
@@ -883,14 +900,14 @@ export default function PlanDetailScreen() {
         setIsLoading(true);
         
         // First try to get the plan from the real service
-        const fetchedPlan = await RealWorkoutService.getPlanById(planId as string);
+        const fetchedPlan = await WorkoutService.getPlanById(planId as string);
         if (fetchedPlan) {
-          console.log('[PlanDetail] Refreshing plan with RealWorkoutService:', fetchedPlan.id);
+          console.log('[PlanDetail] Refreshing plan with WorkoutService:', fetchedPlan.id);
           setPlan(fetchedPlan);
           
           // Load sessions for this plan
           try {
-            const realSessionData = await RealWorkoutService.getSessionsForPlan(fetchedPlan.id);
+            const realSessionData = await WorkoutService.getSessionsForPlan(fetchedPlan.id);
             if (realSessionData && realSessionData.length > 0) {
               console.log(`[PlanDetail] Refreshed ${realSessionData.length} sessions from database`);
               
@@ -925,7 +942,7 @@ export default function PlanDetailScreen() {
                     }
                   } else {
                     // For valid UUID sessions, fetch from database
-                    const sets = await RealWorkoutService.getExerciseSetsForSession(s.id);
+                    const sets = await WorkoutService.getExerciseSetsForSession(s.id);
                     
                     if (sets && sets.length > 0) {
                       sessionObj.exercises = sets.map((set: any) => ({
@@ -1381,7 +1398,7 @@ export default function PlanDetailScreen() {
                     style={[styles.regenerateButton, { backgroundColor: '#FF6B6B', marginBottom: 12 }]}
                     onPress={async () => {
                       try {
-                        await RealWorkoutService.deletePlan(plan?.id || planId as string);
+                        await WorkoutService.deletePlan(plan?.id || planId as string);
                         router.replace('/(main)/workout/plans');
                       } catch (error) {
                         console.error('Error deleting plan:', error);
@@ -1403,7 +1420,7 @@ export default function PlanDetailScreen() {
             
             return sessions.map((session, index) => {
               const isRestDay = !session.exercises || session.exercises.length === 0 ||
-                (session.day && session.day.toLowerCase().includes('rest'));
+                (session.day && typeof session.day === 'string' && session.day.toLowerCase().includes('rest'));
               return (
                 <View key={session.id} style={styles.classicSessionCard}>
                   <View style={styles.classicSessionHeader}>
@@ -1617,7 +1634,7 @@ export default function PlanDetailScreen() {
             </View>
           )}
         {(() => {
-          const restDaysSessions = sessions.filter(s => !s.exercises || s.exercises.length === 0 || (s.day && s.day.toLowerCase().includes('rest')));
+          const restDaysSessions = sessions.filter(s => !s.exercises || s.exercises.length === 0 || (s.day && typeof s.day === 'string' && s.day.toLowerCase().includes('rest')));
           console.log('[REST DAYS RENDER DEBUG]', {
             totalSessions: sessions.length,
             restDaysInSessions: restDaysSessions.length,
@@ -1627,7 +1644,7 @@ export default function PlanDetailScreen() {
           return sessions.map((session, index) => {
             // Check if this is a rest day
             const isRestDay = !session.exercises || session.exercises.length === 0 ||
-                            (session.day && session.day.toLowerCase().includes('rest'));
+                            (session.day && typeof session.day === 'string' && session.day.toLowerCase().includes('rest'));
 
             return (
               <Animated.View
@@ -1734,7 +1751,8 @@ export default function PlanDetailScreen() {
                                     exercise.id,
                                     exercise.sets,
                                     exercise.reps,
-                                    exercise.rest
+                                    exercise.rest,
+                                    exercise.name
                                   )}
                                 />
                               )}
@@ -1742,6 +1760,24 @@ export default function PlanDetailScreen() {
 
                             {editingExercise === exercise.id ? (
                               <View style={styles.editContainer}>
+                                <View style={styles.editRow}>
+                                  <Text style={styles.editLabel}>Name:</Text>
+                                  <TextInput
+                                    value={editedName || ''}
+                                    onChangeText={setEditedName}
+                                    style={styles.editInput}
+                                    mode="outlined"
+                                    theme={{
+                                      colors: {
+                                        primary: colors.primary,
+                                        outline: colors.border,
+                                        onSurfaceVariant: colors.textSecondary,
+                                        surface: colors.surface,
+                                        onSurface: colors.text
+                                      }
+                                    }}
+                                  />
+                                </View>
                                 <View style={styles.editRow}>
                                   <Text style={styles.editLabel}>Sets:</Text>
                                   <TextInput

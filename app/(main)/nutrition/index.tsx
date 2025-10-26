@@ -9,6 +9,7 @@ import { NutritionService } from '../../../src/services/nutrition/NutritionServi
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { typography } from '../../../src/styles/fonts';
 
 
 // Modern, premium colors
@@ -803,9 +804,79 @@ const PlansScreen = () => {
                   </LinearGradient>
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    console.log('Recipe Generator quick action pressed');
+                    router.push({
+                      pathname: '/(main)/nutrition/recipe-generator-new'
+                    });
+                  }}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)']}
+                    style={styles.quickActionGradient}
+                  >
+                    <View style={styles.quickActionContent}>
+                      <Icon name="chef-hat" size={28} color={colors.primary} />
+                      <Text style={styles.quickActionText}>AI Recipes</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
               </View>
               
-              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
+              {/* AI Features */}
+              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>AI FEATURES</Text></Text>
+              <View style={styles.quickActions}>
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    console.log('AI Chat quick action pressed');
+                    if (activePlan?.id) {
+                      router.push({
+                        pathname: '/(main)/nutrition/ai-chat',
+                        params: { planId: activePlan.id }
+                      });
+                    } else {
+                      Alert.alert('No Active Plan', 'You need an active nutrition plan to use AI chat. Create a plan first.');
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={['rgba(138,43,226,0.2)', 'rgba(138,43,226,0.1)']}
+                    style={styles.quickActionGradient}
+                  >
+                    <View style={styles.quickActionContent}>
+                      <Icon name="robot-outline" size={28} color="#8A2BE2" />
+                      <Text style={styles.quickActionText}>AI Chat</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    console.log('Meal Planner quick action pressed');
+                    router.push({
+                      pathname: '/(main)/nutrition/recipe-generator-simple'
+                    });
+                  }}
+                >
+                  <LinearGradient
+                    colors={['rgba(34,197,94,0.2)', 'rgba(34,197,94,0.1)']}
+                    style={styles.quickActionGradient}
+                  >
+                    <View style={styles.quickActionContent}>
+                      <Icon name="calendar-month" size={28} color="#22C55E" />
+                      <Text style={styles.quickActionText}>Meal Plans</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+              </View>
+              
+              <Text style={styles.sectionTitle}>03 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
               {plans.length === 0 && (
                 <View style={styles.emptyCard}>
                   <LinearGradient
@@ -876,9 +947,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   appName: {
+    ...typography.h5,
+    fontWeight: '700',
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '800',
     letterSpacing: 2,
     marginHorizontal: 12,
   },
@@ -887,21 +958,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   titleDate: {
+    ...typography.labelLarge,
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
     letterSpacing: 1,
   },
   titleMain: {
-    color: colors.white,
+    ...typography.h1,
     fontSize: 38,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: 1,
+    color: colors.white,
     marginVertical: 8,
   },
   titleDescription: {
+    ...typography.body1,
+    fontWeight: '500',
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 16,
     lineHeight: 22,
   },
   loadingContainer: {
@@ -911,8 +983,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
+    ...typography.body1,
     marginTop: 16,
-    fontSize: 16,
     color: colors.white,
   },
   content: {
@@ -942,8 +1014,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   summaryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.body1,
+    fontWeight: '800',
     color: colors.white,
     letterSpacing: 1,
   },
@@ -992,12 +1064,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   calorieCount: {
-    fontSize: 32,
-    fontWeight: '700',
+    ...typography.h1,
+    fontWeight: '800',
+    letterSpacing: 1,
     color: colors.white,
   },
   calorieTotal: {
-    fontSize: 16,
+    ...typography.body1,
     color: 'rgba(255,255,255,0.6)',
     marginBottom: 6,
     marginLeft: 4,
@@ -1049,13 +1122,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   macroProgressLabel: {
-    fontSize: 12,
+    ...typography.caption,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.7)',
     letterSpacing: 0.5,
   },
   macroProgressValue: {
-    fontSize: 12,
+    ...typography.caption,
     color: 'rgba(255,255,255,0.7)',
   },
   miniProgressBarContainer: {
@@ -1091,14 +1164,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   insightTitle: {
-    fontSize: 14,
+    ...typography.labelLarge,
     fontWeight: '700',
     color: colors.white,
     marginBottom: 6,
     letterSpacing: 1,
   },
   insightText: {
-    fontSize: 14,
+    ...typography.body2,
     color: colors.white,
     lineHeight: 20,
   },
@@ -1118,11 +1191,12 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     marginBottom: 32,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
   },
   quickActionButton: {
-    width: 160,
+    flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
     minHeight: 100,
@@ -1177,12 +1251,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planName: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.body1,
+    fontWeight: '700',
+    letterSpacing: 1,
     color: colors.white,
   },
   planDate: {
-    fontSize: 12,
+    ...typography.caption,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 2,
   },
@@ -1207,7 +1282,8 @@ const styles = StyleSheet.create({
   },
   macroValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 1,
     color: colors.white,
   },
   macroLabel: {
@@ -1436,34 +1512,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 12,
+    marginRight: 16, // Add margin to prevent overlap with value
   },
   metabolicEmoji: {
     fontSize: 18,
   },
   metabolicTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.labelLarge,
+    fontWeight: '700',
+    letterSpacing: 1,
     color: colors.white,
     marginBottom: 2,
   },
   metabolicSubtitle: {
-    fontSize: 11,
+    ...typography.caption,
     color: colors.textSecondary,
-    lineHeight: 14,
+    flexWrap: 'wrap', // Allow text to wrap
+    maxWidth: '90%', // Limit width to prevent overlap
   },
   metabolicValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.labelLarge,
+    fontWeight: '800',
+    letterSpacing: 1,
     color: colors.white,
     textAlign: 'right',
+    minWidth: 100, // Ensure minimum width for the value
+    flexShrink: 0, // Prevent shrinking
   },
   finalTargetValue: {
-    fontSize: 16,
+    ...typography.body1,
+    fontWeight: '700',
     color: colors.primary,
   },
   metabolicUnit: {
-    fontSize: 12,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
   },
 });
