@@ -807,9 +807,9 @@ const PlansScreen = () => {
                 <TouchableOpacity
                   style={styles.quickActionButton}
                   onPress={() => {
-                    console.log('Recipe Generator quick action pressed');
+                    console.log('Food History quick action pressed');
                     router.push({
-                      pathname: '/(main)/nutrition/recipe-generator-new'
+                      pathname: '/(main)/nutrition/food-history'
                     });
                   }}
                 >
@@ -818,65 +818,16 @@ const PlansScreen = () => {
                     style={styles.quickActionGradient}
                   >
                     <View style={styles.quickActionContent}>
-                      <Icon name="chef-hat" size={28} color={colors.primary} />
-                      <Text style={styles.quickActionText}>AI Recipes</Text>
+                      <Icon name="history" size={28} color={colors.primary} />
+                      <Text style={styles.quickActionText}>Food History</Text>
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
 
               </View>
               
-              {/* AI Features */}
-              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>AI FEATURES</Text></Text>
-              <View style={styles.quickActions}>
-                <TouchableOpacity
-                  style={styles.quickActionButton}
-                  onPress={() => {
-                    console.log('AI Chat quick action pressed');
-                    if (activePlan?.id) {
-                      router.push({
-                        pathname: '/(main)/nutrition/ai-chat',
-                        params: { planId: activePlan.id }
-                      });
-                    } else {
-                      Alert.alert('No Active Plan', 'You need an active nutrition plan to use AI chat. Create a plan first.');
-                    }
-                  }}
-                >
-                  <LinearGradient
-                    colors={['rgba(138,43,226,0.2)', 'rgba(138,43,226,0.1)']}
-                    style={styles.quickActionGradient}
-                  >
-                    <View style={styles.quickActionContent}>
-                      <Icon name="robot-outline" size={28} color="#8A2BE2" />
-                      <Text style={styles.quickActionText}>AI Chat</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionButton}
-                  onPress={() => {
-                    console.log('Meal Planner quick action pressed');
-                    router.push({
-                      pathname: '/(main)/nutrition/recipe-generator-simple'
-                    });
-                  }}
-                >
-                  <LinearGradient
-                    colors={['rgba(34,197,94,0.2)', 'rgba(34,197,94,0.1)']}
-                    style={styles.quickActionGradient}
-                  >
-                    <View style={styles.quickActionContent}>
-                      <Icon name="calendar-month" size={28} color="#22C55E" />
-                      <Text style={styles.quickActionText}>Meal Plans</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-              </View>
               
-              <Text style={styles.sectionTitle}>03 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
+              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
               {plans.length === 0 && (
                 <View style={styles.emptyCard}>
                   <LinearGradient

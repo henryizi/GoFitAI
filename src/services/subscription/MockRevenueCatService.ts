@@ -11,9 +11,9 @@ const mockOfferings: PurchasesOffering[] = [
         identifier: '$rc_monthly',
         offeringIdentifier: 'default',
         product: {
-          identifier: 'gofitai_premium_monthly1',
-          description: 'Premium Monthly Subscription',
-          title: 'Premium Monthly',
+          identifier: 'gofitai_premium_monthly',
+          description: 'Get unlimited access to AI workout plans, nutrition guidance, and premium features. Start with a 7-day free trial!',
+          title: 'GoFitAI Premium Monthly',
           price: 9.99,
           priceString: '$9.99',
           currencyCode: 'USD',
@@ -41,11 +41,11 @@ const mockOfferings: PurchasesOffering[] = [
         identifier: '$rc_lifetime',
         offeringIdentifier: 'default',
         product: {
-          identifier: 'gofitai_premium_lifetime1',
-          description: 'Premium Lifetime Access',
-          title: 'Premium Lifetime',
-          price: 199.99,
-          priceString: '$199.99',
+          identifier: 'gofitai_premium_lifetime',
+          description: 'Get unlimited lifetime access to AI workout plans, nutrition guidance, and all premium features. One-time purchase, yours forever!',
+          title: 'GoFitAI Premium Lifetime',
+          price: 99.99,
+          priceString: '$99.99',
           currencyCode: 'USD',
           introPrice: null,
           discounts: [],
@@ -104,22 +104,25 @@ const mockCustomerInfo: CustomerInfo = {
 
 export class MockRevenueCatService {
   static async initialize(): Promise<void> {
-    console.log('MockRevenueCatService: Initialized');
+    console.log('🎭 MockRevenueCatService: Initialized successfully');
+    console.log('🎭 MockRevenueCat: Ready for testing with StoreKit products:');
+    console.log('🎭   - gofitai_premium_monthly (with 7-day free trial)');
+    console.log('🎭   - gofitai_premium_lifetime ($99.99 one-time)');
     return Promise.resolve();
   }
 
   static async getOfferings(): Promise<PurchasesOffering[]> {
-    console.log('MockRevenueCatService: Getting offerings');
+    console.log('🎭 MockRevenueCat: Getting offerings (2 products available)');
     return Promise.resolve(mockOfferings);
   }
 
   static async getCustomerInfo(): Promise<CustomerInfo> {
-    console.log('MockRevenueCatService: Getting customer info');
+    console.log('🎭 MockRevenueCat: Getting customer info (free user)');
     return Promise.resolve(mockCustomerInfo);
   }
 
   static async isPremiumActive(): Promise<boolean> {
-    console.log('MockRevenueCatService: Checking premium status');
+    console.log('🎭 MockRevenueCat: Checking premium status (returns false for paywall testing)');
     // Return false for testing paywall functionality
     return Promise.resolve(false);
   }
@@ -136,7 +139,7 @@ export class MockRevenueCatService {
   }
 
   static async purchasePackage(packageToPurchase: PurchasesPackage): Promise<{ success: boolean; customerInfo?: CustomerInfo; error?: string }> {
-    console.log('MockRevenueCatService: Purchasing package', packageToPurchase.identifier);
+    console.log('🎭 MockRevenueCat: Simulating purchase for', packageToPurchase.identifier, '(' + packageToPurchase.product.identifier + ')');
     
     // Simulate successful purchase
     const updatedCustomerInfo = {

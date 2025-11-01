@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-      "buildNumber": "6",
+      "buildNumber": "8",
       "infoPlist": {
         "LSMinimumSystemVersion": "13.4",
         "NSAppTransportSecurity": {
@@ -49,6 +49,8 @@
       "package": "com.henrymadeit.gofitai",
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -74,8 +76,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#FF6B35",
-          "sounds": ["./assets/notification.wav"]
+          "color": "#FF6B35"
         }
       ],
       "sentry-expo"
@@ -93,10 +94,14 @@
       "EXPO_PUBLIC_AI_VERBOSE": "0",
       "SUPABASE_URL": "https://lmfdgnxertwrhbjhrcby.supabase.co",
       "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZmRnbnhlcnR3cmhiamhyY2J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMjc0MjUsImV4cCI6MjA2NzkwMzQyNX0.RwCFJHt5aPclsPtAXOFXFvDy7DhQxgDFMMPxxdKSygM",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://lmfdgnxertwrhbjhrcby.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_URL": "https://lmfdgnxertwrhbjhrcby.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZmRnbnhlcnR3cmhiamhyY2J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMjc0MjUsImV4cCI6MjA2NzkwMzQyNX0.RwCFJHt5aPclsPtAXOFXFvDy7DhQxgDFMMPxxdKSygM",
       "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_MPxLBCTXbFLwLZDaLbRMxRXHPD"
     },
-    "owner": "henryizi"
+    "owner": "henryizi",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/8acc1562-09e6-45d8-a2ec-5689e73600e2"
+    }
   }
 }

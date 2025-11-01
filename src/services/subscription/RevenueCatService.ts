@@ -10,8 +10,20 @@ import Constants from 'expo-constants';
 import { REVENUECAT_CONFIG } from '../../config/revenuecat';
 import { MockRevenueCatService } from './MockRevenueCatService';
 
-// Toggle this to use mock service for testing
-const USE_MOCK_SERVICE = false; // Set to false to use real RevenueCat integration
+// ========================================
+// 🧪 TESTING CONFIGURATION
+// ========================================
+// To test REAL Apple purchase UI in Xcode:
+// 1. Set ENABLE_REAL_STOREKIT_TESTING = true
+// 2. Make sure you have a valid RevenueCat API key in .env
+// 3. Configure StoreKit testing in Xcode
+// 4. Test on device or simulator
+//
+// To use mock service (current default):
+// - Keep ENABLE_REAL_STOREKIT_TESTING = false
+// - Mock service simulates purchases without Apple UI
+const ENABLE_REAL_STOREKIT_TESTING = true;
+const USE_MOCK_SERVICE = __DEV__ && !ENABLE_REAL_STOREKIT_TESTING;
 
 // Re-export types for easier importing
 export type SubscriptionPackage = PurchasesPackage;
@@ -85,9 +97,16 @@ export class RevenueCatService {
    * Initialize RevenueCat SDK
    */
   static async initialize(userId?: string): Promise<void> {
+    console.log('[RevenueCat] Initialize called - USE_MOCK_SERVICE:', USE_MOCK_SERVICE, '__DEV__:', __DEV__);
     if (USE_MOCK_SERVICE) {
+      console.log('🎭 MockRevenueCat: Using MOCK service - no real Apple purchases will occur');
+      console.log('🎭 MockRevenueCat: To test real Apple purchases, set ENABLE_REAL_STOREKIT_TESTING = true');
+      this.isInitialized = true;
+      this.isEnabled = true;
       return MockRevenueCatService.initialize();
     }
+    console.log('💳 RevenueCat: Using REAL service - Apple purchase UI will appear');
+    console.log('💳 RevenueCat: Make sure you have StoreKit testing configured in Xcode');
     
     // If already initialized, handle user ID update if needed
     if (this.isInitialized) {
@@ -258,6 +277,11 @@ export class RevenueCatService {
    */
   static async setUserId(userId: string): Promise<void> {
     try {
+      if (USE_MOCK_SERVICE) {
+        console.log('🎭 MockRevenueCat: User ID set to', userId);
+        return;
+      }
+      
       if (!this.isInitialized) {
         // Store user ID for when RevenueCat is initialized
         this.pendingUserId = userId;
@@ -372,16 +396,18 @@ export class RevenueCatService {
         packageType: 'MONTHLY',
         product: {
           identifier: 'gofitai_premium_monthly',
-          description: 'Premium Monthly Subscription with 7-day free trial',
+          description: 'Premium Monthly Subscription - 7-day free trial, then $9.99/month',
           title: 'GoFitAI Premium Monthly',
           price: 9.99,
           priceString: '$9.99',
           currencyCode: 'USD',
           introPrice: {
             price: 0,
-            priceString: 'Free',
+            priceString: 'Free for 7 days',
             period: 'P1W', // 1 week
-            cycles: 1
+            cycles: 1,
+            periodUnit: 'week',
+            periodNumberOfUnits: 1
           }
         },
         offeringIdentifier: 'default'
@@ -391,10 +417,10 @@ export class RevenueCatService {
         packageType: 'LIFETIME',
         product: {
           identifier: 'gofitai_premium_lifetime',
-          description: 'Premium Lifetime Access - One-time payment',
+          description: 'Premium Lifetime Access - One-time payment, yours forever!',
           title: 'GoFitAI Premium Lifetime',
-          price: 79.99,
-          priceString: '$79.99',
+          price: 99.99,
+          priceString: '$99.99',
           currencyCode: 'USD'
         },
         offeringIdentifier: 'default'

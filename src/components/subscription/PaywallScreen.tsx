@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text, Button, Card } from 'react-native-paper';
 import { colors } from '../../styles/colors';
 import { RevenueCatService } from '../../services/subscription/RevenueCatService';
 
@@ -14,32 +14,46 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
   console.log('🎯 PaywallScreen rendered with props:', { source, offeringId });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [offerings, setOfferings] = useState<any>(null);
+  const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const isDevelopment = __DEV__;
+
+  useEffect(() => {
+    loadOfferings();
+  }, []);
+
+  const loadOfferings = async () => {
+    try {
+      const availableOfferings = await RevenueCatService.getOfferings();
+      setOfferings(availableOfferings);
+      
+      // Auto-select monthly package by default
+      if (availableOfferings && availableOfferings[0]?.availablePackages) {
+        const monthlyPkg = availableOfferings[0].availablePackages.find((pkg: any) => 
+          pkg.packageType === 'MONTHLY' || pkg.identifier.includes('monthly')
+        );
+        if (monthlyPkg) {
+          setSelectedPackage(monthlyPkg);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load offerings:', error);
+    }
+  };
 
   const handleUpgrade = async () => {
     try {
       setIsLoading(true);
       
-      // Get available offerings
-      const offerings = await RevenueCatService.getOfferings();
-      
-      if (!offerings || !offerings.current) {
-        Alert.alert('Error', 'No subscription packages available');
+      if (!selectedPackage) {
+        Alert.alert('Error', 'Please select a subscription plan');
         return;
       }
 
-      // Get the first available package (usually monthly)
-      const availablePackages = offerings.current.availablePackages;
-      if (availablePackages.length === 0) {
-        Alert.alert('Error', 'No subscription packages found');
-        return;
-      }
-
-      const packageToPurchase = availablePackages[0];
-      console.log('🎯 Attempting to purchase package:', packageToPurchase.identifier);
+      console.log('🎯 Attempting to purchase package:', selectedPackage.identifier);
 
       // Attempt purchase
-      const result = await RevenueCatService.purchasePackage(packageToPurchase);
+      const result = await RevenueCatService.purchasePackage(selectedPackage);
       
       if (result.success) {
         Alert.alert(
@@ -54,7 +68,19 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
       }
     } catch (error) {
       console.error('🎯 Purchase error:', error);
-      Alert.alert('Error', 'Failed to process purchase. Please try again.');
+      console.error('🎯 Error details:', {
+        message: error?.message,
+        code: error?.code,
+        userCancelled: error?.userCancelled,
+        stack: error?.stack
+      });
+      
+      // Show more specific error message in development
+      const errorMessage = __DEV__ 
+        ? `Purchase failed: ${error?.message || 'Unknown error'}`
+        : 'Failed to process purchase. Please try again.';
+        
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -75,6 +101,16 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
     }
   };
 
+  const monthlyPackage = offerings?.[0]?.availablePackages?.find((pkg: any) => 
+    pkg.packageType === 'MONTHLY' || pkg.identifier.includes('monthly')
+  );
+
+  const lifetimePackage = offerings?.[0]?.availablePackages?.find((pkg: any) => 
+    pkg.packageType === 'LIFETIME' || pkg.identifier.includes('lifetime')
+  );
+
+  const hasFreeTrial = monthlyPackage?.product?.introPrice;
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Premium Features</Text>
@@ -88,6 +124,69 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
         <Text style={styles.feature}>• Advanced progress tracking</Text>
         <Text style={styles.feature}>• Custom workout builder</Text>
       </View>
+
+      {/* Pricing Options */}
+      <View style={styles.pricingOptions}>
+        {/* Monthly Package */}
+        {monthlyPackage && (
+          <Card 
+            style={[
+              styles.pricingCard, 
+              selectedPackage?.identifier === monthlyPackage.identifier && styles.selectedCard
+            ]}
+            onPress={() => setSelectedPackage(monthlyPackage)}
+          >
+            <Card.Content>
+              <Text style={styles.pricingTitle}>
+                {monthlyPackage.product.title || 'GoFitAI Premium Monthly'}
+              </Text>
+              {hasFreeTrial ? (
+                <View style={styles.pricingDetails}>
+                  <Text style={styles.freeTrialText}>
+                    🎉 7-Day Free Trial
+                  </Text>
+                  <Text style={styles.pricingText}>
+                    Then {monthlyPackage.product.priceString || '$9.99'}/month
+                  </Text>
+                  <Text style={styles.pricingSubtext}>
+                    Cancel anytime during trial
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.pricingText}>
+                  {monthlyPackage.product.priceString || '$9.99'}/month
+                </Text>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Lifetime Package */}
+        {lifetimePackage && (
+          <Card 
+            style={[
+              styles.pricingCard, 
+              selectedPackage?.identifier === lifetimePackage.identifier && styles.selectedCard
+            ]}
+            onPress={() => setSelectedPackage(lifetimePackage)}
+          >
+            <Card.Content>
+              <View style={styles.lifetimeHeader}>
+                <Text style={styles.pricingTitle}>
+                  {lifetimePackage.product.title || 'GoFitAI Premium Lifetime'}
+                </Text>
+                <Text style={styles.bestValueBadge}>BEST VALUE</Text>
+              </View>
+              <Text style={styles.pricingText}>
+                {lifetimePackage.product.priceString || '$99.99'}
+              </Text>
+              <Text style={styles.pricingSubtext}>
+                One-time payment • Yours forever
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
+      </View>
       
       <View style={styles.actions}>
         <Button 
@@ -95,9 +194,11 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
           onPress={handleUpgrade} 
           style={styles.upgradeButton}
           loading={isLoading}
-          disabled={isLoading}
+          disabled={isLoading || !selectedPackage}
         >
-          {isLoading ? 'Processing...' : 'Upgrade to Premium'}
+          {isLoading ? 'Processing...' : 
+           selectedPackage?.identifier?.includes('lifetime') ? 'Purchase Lifetime Access' :
+           hasFreeTrial ? 'Start Free Trial' : 'Upgrade to Premium'}
         </Button>
         <Button mode="text" onPress={handleSkip} style={styles.closeButton}>
           {isDevelopment ? 'Skip for Testing' : 'Maybe Later'}
@@ -128,7 +229,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   features: {
-    marginBottom: 48,
+    marginBottom: 32,
   },
   feature: {
     fontSize: 16,
@@ -136,11 +237,70 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingLeft: 8,
   },
+  pricingOptions: {
+    marginBottom: 32,
+    gap: 16,
+  },
+  pricingCard: {
+    backgroundColor: colors.surface,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedCard: {
+    borderColor: colors.primary,
+    elevation: 8,
+  },
+  pricingTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  pricingDetails: {
+    alignItems: 'center',
+  },
+  freeTrialText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  pricingText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  pricingSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   actions: {
     gap: 16,
   },
   upgradeButton: {
     backgroundColor: colors.primary,
+  },
+  lifetimeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bestValueBadge: {
+    backgroundColor: colors.primary,
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    textAlign: 'center',
   },
   closeButton: {
     // Default styling

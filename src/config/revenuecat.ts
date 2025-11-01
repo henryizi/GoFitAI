@@ -14,8 +14,8 @@ export const REVENUECAT_CONFIG = {
   // Product IDs
   products: {
     premium: {
-      monthly: 'gofitai_premium_monthly1',
-      lifetime: 'gofitai_premium_lifetime1',
+      monthly: 'gofitai_premium_monthly',
+      lifetime: 'gofitai_premium_lifetime',
     },
   },
   
