@@ -1,30 +1,45 @@
 {
-  "identifier" : "GoFitAI",
+  "identifier" : "B8A4E8A4",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
     {
-      "displayPrice" : "99.99",
+      "displayPrice" : "4.99",
       "familyShareable" : false,
-      "id" : "gofitai_premium_lifetime",
+      "internalID" : "6736697506",
       "localizations" : [
         {
-          "description" : "Get unlimited lifetime access to AI workout plans, nutrition guidance, and all premium features. One-time purchase, yours forever!",
+          "description" : "Get unlimited access to all premium features including AI meal planning, advanced analytics, and personalized workout recommendations.",
+          "displayName" : "GoFitAI Premium Monthly",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "gofitai_premium_monthly1",
+      "referenceName" : "GoFitAI Premium Monthly",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "29.99",
+      "familyShareable" : false,
+      "internalID" : "6736697507",
+      "localizations" : [
+        {
+          "description" : "Get lifetime access to all premium features including AI meal planning, advanced analytics, and personalized workout recommendations. One-time purchase, no recurring fees.",
           "displayName" : "GoFitAI Premium Lifetime",
           "locale" : "en_US"
         }
       ],
-      "productID" : "gofitai_premium_lifetime",
-      "referenceName" : "Premium Lifetime",
+      "productID" : "gofitai_premium_lifetime1",
+      "referenceName" : "GoFitAI Premium Lifetime",
       "type" : "NonConsumable"
     }
   ],
   "settings" : {
-    "_applicationInternalID" : "8acc1562-09e6-45d8-a2ec-5689e73600e2",
+    "_applicationInternalID" : "6736697505",
     "_developerTeamID" : "YOUR_TEAM_ID",
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 751680000.0,
+    "_lastSynchronizedDate" : 748094400.86575103,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
@@ -76,46 +91,14 @@
     ]
   },
   "subscriptionGroups" : [
-    {
-      "id" : "21482209",
-      "localizations" : [
 
-      ],
-      "name" : "GoFitAI Premium",
-      "subscriptions" : [
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "9.99",
-          "familyShareable" : false,
-          "id" : "gofitai_premium_monthly",
-          "introductoryOffer" : {
-            "ineligibleForIntroOffer" : false,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
-          "localizations" : [
-            {
-              "description" : "Get unlimited access to AI workout plans, nutrition guidance, and premium features. Start with a 7-day free trial!",
-              "displayName" : "GoFitAI Premium Monthly",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "gofitai_premium_monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Premium Monthly",
-          "subscriptionGroupID" : "21482209",
-          "type" : "RecurringSubscription"
-        }
-      ]
-    }
   ],
   "version" : {
     "major" : 3,
     "minor" : 0
   }
 }
+
+
+
+

@@ -121,6 +121,9 @@ const WorkoutPlansScreen = () => {
         console.log('[WorkoutPlans] Fetching plans for user:', user.id);
         console.log('[WorkoutPlans] User object:', { id: user.id, email: user.email });
         
+        // Initialize WorkoutService for this specific user
+        await WorkoutService.initializeFromStorage(user.id);
+        
         // Load from local storage first for immediate display
         let localPlans: any[] = [];
         try {
@@ -777,7 +780,7 @@ const WorkoutPlansScreen = () => {
       {/* Enhanced app header */}
       <View style={styles.appHeader}>
         <View style={styles.headerLine} />
-        <Text style={styles.appName}>WORKOUT<Text style={{ color: colors.primary }}>HUB</Text></Text>
+        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
         <View style={styles.headerLine} />
       </View>
 

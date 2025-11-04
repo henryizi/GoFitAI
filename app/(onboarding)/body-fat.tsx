@@ -10,21 +10,32 @@ import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 const BodyFatScreen = () => {
   const { user } = useAuth();
   const [bodyFat, setBodyFat] = useState('');
 
   const handleNext = async () => {
-    if (user && bodyFat) {
-      const bodyFatNumber = parseFloat(bodyFat);
-      if (!isNaN(bodyFatNumber) && bodyFatNumber >= 0 && bodyFatNumber <= 50) {
-        await supabase.from('profiles').update({ body_fat: bodyFatNumber }).eq('id', user.id);
-        try { identify(user.id, { body_fat: bodyFatNumber }); } catch {}
-        try { analyticsTrack('onboarding_step_next', { step: 'body-fat' }); } catch {}
-        router.push('/(onboarding)/primary-goal');
-      }
-    }
+    if (!user || !bodyFat) return;
+    
+    const bodyFatNumber = parseFloat(bodyFat);
+    if (isNaN(bodyFatNumber) || bodyFatNumber < 0 || bodyFatNumber > 50) return;
+    
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ id: user.id, body_fat: bodyFatNumber, onboarding_completed: false }).select(),
+      `Saving body fat: ${bodyFatNumber}%`,
+      undefined,
+      user.id
+    );
+    
+    // Analytics in background
+    try { identify(user.id, { body_fat: bodyFatNumber }); } catch {}
+    try { analyticsTrack('onboarding_step_next', { step: 'body-fat' }); } catch {}
+    
+    console.log('🚀 Navigating to primary-goal screen...');
+    router.replace('/(onboarding)/primary-goal');
   };
 
   const handleBack = () => {

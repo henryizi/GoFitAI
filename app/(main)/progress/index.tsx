@@ -286,7 +286,7 @@ export default function ProgressScreen() {
         <View style={styles.solidHeader}>
           <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
             <View style={styles.headerLine} />
-            <Text style={styles.appName}>PROGRESS<Text style={{ color: colors.primary }}>HUB</Text></Text>
+            <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
             <View style={styles.headerLine} />
           </View>
         </View>
@@ -302,7 +302,7 @@ export default function ProgressScreen() {
         }
       ]}>
         <View style={styles.headerLine} />
-        <Text style={styles.appName}>PROGRESS<Text style={{ color: colors.primary }}>HUB</Text></Text>
+        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
         <View style={styles.headerLine} />
       </Animated.View>
 

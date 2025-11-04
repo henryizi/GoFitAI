@@ -22,8 +22,16 @@ import { MockRevenueCatService } from './MockRevenueCatService';
 // To use mock service (current default):
 // - Keep ENABLE_REAL_STOREKIT_TESTING = false
 // - Mock service simulates purchases without Apple UI
+// FORCE MODULE RELOAD - Changed timestamp: 2025-11-02-11:20-FINAL
 const ENABLE_REAL_STOREKIT_TESTING = true;
-const USE_MOCK_SERVICE = __DEV__ && !ENABLE_REAL_STOREKIT_TESTING;
+const USE_MOCK_SERVICE = false; // FORCE REAL PURCHASES - FINAL VERSION
+
+// Debug logging - FORCE RELOAD v2
+console.log('🔧 RevenueCat Config Debug (FORCE RELOAD v2 - loaded at ' + new Date().toISOString() + '):');
+console.log('  __DEV__:', __DEV__);
+console.log('  ENABLE_REAL_STOREKIT_TESTING:', ENABLE_REAL_STOREKIT_TESTING);
+console.log('  USE_MOCK_SERVICE:', USE_MOCK_SERVICE);
+console.log('🔧 Expected: USE_MOCK_SERVICE should be FALSE for real purchases');
 
 // Re-export types for easier importing
 export type SubscriptionPackage = PurchasesPackage;
@@ -98,6 +106,9 @@ export class RevenueCatService {
    */
   static async initialize(userId?: string): Promise<void> {
     console.log('[RevenueCat] Initialize called - USE_MOCK_SERVICE:', USE_MOCK_SERVICE, '__DEV__:', __DEV__);
+    console.log('🔧 RUNTIME CHECK: USE_MOCK_SERVICE type:', typeof USE_MOCK_SERVICE, 'value:', USE_MOCK_SERVICE);
+    console.log('🔧 RUNTIME CHECK: Expected FALSE for real Apple purchases');
+    
     if (USE_MOCK_SERVICE) {
       console.log('🎭 MockRevenueCat: Using MOCK service - no real Apple purchases will occur');
       console.log('🎭 MockRevenueCat: To test real Apple purchases, set ENABLE_REAL_STOREKIT_TESTING = true');
@@ -105,8 +116,10 @@ export class RevenueCatService {
       this.isEnabled = true;
       return MockRevenueCatService.initialize();
     }
+    
     console.log('💳 RevenueCat: Using REAL service - Apple purchase UI will appear');
     console.log('💳 RevenueCat: Make sure you have StoreKit testing configured in Xcode');
+    console.log('💳 RevenueCat: StoreKit products: gofitai_premium_monthly1, gofitai_premium_lifetime1');
     
     // If already initialized, handle user ID update if needed
     if (this.isInitialized) {
@@ -295,11 +308,25 @@ export class RevenueCatService {
         return;
       }
       
+      console.log('[RevenueCat] Identifying user with RevenueCat:', userId);
       await Purchases.logIn(userId);
-      console.log('[RevenueCat] User ID set successfully:', userId);
-    } catch (error) {
+      
+      // Verify the user ID was set correctly
+      const customerInfo = await Purchases.getCustomerInfo();
+      const currentUserId = customerInfo?.originalAppUserId;
+      if (currentUserId === userId) {
+        console.log('[RevenueCat] ✅ User ID set successfully and verified:', userId);
+      } else {
+        console.warn('[RevenueCat] ⚠️ User ID set but verification shows different ID:', {
+          expected: userId,
+          actual: currentUserId
+        });
+      }
+    } catch (error: any) {
       console.error('[RevenueCat] Failed to set user ID:', error);
-      throw error;
+      // Don't throw - allow the app to continue even if RevenueCat user ID setting fails
+      // This prevents auth from breaking if RevenueCat has issues
+      console.warn('[RevenueCat] Continuing despite user ID setting failure');
     }
   }
 
@@ -375,8 +402,9 @@ export class RevenueCatService {
       console.error('[RevenueCat] Failed to get offerings:', error);
       
       // TEMPORARY: Return mock offerings for dashboard configuration period
-      if (__DEV__ && error.message?.includes('None of the products registered')) {
+      if (__DEV__ && (error.message?.includes('None of the products registered') || error.message?.includes('Couldn\'t find package'))) {
         console.log('[RevenueCat] 🔧 USING MOCK OFFERINGS - Configure RevenueCat dashboard!');
+        console.log('[RevenueCat] 🔧 Error was:', error.message);
         return this.getMockOfferings();
       }
       
@@ -395,7 +423,7 @@ export class RevenueCatService {
         identifier: '$rc_monthly',
         packageType: 'MONTHLY',
         product: {
-          identifier: 'gofitai_premium_monthly',
+          identifier: 'gofitai_premium_monthly1',
           description: 'Premium Monthly Subscription - 7-day free trial, then $9.99/month',
           title: 'GoFitAI Premium Monthly',
           price: 9.99,
@@ -416,7 +444,7 @@ export class RevenueCatService {
         identifier: '$rc_lifetime',
         packageType: 'LIFETIME',
         product: {
-          identifier: 'gofitai_premium_lifetime',
+          identifier: 'gofitai_premium_lifetime1',
           description: 'Premium Lifetime Access - One-time payment, yours forever!',
           title: 'GoFitAI Premium Lifetime',
           price: 99.99,
@@ -578,6 +606,17 @@ export class RevenueCatService {
         };
       }
       
+      // Handle "Couldn't find package" error with helpful message
+      if (error.message?.includes('Couldn\'t find package')) {
+        console.error('[RevenueCat] 🚨 Package not found - RevenueCat Dashboard needs configuration!');
+        return {
+          success: false,
+          error: __DEV__ 
+            ? 'RevenueCat Dashboard needs configuration. Please add products and offerings.'
+            : 'Purchase temporarily unavailable. Please try again later.'
+        };
+      }
+      
       return {
         success: false,
         error: error.message || 'Purchase failed'
@@ -680,10 +719,34 @@ export class RevenueCatService {
         return;
       }
       
+      // Check if user is anonymous before attempting logout
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        // If originalAppUserId is null/undefined or is an anonymous ID, user is anonymous
+        const isAnonymous = !customerInfo?.originalAppUserId || 
+                          customerInfo.originalAppUserId.includes('$RCAnonymousID');
+        
+        if (isAnonymous) {
+          console.log('[RevenueCat] User is anonymous, no logout needed');
+          return;
+        }
+      } catch (checkError) {
+        // If we can't check customer info, we'll try to log out anyway
+        // The error handling below will catch anonymous user errors
+        console.warn('[RevenueCat] Could not check customer info before logout:', checkError);
+      }
+      
       await Purchases.logOut();
       console.log('[RevenueCat] User logged out successfully');
-    } catch (error) {
-      console.error('[RevenueCat] Failed to log out user:', error);
+    } catch (error: any) {
+      // Handle anonymous user case gracefully - this is expected when user is already anonymous
+      const errorMessage = error?.message || String(error);
+      if (errorMessage.includes('anonymous') || errorMessage.includes('Anonymous')) {
+        console.log('[RevenueCat] User is anonymous, no logout needed');
+        return;
+      }
+      // For other errors, log as warning (not error) since logout failures shouldn't block the app
+      console.warn('[RevenueCat] Failed to log out user (continuing anyway):', error);
     }
   }
 

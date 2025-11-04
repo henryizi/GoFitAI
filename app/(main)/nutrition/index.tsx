@@ -1,3 +1,4 @@
+
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, ImageBackground, Dimensions, TouchableOpacity, Alert, FlatList } from 'react-native';
@@ -814,18 +815,17 @@ const PlansScreen = () => {
                   }}
                 >
                   <LinearGradient
-                    colors={['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)']}
+                    colors={['rgba(34,197,94,0.2)', 'rgba(34,197,94,0.1)']}
                     style={styles.quickActionGradient}
                   >
                     <View style={styles.quickActionContent}>
-                      <Icon name="history" size={28} color={colors.primary} />
+                      <Icon name="history" size={28} color="#22C55E" />
                       <Text style={styles.quickActionText}>Food History</Text>
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
 
               </View>
-              
               
               <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>YOUR NUTRITION PLANS</Text></Text>
               {plans.length === 0 && (

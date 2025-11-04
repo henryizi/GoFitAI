@@ -10,6 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { formatDateToYYYYMMDD } from '../../src/utils/dateUtils';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 const { width } = Dimensions.get('window');
 
@@ -29,13 +31,29 @@ const BirthdayScreen = () => {
   const { user } = useAuth();
 
   const handleNext = async () => {
-    if (!user) return;
-    const birthday = new Date(selectedYear, selectedMonth - 1, selectedDay);
-    const yyyyMmDd = birthday.toISOString().slice(0, 10);
-    await supabase.from('profiles').update({ birthday: yyyyMmDd }).eq('id', user.id);
+    if (!user) {
+      router.replace('/(onboarding)/height');
+      return;
+    }
+    
+    // Create date string in YYYY-MM-DD format without timezone conversion
+    // This prevents the common issue where dates get shifted by timezone when using toISOString()
+    const yyyyMmDd = formatDateToYYYYMMDD(selectedYear, selectedMonth, selectedDay);
+    
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ id: user.id, birthday: yyyyMmDd, onboarding_completed: false }).select(),
+      `Saving birthday: ${yyyyMmDd}`,
+      undefined,
+      user.id
+    );
+    
+    // Analytics in background
     try { identify(user.id, { birthday: yyyyMmDd }); } catch {}
     try { analyticsTrack('onboarding_step_next', { step: 'birthday' }); } catch {}
-    router.push('/(onboarding)/height');
+    
+    console.log('🚀 Navigating to height screen...');
+    router.replace('/(onboarding)/height');
   };
 
   const handleBack = () => {

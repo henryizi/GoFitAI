@@ -65,23 +65,35 @@ export class WorkoutService {
   private static loadedPlans: StoredWorkoutPlan[] = [];
 
   /**
-   * Initialize workout data from local storage
+   * Initialize workout data from local storage for a specific user
    */
-  static async initializeFromStorage() {
+  static async initializeFromStorage(userId?: string) {
     try {
-      console.log('[WorkoutService] Initializing workout data from storage');
+      console.log('[WorkoutService] Initializing workout data from storage', userId ? `for user ${userId}` : '');
 
-      // Get all plans from storage
-      const allPlans = await WorkoutLocalStore.getAllPlans();
-      this.loadedPlans = allPlans;
-
-      console.log(`[WorkoutService] Loaded ${allPlans.length} workout plans from storage`);
-
-      // Log details about active plans
-      const activePlans = allPlans.filter(p => p.is_active || p.status === 'active');
-      console.log(`[WorkoutService] Found ${activePlans.length} active workout plans`);
-
-      return allPlans;
+      if (userId) {
+        // Get plans for specific user only
+        const userPlans = await WorkoutLocalStore.getPlans(userId);
+        this.loadedPlans = userPlans;
+        console.log(`[WorkoutService] Loaded ${userPlans.length} workout plans for user ${userId}`);
+        
+        // Log details about active plans for this user
+        const activePlans = userPlans.filter(p => p.is_active || p.status === 'active');
+        console.log(`[WorkoutService] Found ${activePlans.length} active workout plans for user ${userId}`);
+        
+        return userPlans;
+      } else {
+        // Fallback: Get all plans from storage (for backward compatibility)
+        const allPlans = await WorkoutLocalStore.getAllPlans();
+        this.loadedPlans = allPlans;
+        console.log(`[WorkoutService] Loaded ${allPlans.length} workout plans from storage (all users)`);
+        
+        // Log details about active plans
+        const activePlans = allPlans.filter(p => p.is_active || p.status === 'active');
+        console.log(`[WorkoutService] Found ${activePlans.length} active workout plans (all users)`);
+        
+        return allPlans;
+      }
     } catch (error) {
       console.error('[WorkoutService] Error initializing workout data from storage:', error);
       this.loadedPlans = [];
@@ -112,10 +124,17 @@ export class WorkoutService {
   }
 
   /**
-   * Get active workout plans
+   * Get active workout plans for a specific user
    */
-  static getActivePlans(): StoredWorkoutPlan[] {
-    return this.loadedPlans.filter(p => p.is_active || p.status === 'active');
+  static getActivePlans(userId?: string): StoredWorkoutPlan[] {
+    let plans = this.loadedPlans.filter(p => p.is_active || p.status === 'active');
+    
+    // Filter by user ID if provided
+    if (userId) {
+      plans = plans.filter(p => p.user_id === userId);
+    }
+    
+    return plans;
   }
 
   /**
@@ -139,13 +158,15 @@ export class WorkoutService {
         }
       }
       
-      // Fallback to local memory
-      const activePlans = this.getActivePlans();
+      // Fallback to local memory - filter by user ID
+      const activePlans = this.getActivePlans(userId);
       if (activePlans.length === 0) {
+        console.log(`[WorkoutService] No active plans found for user ${userId}`);
         return null;
       }
 
-      // Return the first active plan
+      // Return the first active plan for this user
+      console.log(`[WorkoutService] Found active plan in local memory for user ${userId}:`, activePlans[0].id);
       return activePlans[0];
     } catch (error) {
       console.error('[WorkoutService] Error getting active plan:', error);
@@ -380,7 +401,7 @@ export class WorkoutService {
       await WorkoutLocalStore.savePlan(params.userId, storedPlan);
 
       // Reload plans to include the new one
-      await this.initializeFromStorage();
+      await this.initializeFromStorage(params.userId);
 
       console.log('[WorkoutService] AI plan created and saved successfully with ID:', storedPlan.id);
       return storedPlan;
@@ -455,7 +476,7 @@ export class WorkoutService {
       // Reload plans if any deletion was successful
       const success = dbSuccess || localSuccess;
       if (success) {
-        await this.initializeFromStorage();
+        await this.initializeFromStorage(userId);
       }
 
       return success;
@@ -505,7 +526,7 @@ export class WorkoutService {
 
       // Reload plans if any deletion was successful
       if (success) {
-        await this.initializeFromStorage();
+        await this.initializeFromStorage(userId);
       }
 
       return success;

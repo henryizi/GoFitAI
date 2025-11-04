@@ -1,3 +1,4 @@
+
 import { Stack } from 'expo-router';
 import React from 'react';
 
@@ -15,7 +16,6 @@ export default function NutritionStackLayout() {
       <Stack.Screen name="log-food" />
       <Stack.Screen name="food-result" />
       <Stack.Screen name="food-history" />
-      <Stack.Screen name="insight/[insightId]" />
     </Stack>
   );
 } 

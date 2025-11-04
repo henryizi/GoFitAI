@@ -2,7 +2,7 @@
   "expo": {
     "name": "GoFitAI",
     "slug": "gofitai",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon-converted.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-      "buildNumber": "8",
+      "buildNumber": "10",
       "infoPlist": {
         "LSMinimumSystemVersion": "13.4",
         "NSAppTransportSecurity": {
@@ -39,6 +39,9 @@
             }
           }
         }
+      },
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
       }
     },
     "android": {
@@ -79,9 +82,16 @@
           "color": "#FF6B35"
         }
       ],
+      [
+        "expo-apple-authentication",
+        {
+          "appleSignInServiceId": "com.henrymadeit.gofitai.signin"
+        }
+      ],
       "sentry-expo"
     ],
     "scheme": "gofitai",
+    "schemes": ["gofitai", "exp+gofitai"],
     "extra": {
       "router": {
         "origin": false
@@ -96,7 +106,8 @@
       "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZmRnbnhlcnR3cmhiamhyY2J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMjc0MjUsImV4cCI6MjA2NzkwMzQyNX0.RwCFJHt5aPclsPtAXOFXFvDy7DhQxgDFMMPxxdKSygM",
       "EXPO_PUBLIC_SUPABASE_URL": "https://lmfdgnxertwrhbjhrcby.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtZmRnbnhlcnR3cmhiamhyY2J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMjc0MjUsImV4cCI6MjA2NzkwMzQyNX0.RwCFJHt5aPclsPtAXOFXFvDy7DhQxgDFMMPxxdKSygM",
-      "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_MPxLBCTXbFLwLZDaLbRMxRXHPD"
+      "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_MPxLBCTXbFLwLZDaLbRMxRXHPD",
+      "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "695497385151-kfqeoau5une2sekuus8ai0pd45kie0d8.apps.googleusercontent.com"
     },
     "owner": "henryizi",
     "runtimeVersion": "1.0.0",

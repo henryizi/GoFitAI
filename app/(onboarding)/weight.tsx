@@ -10,6 +10,7 @@ import { identify } from '../../src/services/analytics/analytics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 const { height: screenHeight } = Dimensions.get('window');
 const ITEM_HEIGHT = 60;
@@ -24,7 +25,7 @@ const CENTER_OFFSET = PICKER_HEIGHT / 2 - ITEM_HEIGHT / 2;
 
 const WeightScreen = () => {
   const [weightKg, setWeightKg] = useState(70); // Set to 154lbs (70kg) as default
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [selectedIndex, setSelectedIndex] = useState(() => {
     // Default to 70kg (154lbs)
@@ -166,23 +167,25 @@ const WeightScreen = () => {
       kgValue = weightKg;
     }
     
-    // save weight, original value, and unit preference to profile
-    await (supabase.from('profiles') as any).update({ 
-      weight_kg: kgValue,
-      weight_original_value: originalValue,
-      weight_unit_preference: unit 
-    }).eq('id', user.id);
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ 
+        id: user.id,
+        weight_kg: kgValue,
+        weight_original_value: originalValue,
+        weight_unit_preference: unit,
+        onboarding_completed: false
+      }).select(),
+      `Saving weight: ${kgValue}kg (${originalValue}${unit === 'lbs' ? 'lbs' : 'kg'})`,
+      undefined,
+      user.id
+    );
     
-    // Refresh profile data to ensure changes are immediately reflected
-    try {
-      await refreshProfile();
-      console.log('Profile refreshed after weight update');
-    } catch (refreshError) {
-      console.warn('Failed to refresh profile after weight update:', refreshError);
-    }
-    
+    // Analytics in background
     try { identify(user.id, { weight_kg: weightKg }); } catch {}
-    router.push('/(onboarding)/weight-trend');
+    
+    console.log('🚀 Navigating to weight-trend screen...');
+    router.replace('/(onboarding)/weight-trend');
   };
 
   const handleBack = () => {

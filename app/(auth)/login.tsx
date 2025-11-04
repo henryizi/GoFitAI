@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { signIn } from '../../src/hooks/useAuth';
 import { Button } from '../../src/components/ui/Button';
 import { colors } from '../../src/styles/colors';
+import SocialAuthButtons from '../../src/components/auth/SocialAuthButtons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -196,12 +197,17 @@ const LoginScreen = () => {
                   </LinearGradient>
                 </View>
 
-                {/* Divider */}
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+                {/* Social Authentication Buttons */}
+                <SocialAuthButtons
+                  onSuccess={() => {
+                    // Handle successful social auth
+                    console.log('Social auth successful');
+                  }}
+                  onError={(error) => {
+                    setError(error);
+                  }}
+                  disabled={isLoading}
+                />
 
                 {/* Sign Up Link */}
                 <View style={styles.signupContainer}>
@@ -460,4 +466,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LoginScreen; 
+export default LoginScreen;

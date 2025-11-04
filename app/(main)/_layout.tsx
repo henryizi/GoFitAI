@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, router, Redirect, usePathname } from 'expo-router';
 import { StyleSheet, View, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons as Icon, Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSubscription } from '../../src/hooks/useSubscription';
+import { useAuth } from '../../src/hooks/useAuth';
+import { hasSkippedPaywall } from '../../src/utils/paywallSkip';
 
 const colors = {
   primary: '#FF6B35',
@@ -31,11 +33,22 @@ export const SAFE_AREA_PADDING_BOTTOM = 34;
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const { isPremium, isLoading } = useSubscription();
+  const { user } = useAuth();
   const pathname = usePathname();
+  const [hasSkipped, setHasSkipped] = useState<boolean | null>(null);
 
   // Development bypass: allow access in development mode
   const isDevelopment = __DEV__;
   const bypassPaywall = isDevelopment; // Only bypass in development mode
+
+  // Check if user has skipped paywall
+  useEffect(() => {
+    if (user?.id) {
+      hasSkippedPaywall(user.id).then(setHasSkipped).catch(() => setHasSkipped(false));
+    } else {
+      setHasSkipped(false);
+    }
+  }, [user?.id]);
 
   // 如果订阅状态正在加载，显示加载界面
   if (isLoading) {
@@ -47,11 +60,26 @@ export default function MainLayout() {
     );
   }
 
-  // 如果用户没有付费，重定向到付费墙 (除非在开发模式)
+  // 如果用户没有付费，检查是否跳过了付费墙 (除非在开发模式)
   if (!isPremium && !bypassPaywall) {
-    console.log('🎯 Main Layout: Redirecting to paywall - user not premium');
-    console.log('🎯 Current pathname:', pathname);
-    return <Redirect href="/(paywall)" />;
+    // If still checking skip status, wait
+    if (hasSkipped === null) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+    
+    // If user hasn't skipped, redirect to paywall
+    if (hasSkipped === false) {
+      console.log('🎯 Main Layout: Redirecting to paywall - user not premium and hasn\'t skipped');
+      console.log('🎯 Current pathname:', pathname);
+      return <Redirect href="/(paywall)" />;
+    }
+    
+    // User has skipped, allow access
+    console.log('🎯 Main Layout: User not premium but has skipped paywall - allowing access');
   }
 
   // Development bypass message

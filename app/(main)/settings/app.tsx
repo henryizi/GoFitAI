@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, Alert } from 'react-native';
 import { Text, Switch, IconButton, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../../src/styles/colors';
-import { signOut } from '../../../src/hooks/useAuth';
+import { useAuth, signOut } from '../../../src/hooks/useAuth';
 
 export default function AppSettingsScreen() {
+  const { user } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = async () => {
-    await signOut();
-    router.replace('/(auth)/login');
+    try {
+      const { error } = await signOut(user?.id);
+      if (error) {
+        Alert.alert('Error', 'Failed to log out. Please try again.');
+        console.error('Logout error:', error);
+        return;
+      }
+      router.replace('/login');
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred during logout.');
+      console.error('Unexpected logout error:', error);
+    }
   };
 
   return (

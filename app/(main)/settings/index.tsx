@@ -1,14 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, IconButton, Badge } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import { colors } from '../../../src/styles/colors';
 import { useAuth, signOut } from '../../../src/hooks/useAuth';
 
 export default function SettingsScreen() {
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const insets = useSafeAreaInsets();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUserId = async () => {
+    if (user?.id) {
+      await Clipboard.setStringAsync(user.id);
+      setCopied(true);
+      Alert.alert('Copied!', 'User ID copied to clipboard');
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Refresh profile when screen comes into focus to ensure latest data
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile().catch(err => {
+        console.warn('Failed to refresh profile on settings screen:', err);
+      });
+      
+      // Log user ID when settings screen loads
+      if (user?.id) {
+        console.log('🆔 Your User ID:', user.id);
+        console.log('📧 Your Email:', user.email);
+      }
+    }, [refreshProfile, user])
+  );
 
   const handleLogout = async () => {
     Alert.alert(
@@ -20,8 +46,20 @@ export default function SettingsScreen() {
           text: 'Log Out', 
           style: 'destructive',
           onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/login');
+            try {
+              const userId = user?.id;
+              const { error } = await signOut(userId);
+              if (error) {
+                Alert.alert('Error', 'Failed to log out. Please try again.');
+                console.error('Logout error:', error);
+                return;
+              }
+              // Use replace to prevent going back
+              router.replace('/login');
+            } catch (error) {
+              Alert.alert('Error', 'An unexpected error occurred during logout.');
+              console.error('Unexpected logout error:', error);
+            }
           }
         },
       ]
@@ -114,6 +152,37 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* User ID Section */}
+      {user?.id && (
+        <View style={styles.userIdSection}>
+          <View style={styles.userIdHeader}>
+            <Text style={styles.userIdLabel}>User ID</Text>
+            <TouchableOpacity 
+              onPress={handleCopyUserId}
+              style={styles.copyButton}
+            >
+              <IconButton 
+                icon={copied ? "check" : "content-copy"} 
+                size={18} 
+                iconColor={copied ? colors.success : colors.primary}
+              />
+              <Text style={[styles.copyButtonText, copied && { color: colors.success }]}>
+                {copied ? 'Copied!' : 'Copy'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity 
+            onPress={handleCopyUserId}
+            style={styles.userIdContainer}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.userIdText} selectable>
+              {user.id}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Account Settings */}
       {renderSettingsSection('Account', [
         {
@@ -191,8 +260,10 @@ export default function SettingsScreen() {
       ])}
 
       {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <IconButton icon="logout" size={20} iconColor={colors.accent} />
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+        <View pointerEvents="none">
+          <IconButton icon="logout" size={20} iconColor={colors.accent} />
+        </View>
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -316,5 +387,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 8,
+  },
+  userIdSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  userIdHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  userIdLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  copyButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: -8,
+  },
+  userIdContainer: {
+    paddingVertical: 8,
+  },
+  userIdText: {
+    color: colors.text,
+    fontSize: 14,
+    fontFamily: 'monospace',
+    lineHeight: 20,
   },
 }); 

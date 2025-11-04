@@ -58,7 +58,17 @@ export function useSubscription(): SubscriptionState {
 
   // Development bypass: treat user as premium in development
   const isDevelopment = __DEV__;
-  const bypassPaywall = isDevelopment; // Only bypass in development mode
+  const bypassPaywall = false; // DISABLED FOR REAL PURCHASE TESTING
+
+  // Helper function to add timeout to async operations
+  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+      )
+    ]);
+  };
 
   // Initialize RevenueCat and load subscription status
   const initializeSubscription = useCallback(async () => {
@@ -82,19 +92,48 @@ export function useSubscription(): SubscriptionState {
         return;
       }
 
-      // Initialize RevenueCat if not already done
+      // Initialize RevenueCat if not already done (with timeout to prevent hanging)
       // Note: RevenueCat should already be initialized by useAuth when user logs in
-      await RevenueCatService.ensureInitialized();
+      try {
+        await withTimeout(
+          RevenueCatService.ensureInitialized(),
+          5000, // 5 second timeout
+          'RevenueCat initialization timed out'
+        );
+      } catch (initError) {
+        console.warn('[Subscription] RevenueCat initialization failed or timed out:', initError);
+        // Continue anyway - user can still use the app without premium features
+      }
 
-      // Check premium status
-      const premium = await RevenueCatService.isPremiumActive();
-      setIsPremium(premium);
+      // Check premium status (with timeout)
+      try {
+        const premium = await withTimeout(
+          RevenueCatService.isPremiumActive(),
+          3000, // 3 second timeout
+          'Premium status check timed out'
+        );
+        setIsPremium(premium);
 
-      // Get detailed subscription info
-      const subInfo = await RevenueCatService.getSubscriptionInfo();
-      setSubscriptionInfo(subInfo);
+        // Get detailed subscription info (with timeout)
+        try {
+          const subInfo = await withTimeout(
+            RevenueCatService.getSubscriptionInfo(),
+            3000, // 3 second timeout
+            'Subscription info check timed out'
+          );
+          setSubscriptionInfo(subInfo);
+        } catch (infoError) {
+          console.warn('[Subscription] Failed to get subscription info:', infoError);
+          // Continue with default values
+        }
 
-      console.log('[Subscription] Premium status:', premium);
+        console.log('[Subscription] Premium status:', premium);
+      } catch (premiumError) {
+        console.warn('[Subscription] Failed to check premium status:', premiumError);
+        // Default to free tier on error
+        setIsPremium(false);
+        setSubscriptionInfo(null);
+      }
 
     } catch (error) {
       console.error('[Subscription] Failed to initialize:', error);
@@ -107,8 +146,32 @@ export function useSubscription(): SubscriptionState {
   }, [bypassPaywall]);
 
   useEffect(() => {
+    let isMounted = true;
+    let safetyTimer: NodeJS.Timeout | null = null;
+    
     // Initialize subscription on mount
-    initializeSubscription();
+    initializeSubscription().catch((error) => {
+      console.error('[Subscription] Unhandled error in initialization:', error);
+      if (isMounted) {
+        setIsLoading(false);
+        setIsPremium(false);
+        setSubscriptionInfo(null);
+      }
+    });
+    
+    // Safety timeout: Ensure loading always clears after 8 seconds max
+    safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        // Use a function to get the latest state
+        setIsLoading((currentLoading) => {
+          if (currentLoading) {
+            console.warn('[Subscription] Safety timeout: Clearing loading state after 8 seconds');
+            return false;
+          }
+          return currentLoading;
+        });
+      }
+    }, 8000);
     
     // Load usage data
     const key = getDayKey();
@@ -121,6 +184,13 @@ export function useSubscription(): SubscriptionState {
         persist(key, FREE_RECIPES_PER_DAY, FREE_CHAT_PER_DAY);
       }
     })();
+    
+    return () => {
+      isMounted = false;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+      }
+    };
   }, [initializeSubscription]);
 
   // Helper function to persist usage data

@@ -11,6 +11,7 @@ import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayo
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 // import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 type Gender = 'male' | 'female';
 
@@ -19,12 +20,26 @@ const GenderScreen = () => {
   const [gender, setGender] = useState<Gender | null>(null);
 
   const handleNext = async () => {
-    if (user && gender) {
-      await supabase.from('profiles').update({ gender }).eq('id', user.id);
-      // try { identify(user.id, { gender }); } catch {}
-      try { analyticsTrack('onboarding_step_next', { step: 'gender' }); } catch {}
-      router.push('/(onboarding)/birthday');
+    if (!gender) {
+      console.warn('⚠️ Gender not selected, button should be disabled');
+      return;
     }
+    
+    // Save data in background (non-blocking)
+    if (user) {
+      saveOnboardingData(
+        supabase.from('profiles').upsert({ id: user.id, gender, onboarding_completed: false }).select(),
+        `Saving gender: ${gender}`,
+        undefined,
+        user.id
+      );
+    }
+    
+    // Analytics in background
+    try { analyticsTrack('onboarding_step_next', { step: 'gender' }); } catch {}
+    
+    console.log('🚀 Navigating to birthday screen...');
+    router.replace('/(onboarding)/birthday');
   };
 
   const handleBack = () => {

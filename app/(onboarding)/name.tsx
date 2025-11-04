@@ -12,6 +12,7 @@ import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 const NameScreen = () => {
   const { user } = useAuth();
@@ -21,12 +22,37 @@ const NameScreen = () => {
 
   const handleNext = async () => {
     const preferredName = name.trim();
-    if (user && preferredName) {
-      await supabase.from('profiles').update({ full_name: preferredName }).eq('id', user.id);
-      try { identify(user.id, { full_name: preferredName }); } catch {}
-      try { analyticsTrack('onboarding_step_next', { step: 'name' }); } catch {}
-      router.push('/(onboarding)/gender');
+    
+    if (!preferredName) {
+      console.warn('⚠️ Name is empty, button should be disabled');
+      return;
     }
+    
+    // Save data in background (non-blocking)
+    if (user) {
+      saveOnboardingData(
+        supabase.from('profiles').upsert({ 
+          id: user.id,
+          full_name: preferredName,
+          onboarding_completed: false
+        }).select(),
+        `Saving name: ${preferredName}`,
+        undefined,
+        user.id
+      );
+      
+      // Analytics in background
+      try { identify(user.id, { full_name: preferredName }); } catch (e) {
+        console.warn('Analytics identify failed:', e);
+      }
+    }
+    
+    try { analyticsTrack('onboarding_step_next', { step: 'name' }); } catch (e) {
+      console.warn('Analytics track failed:', e);
+    }
+    
+    console.log('🚀 Navigating to gender screen...');
+    router.replace('/(onboarding)/gender');
   };
 
   const handleClose = () => {

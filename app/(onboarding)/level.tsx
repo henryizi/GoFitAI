@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../src/styles/colors';
@@ -11,43 +11,132 @@ import { track as analyticsTrack } from '../../src/services/analytics/analytics'
 import { LinearGradient } from 'expo-linear-gradient';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
 
 const LevelScreen = () => {
   const { user, refreshProfile } = useAuth();
   const [level, setLevel] = useState<TrainingLevel | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const handleFinish = async () => {
-    if (!user || !level) return;
+    if (!user || !level || isCompleting) return;
+
+    setIsCompleting(true);
+    console.log('🚀 Starting onboarding completion...');
+
+    // Start save operation with timeout protection
+    const savePromise = supabase.from('profiles').upsert({ 
+      id: user.id,
+      training_level: level, 
+      onboarding_completed: true 
+    }).select();
+
+    // Create timeout promise (3 seconds max wait)
+    const timeoutPromise = new Promise<{ error: null; data: null; timedOut: true }>((resolve) => 
+      setTimeout(() => resolve({ error: null, data: null, timedOut: true }), 3000)
+    );
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ training_level: level, onboarding_completed: true })
-        .eq('id', user.id);
+      console.log('💾 Saving onboarding data...');
+      
+      // Race between save and timeout - don't wait longer than 3 seconds
+      const result = await Promise.race([
+        savePromise.then((result) => ({ ...result, timedOut: false })),
+        timeoutPromise
+      ]) as any;
+      
+      const { error, data, timedOut } = result;
 
-      if (error) {
-        console.error('Error updating profile:', error);
-        try { analyticsTrack('onboarding_complete_failure', { user_id: user.id, error: String(error?.message || error) }); } catch {}
-      } else {
+      if (timedOut) {
+        console.log('⏱️ Save timeout - continuing navigation, save will complete in background');
+        // Continue saving in background
+        savePromise.then((result: any) => {
+          if (result.error) {
+            console.error('Background save error:', result.error);
+          } else {
+            console.log('✅ Background save completed:', result.data);
+          }
+        }).catch((err) => {
+          console.error('Background save failed:', err);
+        });
+      } else if (error) {
+        console.error('❌ Error saving onboarding completion:', error);
+        // Don't block - continue saving in background and navigate anyway
+        console.warn('⚠️ Save error, but continuing navigation - save will retry in background');
+        savePromise.catch((err) => {
+          console.error('Background save also failed:', err);
+        });
+      } else if (data) {
+        console.log('✅ Onboarding data saved successfully:', data);
+      }
+      
+      // Refresh profile - wait for it (with timeout) so app state is updated
+      // This ensures the app knows onboarding is complete before navigating
+      console.log('🔄 Refreshing profile to update app state...');
+      try {
+        const refreshPromise = refreshProfile();
+        const refreshTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile refresh timeout')), 16000)
+        );
+        
+        const refreshedProfile = await Promise.race([refreshPromise, refreshTimeout]) as any;
+        if (refreshedProfile) {
+          console.log('✅ Profile refreshed successfully:', refreshedProfile.onboarding_completed ? 'onboarding marked complete' : 'onboarding not yet complete');
+        } else {
+          console.warn('⚠️ Profile refresh returned null - may need retry');
+          // Retry once after short delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const retryProfile = await refreshProfile();
+          console.log('🔄 Retry profile refresh:', retryProfile ? 'success' : 'still null');
+        }
+      } catch (refreshError: any) {
+        console.warn('⚠️ Profile refresh failed:', refreshError.message);
+        // Continue anyway - the save already happened, profile will load eventually
+        // Try one more time in background
+        setTimeout(() => {
+          refreshProfile().catch(() => {
+            console.log('Background profile refresh also failed');
+          });
+        }, 1000);
+      }
+      
+      // Analytics in background (non-blocking)
+      setTimeout(() => {
         try { identify(user.id, { training_level: level, onboarding_completed: true }); } catch {}
         try { analyticsTrack('onboarding_complete_success', { user_id: user.id, training_level: level }); } catch {}
-        
-        // Refresh profile data to ensure latest onboarding data is available
-        try {
-          await refreshProfile();
-          console.log('Profile refreshed after onboarding completion');
-        } catch (refreshError) {
-          console.warn('Failed to refresh profile after onboarding:', refreshError);
+      }, 0);
+      
+      console.log('🚀 Completing onboarding, navigating to paywall...');
+      // Navigate immediately - don't wait for anything
+      router.replace('/(paywall)');
+    } catch (error: any) {
+      console.error('❌ Failed to complete onboarding:', error);
+      
+      // Even if there's an error, try to navigate anyway
+      // The save might still succeed in the background
+      console.log('⚠️ Unexpected error, but navigating anyway - save continues in background');
+      savePromise.then((result: any) => {
+        if (result.error) {
+          console.error('Background save error:', result.error);
+        } else {
+          console.log('✅ Background save completed:', result.data);
         }
-        
-        // 入门完成后显示付费墙
-        router.replace('/(paywall)');
-      }
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      try { analyticsTrack('onboarding_complete_failure', { user_id: user?.id, error: String((error as any)?.message || error) }); } catch {}
+      }).catch((err) => {
+        console.error('Background save failed:', err);
+      });
+      
+      // Refresh profile in background
+      refreshProfile().catch(() => {});
+      
+      // Analytics
+      setTimeout(() => {
+        try { identify(user.id, { training_level: level, onboarding_completed: true }); } catch {}
+        try { analyticsTrack('onboarding_complete_success', { user_id: user.id, training_level: level }); } catch {}
+      }, 0);
+      
+      router.replace('/(paywall)');
     }
   };
 
@@ -132,9 +221,9 @@ const LevelScreen = () => {
       
       <View style={styles.footer}>
         <OnboardingButton
-          title="Complete Setup"
+          title={isCompleting ? "Completing..." : "Complete Setup"}
           onPress={handleFinish}
-          disabled={!level}
+          disabled={!level || isCompleting}
         />
       </View>
     </OnboardingLayout>

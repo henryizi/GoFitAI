@@ -10,6 +10,7 @@ import { identify } from '../../src/services/analytics/analytics';
 import { track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 // import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -36,10 +37,10 @@ const CENTER_OFFSET = PICKER_HEIGHT / 2 - ITEM_HEIGHT / 2;
 
 const HeightScreen = () => {
   const [heightCm, setHeightCm] = useState(173); // ~5'8"
-  const [unit, setUnit] = useState('ft');
-  const [selectedIndex, setSelectedIndex] = useState(20); // Default to 5'8" (around index 20 in feet/inches array)
+  const [unit, setUnit] = useState('cm');
+  const [selectedIndex, setSelectedIndex] = useState(33); // Default to 173cm (173 - 140 = index 33 in cm array)
   const flatListRef = useRef<FlatList<any>>(null);
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const gestureStartY = useRef(0);
   const initialScrollOffset = useRef(0);
   const isGesturing = useRef(false);
@@ -166,7 +167,6 @@ const HeightScreen = () => {
 
   const handleNext = async () => {
     if (!user) {
-      // user not logged in, go to login
       router.replace('/(auth)/login');
       return;
     }
@@ -186,27 +186,26 @@ const HeightScreen = () => {
       cmValue = heightCm;
     }
     
-    // save height, original value, and unit preference to profile
-    await (supabase
-      .from('profiles') as any)
-      .update({ 
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ 
+        id: user.id,
         height_cm: cmValue,
         height_original_value: originalValue,
-        height_unit_preference: unit 
-      })
-      .eq('id', user.id);
+        height_unit_preference: unit,
+        onboarding_completed: false
+      }).select(),
+      `Saving height: ${cmValue}cm (${originalValue}${unit === 'ft' ? 'ft' : 'cm'})`,
+      undefined,
+      user.id
+    );
     
-    // Refresh profile data to ensure changes are immediately reflected
-    try {
-      await refreshProfile();
-      console.log('Profile refreshed after height update');
-    } catch (refreshError) {
-      console.warn('Failed to refresh profile after height update:', refreshError);
-    }
-    
+    // Analytics in background
     try { identify(user.id, { height_cm: heightCm }); } catch {}
     try { analyticsTrack('onboarding_step_next', { step: 'height' }); } catch {}
-    router.push('/(onboarding)/weight');
+    
+    console.log('🚀 Navigating to weight screen...');
+    router.replace('/(onboarding)/weight');
   };
 
   const handleBack = () => {

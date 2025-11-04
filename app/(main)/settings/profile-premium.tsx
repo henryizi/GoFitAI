@@ -20,8 +20,19 @@ export default function SettingsScreen() {
           text: 'Log Out', 
           style: 'destructive',
           onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/login');
+            try {
+              const userId = user?.id;
+              const { error } = await signOut(userId);
+              if (error) {
+                Alert.alert('Error', 'Failed to log out. Please try again.');
+                console.error('Logout error:', error);
+                return;
+              }
+              router.replace('/login');
+            } catch (error) {
+              Alert.alert('Error', 'An unexpected error occurred during logout.');
+              console.error('Unexpected logout error:', error);
+            }
           }
         },
       ]
@@ -184,8 +195,10 @@ export default function SettingsScreen() {
       ])}
 
       {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <IconButton icon="logout" size={20} iconColor={colors.accent} />
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+        <View pointerEvents="none">
+          <IconButton icon="logout" size={20} iconColor={colors.accent} />
+        </View>
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
 

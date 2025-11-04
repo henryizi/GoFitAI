@@ -10,6 +10,7 @@ import { identify } from '../../src/services/analytics/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type WeightTrend = 'losing' | 'gaining' | 'stable' | 'unsure';
@@ -19,11 +20,21 @@ const WeightTrendScreen = () => {
   const [weightTrend, setWeightTrend] = useState<WeightTrend | null>(null);
 
   const handleNext = async () => {
-    if (user && weightTrend) {
-      await supabase.from('profiles').update({ weight_trend: weightTrend }).eq('id', user.id);
-      try { identify(user.id, { weight_trend: weightTrend }); } catch {}
-      router.push('/(onboarding)/exercise-frequency');
-    }
+    if (!user || !weightTrend) return;
+    
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ id: user.id, weight_trend: weightTrend, onboarding_completed: false }).select(),
+      `Saving weight trend: ${weightTrend}`,
+      undefined,
+      user.id
+    );
+    
+    // Analytics in background
+    try { identify(user.id, { weight_trend: weightTrend }); } catch {}
+    
+    console.log('🚀 Navigating to exercise-frequency screen...');
+    router.replace('/(onboarding)/exercise-frequency');
   };
 
   const handleBack = () => {

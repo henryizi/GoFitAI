@@ -7,6 +7,7 @@ import { signUp } from '../../src/hooks/useAuth';
 import { Button } from '../../src/components/ui/Button';
 import { colors } from '../../src/styles/colors';
 import HealthDisclaimer from '../../src/components/legal/HealthDisclaimer';
+import SocialAuthButtons from '../../src/components/auth/SocialAuthButtons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -222,12 +223,17 @@ const RegisterScreen = () => {
                   {isLoading ? 'Creating Account...' : 'Create Account'}
                 </Button>
 
-                {/* Divider */}
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+                {/* Social Authentication Buttons */}
+                <SocialAuthButtons
+                  onSuccess={() => {
+                    // Handle successful social auth
+                    console.log('Social auth successful');
+                  }}
+                  onError={(error) => {
+                    setError(error);
+                  }}
+                  disabled={isLoading}
+                />
 
                 {/* Sign In Link */}
                 <View style={styles.signinContainer}>
@@ -442,4 +448,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RegisterScreen; 
+export default RegisterScreen;

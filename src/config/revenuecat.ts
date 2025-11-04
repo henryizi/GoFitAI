@@ -11,11 +11,11 @@ export const REVENUECAT_CONFIG = {
     apiKey: process.env.EXPO_PUBLIC_REVENUECAT_WEB_API_KEY || 'web_dummy_key',
   },
   
-  // Product IDs
+  // Product IDs - MUST match StoreKit configuration exactly
   products: {
     premium: {
-      monthly: 'gofitai_premium_monthly',
-      lifetime: 'gofitai_premium_lifetime',
+      monthly: 'gofitai_premium_monthly1',
+      lifetime: 'gofitai_premium_lifetime1',
     },
   },
   

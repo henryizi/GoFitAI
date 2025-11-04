@@ -11,13 +11,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 import { LinearGradient } from 'expo-linear-gradient';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 type WorkoutFrequency = '1' | '2' | '3' | '4' | '5' | '6' | '7';
 
 // This screen collects the user's preferred workout frequency 
 // which will be used to generate personalized workout plans
 const ExerciseFrequencyScreen = () => {
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
 
   // Map exercise frequency to database-compatible values
@@ -58,46 +59,32 @@ const ExerciseFrequencyScreen = () => {
   };
 
   const handleNext = async () => {
-    if (user && frequency) {
-      const exerciseFrequency = mapToExerciseFrequency(frequency);
-      const workoutFrequency = mapToWorkoutFrequency(frequency);
-      console.log('💾 Onboarding: Saving exercise frequency:', {
-        user_id: user.id,
-        selected_frequency: frequency,
-        mapped_exercise_frequency: exerciseFrequency,
-        mapped_workout_frequency: workoutFrequency
-      });
-      const { error } = await supabase.from('profiles').update({
+    if (!user || !frequency) return;
+    
+    const exerciseFrequency = mapToExerciseFrequency(frequency);
+    const workoutFrequency = mapToWorkoutFrequency(frequency);
+    
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({
+        id: user.id,
         exercise_frequency: exerciseFrequency,
-        workout_frequency: workoutFrequency
-      }).eq('id', user.id);
-      
-      if (error) {
-        console.error('❌ Error saving exercise frequency:', error);
-        console.error('Exercise frequency values:', { 
-          selected: frequency, 
-          exerciseFrequency, 
-          workoutFrequency 
-        });
-        // Continue anyway to prevent blocking the user
-      } else {
-        console.log('✅ Exercise frequency saved successfully');
-      }
-      
-      // Refresh profile data to ensure changes are immediately reflected
-      try {
-        await refreshProfile();
-        console.log('Profile refreshed after exercise frequency update');
-      } catch (refreshError) {
-        console.warn('Failed to refresh profile after exercise frequency update:', refreshError);
-      }
-      
-      try { identify(user.id, {
-        exercise_frequency: exerciseFrequency,
-        workout_frequency: workoutFrequency
-      }); } catch {}
-      router.push('/(onboarding)/activity-level');
-    }
+        workout_frequency: workoutFrequency,
+        onboarding_completed: false
+      }).select(),
+      `Saving exercise frequency: ${exerciseFrequency}, workout frequency: ${workoutFrequency}`,
+      undefined,
+      user.id
+    );
+    
+    // Analytics in background
+    try { identify(user.id, {
+      exercise_frequency: exerciseFrequency,
+      workout_frequency: workoutFrequency
+    }); } catch {}
+    
+    console.log('🚀 Navigating to activity-level screen...');
+    router.replace('/(onboarding)/activity-level');
   };
 
   const handleBack = () => {

@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { identify, track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
+import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 type FitnessStrategy = 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining';
 
@@ -82,45 +83,30 @@ const FitnessStrategyScreen = () => {
   const handleNext = async () => {
     if (!user || !selectedStrategy) return;
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          fitness_strategy: selectedStrategy
-          // Note: Not clearing goal_fat_reduction/goal_muscle_gain as they may not exist in schema
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        console.error('Error updating fitness strategy:', error);
-        try { 
-          analyticsTrack('onboarding_fitness_strategy_failure', { 
-            user_id: user.id, 
-            strategy: selectedStrategy,
-            error: String(error?.message || error) 
-          }); 
-        } catch {}
-      } else {
-        try { 
-          identify(user.id, { fitness_strategy: selectedStrategy }); 
-          analyticsTrack('onboarding_fitness_strategy_success', { 
-            user_id: user.id, 
-            strategy: selectedStrategy 
-          }); 
-          analyticsTrack('onboarding_step_next', { step: 'fitness-strategy' });
-        } catch {}
-        router.push('/(onboarding)/level');
-      }
-    } catch (error) {
-      console.error('Error saving fitness strategy:', error);
-      try { 
-        analyticsTrack('onboarding_fitness_strategy_failure', { 
-          user_id: user?.id, 
-          strategy: selectedStrategy,
-          error: String((error as any)?.message || error) 
-        }); 
-      } catch {}
-    }
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ 
+        id: user.id,
+        fitness_strategy: selectedStrategy,
+        onboarding_completed: false
+      }).select(),
+      `Saving fitness strategy: ${selectedStrategy}`,
+      undefined,
+      user.id
+    );
+    
+    // Analytics in background
+    try { 
+      identify(user.id, { fitness_strategy: selectedStrategy }); 
+      analyticsTrack('onboarding_fitness_strategy_success', { 
+        user_id: user.id, 
+        strategy: selectedStrategy 
+      }); 
+      analyticsTrack('onboarding_step_next', { step: 'fitness-strategy' });
+    } catch {}
+    
+    console.log('🚀 Navigating to level screen...');
+    router.replace('/(onboarding)/level');
   };
 
   const handleBack = () => {

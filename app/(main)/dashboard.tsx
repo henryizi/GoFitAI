@@ -308,7 +308,7 @@ export default function Dashboard() {
       {/* App header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerLine} />
-        <Text style={styles.appName}>GO<Text style={{ color: colors.primary }}>FIT</Text></Text>
+        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
         <View style={styles.headerLine} />
       </View>
 

@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:GoFitAI.storekit">
+   </FileRef>
+   <FileRef
       location = "group:GoFitAI.xcodeproj">
    </FileRef>
    <FileRef

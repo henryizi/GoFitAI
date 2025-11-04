@@ -67,9 +67,9 @@ export default function RootLayout() {
         await NutritionService.initializeFromStorage();
         console.log('Nutrition data initialization complete');
         
-        // Load workout plans with more detailed logging
-        await WorkoutService.initializeFromStorage();
-        console.log(`Workout data initialization complete. Loaded ${WorkoutService.getPlanCount()} plans.`);
+        // Note: Workout plans are loaded per-user when they authenticate
+        // This avoids loading cached data from other users
+        console.log('Workout data will be initialized per-user when authenticated.');
 
         // Initialize RevenueCat early in app lifecycle
         // This ensures it's ready before any components that need subscription status
