@@ -1,0 +1,473 @@
+import { supabase } from '../supabase/client';
+
+export interface AInutritionPlan {
+  id: string;
+  user_id: string;
+  plan_name: string;
+  daily_calories: number;
+  protein_grams: number;
+  carbs_grams: number;
+  fat_grams: number;
+  protein_percentage: number;
+  carbs_percentage: number;
+  fat_percentage: number;
+  explanation: string;
+  reasoning: {
+    bmr_calculation: string;
+    tdee_calculation: string;
+    calorie_adjustment: string;
+    macro_distribution: string;
+    personalization_factors: string[];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  full_name?: string;
+  age?: number;
+  birthday?: string;
+  height?: number;
+  weight?: number;
+  gender?: 'male' | 'female';
+  activity_level?: 'sedentary' | 'moderately_active' | 'very_active';
+  fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining';
+  primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain';
+  training_level?: 'beginner' | 'intermediate' | 'advanced';
+  exercise_frequency?: '1' | '2-3' | '4-5' | '6-7';
+  body_fat?: number;
+  weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure';
+  goal_fat_reduction?: number;
+  goal_muscle_gain?: number;
+}
+
+export class AInutritionService {
+  /**
+   * Generate an AI-powered nutrition plan that considers all user factors
+   */
+  static async generateAInutritionPlan(
+    userId: string,
+    options: {
+      dietaryPreferences?: string[];
+      intolerances?: string[];
+    } = {}
+  ): Promise<AInutritionPlan | null> {
+    try {
+      console.log('[AI NUTRITION] 🤖 Generating AI-powered nutrition plan');
+      console.log('[AI NUTRITION] Options:', options);
+
+      // Fetch comprehensive user profile
+      const userProfile = await this.fetchUserProfile(userId);
+      if (!userProfile) {
+        throw new Error('User profile not found');
+      }
+
+      console.log('[AI NUTRITION] User profile loaded:', userProfile);
+
+      // Calculate AI-optimized nutrition targets
+      const nutritionTargets = await this.calculateAInutritionTargets(userProfile);
+      
+      // Generate detailed explanation
+      const explanation = this.generateExplanation(userProfile, nutritionTargets);
+
+      // Create and save the AI nutrition plan
+      const aiPlan: AInutritionPlan = {
+        id: `ai_plan_${Date.now()}`,
+        user_id: userId,
+        plan_name: `${userProfile.full_name || 'Your'} AI Nutrition Plan`,
+        daily_calories: nutritionTargets.calories,
+        protein_grams: nutritionTargets.protein,
+        carbs_grams: nutritionTargets.carbs,
+        fat_grams: nutritionTargets.fat,
+        protein_percentage: nutritionTargets.proteinPercentage,
+        carbs_percentage: nutritionTargets.carbsPercentage,
+        fat_percentage: nutritionTargets.fatPercentage,
+        explanation: explanation.summary,
+        reasoning: explanation.reasoning,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Save to database (using existing nutrition_plans table structure)
+      await this.saveAInutritionPlan(aiPlan);
+
+      console.log('[AI NUTRITION] ✅ AI nutrition plan generated successfully');
+      return aiPlan;
+
+    } catch (error) {
+      console.error('[AI NUTRITION] ❌ Error generating AI nutrition plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch comprehensive user profile data
+   */
+  private static async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('[AI NUTRITION] Error fetching user profile:', error);
+        return null;
+      }
+
+      return data as UserProfile;
+    } catch (error) {
+      console.error('[AI NUTRITION] Exception fetching user profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate AI-optimized nutrition targets using advanced algorithms
+   */
+  private static async calculateAInutritionTargets(profile: UserProfile) {
+    // Calculate age
+    const age = this.calculateAge(profile);
+    
+    // Calculate BMR using the most accurate formula based on available data
+    const bmr = this.calculateAdvancedBMR(profile, age);
+    
+    // Calculate TDEE with intelligent activity level assessment
+    const tdee = this.calculateIntelligentTDEE(bmr, profile);
+    
+    // Apply AI-driven calorie adjustments based on goals and trends
+    const adjustedCalories = this.applyAIcalorieAdjustments(tdee, profile);
+    
+    // Calculate optimal macro distribution using AI logic
+    const macros = this.calculateAImacroDistribution(adjustedCalories, profile);
+
+    return {
+      calories: Math.round(adjustedCalories),
+      protein: Math.round(macros.protein),
+      carbs: Math.round(macros.carbs),
+      fat: Math.round(macros.fat),
+      proteinPercentage: Math.round(macros.proteinPercentage),
+      carbsPercentage: Math.round(macros.carbsPercentage),
+      fatPercentage: Math.round(macros.fatPercentage),
+      bmr: Math.round(bmr),
+      tdee: Math.round(tdee),
+    };
+  }
+
+  /**
+   * Calculate age from birthday or use provided age
+   */
+  private static calculateAge(profile: UserProfile): number {
+    if (profile.age) return profile.age;
+    
+    if (profile.birthday) {
+      const birthDate = new Date(profile.birthday);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    }
+    
+    return 30; // Default fallback
+  }
+
+  /**
+   * Calculate BMR using advanced formulas considering body composition
+   */
+  private static calculateAdvancedBMR(profile: UserProfile, age: number): number {
+    const weight = profile.weight || 70;
+    const height = profile.height || 170;
+    const gender = profile.gender || 'male';
+
+    // If body fat percentage is available, use Katch-McArdle formula (more accurate)
+    if (profile.body_fat && profile.body_fat > 0) {
+      const leanBodyMass = weight * (1 - profile.body_fat / 100);
+      return 370 + (21.6 * leanBodyMass);
+    }
+
+    // Otherwise use Henry/Oxford equation (more accurate than Harris-Benedict)
+    if (gender === 'male') {
+      if (age >= 18 && age <= 30) {
+        return 14.4 * weight + 3.13 * height + 113;
+      } else if (age >= 30 && age <= 60) {
+        return 11.4 * weight + 5.41 * height - 137;
+      } else {
+        return 11.4 * weight + 5.41 * height - 256;
+      }
+    } else {
+      if (age >= 18 && age <= 30) {
+        return 10.4 * weight + 6.15 * height - 282;
+      } else if (age >= 30 && age <= 60) {
+        return 8.18 * weight + 5.02 * height - 11.6;
+      } else {
+        return 8.52 * weight + 4.21 * height + 10.7;
+      }
+    }
+  }
+
+  /**
+   * Calculate TDEE with intelligent activity assessment
+   */
+  private static calculateIntelligentTDEE(bmr: number, profile: UserProfile): number {
+    let baseMultiplier = 1.2; // sedentary default
+
+    // Base activity level multiplier
+    switch (profile.activity_level) {
+      case 'sedentary':
+        baseMultiplier = 1.2;
+        break;
+      case 'moderately_active':
+        baseMultiplier = 1.55;
+        break;
+      case 'very_active':
+        baseMultiplier = 1.725;
+        break;
+    }
+
+    // Adjust based on exercise frequency (additional factor)
+    let exerciseMultiplier = 1.0;
+    switch (profile.exercise_frequency) {
+      case '1':
+        exerciseMultiplier = 1.0;
+        break;
+      case '2-3':
+        exerciseMultiplier = 1.05;
+        break;
+      case '4-5':
+        exerciseMultiplier = 1.1;
+        break;
+      case '6-7':
+        exerciseMultiplier = 1.15;
+        break;
+    }
+
+    // Adjust based on training level (advanced athletes burn more)
+    let trainingMultiplier = 1.0;
+    switch (profile.training_level) {
+      case 'beginner':
+        trainingMultiplier = 1.0;
+        break;
+      case 'intermediate':
+        trainingMultiplier = 1.02;
+        break;
+      case 'advanced':
+        trainingMultiplier = 1.05;
+        break;
+    }
+
+    return bmr * baseMultiplier * exerciseMultiplier * trainingMultiplier;
+  }
+
+  /**
+   * Apply AI-driven calorie adjustments based on goals and trends
+   */
+  private static applyAIcalorieAdjustments(tdee: number, profile: UserProfile): number {
+    let adjustedCalories = tdee;
+
+    // Primary goal adjustments
+    switch (profile.fitness_strategy) {
+      case 'cut':
+        adjustedCalories = tdee * 0.8; // 20% deficit
+        break;
+      case 'bulk':
+        adjustedCalories = tdee * 1.15; // 15% surplus
+        break;
+      case 'maintenance':
+        adjustedCalories = tdee;
+        break;
+      case 'recomp':
+        adjustedCalories = tdee * 0.95; // Slight deficit for body recomposition
+        break;
+      case 'maingaining':
+        adjustedCalories = tdee * 1.05; // Small surplus for lean gains
+        break;
+    }
+
+    // Fine-tune based on specific goals
+    if (profile.primary_goal === 'fat_loss') {
+      adjustedCalories *= 0.9; // Additional 10% reduction for fat loss focus
+    } else if (profile.primary_goal === 'muscle_gain') {
+      adjustedCalories *= 1.1; // Additional 10% increase for muscle gain focus
+    }
+
+    // Adjust based on weight trend (AI learns from user's current progress)
+    switch (profile.weight_trend) {
+      case 'losing':
+        if (profile.fitness_strategy === 'bulk' || profile.fitness_strategy === 'maingaining') {
+          adjustedCalories *= 1.1; // Increase calories if losing weight but trying to gain
+        }
+        break;
+      case 'gaining':
+        if (profile.fitness_strategy === 'cut') {
+          adjustedCalories *= 0.9; // Decrease calories if gaining weight but trying to cut
+        }
+        break;
+      case 'stable':
+        // No adjustment needed - current approach is working
+        break;
+    }
+
+    // Consider specific fat/muscle goals
+    if (profile.goal_fat_reduction && profile.goal_fat_reduction > 5) {
+      adjustedCalories *= 0.95; // More aggressive deficit for significant fat loss
+    }
+    if (profile.goal_muscle_gain && profile.goal_muscle_gain > 3) {
+      adjustedCalories *= 1.05; // More calories for significant muscle gain
+    }
+
+    return adjustedCalories;
+  }
+
+  /**
+   * Calculate optimal macro distribution using AI logic
+   */
+  private static calculateAImacroDistribution(calories: number, profile: UserProfile) {
+    let proteinPercentage = 25; // Default
+    let carbsPercentage = 45;   // Default
+    let fatPercentage = 30;     // Default
+
+    // Adjust protein based on goals and training
+    if (profile.primary_goal === 'muscle_gain' || profile.primary_goal === 'hypertrophy') {
+      proteinPercentage = 30; // Higher protein for muscle building
+    } else if (profile.primary_goal === 'fat_loss') {
+      proteinPercentage = 35; // High protein for fat loss and muscle preservation
+    }
+
+    // Adjust based on training level
+    if (profile.training_level === 'advanced') {
+      proteinPercentage += 2; // Advanced athletes need more protein
+    }
+
+    // Adjust carbs based on activity and goals
+    if (profile.activity_level === 'very_active' || profile.exercise_frequency === '6-7') {
+      carbsPercentage = 50; // Higher carbs for very active individuals
+      fatPercentage = 20;   // Lower fat to accommodate higher carbs
+    } else if (profile.fitness_strategy === 'cut') {
+      carbsPercentage = 35; // Lower carbs for cutting
+      fatPercentage = 30;   // Maintain fat for hormone production
+    }
+
+    // Adjust based on body fat percentage
+    if (profile.body_fat && profile.body_fat > 20) {
+      carbsPercentage -= 5; // Lower carbs for higher body fat
+      proteinPercentage += 3; // Higher protein
+      fatPercentage += 2;   // Slightly higher fat
+    }
+
+    // Ensure percentages add up to 100
+    const total = proteinPercentage + carbsPercentage + fatPercentage;
+    if (total !== 100) {
+      const adjustment = (100 - total) / 3;
+      proteinPercentage += adjustment;
+      carbsPercentage += adjustment;
+      fatPercentage += adjustment;
+    }
+
+    // Calculate grams
+    const proteinGrams = (calories * (proteinPercentage / 100)) / 4; // 4 calories per gram
+    const carbsGrams = (calories * (carbsPercentage / 100)) / 4;     // 4 calories per gram
+    const fatGrams = (calories * (fatPercentage / 100)) / 9;         // 9 calories per gram
+
+    return {
+      protein: proteinGrams,
+      carbs: carbsGrams,
+      fat: fatGrams,
+      proteinPercentage,
+      carbsPercentage,
+      fatPercentage,
+    };
+  }
+
+  /**
+   * Generate detailed explanation for the AI nutrition plan
+   */
+  private static generateExplanation(profile: UserProfile, targets: any) {
+    const age = this.calculateAge(profile);
+    const personalizationFactors: string[] = [];
+
+    // Collect personalization factors
+    if (profile.body_fat) {
+      personalizationFactors.push(`Body fat percentage (${profile.body_fat}%) for precise metabolic calculations`);
+    }
+    if (profile.training_level) {
+      personalizationFactors.push(`${profile.training_level} training level for appropriate protein needs`);
+    }
+    if (profile.exercise_frequency) {
+      personalizationFactors.push(`${profile.exercise_frequency} weekly exercise sessions for activity adjustments`);
+    }
+    if (profile.weight_trend) {
+      personalizationFactors.push(`Current weight trend (${profile.weight_trend}) for dynamic adjustments`);
+    }
+    if (profile.goal_fat_reduction || profile.goal_muscle_gain) {
+      personalizationFactors.push('Specific body composition goals for targeted approach');
+    }
+
+    const summary = `Your AI nutrition plan is personalized based on ${personalizationFactors.length} key factors from your profile. 
+
+This plan provides ${targets.calories} daily calories with ${targets.protein}g protein (${targets.proteinPercentage}%), ${targets.carbs}g carbs (${targets.carbsPercentage}%), and ${targets.fat}g fat (${targets.fatPercentage}%).
+
+The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${profile.activity_level || 'moderate'} activity level, and ${profile.primary_goal || 'general fitness'} goal to optimize your nutrition for maximum results.`;
+
+    const reasoning = {
+      bmr_calculation: profile.body_fat 
+        ? `Used Katch-McArdle formula with ${profile.body_fat}% body fat for precise BMR of ${targets.bmr} calories`
+        : `Used Henry/Oxford equation based on age (${age}), gender (${profile.gender}), height (${profile.height}cm), and weight (${profile.weight}kg) for BMR of ${targets.bmr} calories`,
+      
+      tdee_calculation: `Applied ${profile.activity_level} multiplier with ${profile.exercise_frequency} exercise frequency and ${profile.training_level} training level adjustments for TDEE of ${targets.tdee} calories`,
+      
+      calorie_adjustment: `Adjusted from TDEE based on ${profile.fitness_strategy} strategy${profile.weight_trend ? ` and current ${profile.weight_trend} weight trend` : ''} to reach ${targets.calories} daily calories`,
+      
+      macro_distribution: `Optimized macros for ${profile.primary_goal} with ${targets.proteinPercentage}% protein for muscle support, ${targets.carbsPercentage}% carbs for energy, and ${targets.fatPercentage}% fat for hormone production`,
+      
+      personalization_factors: personalizationFactors,
+    };
+
+    return { summary, reasoning };
+  }
+
+  /**
+   * Save AI nutrition plan to database
+   */
+  private static async saveAInutritionPlan(plan: AInutritionPlan): Promise<void> {
+    try {
+      // Save to nutrition_plans table with AI-specific metadata
+      const { error } = await supabase
+        .from('nutrition_plans')
+        .insert({
+          id: plan.id,
+          user_id: plan.user_id,
+          plan_name: plan.plan_name,
+          plan_type: 'ai_generated',
+          daily_targets: {
+            calories: plan.daily_calories,
+            protein: plan.protein_grams,
+            carbs: plan.carbs_grams,
+            fat: plan.fat_grams,
+            protein_percentage: plan.protein_percentage,
+            carbs_percentage: plan.carbs_percentage,
+            fat_percentage: plan.fat_percentage,
+          },
+          ai_explanation: plan.explanation,
+          ai_reasoning: plan.reasoning,
+          created_at: plan.created_at,
+          updated_at: plan.updated_at,
+        });
+
+      if (error) {
+        console.error('[AI NUTRITION] Error saving AI nutrition plan:', error);
+        throw error;
+      }
+
+      console.log('[AI NUTRITION] ✅ AI nutrition plan saved successfully');
+    } catch (error) {
+      console.error('[AI NUTRITION] Exception saving AI nutrition plan:', error);
+      throw error;
+    }
+  }
+}

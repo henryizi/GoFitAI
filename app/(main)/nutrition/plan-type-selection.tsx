@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
+import { AInutritionService } from '../../../src/services/nutrition/AInutritionService';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { SAFE_AREA_PADDING_BOTTOM } from '../_layout';
 
@@ -65,6 +66,15 @@ const PLAN_TYPES = [
     icon: 'calculator-variant' as const,
     color: colors.accent,
     gradient: ['rgba(255,143,101,0.08)', 'rgba(255,143,101,0.04)'],
+  },
+  {
+    id: 'ai',
+    title: 'AI Nutrition Plan',
+    subtitle: 'Personalized AI recommendations',
+    description: 'Our AI analyzes all your onboarding data, goals, and preferences to create a fully personalized nutrition plan with detailed explanations.',
+    icon: 'brain' as const,
+    color: colors.success,
+    gradient: ['rgba(76,175,80,0.08)', 'rgba(76,175,80,0.04)'],
   },
 ];
 
@@ -122,6 +132,49 @@ const PlanTypeSelectionScreen = () => {
         }
       } catch (e) {
         router.push('/(main)/nutrition/plan-create-mathematical');
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+
+    if (selectedType === 'ai') {
+      try {
+        setIsGenerating(true);
+
+        // AI generation progress animation
+        progressAnimation.setValue(0);
+        Animated.timing(progressAnimation, {
+          toValue: 1,
+          duration: 2000, // Longer for AI processing
+          useNativeDriver: false,
+        }).start();
+
+        // AI-specific progress updates
+        setGenerationProgress(20);
+        setTimeout(() => setGenerationProgress(40), 400);
+        setTimeout(() => setGenerationProgress(60), 800);
+        setTimeout(() => setGenerationProgress(80), 1200);
+
+        const userId = user?.id || 'guest';
+
+        const aiPlan = await AInutritionService.generateAInutritionPlan(userId, {
+          dietaryPreferences: [],
+          intolerances: [],
+        });
+
+        setGenerationProgress(100);
+
+        if (aiPlan && aiPlan.id) {
+          // Navigate to AI plan result screen
+          router.replace(`/(main)/nutrition/ai-plan-result?planId=${aiPlan.id}`);
+        } else {
+          // Fallback to manual creation if AI fails
+          router.push('/(main)/nutrition/plan-create-manual');
+        }
+      } catch (error) {
+        console.error('[AI NUTRITION] Error generating AI plan:', error);
+        // Fallback to manual creation if AI fails
+        router.push('/(main)/nutrition/plan-create-manual');
       } finally {
         setIsGenerating(false);
       }
