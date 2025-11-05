@@ -97,6 +97,37 @@ const workoutFrequencies = [
   { id: '7', title: '7 Days', subtitle: 'Elite routine' },
 ];
 
+// Helper function to map UI workout frequency to database format
+const mapWorkoutFrequencyToDatabase = (frequency: string): '2_3' | '4_5' | '6' => {
+  switch (frequency) {
+    case '1':
+    case '2':
+    case '3':
+      return '2_3';
+    case '4':
+    case '5':
+      return '4_5';
+    case '6':
+    case '7':
+    default:
+      return '6';
+  }
+};
+
+// Helper function to map database workout frequency to UI format
+const mapWorkoutFrequencyFromDatabase = (frequency: string): string => {
+  switch (frequency) {
+    case '2_3':
+      return '3';
+    case '4_5':
+      return '4';
+    case '6':
+      return '6';
+    default:
+      return '4'; // Default fallback
+  }
+};
+
 export default function FitnessGoalsScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
@@ -155,7 +186,9 @@ export default function FitnessGoalsScreen() {
       // Handle migration from 'hypertrophy' to 'muscle_gain'
       const goal = profile.primary_goal === 'hypertrophy' ? 'muscle_gain' : (profile.primary_goal || 'general_fitness');
       setSelectedGoal(goal);
-      setSelectedFrequency(profile.workout_frequency || '5');
+      // Map database workout frequency to UI format
+      const mappedFrequency = profile.workout_frequency ? mapWorkoutFrequencyFromDatabase(profile.workout_frequency) : '4';
+      setSelectedFrequency(mappedFrequency);
       setSelectedFitnessStrategy(profile.fitness_strategy || 'maintenance');
 
       console.log('✅ Fitness Goals: Local state updated from profile');
@@ -170,7 +203,7 @@ export default function FitnessGoalsScreen() {
     }
   }, [profile, userHasModified]);
 
-    const handleSave = async () => {
+  const handleSave = async () => {
     if (!user?.id) return;
 
     setLoading(true);
@@ -178,7 +211,7 @@ export default function FitnessGoalsScreen() {
       const updateData = {
         training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
         primary_goal: selectedGoal as 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_performance',
-        workout_frequency: selectedFrequency as '1' | '2' | '3' | '4' | '5' | '6' | '7',
+        workout_frequency: mapWorkoutFrequencyToDatabase(selectedFrequency),
         fitness_strategy: selectedFitnessStrategy as 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining',
       };
 

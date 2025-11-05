@@ -2464,7 +2464,12 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         success: true, 
         workoutPlan: appFormatPlan, 
         provider: 'gemini_enhanced', 
-        used_ai: true 
+        used_ai: true,
+        system_info: {
+          fallback_used: false,
+          fallback_reason: null,
+          ai_available: true
+        }
       });
     } catch (aiError) {
       console.log('[WORKOUT] ❌ AI generation failed:', aiError.message);
@@ -2485,7 +2490,12 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         workoutPlan: fallbackAppFormat,
         provider: 'rule_based_fallback',
         used_ai: false,
-        note: 'AI generation failed, using rule-based fallback'
+        note: 'AI generation failed, using rule-based fallback',
+        system_info: {
+          fallback_used: true,
+          fallback_reason: 'ai_unavailable',
+          ai_available: false
+        }
       });
     }
   } catch (error) {
@@ -7828,6 +7838,63 @@ Example: If someone says "chicken breast", don't just say "chicken" - be specifi
     });
   }
 });
+// Profile creation endpoint
+app.post('/api/profile', async (req, res) => {
+  const { userId, profileData } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing userId parameter.' });
+  }
+
+  try {
+    console.log(`[PROFILE CREATE] Creating profile for user: ${userId}`);
+    console.log('[PROFILE CREATE] Profile data:', profileData);
+
+    // First, check if the user exists in auth.users
+    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserById(userId);
+    
+    if (userCheckError || !existingUser.user) {
+      console.log('[PROFILE CREATE] User not found in auth.users, profile creation may fail due to foreign key constraint');
+      console.log('[PROFILE CREATE] User check error:', userCheckError);
+    } else {
+      console.log('[PROFILE CREATE] User exists in auth.users:', existingUser.user.id);
+    }
+
+    // Prepare the profile data with the user ID
+    const profileToInsert = {
+      id: userId,
+      ...profileData
+    };
+
+    // Use upsert instead of insert to handle cases where profile might already exist
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(profileToInsert, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[PROFILE CREATE] Error creating profile:', error);
+      
+      // If it's a foreign key constraint error, provide more helpful error message
+      if (error.code === '23503' && error.message.includes('profiles_id_fkey')) {
+        throw new Error('User must be authenticated before creating profile. Please ensure user is properly signed up.');
+      }
+      
+      throw new Error(error.message);
+    }
+
+    console.log('[PROFILE CREATE] Profile created successfully');
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[PROFILE CREATE] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Profile update endpoint
 app.put('/api/profile', async (req, res) => {
   const { userId, updates } = req.body;
@@ -7840,20 +7907,48 @@ app.put('/api/profile', async (req, res) => {
     console.log(`[PROFILE UPDATE] Updating profile for user: ${userId}`);
     console.log('[PROFILE UPDATE] Updates:', updates);
 
-    const { data, error } = await supabase
+    // First try to update the existing profile
+    const { data: updateData, error: updateError } = await supabase
       .from('profiles')
       .update(updates)
       .eq('id', userId)
       .select()
       .single();
 
-    if (error) {
-      console.error('[PROFILE UPDATE] Error updating profile:', error);
-      throw new Error(error.message);
+    if (updateError) {
+      // If the profile doesn't exist (PGRST116), create it with upsert
+      if (updateError.code === 'PGRST116') {
+        console.log('[PROFILE UPDATE] Profile not found, creating new profile with upsert');
+        
+        const profileToUpsert = {
+          id: userId,
+          ...updates
+        };
+
+        const { data: upsertData, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert(profileToUpsert, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          })
+          .select()
+          .single();
+
+        if (upsertError) {
+          console.error('[PROFILE UPDATE] Error upserting profile:', upsertError);
+          throw new Error(upsertError.message);
+        }
+
+        console.log('[PROFILE UPDATE] Profile created successfully via upsert');
+        return res.json({ success: true, data: upsertData });
+      } else {
+        console.error('[PROFILE UPDATE] Error updating profile:', updateError);
+        throw new Error(updateError.message);
+      }
     }
 
     console.log('[PROFILE UPDATE] Profile updated successfully');
-    res.json({ success: true, data });
+    res.json({ success: true, data: updateData });
   } catch (error) {
     console.error('[PROFILE UPDATE] Error:', error.message);
     res.status(500).json({ success: false, error: error.message });

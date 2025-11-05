@@ -74,6 +74,59 @@ export default function ExercisePicker({
     }
   }, [visible]);
 
+  // Helper function to normalize muscle group names for better filtering
+  const normalizeMuscleGroup = (muscleGroup: string): string => {
+    const normalized = muscleGroup.toLowerCase().trim();
+    
+    // Check for shoulder-related terms first (more specific matching)
+    // Include all deltoid variations: front delt, side delt, rear delt
+    const shoulderTerms = [
+      'shoulder', 'shoulders', 'delt', 'deltoid', 'delts',
+      'shoulder - front', 'shoulder - back', 'shoulder - side',
+      'front delt', 'side delt', 'rear delt', 'anterior delt', 'posterior delt', 'lateral delt',
+      'rotator cuff', 'rotator cuff - front', 'rotator cuff - back'
+    ];
+    
+    if (shoulderTerms.some(term => normalized.includes(term))) {
+      return 'shoulders';
+    }
+    
+    // Map other muscle group naming conventions to standard categories
+    const muscleGroupMappings: { [key: string]: string[] } = {
+      'chest': ['chest', 'pectoral', 'pec', 'pectoralis'],
+      'back': [
+        'back', 'lat', 'latissimus', 'rhomboid', 'trap', 'traps', 'trapezius',
+        'erector spinae', 'spinal erector'
+      ],
+      'arms': [
+        'arm', 'arms', 'bicep', 'biceps', 'tricep', 'triceps',
+        'forearm', 'forearms', 'forearm - inner', 'forearm - outer',
+        'brachialis', 'brachioradialis', 'flexor', 'extensor'
+      ],
+      'legs': [
+        'leg', 'legs', 'quad', 'quadriceps', 'hamstring', 'hamstrings',
+        'glute', 'glutes', 'gluteus', 'calf', 'calves', 'gastrocnemius', 'soleus',
+        'thigh', 'thigh - inner', 'thigh - outer', 'adductor', 'abductor',
+        'vastus', 'rectus femoris', 'biceps femoris', 'semitendinosus', 'semimembranosus'
+      ],
+      'core': [
+        'core', 'ab', 'abs', 'abdominal', 'oblique', 'obliques',
+        'lower back', 'spine', 'transverse abdominis', 'rectus abdominis',
+        'internal oblique', 'external oblique', 'serratus'
+      ],
+      'cardio': ['cardio', 'cardiovascular', 'aerobic', 'hiit', 'full body']
+    };
+
+    // Find which category this muscle group belongs to
+    for (const [category, variations] of Object.entries(muscleGroupMappings)) {
+      if (variations.some(variation => normalized.includes(variation))) {
+        return category;
+      }
+    }
+
+    return normalized;
+  };
+
   // Filter exercises based on search and muscle group
   const filteredExercises = useMemo(() => {
     let filtered = exercises;
@@ -92,14 +145,52 @@ export default function ExercisePicker({
       );
     }
 
-    // Filter by muscle group
+    // Filter by muscle group with improved matching
     if (selectedMuscleGroup !== 'all') {
+      const beforeFilterCount = filtered.length;
       filtered = filtered.filter(ex => {
         const muscleGroups = ex.muscle_groups || [];
-        return muscleGroups.some(mg =>
-          mg.toLowerCase().includes(selectedMuscleGroup.toLowerCase())
-        );
+        
+        // Skip exercises with placeholder or empty muscle groups
+        if (muscleGroups.length === 0 || 
+            muscleGroups.some(mg => mg.toLowerCase().includes('new') || mg.trim() === '')) {
+          return false;
+        }
+
+        const matches = muscleGroups.some(mg => {
+          const normalizedMuscleGroup = normalizeMuscleGroup(mg);
+          const selectedCategory = selectedMuscleGroup.toLowerCase();
+          
+          // Use normalized muscle group for proper matching
+          return normalizedMuscleGroup === selectedCategory;
+        });
+
+        // Debug logging for arms and shoulder exercises
+        if (selectedMuscleGroup === 'arms' && (
+            ex.name.toLowerCase().includes('curl') || 
+            ex.name.toLowerCase().includes('bicep') || 
+            ex.name.toLowerCase().includes('tricep')
+        )) {
+          console.log(`[EXERCISE FILTER] ${ex.name}:`, {
+            muscleGroups,
+            normalizedGroups: muscleGroups.map(mg => normalizeMuscleGroup(mg)),
+            matches
+          });
+        }
+        
+        if (selectedMuscleGroup === 'shoulders' && ex.name.toLowerCase().includes('shoulder')) {
+          console.log(`[EXERCISE FILTER] ${ex.name}:`, {
+            muscleGroups,
+            normalizedGroups: muscleGroups.map(mg => normalizeMuscleGroup(mg)),
+            matches
+          });
+        }
+
+        return matches;
       });
+      
+      // Log filtering results
+      console.log(`[EXERCISE FILTER] ${selectedMuscleGroup}: ${beforeFilterCount} -> ${filtered.length} exercises`);
     }
 
     return filtered;

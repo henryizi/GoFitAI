@@ -59,6 +59,14 @@ type ExerciseSet = { id: string, name: string, sets: number, reps: string, rest:
 
 // Helper function to check if an exercise is cardio-based
 const isCardioExercise = (exercise: any): boolean => {
+  // Explicitly exclude strength exercises that should never be treated as cardio
+  const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly'];
+  if (exercise.name && strengthExerciseNames.some(name => 
+    exercise.name.toLowerCase().includes(name)
+  )) {
+    return false;
+  }
+  
   const cardioCategories = ['cardio', 'cardiovascular'];
   const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
   const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
@@ -143,11 +151,11 @@ export default function PlanDetailScreen() {
       }
 
       try {
-        // New signature only needs planId; fallback to name-based deletion if id is missing
+        // Use improved deletion methods with userId
         if (plan?.id) {
-          await WorkoutLocalStore.deletePlan(plan.id);
+          await WorkoutLocalStore.deletePlan(plan.id, user?.id);
         } else {
-          await WorkoutLocalStore.deletePlansByName(plan?.name);
+          await WorkoutLocalStore.deletePlansByName(plan?.name, user?.id);
         }
       } catch (e) {
         console.log('[PlanDetail] Local store deletion failed (continuing):', e);

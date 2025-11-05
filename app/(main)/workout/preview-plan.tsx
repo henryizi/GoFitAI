@@ -45,6 +45,14 @@ const colors = {
 
 // Helper function to check if an exercise is cardio-based
 const isCardioExercise = (exercise: any): boolean => {
+  // Explicitly exclude strength exercises that should never be treated as cardio
+  const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly'];
+  if (exercise.name && strengthExerciseNames.some(name => 
+    exercise.name.toLowerCase().includes(name)
+  )) {
+    return false;
+  }
+  
   const cardioCategories = ['cardio', 'cardiovascular'];
   const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
   const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 

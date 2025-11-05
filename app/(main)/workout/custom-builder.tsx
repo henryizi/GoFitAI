@@ -89,8 +89,56 @@ interface PlanSetup {
   sessionTime: number;
 }
 
+// Helper function to normalize muscle group names for better filtering
+const normalizeMuscleGroup = (muscleGroup: string): string => {
+  const normalized = muscleGroup.toLowerCase().trim();
+  
+  // Define muscle group mappings
+  const muscleGroupMap: { [key: string]: string[] } = {
+    'chest': ['chest', 'pectoral', 'pectorals', 'pecs', 'pec'],
+    'back': ['back', 'lat', 'lats', 'latissimus', 'rhomboid', 'rhomboids', 'trapezius', 'trap', 'traps', 'rear delt', 'rear deltoid'],
+    'shoulders': ['shoulder', 'shoulders', 'deltoid', 'deltoids', 'delt', 'delts', 'front delt', 'side delt', 'lateral delt'],
+    'arms': [
+      'arm', 'arms', 'bicep', 'biceps', 'tricep', 'triceps',
+      'forearm', 'forearms', 'forearm - inner', 'forearm - outer',
+      'brachialis', 'brachioradialis', 'flexor', 'extensor'
+    ],
+    'legs': [
+      'leg', 'legs', 'quad', 'quads', 'quadricep', 'quadriceps',
+      'hamstring', 'hamstrings', 'glute', 'glutes', 'gluteus',
+      'calf', 'calves', 'gastrocnemius', 'soleus', 'tibialis',
+      'hip flexor', 'hip flexors', 'adductor', 'adductors',
+      'abductor', 'abductors', 'thigh', 'thighs'
+    ],
+    'core': [
+      'core', 'abs', 'abdominal', 'abdominals', 'oblique', 'obliques',
+      'lower abs', 'upper abs', 'transverse abdominis', 'rectus abdominis',
+      'serratus', 'serratus anterior', 'lower back', 'erector spinae',
+      'multifidus', 'hip flexor', 'hip flexors'
+    ],
+    'cardio': ['cardio', 'cardiovascular', 'full body', 'conditioning', 'hiit', 'interval']
+  };
+
+  // Find which category this muscle group belongs to
+  for (const [category, terms] of Object.entries(muscleGroupMap)) {
+    if (terms.some(term => normalized.includes(term))) {
+      return category;
+    }
+  }
+
+  return normalized;
+};
+
 // Helper function to check if an exercise is cardio-based
 const isCardioExercise = (exercise: Exercise): boolean => {
+  // Explicitly exclude strength exercises that should never be treated as cardio
+  const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly'];
+  if (exercise.name && strengthExerciseNames.some(name => 
+    exercise.name.toLowerCase().includes(name)
+  )) {
+    return false;
+  }
+  
   const cardioCategories = ['cardio', 'cardiovascular'];
   const cardioMuscleGroups = ['cardio', 'cardiovascular', 'full body'];
   const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
@@ -279,7 +327,10 @@ export default function CustomBuilderScreen() {
 
     return exercises.filter(exercise => {
       const matchesMuscleGroup = !selectedMuscleGroup ||
-        (exercise.muscle_groups?.some(group => (group || '').toLowerCase().includes(lowerMuscleGroup)) ?? false) ||
+        (exercise.muscle_groups?.some(group => {
+          const normalizedGroup = normalizeMuscleGroup(group || '');
+          return normalizedGroup === lowerMuscleGroup;
+        }) ?? false) ||
         (selectedMuscleGroup.toLowerCase() === 'cardio' && isCardioExercise(exercise));
       const nameText = (exercise.name ?? '').toLowerCase();
       const descText = (exercise.description ?? '').toLowerCase();

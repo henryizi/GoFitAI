@@ -141,70 +141,85 @@ export class WorkoutLocalStore {
   }
 
   /**
-   * Save all plans to storage (global list)
-   */
-  static async saveAllPlans(plans: StoredWorkoutPlan[]): Promise<void> {
-    try {
-      await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
-    } catch (error) {
-      console.error('[WorkoutLocalStore] Error saving all plans to storage:', error);
-    }
-  }
-
-  /**
-   * Save all plans to storage (global list)
+   * Save all plans to global storage (consolidated method)
    */
   static async savePlansToStorage(plans: StoredWorkoutPlan[]): Promise<void> {
     try {
       await AsyncStorage.setItem('workout_plans', JSON.stringify(plans));
+      console.log(`[WorkoutLocalStore] Saved ${plans.length} plans to global storage`);
     } catch (error) {
       console.error('[WorkoutLocalStore] Error saving plans to storage:', error);
     }
   }
 
   /**
-   * Delete a plan from storage
+   * @deprecated Use savePlansToStorage instead
    */
-  static async deletePlan(planId: string): Promise<boolean> {
+  static async saveAllPlans(plans: StoredWorkoutPlan[]): Promise<void> {
+    console.warn('[WorkoutLocalStore] saveAllPlans is deprecated, use savePlansToStorage');
+    return this.savePlansToStorage(plans);
+  }
+
+  /**
+   * Delete a plan from storage by ID (improved version)
+   */
+  static async deletePlan(planId: string, userId?: string): Promise<boolean> {
     try {
-      console.log(`[WorkoutLocalStore] Deleting plan with ID: ${planId}`);
+      console.log(`[WorkoutLocalStore] Deleting plan with ID: ${planId} for user: ${userId || 'all users'}`);
       
-      // Get all stored plans
-      const allPlans = await this.getAllPlans();
+      let success = false;
       
-      // Find the plan to delete to get its name
-      const planToDelete = allPlans.find((p: StoredWorkoutPlan) => p.id === planId);
-      if (!planToDelete) {
-        console.log(`[WorkoutLocalStore] Plan with ID ${planId} not found, nothing to delete`);
-        return false;
-      }
-      
-      // Find all plans with the same name (case-insensitive)
-      const planName = planToDelete.name?.trim().toLowerCase();
-      const duplicatePlanIds = allPlans
-        .filter((p: StoredWorkoutPlan) => p.name?.trim().toLowerCase() === planName)
-        .map((p: StoredWorkoutPlan) => p.id);
-      
-      if (duplicatePlanIds.length > 1) {
-        console.log(`[WorkoutLocalStore] Found ${duplicatePlanIds.length} plans with name "${planToDelete.name}", deleting all of them`);
-      }
-      
-      // Filter out all plans with the same name
-      const filteredPlans = allPlans.filter((p: StoredWorkoutPlan) => !duplicatePlanIds.includes(p.id));
-      
-      // Update all user plan lists
-      const users = await this.getUsers();
-      for (const userId of users) {
+      if (userId) {
+        // Delete from specific user's storage
         const userPlans = await this.getPlans(userId);
-        const updatedUserPlans = userPlans.filter((p: StoredWorkoutPlan) => !duplicatePlanIds.includes(p.id));
-        await this.savePlans(userId, updatedUserPlans);
+        const planExists = userPlans.some(p => p.id === planId);
+        
+        if (planExists) {
+          const updatedPlans = userPlans.filter(p => p.id !== planId);
+          await this.savePlans(userId, updatedPlans);
+          console.log(`[WorkoutLocalStore] Deleted plan ${planId} from user ${userId} storage`);
+          success = true;
+        } else {
+          console.log(`[WorkoutLocalStore] Plan ${planId} not found in user ${userId} storage`);
+        }
+      } else {
+        // Delete from all users (legacy behavior)
+        const users = await this.getUsers();
+        for (const uid of users) {
+          const userPlans = await this.getPlans(uid);
+          const planExists = userPlans.some(p => p.id === planId);
+          
+          if (planExists) {
+            const updatedPlans = userPlans.filter(p => p.id !== planId);
+            await this.savePlans(uid, updatedPlans);
+            console.log(`[WorkoutLocalStore] Deleted plan ${planId} from user ${uid} storage`);
+            success = true;
+          }
+        }
       }
       
-      // Also update the global plans list
-      await this.savePlansToStorage(filteredPlans);
+      // Also remove from global storage if it exists
+      try {
+        const globalPlans = await this.getAllPlans();
+        const globalPlanExists = globalPlans.some(p => p.id === planId);
+        
+        if (globalPlanExists) {
+          const updatedGlobalPlans = globalPlans.filter(p => p.id !== planId);
+          await this.savePlansToStorage(updatedGlobalPlans);
+          console.log(`[WorkoutLocalStore] Deleted plan ${planId} from global storage`);
+          success = true;
+        }
+      } catch (globalError) {
+        console.warn('[WorkoutLocalStore] Failed to update global storage (non-critical):', globalError);
+      }
       
-      console.log(`[WorkoutLocalStore] Successfully deleted ${duplicatePlanIds.length} plans with name "${planToDelete.name}"`);
-      return true;
+      if (success) {
+        console.log(`[WorkoutLocalStore] Successfully deleted plan ${planId}`);
+      } else {
+        console.log(`[WorkoutLocalStore] Plan ${planId} was not found in any storage`);
+      }
+      
+      return success;
     } catch (error) {
       console.error(`[WorkoutLocalStore] Error deleting plan ${planId}:`, error);
       return false;
@@ -212,9 +227,9 @@ export class WorkoutLocalStore {
   }
 
   /**
-   * Delete plans by name when plan ID is unavailable
+   * Delete plans by name when plan ID is unavailable (improved version)
    */
-  static async deletePlansByName(planNameRaw: string | undefined | null): Promise<boolean> {
+  static async deletePlansByName(planNameRaw: string | undefined | null, userId?: string): Promise<boolean> {
     try {
       const normalized = (planNameRaw || '').trim().toLowerCase();
       if (!normalized) {
@@ -234,12 +249,22 @@ export class WorkoutLocalStore {
         return false;
       }
 
-      // Update all user plan lists
-      const users = await this.getUsers();
-      for (const userId of users) {
+      // Update user plan lists
+      if (userId) {
+        // Delete from specific user only
         const userPlans = await this.getPlans(userId);
         const updatedUserPlans = userPlans.filter((p: StoredWorkoutPlan) => !duplicatePlanIds.includes(p.id));
         await this.savePlans(userId, updatedUserPlans);
+        console.log(`[WorkoutLocalStore] Deleted plans with name "${planNameRaw}" from user ${userId}`);
+      } else {
+        // Delete from all users (legacy behavior)
+        const users = await this.getUsers();
+        for (const uid of users) {
+          const userPlans = await this.getPlans(uid);
+          const updatedUserPlans = userPlans.filter((p: StoredWorkoutPlan) => !duplicatePlanIds.includes(p.id));
+          await this.savePlans(uid, updatedUserPlans);
+        }
+        console.log(`[WorkoutLocalStore] Deleted plans with name "${planNameRaw}" from all users`);
       }
 
       // Also update the global plans list
@@ -260,6 +285,32 @@ export class WorkoutLocalStore {
     if (idx !== -1) {
       plans[idx] = plan;
       await this.savePlans(userId, plans);
+    }
+  }
+
+  /**
+   * Synchronize user storage with global storage to ensure consistency
+   */
+  static async syncUserStorage(userId: string): Promise<void> {
+    try {
+      console.log(`[WorkoutLocalStore] Syncing storage for user: ${userId}`);
+      
+      // Get user's plans
+      const userPlans = await this.getPlans(userId);
+      
+      // Get all plans from global storage
+      const globalPlans = await this.getAllPlans();
+      
+      // Remove user's plans from global storage and re-add current user plans
+      const otherUsersPlans = globalPlans.filter(p => p.user_id !== userId);
+      const syncedGlobalPlans = [...otherUsersPlans, ...userPlans];
+      
+      // Update global storage
+      await this.savePlansToStorage(syncedGlobalPlans);
+      
+      console.log(`[WorkoutLocalStore] Synced ${userPlans.length} plans for user ${userId}`);
+    } catch (error) {
+      console.error('[WorkoutLocalStore] Error syncing user storage:', error);
     }
   }
 

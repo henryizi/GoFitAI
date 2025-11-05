@@ -463,9 +463,9 @@ export class WorkoutService {
         }
       }
 
-      // Delete from local storage
+      // Delete from local storage (improved method with userId)
       try {
-        localSuccess = await WorkoutLocalStore.deletePlan(planId);
+        localSuccess = await WorkoutLocalStore.deletePlan(planId, userId);
         if (localSuccess) {
           console.log(`[WorkoutService] Successfully deleted plan from local storage: ${planId}`);
         }
@@ -513,9 +513,9 @@ export class WorkoutService {
         console.error(`[WorkoutService] Error deleting plan from database by name: ${dbError}`);
       }
 
-      // Delete from local storage by name
+      // Delete from local storage by name (improved method with userId)
       try {
-        const localSuccess = await WorkoutLocalStore.deletePlansByName(planName);
+        const localSuccess = await WorkoutLocalStore.deletePlansByName(planName, userId);
         if (localSuccess) {
           success = true;
           console.log(`[WorkoutService] Successfully deleted plan from local storage by name: ${planName}`);

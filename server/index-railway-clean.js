@@ -579,8 +579,18 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       });
       console.log('[WORKOUT] Transformed plan:', JSON.stringify(transformedPlan, null, 2));
 
-      // Return in Railway format expected by client
-      return res.json({ success: true, workoutPlan: transformedPlan, provider: 'gemini', used_ai: true });
+      // Return in Railway format expected by client with proper system metadata
+      return res.json({ 
+        success: true, 
+        workoutPlan: transformedPlan, 
+        provider: 'gemini', 
+        used_ai: true,
+        system_info: {
+          fallback_used: false,
+          fallback_reason: null,
+          ai_available: true
+        }
+      });
     } catch (aiError) {
       console.log('[WORKOUT] ❌ Gemini AI failed:', aiError.message);
       console.log('[WORKOUT] 🧮 Using rule-based fallback workout plan generation');
@@ -594,7 +604,12 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         workoutPlan: fallbackPlan,
         provider: 'rule_based_fallback',
         used_ai: false,
-        note: 'AI generation failed, using rule-based fallback'
+        note: 'AI generation failed, using rule-based fallback',
+        system_info: {
+          fallback_used: true,
+          fallback_reason: 'ai_unavailable',
+          ai_available: false
+        }
       });
     }
   } catch (error) {
