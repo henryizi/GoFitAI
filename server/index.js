@@ -8586,9 +8586,19 @@ app.post('/api/detect-plateaus', async (req, res) => {
 // ===================
 // PROGRESSION ANALYSIS ROUTES
 // ===================
-const progressionRoutes = require('./routes/progression-routes');
-app.use('/api/progression', progressionRoutes);
-console.log('[ROUTES] Progression analysis routes registered at /api/progression');
+try {
+  const progressionRoutes = require('./routes/progression-routes');
+  app.use('/api/progression', progressionRoutes);
+  console.log('[ROUTES] Progression analysis routes registered at /api/progression');
+  console.log('[ROUTES] Available endpoints:');
+  console.log('  - POST /api/progression/analyze');
+  console.log('  - POST /api/progression/detect-plateaus');
+  console.log('  - POST /api/progression/recommendations');
+  console.log('  - GET /api/progression/test');
+} catch (error) {
+  console.error('[ROUTES] ERROR: Failed to load progression routes:', error);
+  console.error('[ROUTES] Error stack:', error.stack);
+}
 
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
