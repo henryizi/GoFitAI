@@ -8156,6 +8156,440 @@ app.post('/api/test-ai-meal-generation', async (req, res) => {
   }
 });
 
+// ==============================================================
+// ADAPTIVE PROGRESSION ENGINE ENDPOINTS
+// ==============================================================
+
+// Analyze exercise performance and generate progression recommendations
+app.post('/api/analyze-progression', async (req, res) => {
+  console.log('[PROGRESSION] Analyzing performance and generating recommendations');
+  
+  const { userId, exerciseId, exerciseName, windowWeeks = 4 } = req.body;
+
+  if (!userId || !exerciseId) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'userId and exerciseId are required' 
+    });
+  }
+
+  try {
+    // Fetch exercise logs for the time window
+    const windowEndDate = new Date();
+    const windowStartDate = new Date();
+    windowStartDate.setDate(windowStartDate.getDate() - (windowWeeks * 7));
+
+    // Get workout sessions in the window
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('workout_sessions')
+      .select('id, completed_at, session_rpe, recovery_score')
+      .eq('status', 'completed')
+      .gte('completed_at', windowStartDate.toISOString())
+      .lte('completed_at', windowEndDate.toISOString());
+
+    if (sessionsError) {
+      throw new Error('Failed to fetch workout sessions: ' + sessionsError.message);
+    }
+
+    if (!sessions || sessions.length === 0) {
+      return res.json({
+        success: true,
+        analysis: null,
+        message: 'No workout data available for analysis'
+      });
+    }
+
+    // Collect exercise logs from sessions
+    let allLogs = [];
+    for (const session of sessions) {
+      const { data: exerciseSets } = await supabase
+        .from('exercise_sets')
+        .select('id, target_sets, target_reps')
+        .eq('session_id', session.id)
+        .eq('exercise_id', exerciseId);
+
+      if (exerciseSets) {
+        for (const set of exerciseSets) {
+          const { data: logs } = await supabase
+            .from('exercise_logs')
+            .select('*')
+            .eq('set_id', set.id);
+
+          if (logs) {
+            allLogs.push(...logs.map(log => ({
+              ...log,
+              session_completed_at: session.completed_at,
+              session_rpe: session.session_rpe,
+              recovery_score: session.recovery_score,
+            })));
+          }
+        }
+      }
+    }
+
+    if (allLogs.length === 0) {
+      return res.json({
+        success: true,
+        analysis: null,
+        message: 'No exercise logs found for this exercise'
+      });
+    }
+
+    // Calculate performance metrics
+    const totalVolume = allLogs.reduce((sum, log) => {
+      const weight = log.actual_weight || 0;
+      const reps = log.actual_reps || 0;
+      return sum + (weight * reps);
+    }, 0);
+
+    const weights = allLogs.map(log => log.actual_weight || 0).filter(w => w > 0);
+    const maxWeight = weights.length > 0 ? Math.max(...weights) : 0;
+    const avgWeight = weights.length > 0 ? weights.reduce((a, b) => a + b, 0) / weights.length : 0;
+
+    const rpeValues = allLogs.map(log => log.actual_rpe || 0).filter(r => r > 0);
+    const avgRPE = rpeValues.length > 0 ? rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length : 7;
+
+    // Calculate estimated 1RM (Brzycki formula)
+    const topSets = allLogs
+      .filter(log => log.actual_weight && log.actual_reps)
+      .map(log => {
+        const reps = log.actual_reps;
+        const weight = log.actual_weight;
+        const e1rm = reps <= 1 ? weight : weight * (36 / (37 - reps));
+        return { e1rm, weight, reps, date: log.session_completed_at };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const estimatedOneRM = topSets.length > 0 ? topSets[0].e1rm : 0;
+
+    // Use Gemini AI to generate personalized insights and recommendations
+    if (geminiTextService && estimatedOneRM > 0) {
+      console.log('[PROGRESSION] Generating AI recommendations with Gemini');
+      
+      const prompt = `As an expert strength coach, analyze this exercise performance data and provide actionable recommendations:
+
+Exercise: ${exerciseName}
+Analysis Window: ${windowWeeks} weeks
+Total Training Volume: ${totalVolume.toFixed(0)} (reps × weight)
+Current Max Weight: ${maxWeight.toFixed(1)} kg
+Average Weight Used: ${avgWeight.toFixed(1)} kg
+Average RPE: ${avgRPE.toFixed(1)}/10
+Estimated 1RM: ${estimatedOneRM.toFixed(1)} kg
+Number of Sessions: ${sessions.length}
+Total Sets Performed: ${allLogs.length}
+
+Based on this data, provide:
+1. **Performance Status**: Is the athlete progressing, plateaued, or regressing?
+2. **Recommended Weight**: What weight should they use next session?
+3. **Volume Adjustment**: Should they increase, decrease, or maintain set count?
+4. **RPE Target**: What RPE range should they aim for?
+5. **Specific Action**: One specific change to make in the next workout.
+
+Format your response as JSON:
+{
+  "performanceStatus": "progressing|plateaued|regressing|maintaining",
+  "statusExplanation": "brief explanation",
+  "recommendedWeight": number,
+  "weightChangeReason": "explanation",
+  "volumeRecommendation": "increase|decrease|maintain",
+  "setsRecommendation": number,
+  "rpeTarget": "7-9" or similar,
+  "nextSessionAction": "specific actionable advice",
+  "confidenceLevel": "high|medium|low"
+}`;
+
+      try {
+        const aiResponse = await geminiTextService.generateContent(prompt);
+        console.log('[PROGRESSION] AI response received');
+
+        // Parse AI response
+        let aiAnalysis;
+        try {
+          const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            aiAnalysis = JSON.parse(jsonMatch[0]);
+          }
+        } catch (parseError) {
+          console.error('[PROGRESSION] Failed to parse AI response:', parseError);
+        }
+
+        return res.json({
+          success: true,
+          analysis: {
+            exerciseName,
+            windowWeeks,
+            metrics: {
+              totalVolume,
+              maxWeight,
+              avgWeight,
+              avgRPE,
+              estimatedOneRM,
+              sessionCount: sessions.length,
+              totalSets: allLogs.length,
+            },
+            aiRecommendations: aiAnalysis || {
+              performanceStatus: 'maintaining',
+              statusExplanation: 'Continue current training approach',
+              recommendedWeight: maxWeight,
+              weightChangeReason: 'Insufficient data for detailed analysis',
+              volumeRecommendation: 'maintain',
+              setsRecommendation: 3,
+              rpeTarget: '7-9',
+              nextSessionAction: 'Focus on consistent training',
+              confidenceLevel: 'low'
+            },
+          },
+        });
+      } catch (aiError) {
+        console.error('[PROGRESSION] AI analysis error:', aiError);
+        // Fall back to rule-based recommendations
+      }
+    }
+
+    // Fallback: Rule-based recommendations
+    const recommendedWeight = avgRPE < 7 ? maxWeight * 1.025 : maxWeight;
+    
+    return res.json({
+      success: true,
+      analysis: {
+        exerciseName,
+        windowWeeks,
+        metrics: {
+          totalVolume,
+          maxWeight,
+          avgWeight,
+          avgRPE,
+          estimatedOneRM,
+          sessionCount: sessions.length,
+          totalSets: allLogs.length,
+        },
+        recommendations: {
+          performanceStatus: avgRPE < 7 ? 'progressing' : avgRPE > 9 ? 'high_fatigue' : 'maintaining',
+          recommendedWeight,
+          volumeRecommendation: avgRPE < 7 ? 'increase' : avgRPE > 9 ? 'decrease' : 'maintain',
+          rpeTarget: '7-9',
+          nextSessionAction: avgRPE < 7 
+            ? `Increase weight to ${recommendedWeight.toFixed(1)}kg`
+            : avgRPE > 9 
+            ? 'Reduce volume to allow better recovery'
+            : 'Maintain current training load',
+        },
+      },
+    });
+
+  } catch (error) {
+    console.error('[PROGRESSION] Error analyzing progression:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to analyze progression' 
+    });
+  }
+});
+
+// Get exercise alternatives for plateau breaking
+app.get('/api/exercise-alternatives/:exerciseId', async (req, res) => {
+  console.log('[PROGRESSION] Finding exercise alternatives');
+  
+  const { exerciseId } = req.params;
+  const { context = 'plateau' } = req.query;
+
+  try {
+    const { data, error } = await supabase
+      .from('exercise_alternatives')
+      .select(`
+        primary_exercise_id,
+        alternative_exercise_id,
+        muscle_group_overlap,
+        movement_pattern_similarity,
+        difficulty_difference,
+        equipment_compatibility,
+        recommended_for,
+        primary_exercise:exercises!exercise_alternatives_primary_exercise_id_fkey(id, name),
+        alternative_exercise:exercises!exercise_alternatives_alternative_exercise_id_fkey(id, name)
+      `)
+      .eq('primary_exercise_id', exerciseId)
+      .contains('recommended_for', [context]);
+
+    if (error) {
+      throw new Error('Failed to fetch alternatives: ' + error.message);
+    }
+
+    const alternatives = (data || []).map(row => ({
+      primaryExerciseId: row.primary_exercise_id,
+      primaryExerciseName: row.primary_exercise?.name || '',
+      alternativeExerciseId: row.alternative_exercise_id,
+      alternativeExerciseName: row.alternative_exercise?.name || '',
+      muscleGroupOverlap: row.muscle_group_overlap,
+      movementPatternSimilarity: row.movement_pattern_similarity,
+      difficultyDifference: row.difficulty_difference,
+      equipmentCompatibility: row.equipment_compatibility,
+      recommendedFor: row.recommended_for,
+    }));
+
+    res.json({
+      success: true,
+      alternatives,
+    });
+
+  } catch (error) {
+    console.error('[PROGRESSION] Error fetching alternatives:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch exercise alternatives' 
+    });
+  }
+});
+
+// Detect plateaus for a user's training plan
+app.post('/api/detect-plateaus', async (req, res) => {
+  console.log('[PROGRESSION] Detecting training plateaus');
+  
+  const { userId, planId = null, plateauWeeks = 3 } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'userId is required' 
+    });
+  }
+
+  try {
+    // Get user's recent workout sessions
+    const windowEndDate = new Date();
+    const windowStartDate = new Date();
+    windowStartDate.setDate(windowStartDate.getDate() - (plateauWeeks * 7));
+
+    let sessionQuery = supabase
+      .from('workout_sessions')
+      .select(`
+        id,
+        completed_at,
+        session_rpe,
+        plan_id
+      `)
+      .eq('status', 'completed')
+      .gte('completed_at', windowStartDate.toISOString());
+
+    if (planId) {
+      sessionQuery = sessionQuery.eq('plan_id', planId);
+    }
+
+    const { data: sessions, error: sessionsError } = await sessionQuery;
+
+    if (sessionsError) {
+      throw new Error('Failed to fetch sessions: ' + sessionsError.message);
+    }
+
+    if (!sessions || sessions.length === 0) {
+      return res.json({
+        success: true,
+        plateaus: [],
+        message: 'No workout data available for plateau detection'
+      });
+    }
+
+    // Analyze performance trends across exercises
+    const exercisePerformance = new Map();
+
+    for (const session of sessions) {
+      const { data: exerciseSets } = await supabase
+        .from('exercise_sets')
+        .select(`
+          id,
+          exercise_id,
+          exercises (id, name)
+        `)
+        .eq('session_id', session.id);
+
+      if (exerciseSets) {
+        for (const set of exerciseSets) {
+          const exerciseId = set.exercise_id;
+          const exerciseName = set.exercises?.name || 'Unknown';
+
+          if (!exercisePerformance.has(exerciseId)) {
+            exercisePerformance.set(exerciseId, {
+              name: exerciseName,
+              sessionCount: 0,
+              totalVolume: 0,
+              maxWeight: 0,
+              weights: [],
+            });
+          }
+
+          const { data: logs } = await supabase
+            .from('exercise_logs')
+            .select('actual_weight, actual_reps')
+            .eq('set_id', set.id);
+
+          if (logs) {
+            const perf = exercisePerformance.get(exerciseId);
+            perf.sessionCount++;
+
+            logs.forEach(log => {
+              const weight = log.actual_weight || 0;
+              const reps = log.actual_reps || 0;
+              perf.totalVolume += weight * reps;
+              perf.maxWeight = Math.max(perf.maxWeight, weight);
+              if (weight > 0) perf.weights.push(weight);
+            });
+          }
+        }
+      }
+    }
+
+    // Identify plateaus (no weight progression over the period)
+    const plateaus = [];
+
+    for (const [exerciseId, perf] of exercisePerformance) {
+      if (perf.sessionCount < 2) continue; // Need at least 2 sessions
+
+      // Check if weights are stagnant (no increase in last 50% of sessions)
+      const midpoint = Math.floor(perf.weights.length / 2);
+      const earlierWeights = perf.weights.slice(0, midpoint);
+      const recentWeights = perf.weights.slice(midpoint);
+
+      if (earlierWeights.length === 0 || recentWeights.length === 0) continue;
+
+      const earlierMax = Math.max(...earlierWeights);
+      const recentMax = Math.max(...recentWeights);
+
+      if (recentMax <= earlierMax * 1.01) { // Less than 1% improvement
+        plateaus.push({
+          exerciseId,
+          exerciseName: perf.name,
+          plateauType: 'exercise_specific',
+          weeksWithoutProgress: plateauWeeks,
+          metricPlateaued: 'weight',
+          previousValue: earlierMax,
+          currentValue: recentMax,
+          recommendedAction: 'swap_exercise',
+          reason: `No weight progression detected over ${plateauWeeks} weeks`,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      plateaus,
+      exercisesAnalyzed: exercisePerformance.size,
+    });
+
+  } catch (error) {
+    console.error('[PROGRESSION] Error detecting plateaus:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to detect plateaus' 
+    });
+  }
+});
+
+// ===================
+// PROGRESSION ANALYSIS ROUTES
+// ===================
+const progressionRoutes = require('./routes/progression-routes');
+app.use('/api/progression', progressionRoutes);
+console.log('[ROUTES] Progression analysis routes registered at /api/progression');
+
 // Start the server with error handling
 const server = app.listen(port, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();
@@ -8464,6 +8898,7 @@ app.get('/api/simple-recipe', (req, res) => {
     return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
   }
 });
+
 // ===================
 // ERROR HANDLING MIDDLEWARE (must be last)
 // ===================
@@ -8492,7 +8927,8 @@ app.use((req, res) => {
   console.log('[EXPRESS] 404 - Route not found:', req.method, req.url);
   res.status(404).json({
     success: false,
-    error: 'Endpoint not found',
+    error: 'Route not found',
     path: req.url,
     method: req.method
-  });});
+  });
+});
