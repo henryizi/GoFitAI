@@ -17,6 +17,14 @@ console.log('[ProgressionRoutes] Routes file loaded and router created');
 let supabase = null;
 let isInitialized = false;
 
+// Logging middleware - log ALL requests to progression router
+router.use((req, res, next) => {
+  console.log('[ProgressionRoutes] Request received:', req.method, req.path, req.url);
+  console.log('[ProgressionRoutes] Full URL:', req.originalUrl);
+  console.log('[ProgressionRoutes] Base URL:', req.baseUrl);
+  next();
+});
+
 // Middleware to initialize service on first request
 router.use((req, res, next) => {
   if (!isInitialized) {
@@ -280,6 +288,27 @@ router.put('/settings', async (req, res) => {
       error: error.message,
     });
   }
+});
+
+// Catch-all route for unmatched paths within progression router
+router.use((req, res) => {
+  console.error('[ProgressionRoutes] Unmatched route in progression router:', req.method, req.path);
+  console.error('[ProgressionRoutes] Full URL:', req.originalUrl);
+  res.status(404).json({
+    success: false,
+    error: 'Progression route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: [
+      'POST /api/progression/analyze',
+      'POST /api/progression/detect-plateaus',
+      'POST /api/progression/recommendations',
+      'POST /api/progression/sync-history',
+      'GET /api/progression/settings/:userId',
+      'PUT /api/progression/settings',
+      'GET /api/progression/test'
+    ]
+  });
 });
 
 module.exports = router;
