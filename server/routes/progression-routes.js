@@ -10,6 +10,9 @@ const express = require('express');
 const router = express.Router();
 const progressionAnalysisService = require('../services/progressionAnalysisService');
 
+// Debug: Log when routes file is loaded
+console.log('[ProgressionRoutes] Routes file loaded and router created');
+
 // Supabase client - initialized on first request
 let supabase = null;
 let isInitialized = false;
@@ -55,6 +58,16 @@ router.use((req, res, next) => {
     console.log('[ProgressionRoutes] Supabase client initialized successfully');
   }
   next();
+});
+
+// Test endpoint to verify routes are working
+router.get('/test', (req, res) => {
+  console.log('[API] /progression/test - Route test endpoint hit');
+  res.json({
+    success: true,
+    message: 'Progression routes are working!',
+    timestamp: new Date().toISOString()
+  });
 });
 
 /**
