@@ -1785,6 +1785,7 @@ app.listen(PORT, () => {
   console.log(`💚 Health Check: /api/health`);
   console.log(`📋 Progress: /api/log-daily-metric`);
   console.log(`📈 Progression: /api/progression/*`);
+  console.log(`🔄 Server version: ${new Date().toISOString()}`);
   console.log('='.repeat(50));
 });
 
