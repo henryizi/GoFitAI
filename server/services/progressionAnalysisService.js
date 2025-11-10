@@ -535,4 +535,3 @@ class ProgressionAnalysisService {
 }
 
 module.exports = new ProgressionAnalysisService();
-

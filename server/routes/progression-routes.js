@@ -19,9 +19,13 @@ let isInitialized = false;
 
 // Logging middleware - log ALL requests to progression router
 router.use((req, res, next) => {
-  console.log('[ProgressionRoutes] Request received:', req.method, req.path, req.url);
-  console.log('[ProgressionRoutes] Full URL:', req.originalUrl);
+  console.log('[ProgressionRoutes] ===== REQUEST RECEIVED =====');
+  console.log('[ProgressionRoutes] Method:', req.method);
+  console.log('[ProgressionRoutes] Path:', req.path);
+  console.log('[ProgressionRoutes] URL:', req.url);
+  console.log('[ProgressionRoutes] Original URL:', req.originalUrl);
   console.log('[ProgressionRoutes] Base URL:', req.baseUrl);
+  console.log('[ProgressionRoutes] ============================');
   next();
 });
 
@@ -30,18 +34,29 @@ router.use((req, res, next) => {
   if (!isInitialized) {
     const { createClient } = require('@supabase/supabase-js');
     
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
     
     console.log('[ProgressionRoutes] Initializing Supabase client');
-    console.log('[ProgressionRoutes] URL:', supabaseUrl);
+    console.log('[ProgressionRoutes] URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
+    console.log('[ProgressionRoutes] SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing');
+    console.log('[ProgressionRoutes] SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
+    console.log('[ProgressionRoutes] EXPO_PUBLIC_SUPABASE_ANON_KEY:', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
     console.log('[ProgressionRoutes] Key exists:', !!supabaseKey);
     
     if (!supabaseUrl || !supabaseKey) {
       console.error('[ProgressionRoutes] Missing Supabase credentials!');
+      console.error('[ProgressionRoutes] Missing URL:', !supabaseUrl);
+      console.error('[ProgressionRoutes] Missing Key:', !supabaseKey);
+      console.error('[ProgressionRoutes] Available env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE')).join(', '));
       return res.status(500).json({
         success: false,
-        error: 'Server configuration error: Missing database credentials'
+        error: 'Server configuration error: Missing database credentials',
+        details: {
+          urlMissing: !supabaseUrl,
+          keyMissing: !supabaseKey,
+          availableVars: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+        }
       });
     }
     
