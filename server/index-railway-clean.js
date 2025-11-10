@@ -1729,6 +1729,42 @@ function generateRuleBasedWorkoutPlan(profileData) {
   };
 }
 
+// ===================
+// PROGRESSION ANALYSIS ROUTES
+// ===================
+try {
+  console.log('[ROUTES] Attempting to load progression routes...');
+  const progressionRoutes = require('./routes/progression-routes');
+  console.log('[ROUTES] Routes module loaded, type:', typeof progressionRoutes);
+  console.log('[ROUTES] Routes is function:', typeof progressionRoutes === 'function');
+  console.log('[ROUTES] Routes is object:', typeof progressionRoutes === 'object');
+  
+  if (!progressionRoutes) {
+    throw new Error('Progression routes module is null or undefined');
+  }
+  
+  app.use('/api/progression', progressionRoutes);
+  console.log('[ROUTES] ✓ Progression analysis routes registered at /api/progression');
+  console.log('[ROUTES] Available endpoints:');
+  console.log('  - POST /api/progression/analyze');
+  console.log('  - POST /api/progression/detect-plateaus');
+  console.log('  - POST /api/progression/recommendations');
+  console.log('  - GET /api/progression/test');
+  
+  // Verify routes are actually registered by checking Express router stack
+  const routes = app._router?.stack?.filter(layer => layer?.route || layer?.name === 'router');
+  const progressionLayer = routes?.find(layer => 
+    layer?.regexp?.toString().includes('progression') || 
+    layer?.path === '/api/progression'
+  );
+  console.log('[ROUTES] Route layer found:', !!progressionLayer);
+} catch (error) {
+  console.error('[ROUTES] ✗ ERROR: Failed to load progression routes:', error);
+  console.error('[ROUTES] Error message:', error.message);
+  console.error('[ROUTES] Error stack:', error.stack);
+  // Don't exit - let server start so we can debug other routes
+}
+
 // Catch-all for undefined routes
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -1748,6 +1784,7 @@ app.listen(PORT, () => {
   console.log(`🔗 Food Analysis: /api/analyze-food`);
   console.log(`💚 Health Check: /api/health`);
   console.log(`📋 Progress: /api/log-daily-metric`);
+  console.log(`📈 Progression: /api/progression/*`);
   console.log('='.repeat(50));
 });
 
