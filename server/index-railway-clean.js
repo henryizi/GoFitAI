@@ -1752,12 +1752,27 @@ try {
   console.log('  - GET /api/progression/test');
   
   // Verify routes are actually registered by checking Express router stack
-  const routes = app._router?.stack?.filter(layer => layer?.route || layer?.name === 'router');
-  const progressionLayer = routes?.find(layer => 
-    layer?.regexp?.toString().includes('progression') || 
-    layer?.path === '/api/progression'
-  );
-  console.log('[ROUTES] Route layer found:', !!progressionLayer);
+  setTimeout(() => {
+    const routes = app._router?.stack || [];
+    const progressionLayers = routes.filter(layer => {
+      const regexp = layer?.regexp?.toString() || '';
+      return regexp.includes('progression') || regexp.includes('/api/progression');
+    });
+    console.log('[ROUTES] Route verification (after registration):');
+    console.log('[ROUTES] Total middleware layers:', routes.length);
+    console.log('[ROUTES] Progression layers found:', progressionLayers.length);
+    if (progressionLayers.length > 0) {
+      progressionLayers.forEach((layer, idx) => {
+        console.log(`[ROUTES]   Layer ${idx + 1}:`, {
+          regexp: layer?.regexp?.toString().substring(0, 100),
+          name: layer?.name,
+          route: !!layer?.route
+        });
+      });
+    } else {
+      console.error('[ROUTES] ⚠️  WARNING: No progression layers found in router stack!');
+    }
+  }, 100);
 } catch (error) {
   console.error('[ROUTES] ✗ ERROR: Failed to load progression routes:', error);
   console.error('[ROUTES] Error message:', error.message);
@@ -1766,6 +1781,42 @@ try {
   // But log a clear warning
   console.error('[ROUTES] ⚠️  WARNING: Progression routes will not be available!');
 }
+
+// Route listing endpoint for debugging (before catch-all)
+app.get('/api/routes', (req, res) => {
+  const routes = app._router?.stack || [];
+  const routeInfo = routes
+    .filter(layer => layer?.route || layer?.name === 'router')
+    .map(layer => {
+      if (layer.route) {
+        const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
+        return {
+          method: methods,
+          path: layer.route.path,
+          type: 'route'
+        };
+      } else if (layer.name === 'router') {
+        const regexp = layer.regexp?.toString() || '';
+        return {
+          method: 'ALL',
+          path: regexp.substring(0, 100),
+          type: 'router',
+          name: layer.name
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+  
+  res.json({
+    success: true,
+    totalRoutes: routeInfo.length,
+    routes: routeInfo,
+    progressionRoutes: routeInfo.filter(r => 
+      r.path?.includes('progression') || r.path?.includes('/api/progression')
+    )
+  });
+});
 
 // Catch-all for undefined routes (must be last)
 // Only match if no other route matched
@@ -1796,6 +1847,7 @@ app.listen(PORT, () => {
   console.log(`💚 Health Check: /api/health`);
   console.log(`📋 Progress: /api/log-daily-metric`);
   console.log(`📈 Progression: /api/progression/*`);
+  console.log(`🔍 Route Debug: /api/routes`);
   console.log(`🔄 Server version: ${new Date().toISOString()}`);
   console.log('='.repeat(50));
 });
