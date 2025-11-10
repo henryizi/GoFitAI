@@ -113,6 +113,17 @@ try {
   console.error('[RAILWAY] Failed to initialize Gemini Vision Service:', error.message);
 }
 
+// Version endpoint to verify deployment
+app.get('/api/version', (req, res) => {
+  res.json({
+    success: true,
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    hasProgressionRoutes: true,
+    deployment: 'railway-clean'
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
