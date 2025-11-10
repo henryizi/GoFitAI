@@ -1763,14 +1763,25 @@ try {
   console.error('[ROUTES] Error message:', error.message);
   console.error('[ROUTES] Error stack:', error.stack);
   // Don't exit - let server start so we can debug other routes
+  // But log a clear warning
+  console.error('[ROUTES] ⚠️  WARNING: Progression routes will not be available!');
 }
 
-// Catch-all for undefined routes
-app.use('*', (req, res) => {
+// Catch-all for undefined routes (must be last)
+// Only match if no other route matched
+app.use((req, res, next) => {
+  // Skip if this is a progression route (should have been handled above)
+  if (req.path.startsWith('/api/progression')) {
+    console.error('[CATCH-ALL] Progression route reached catch-all - routes may not be registered!');
+    console.error('[CATCH-ALL] Path:', req.path);
+    console.error('[CATCH-ALL] Method:', req.method);
+  }
   res.status(404).json({
     success: false,
     error: 'Route not found',
-    message: 'This endpoint does not exist on the Railway server'
+    message: 'This endpoint does not exist on the Railway server',
+    path: req.path,
+    method: req.method
   });
 });
 
