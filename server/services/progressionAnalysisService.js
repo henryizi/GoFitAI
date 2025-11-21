@@ -48,79 +48,312 @@ class ProgressionAnalysisService {
   }
 
   /**
-   * 第1步：从workout_sessions提取并保存exercise_history
+   * 第1步：从workout_history提取并保存exercise_history
    * 这个函数会分析最近的训练记录并保存到exercise_history表
+   * 如果workout_history为空，会尝试从workout_sessions和exercise_sets读取
    */
   async syncExerciseHistory(userId, lookbackDays = 90) {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - lookbackDays);
 
-      // 获取用户最近的训练session (with retry logic)
-      const { data: sessions, error: sessionsError} = await this.retryQuery(() =>
+      // 首先尝试从workout_history获取数据 (with retry logic)
+      let workoutHistory = null;
+      const { data: historyData, error: historyError} = await this.retryQuery(() =>
         this.getSupabase()
-          .from('workout_sessions')
-          .select('id, exercises_completed, completed_at')
+          .from('workout_history')
+          .select('id, exercises_data, completed_at, session_id')
           .eq('user_id', userId)
           .not('completed_at', 'is', null)
           .gte('completed_at', cutoffDate.toISOString())
           .order('completed_at', { ascending: false })
       );
 
-      if (sessionsError) throw sessionsError;
-      if (!sessions || sessions.length === 0) {
-        return { synced: 0, message: 'No completed sessions found' };
+      if (!historyError && historyData && historyData.length > 0) {
+        workoutHistory = historyData;
+        console.log('[ProgressionAnalysis] Found', workoutHistory.length, 'workout history records');
+      } else {
+        // Fallback: 从workout_sessions和exercise_sets读取数据
+        console.log('[ProgressionAnalysis] No workout_history found, trying workout_sessions...');
+        
+        // Note: workout_sessions doesn't have user_id, we need to join with workout_plans
+        // First, get all workout_plans for this user
+        const { data: userPlans, error: plansError } = await this.retryQuery(() =>
+          this.getSupabase()
+            .from('workout_plans')
+            .select('id')
+            .eq('user_id', userId)
+        );
+
+        if (plansError) {
+          console.warn('[ProgressionAnalysis] Error fetching workout_plans:', plansError);
+        } else if (!userPlans || userPlans.length === 0) {
+          console.log('[ProgressionAnalysis] No workout plans found for user:', userId);
+        } else {
+          const planIds = userPlans.map(p => p.id);
+          console.log('[ProgressionAnalysis] Found', planIds.length, 'workout plans, fetching sessions...');
+          
+          const { data: sessions, error: sessionsError } = await this.retryQuery(() =>
+            this.getSupabase()
+              .from('workout_sessions')
+              .select('id, completed_at, status, plan_id')
+              .in('plan_id', planIds)
+              .eq('status', 'completed')
+              .not('completed_at', 'is', null)
+              .gte('completed_at', cutoffDate.toISOString())
+              .order('completed_at', { ascending: false })
+          );
+
+          if (sessionsError) {
+            console.warn('[ProgressionAnalysis] Error fetching workout_sessions:', sessionsError);
+          } else if (sessions && sessions.length > 0) {
+          console.log('[ProgressionAnalysis] Found', sessions.length, 'completed workout sessions');
+          
+          // 为每个session构建exercises_data
+          workoutHistory = [];
+          for (const session of sessions) {
+            // 获取该session的所有exercise_sets
+            const { data: exerciseSets, error: setsError } = await this.retryQuery(() =>
+              this.getSupabase()
+                .from('exercise_sets')
+                .select('id, exercise_id, exercise_name, order_in_session')
+                .eq('session_id', session.id)
+                .order('order_in_session')
+            );
+
+            if (setsError) {
+              console.warn('[ProgressionAnalysis] Error fetching exercise_sets for session', session.id, ':', setsError);
+              continue;
+            }
+            
+            if (!exerciseSets || exerciseSets.length === 0) {
+              console.log('[ProgressionAnalysis] No exercise_sets found for session', session.id);
+              continue;
+            }
+            
+            console.log('[ProgressionAnalysis] Found', exerciseSets.length, 'exercise_sets for session', session.id);
+
+            // 获取所有exercise_logs
+            const setIds = exerciseSets.map(s => s.id);
+            if (setIds.length === 0) {
+              console.log('[ProgressionAnalysis] No set IDs to fetch logs for');
+              continue;
+            }
+            
+            const { data: exerciseLogs, error: logsError } = await this.retryQuery(() =>
+              this.getSupabase()
+                .from('exercise_logs')
+                .select('set_id, actual_reps, actual_weight, actual_rpe, completed_at')
+                .in('set_id', setIds)
+            );
+
+            if (logsError) {
+              console.warn('[ProgressionAnalysis] Error fetching exercise_logs:', logsError);
+              continue;
+            }
+            
+            console.log('[ProgressionAnalysis] Found', exerciseLogs?.length || 0, 'exercise_logs for', setIds.length, 'sets');
+
+            // 按exercise分组
+            const exercisesMap = new Map();
+            exerciseSets.forEach(set => {
+              if (!exercisesMap.has(set.exercise_id)) {
+                exercisesMap.set(set.exercise_id, {
+                  exercise_id: set.exercise_id,
+                  exercise_name: set.exercise_name || 'Unknown Exercise',
+                  logs: []
+                });
+              }
+            });
+
+            // 添加logs到对应的exercise
+            if (exerciseLogs) {
+              exerciseLogs.forEach(log => {
+                const set = exerciseSets.find(s => s.id === log.set_id);
+                if (set && exercisesMap.has(set.exercise_id)) {
+                  exercisesMap.get(set.exercise_id).logs.push({
+                    actual_reps: log.actual_reps || 0,
+                    actual_weight: log.actual_weight || 0,
+                    actual_rpe: log.actual_rpe || null,
+                    reps: log.actual_reps || 0,
+                    weight: log.actual_weight || 0,
+                    rpe: log.actual_rpe || null,
+                    completed: true
+                  });
+                }
+              });
+            }
+
+            // 转换为exercises_data格式
+            const exercisesData = Array.from(exercisesMap.values()).filter(ex => ex.logs.length > 0);
+            
+            console.log('[ProgressionAnalysis] Session', session.id, 'has', exercisesData.length, 'exercises with logs');
+            
+            if (exercisesData.length > 0) {
+              workoutHistory.push({
+                id: session.id,
+                session_id: session.id,
+                completed_at: session.completed_at,
+                exercises_data: exercisesData
+              });
+              console.log('[ProgressionAnalysis] Added workout record for session', session.id, 'with', exercisesData.length, 'exercises');
+            } else {
+              console.log('[ProgressionAnalysis] Skipping session', session.id, '- no exercises with logs');
+            }
+          }
+
+          console.log('[ProgressionAnalysis] Built', workoutHistory.length, 'workout records from sessions');
+          } else {
+            console.log('[ProgressionAnalysis] No completed sessions found in workout_sessions');
+          }
+        }
+      }
+
+      if (!workoutHistory || workoutHistory.length === 0) {
+        console.log('[ProgressionAnalysis] No workout data found for user:', userId);
+        return { synced: 0, message: 'No completed workouts found' };
+      }
+
+      console.log('[ProgressionAnalysis] Processing', workoutHistory.length, 'workout records');
+      if (workoutHistory.length > 0) {
+        console.log('[ProgressionAnalysis] Sample workout data:', JSON.stringify(workoutHistory[0], null, 2));
       }
 
       let syncedCount = 0;
 
-      // 第2步：遍历每个session，提取exercise数据
-      for (const session of sessions) {
-        const exercises = session.exercises_completed || [];
+      // 第2步：遍历每个workout history记录，提取exercise数据
+      for (const workout of workoutHistory) {
+        const exercisesData = workout.exercises_data;
         
-        for (const exercise of exercises) {
-          // 跳过没有完成任何set的exercise
-          const completedSets = (exercise.sets || []).filter(s => s.completed);
-          if (completedSets.length === 0) continue;
+        // Skip if no exercises_data
+        if (!exercisesData || !Array.isArray(exercisesData)) {
+          console.log('[ProgressionAnalysis] Skipping workout with no exercises_data:', workout.id);
+          continue;
+        }
+        
+        for (const exercise of exercisesData) {
+          // Handle different data formats
+          let sets = [];
+          
+          // Format 1: exercise.sets is an array of set objects (regular workouts)
+          if (exercise.sets && Array.isArray(exercise.sets)) {
+            sets = exercise.sets.map(set => ({
+              reps: set.reps || 0,
+              weight: set.weight || 0,
+              rpe: set.rpe || null,
+              completed: set.completed !== false
+            }));
+          }
+          // Format 2: exercise.logs is an array of log objects (custom workouts)
+          else if (exercise.logs && Array.isArray(exercise.logs)) {
+            sets = exercise.logs.map(log => ({
+              reps: log.actual_reps || log.reps || 0,
+              weight: log.actual_weight || log.weight || 0,
+              rpe: log.actual_rpe || log.rpe || null,
+              completed: true
+            }));
+          }
+          // Format 3: exercise has reps/weights arrays (legacy format)
+          else if (exercise.reps && Array.isArray(exercise.reps) && exercise.weights && Array.isArray(exercise.weights)) {
+            sets = exercise.reps.map((reps, index) => ({
+              reps: reps || 0,
+              weight: exercise.weights[index] || 0,
+              rpe: null,
+              completed: true
+            }));
+          }
+          
+          // Skip if no sets
+          if (sets.length === 0) {
+            console.log('[ProgressionAnalysis] Skipping exercise with no sets/logs:', exercise.exercise_name || exercise.name, 'Format:', Object.keys(exercise));
+            continue;
+          }
+
+          // Filter out incomplete sets (if they have a completed flag)
+          const completedSets = sets.filter(s => s.completed !== false);
+
+          if (completedSets.length === 0) {
+            console.log('[ProgressionAnalysis] Skipping exercise with no completed sets:', exercise.exercise_name || exercise.name);
+            continue;
+          }
 
           // 第3步：计算exercise的汇总数据
           const totalVolume = completedSets.reduce((sum, set) => {
-            return sum + ((set.weight || 0) * (set.reps || 0));
+            const weight = set.weight || 0;
+            const reps = set.reps || 0;
+            return sum + (weight * reps);
           }, 0);
 
           const avgWeight = completedSets.reduce((sum, set) => sum + (set.weight || 0), 0) / completedSets.length;
           const avgReps = completedSets.reduce((sum, set) => sum + (set.reps || 0), 0) / completedSets.length;
-          const avgRPE = completedSets.reduce((sum, set) => sum + (set.rpe || 0), 0) / completedSets.length;
+          const avgRPE = completedSets.reduce((sum, set) => {
+            const rpe = set.rpe || 0;
+            return sum + rpe;
+          }, 0) / completedSets.length;
 
           // 第4步：计算estimated 1RM (使用Epley公式)
           const estimated1RM = this.calculateOneRM(avgWeight, avgReps);
 
+          // Get exercise name and ID
+          const exerciseName = exercise.exercise_name || exercise.name || 'Unknown Exercise';
+          const exerciseId = exercise.exercise_id || exercise.id || exerciseName;
+
           // 第5步：保存到exercise_history
+          const exerciseHistoryData = {
+            user_id: userId,
+            exercise_id: exerciseId,
+            exercise_name: exerciseName,
+            weight_kg: avgWeight,
+            reps: Math.round(avgReps),
+            sets: completedSets.length,
+            volume_kg: totalVolume,
+            one_rep_max_kg: estimated1RM,
+            rpe: avgRPE > 0 ? Math.round(avgRPE * 10) / 10 : null,
+            form_quality: exercise.formQuality || null,
+            workout_session_id: workout.session_id || workout.id || null,
+            performed_at: workout.completed_at,
+          };
+
+          console.log('[ProgressionAnalysis] Inserting exercise history:', exerciseName, exerciseHistoryData);
+
+          // Try upsert first, fallback to insert if unique constraint doesn't exist
           const { error: insertError } = await this.getSupabase()
             .from('exercise_history')
-            .upsert({
-              user_id: userId,
-              exercise_id: exercise.id || exercise.name,
-              exercise_name: exercise.name,
-              weight_kg: avgWeight,
-              reps: Math.round(avgReps),
-              sets_completed: completedSets.length,
-              total_volume: totalVolume,
-              rpe: avgRPE > 0 ? avgRPE : null,
-              form_quality: exercise.formQuality || null,
-              estimated_one_rm: estimated1RM,
-              session_id: session.id,
-              performed_at: session.completed_at,
-            }, {
+            .upsert(exerciseHistoryData, {
               onConflict: 'user_id,exercise_id,performed_at',
               ignoreDuplicates: false
             });
 
-          if (!insertError) syncedCount++;
+          if (insertError) {
+            // If upsert fails due to missing constraint, try insert
+            if (insertError.message?.includes('unique constraint') || insertError.message?.includes('conflict')) {
+              console.log('[ProgressionAnalysis] Upsert failed, trying insert instead:', insertError.message);
+              const { error: insertError2 } = await this.getSupabase()
+                .from('exercise_history')
+                .insert(exerciseHistoryData);
+              
+              if (!insertError2) {
+                syncedCount++;
+                console.log('[ProgressionAnalysis] Successfully inserted exercise history:', exerciseName);
+              } else {
+                console.error('[ProgressionAnalysis] Error inserting exercise history (fallback):', insertError2);
+              }
+            } else {
+              console.error('[ProgressionAnalysis] Error upserting exercise history:', insertError);
+            }
+          } else {
+            syncedCount++;
+            console.log('[ProgressionAnalysis] Successfully upserted exercise history:', exerciseName);
+          }
         }
       }
 
-      return { synced: syncedCount, message: `Synced ${syncedCount} exercise records` };
+      console.log('[ProgressionAnalysis] ========================================');
+      console.log('[ProgressionAnalysis] SYNC SUMMARY:');
+      console.log('[ProgressionAnalysis] - Workout records processed:', workoutHistory.length);
+      console.log('[ProgressionAnalysis] - Exercise records synced:', syncedCount);
+      console.log('[ProgressionAnalysis] ========================================');
+      return { synced: syncedCount, message: `Synced ${syncedCount} exercise records from ${workoutHistory.length} workouts` };
     } catch (error) {
       console.error('[ProgressionAnalysis] Sync error:', error);
       throw error;
@@ -173,8 +406,23 @@ class ProgressionAnalysisService {
           .order('performed_at', { ascending: true })
       );
 
-      if (historyError) throw historyError;
+      if (historyError) {
+        console.error('[ProgressionAnalysis] Error fetching exercise_history:', historyError);
+        throw historyError;
+      }
+      
+      console.log('[ProgressionAnalysis] ========================================');
+      console.log('[ProgressionAnalysis] EXERCISE HISTORY QUERY:');
+      console.log('[ProgressionAnalysis] - Cutoff date:', cutoffDate.toISOString());
+      console.log('[ProgressionAnalysis] - Records found:', history?.length || 0);
+      if (history && history.length > 0) {
+        const uniqueExercises = new Set(history.map(h => h.exercise_name));
+        console.log('[ProgressionAnalysis] - Unique exercises:', uniqueExercises.size, Array.from(uniqueExercises));
+      }
+      console.log('[ProgressionAnalysis] ========================================');
+      
       if (!history || history.length === 0) {
+        console.warn('[ProgressionAnalysis] No exercise history found after sync');
         return { insights: [], message: 'No exercise history found' };
       }
 
@@ -220,7 +468,7 @@ class ProgressionAnalysisService {
         performanceStatus: 'maintaining',
         recommendation: 'Need more data to analyze progress.',
         metrics: {
-          estimatedOneRM: records[0]?.estimated_one_rm || 0,
+          estimatedOneRM: records[0]?.one_rep_max_kg || records[0]?.estimated_one_rm || 0,
           volumeChange: 0,
           avgRPE: records[0]?.rpe || 0,
         },
@@ -232,11 +480,11 @@ class ProgressionAnalysisService {
     const recentRecords = records.slice(-5); // 最近5次
     const oldRecords = records.slice(0, Math.min(5, records.length - 5)); // 早期5次
 
-    const recentAvg1RM = this.average(recentRecords.map(r => r.estimated_one_rm || 0));
-    const oldAvg1RM = oldRecords.length > 0 ? this.average(oldRecords.map(r => r.estimated_one_rm || 0)) : recentAvg1RM;
+    const recentAvg1RM = this.average(recentRecords.map(r => r.one_rep_max_kg || r.estimated_one_rm || 0));
+    const oldAvg1RM = oldRecords.length > 0 ? this.average(oldRecords.map(r => r.one_rep_max_kg || r.estimated_one_rm || 0)) : recentAvg1RM;
     
-    const recentAvgVolume = this.average(recentRecords.map(r => r.total_volume || 0));
-    const oldAvgVolume = oldRecords.length > 0 ? this.average(oldRecords.map(r => r.total_volume || 0)) : recentAvgVolume;
+    const recentAvgVolume = this.average(recentRecords.map(r => r.volume_kg || r.total_volume || 0));
+    const oldAvgVolume = oldRecords.length > 0 ? this.average(oldRecords.map(r => r.volume_kg || r.total_volume || 0)) : recentAvgVolume;
 
     const avgRPE = this.average(recentRecords.map(r => r.rpe || 0).filter(r => r > 0));
 
@@ -322,8 +570,8 @@ class ProgressionAnalysisService {
         const firstThird = sortedRecords.slice(0, Math.ceil(sortedRecords.length / 3));
         const lastThird = sortedRecords.slice(-Math.ceil(sortedRecords.length / 3));
 
-        const firstAvg1RM = this.average(firstThird.map(r => r.estimated_one_rm || 0));
-        const lastAvg1RM = this.average(lastThird.map(r => r.estimated_one_rm || 0));
+        const firstAvg1RM = this.average(firstThird.map(r => r.one_rep_max_kg || r.estimated_one_rm || 0));
+        const lastAvg1RM = this.average(lastThird.map(r => r.one_rep_max_kg || r.estimated_one_rm || 0));
 
         const improvement = lastAvg1RM - firstAvg1RM;
         const improvementPercent = firstAvg1RM > 0 ? (improvement / firstAvg1RM) * 100 : 0;
@@ -535,3 +783,5 @@ class ProgressionAnalysisService {
 }
 
 module.exports = new ProgressionAnalysisService();
+
+

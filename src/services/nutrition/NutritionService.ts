@@ -20,13 +20,13 @@ export type FoodSuggestion = {
 import { environment } from '../../config/environment';
 import { GeminiService } from '../ai/GeminiService';
 
-// Base URLs for fallback system (Local first, then Railway, then environment)
+// Base URLs for fallback system (Railway first for stability)
 const getBaseUrls = () => {
   return [
-    'http://192.168.0.176:4000', // Local network IP first (fastest for development)
-    'http://localhost:4000', // Localhost fallback
-    'https://gofitai-production.up.railway.app', // Railway server (production fallback)
+    'https://gofitai-production.up.railway.app', // Railway server (PRIMARY)
     environment.apiUrl, // Configured URL from environment
+    'http://192.168.0.176:4000', // Local network IP (for development)
+    'http://localhost:4000', // Localhost fallback
   ].filter(Boolean) as string[];
 };
 

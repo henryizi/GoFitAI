@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Line as SvgLine, Text as SvgText, Circle as SvgCircle } from 'react-native-svg';
 import { colors as themeColors } from '../../styles/colors';
+import { kgToLbs } from '../../utils/unitConversions';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -38,13 +39,14 @@ type DailyMetric = {
 
 type Props = {
   data: DailyMetric[];
+  unit?: 'kg' | 'lbs';
   showAllValueLabels?: boolean;
   chartWidth?: number;
   showHeaderAndStats?: boolean; // New prop to control header/stats display
   chartOnly?: boolean; // New prop for chart-only mode
 };
 
-const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chartWidth, showHeaderAndStats = true, chartOnly = false }: Props) => {
+const WeightProgressChart = React.memo(({ data, unit = 'kg', showAllValueLabels = true, chartWidth, showHeaderAndStats = true, chartOnly = false }: Props) => {
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
@@ -99,7 +101,10 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
       };
     }
 
-    const weights = processedData.map(d => d.weight_kg!);
+    const weights = processedData.map(d => {
+      const weightInKg = d.weight_kg!;
+      return unit === 'lbs' ? kgToLbs(weightInKg) : weightInKg;
+    });
     const firstWeight = weights[0];
     const lastWeight = weights[weights.length - 1];
     const weightChange = lastWeight - firstWeight;
@@ -118,7 +123,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
       firstWeight,
       lastWeight,
     };
-  }, [processedData]);
+  }, [processedData, unit]);
 
   // Get chart dimensions
   const chartDimensions = useMemo(() => getChartDimensions(chartWidth), [chartWidth]);
@@ -141,7 +146,10 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
     });
 
     // Real data dataset
-    const baseData = processedData.map(d => d.weight_kg!);
+    const baseData = processedData.map(d => {
+      const weightInKg = d.weight_kg!;
+      return unit === 'lbs' ? kgToLbs(weightInKg) : weightInKg;
+    });
 
     return {
       labels: labels,
@@ -153,7 +161,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
         },
       ],
     };
-  }, [processedData]);
+  }, [processedData, unit]);
 
   // Chart configuration matching the reference
   const chartConfig = useMemo(() => {
@@ -371,7 +379,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
                 <Text style={styles.chartTitle}>Weight Trend</Text>
               </View>
               <Text style={styles.chartSubtitle}>
-                {stats.totalDays} days tracked • Avg: {stats.avgWeight.toFixed(1)}kg
+                {stats.totalDays} days tracked • Avg: {stats.avgWeight.toFixed(1)}{unit}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -385,7 +393,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
                   styles.weightChangeText,
                   { color: stats.weightChange >= 0 ? colors.error : colors.success }
                 ]}>
-                  {Math.abs(stats.weightChange).toFixed(1)} kg
+                  {Math.abs(stats.weightChange).toFixed(1)} {unit}
                 </Text>
               </View>
               <Text style={styles.weightChangePercent}>
@@ -532,7 +540,8 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
                 const totalPoints = processedData.length;
                 const isFirst = index === 0;
                 const isLast = index === totalPoints - 1;
-                const value = processedData[index]?.weight_kg ?? 0;
+                const weightInKg = processedData[index]?.weight_kg ?? 0;
+                const value = unit === 'lbs' ? kgToLbs(weightInKg) : weightInKg;
                 const dateRaw = processedData[index]?.metric_date;
                 const dt = dateRaw ? new Date(dateRaw) : null;
                 const mm = dt ? String(dt.getMonth() + 1).padStart(2, '0') : '';
@@ -586,7 +595,7 @@ const WeightProgressChart = React.memo(({ data, showAllValueLabels = true, chart
                         }}
                       >
                         <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
-                          {`${mm}.${dd}`}  {value.toFixed(1)}kg
+                          {`${mm}.${dd}`}  {value.toFixed(1)}{unit}
                         </Text>
                         <View
                           style={{
@@ -937,4 +946,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WeightProgressChart; 
+export default WeightProgressChart;

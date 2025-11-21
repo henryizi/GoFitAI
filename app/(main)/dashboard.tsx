@@ -194,12 +194,12 @@ export default function Dashboard() {
         return;
       }
 
-      // Get daily targets
+      // Get daily targets - handle both naming conventions
       const targets = plan.daily_targets || {
         calories: 2000,
-        protein_grams: 150,
-        carbs_grams: 200,
-        fat_grams: 65
+        protein: 150,
+        carbs: 200,
+        fat: 65
       };
 
       // Get today's food logs from AsyncStorage
@@ -218,10 +218,10 @@ export default function Dashboard() {
       }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
       setNutritionProgress({
-        calories: { current: Math.round(current.calories), target: Math.round(targets.calories) },
-        protein: { current: Math.round(current.protein), target: Math.round(targets.protein_grams) },
-        carbs: { current: Math.round(current.carbs), target: Math.round(targets.carbs_grams) },
-        fat: { current: Math.round(current.fat), target: Math.round(targets.fat_grams) }
+        calories: { current: Math.round(current.calories), target: Math.round(targets.calories || 2000) },
+        protein: { current: Math.round(current.protein), target: Math.round(targets.protein || targets.protein_grams || 150) },
+        carbs: { current: Math.round(current.carbs), target: Math.round(targets.carbs || targets.carbs_grams || 200) },
+        fat: { current: Math.round(current.fat), target: Math.round(targets.fat || targets.fat_grams || 65) }
       });
     } catch (error) {
       console.error('Error fetching nutrition progress:', error);
@@ -647,7 +647,7 @@ export default function Dashboard() {
                       <Icon name="chevron-right" size={20} color={colors.textSecondary} />
                     </View>
                     <View style={styles.activityStats}>
-                      {activity.duration_minutes && (
+                      {activity.duration_minutes != null && activity.duration_minutes > 0 && (
                         <View style={styles.activityStat}>
                           <Icon name="clock-outline" size={14} color={colors.textSecondary} />
                           <Text style={styles.activityStatText}>
@@ -655,7 +655,7 @@ export default function Dashboard() {
                           </Text>
                         </View>
                       )}
-                      {activity.total_exercises && (
+                      {activity.total_exercises != null && activity.total_exercises > 0 && (
                         <View style={styles.activityStat}>
                           <Icon name="weight-lifter" size={14} color={colors.textSecondary} />
                           <Text style={styles.activityStatText}>
@@ -663,7 +663,7 @@ export default function Dashboard() {
                           </Text>
                         </View>
                       )}
-                      {activity.total_sets && (
+                      {activity.total_sets != null && activity.total_sets > 0 && (
                         <View style={styles.activityStat}>
                           <Icon name="format-list-numbered" size={14} color={colors.textSecondary} />
                           <Text style={styles.activityStatText}>

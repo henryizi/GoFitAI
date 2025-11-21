@@ -1,3 +1,7 @@
-// Re-export the plans component as the index route
-export { default } from './plans';
+// Import and render the plans component as the index route
+import WorkoutPlansScreen from './plans';
+
+export default function WorkoutIndex() {
+  return <WorkoutPlansScreen />;
+}
 

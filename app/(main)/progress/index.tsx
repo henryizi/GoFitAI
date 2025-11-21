@@ -14,6 +14,7 @@ import TodayCard from '../../../src/components/progress/TodayCard';
 import BeforeAfterComparison from '../../../src/components/progress/BeforeAfterComparison';
 import { BlurView } from 'expo-blur';
 import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
+import { kgToLbs } from '../../../src/utils/unitConversions';
 
 // Modern, premium colors with enhanced palette
 const colors = {
@@ -101,12 +102,11 @@ const TABS = ['Dashboard', 'History', 'Photos'];
 const { width, height } = Dimensions.get('window');
 
 export default function ProgressScreen() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const params = useLocalSearchParams<{ saved?: string }>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(0);
   const [entries, setEntries] = useState<DailyMetric[]>([]);
-  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentDate] = useState(new Date());
@@ -137,8 +137,6 @@ export default function ProgressScreen() {
       const sortedMetrics = metricsData.sort((a, b) => parseDateOnly(a.metric_date).getTime() - parseDateOnly(b.metric_date).getTime());
       setEntries(sortedMetrics);
       
-      const photosData = await ProgressService.getProgressPhotos(user.id);
-      setPhotos(photosData || []);
     } catch (error) {
       console.error('Failed to fetch progress data:', error);
       Alert.alert('Error', 'Failed to load progress data.');
@@ -235,7 +233,7 @@ export default function ProgressScreen() {
       case 1:
         return <HistoryTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
       case 2:
-        return <PhotosTab photos={photos} onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
+        return <PhotosTab onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
       default:
         return null;
     }
@@ -460,7 +458,7 @@ export default function ProgressScreen() {
 }
 
 const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const latestEntry = entries.length > 0 ? entries[entries.length - 1] : null;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -550,6 +548,13 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
 
   // Habit score removed per request
 
+  const unit = profile?.weight_unit_preference || 'kg';
+  const latestWeight = latestEntry?.weight_kg;
+  const displayWeight =
+    unit === 'lbs' && typeof latestWeight === 'number'
+      ? kgToLbs(latestWeight)
+      : latestWeight;
+
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -620,9 +625,9 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStat}>
                 <Text style={styles.heroStatNumber}>
-                  {latestEntry?.weight_kg ? latestEntry.weight_kg.toFixed(1) : '--'}
+                  {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'}
                 </Text>
-                <Text style={styles.heroStatLabel}>KG</Text>
+                <Text style={styles.heroStatLabel}>{unit.toUpperCase()}</Text>
               </View>
             </View>
           </View>
@@ -640,7 +645,7 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
       </View>
 
       {/* Weight Progress Chart */}
-      <WeightProgressChart data={entries} />
+      <WeightProgressChart data={entries} unit={unit} />
       
       {/* Motivation */}
       {motivation?.message && (
@@ -660,6 +665,8 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
 
 
 const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
+  const { profile } = useAuth();
+  const unit = profile?.weight_unit_preference || 'kg';
   const sortedEntries = useMemo(() => 
     [...entries].sort((a, b) => parseDateOnly(b.metric_date).getTime() - parseDateOnly(a.metric_date).getTime()),
     [entries]
@@ -708,7 +715,7 @@ const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
       data={sortedEntries}
       keyExtractor={(item) => item.id.toString()}
       contentContainerStyle={styles.historyList}
-      renderItem={({ item, index }) => <EnhancedHistoryItem item={item} index={index} />}
+      renderItem={({ item, index }) => <EnhancedHistoryItem item={item} index={index} unit={unit} />}
       onScroll={Animated.event(
         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
         { useNativeDriver: false }
@@ -728,8 +735,14 @@ const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
   );
 };
 
-const EnhancedHistoryItem = ({ item, index }) => (
-  <View style={[styles.historyItem, { marginTop: index === 0 ? 24 : 0 }]}>
+const EnhancedHistoryItem = ({ item, index, unit }) => {
+  const displayWeight =
+    unit === 'lbs' && typeof item.weight_kg === 'number'
+      ? kgToLbs(item.weight_kg)
+      : item.weight_kg;
+
+  return (
+    <View style={[styles.historyItem, { marginTop: index === 0 ? 0 : 0 }]}>
     <LinearGradient
       colors={[colors.glassStrong, colors.glass]}
       style={styles.historyItemGradient}
@@ -748,9 +761,9 @@ const EnhancedHistoryItem = ({ item, index }) => (
         <View style={styles.historyMetricItemSingle}>
           <View style={styles.weightDisplayContainer}>
             <Text style={styles.historyMetricValueLarge}>
-              {item.weight_kg ? `${item.weight_kg}` : 'N/A'}
+              {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : 'N/A'}
             </Text>
-            <Text style={styles.historyMetricUnitLarge}>kg</Text>
+            <Text style={styles.historyMetricUnitLarge}>{unit}</Text>
           </View>
           <Text style={styles.historyMetricLabelSingle}>BODY WEIGHT</Text>
           {typeof item.body_fat_percentage === 'number' && (
@@ -774,11 +787,15 @@ const EnhancedHistoryItem = ({ item, index }) => (
       )}
     </LinearGradient>
   </View>
-);
+  );
+};
 
-const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
+const PhotosTab = ({ onRefresh, refreshing, scrollY }) => {
   const [viewMode, setViewMode] = useState('comparison'); // 'comparison' or 'grid'
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const unit = profile?.weight_unit_preference || 'kg';
+  // TODO: Fetch photos from within this component
+  const photos = [];
 
   const renderViewModeToggle = () => (
     <View style={styles.viewModeToggle}>
@@ -965,72 +982,80 @@ const PhotosTab = ({ photos, onRefresh, refreshing, scrollY }) => {
       </View>
       
       <View style={styles.photosContainer}>
-        {photos.map((entry, index) => (
-          <View key={entry.id} style={styles.photoEntryCard}>
-            <LinearGradient
-              colors={[colors.glassStrong, colors.glass]}
-              style={styles.photoEntryGradient}
-            >
-              <View style={styles.photoEntryHeader}>
-                <Text style={styles.photoEntryDate}>
-                  {new Date(entry.date).toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </Text>
-                {entry.weight_kg && (
-                  <View style={styles.weightBadge}>
-                    <Text style={styles.weightText}>{entry.weight_kg.toFixed(1)} kg</Text>
-                  </View>
-                )}
-              </View>
-              
-              <View style={styles.photosGrid}>
-                {entry.front_photo && (
-                  <View style={styles.photoContainer}>
-                    <Image 
-                      source={{ uri: entry.front_photo.storage_path }}
-                      style={styles.photoImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.photoLabel}>
-                      <Text style={styles.photoLabelText}>Front</Text>
-                    </View>
-                  </View>
-                )}
-                
-                {entry.back_photo && (
-                  <View style={styles.photoContainer}>
-                    <Image 
-                      source={{ uri: entry.back_photo.storage_path }}
-                      style={styles.photoImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.photoLabel}>
-                      <Text style={styles.photoLabelText}>Back</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-              
-              <TouchableOpacity
-                onPress={() => router.push({ 
-                  pathname: '/(main)/progress/photo-upload',
-                  params: { date: entry.date }
-                })}
-                style={styles.editButton}
+        {photos.map((entry, index) => {
+          const displayWeight =
+            unit === 'lbs' && typeof entry.weight_kg === 'number'
+              ? kgToLbs(entry.weight_kg)
+              : entry.weight_kg;
+
+          return (
+            <View key={entry.id} style={styles.photoEntryCard}>
+              <LinearGradient
+                colors={[colors.glassStrong, colors.glass]}
+                style={styles.photoEntryGradient}
               >
-                <Icon name="pencil" size={16} color={colors.primary} />
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        ))}
+                <View style={styles.photoEntryHeader}>
+                  <Text style={styles.photoEntryDate}>
+                    {new Date(entry.date).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                  {entry.weight_kg && (
+                    <View style={styles.weightBadge}>
+                      <Text style={styles.weightText}>{typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'} {unit}</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={styles.photosGrid}>
+                  {entry.front_photo && (
+                    <View style={styles.photoContainer}>
+                      <Image 
+                        source={{ uri: entry.front_photo.storage_path }}
+                        style={styles.photoImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.photoLabel}>
+                        <Text style={styles.photoLabelText}>Front</Text>
+                      </View>
+                    </View>
+                  )}
+                  
+                  {entry.back_photo && (
+                    <View style={styles.photoContainer}>
+                      <Image 
+                        source={{ uri: entry.back_photo.storage_path }}
+                        style={styles.photoImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.photoLabel}>
+                        <Text style={styles.photoLabelText}>Back</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                
+                <TouchableOpacity
+                  onPress={() => router.push({ 
+                    pathname: '/(main)/progress/photo-upload',
+                    params: { date: entry.date }
+                  })}
+                  style={styles.editButton}
+                >
+                  <Icon name="pencil" size={16} color={colors.primary} />
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          );
+        })}
       </View>
     </ScrollView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1862,4 +1887,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-}); 
+});

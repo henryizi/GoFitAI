@@ -1475,8 +1475,8 @@ export default function PlanDetailScreen() {
                     <TouchableOpacity
                       style={[styles.startButtonContainer, { marginTop: 8 }]}
                       onPress={() => router.push({
-                        pathname: `/(main)/workout/session/${session.id}`,
-                        params: { sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
+                        pathname: `/(main)/workout/session/[sessionId]`,
+                        params: { sessionId: session.id, sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
                       })}
                       activeOpacity={0.8}
                     >
@@ -1907,8 +1907,8 @@ export default function PlanDetailScreen() {
                         <TouchableOpacity
                           style={styles.startButtonContainer}
                         onPress={() => router.push({
-                          pathname: `/(main)/workout/session/${session.id}`,
-                          params: { sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
+                          pathname: `/(main)/workout/session/[sessionId]`,
+                          params: { sessionId: session.id, sessionTitle: session.focus, fallbackExercises: JSON.stringify(session.exercises || []) }
                         })}
                           activeOpacity={0.8}
                         >

@@ -63,7 +63,7 @@ export class PlateauDetectionService {
     try {
       console.log('[PlateauDetection] Scanning for plateaus...');
 
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       if (!settings) {
         console.log('[PlateauDetection] No settings found');
         return [];
@@ -346,7 +346,7 @@ export class PlateauDetectionService {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 7);
 
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       
       const deload: Partial<DeloadSchedule> = {
         userId,
@@ -473,7 +473,7 @@ export class PlateauDetectionService {
     planId: string
   ): Promise<void> {
     try {
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       if (!settings || !settings.autoDeloadEnabled) {
         return;
       }
@@ -715,7 +715,7 @@ export class PlateauDetectionService {
     try {
       console.log('[PlateauDetection] Scanning for plateaus...');
 
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       if (!settings) {
         console.log('[PlateauDetection] No settings found');
         return [];
@@ -998,7 +998,7 @@ export class PlateauDetectionService {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 7);
 
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       
       const deload: Partial<DeloadSchedule> = {
         userId,
@@ -1125,7 +1125,7 @@ export class PlateauDetectionService {
     planId: string
   ): Promise<void> {
     try {
-      const settings = await AdaptiveProgressionService.getProgressionSettings(userId, planId);
+      const settings = await AdaptiveProgressionService.getProgressionSettings(userId);
       if (!settings || !settings.autoDeloadEnabled) {
         return;
       }
@@ -1300,4 +1300,5 @@ export class PlateauDetectionService {
     };
   }
 }
+
 

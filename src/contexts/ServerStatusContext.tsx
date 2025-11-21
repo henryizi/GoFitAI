@@ -27,13 +27,14 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
     setIsChecking(true);
     
     try {
-      // Prefer env URL first (developer-controlled), then production Railway
+      // Prefer Railway production first for stability
       const DEFAULT_TIMEOUT_MS = 12000;
       const MAX_ATTEMPTS_PER_URL = 2;
+      const railwayUrl = 'https://gofitai-production.up.railway.app';
       const envUrl = environment.apiUrl;
       const serverUrls = [
-        envUrl,
-        'https://gofitai-production.up.railway.app'
+        railwayUrl,  // Railway production first
+        envUrl       // Environment URL as fallback
       ].filter(Boolean);
       
       console.log(`[SERVER STATUS] Environment variable EXPO_PUBLIC_API_URL: ${environment.apiUrl}`);

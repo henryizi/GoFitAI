@@ -32,6 +32,8 @@ console.log('Port:', PORT);
 console.log('Gemini API Key:', GEMINI_API_KEY ? '✅ Configured' : '❌ Missing');
 console.log('Supabase URL:', SUPABASE_URL ? '✅ Configured' : '❌ Missing');
 console.log('Supabase Key:', SUPABASE_KEY ? '✅ Configured' : '❌ Missing');
+console.log('SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing');
+console.log('EXPO_PUBLIC_SUPABASE_ANON_KEY:', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
 
 // Initialize Supabase client (guard missing envs)
 let supabase = null;

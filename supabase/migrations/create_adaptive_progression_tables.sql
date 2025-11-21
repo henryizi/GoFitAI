@@ -973,3 +973,4 @@ COMMENT ON TABLE public.plateau_detections IS 'Tracks detected plateaus and thei
 COMMENT ON TABLE public.recovery_metrics IS 'Recovery indicators and readiness tracking';
 
 
+

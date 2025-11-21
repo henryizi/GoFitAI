@@ -281,7 +281,7 @@ export default function LogFoodScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [1, 1],
       quality: 1,
     });
     if (!result.canceled) {
@@ -865,12 +865,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imagePreview: {
-    width: width - 32,
-    height: (width - 32) * 0.6,
+    width: '100%',
+    aspectRatio: 1,
     borderRadius: 16,
     marginBottom: 20,
-    resizeMode: 'cover',
-    borderWidth: 2,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   closeIcon: {

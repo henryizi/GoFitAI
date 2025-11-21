@@ -12,6 +12,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="notifications" />
       <Stack.Screen name="privacy-security" />
       <Stack.Screen name="fitness-goals" />
+      <Stack.Screen name="progression-settings" options={{ headerShown: true }} />
       <Stack.Screen name="app" />
     </Stack>
   );

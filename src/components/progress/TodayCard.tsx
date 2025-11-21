@@ -3,6 +3,8 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useAuth } from '../../hooks/useAuth';
+import { kgToLbs } from '../../utils/unitConversions';
 
 const colors = {
   primary: '#FF6B35',
@@ -21,6 +23,14 @@ export type TodayCardProps = {
 };
 
 export default function TodayCard({ weightToday, streakDays, onLogProgress }: TodayCardProps) {
+  const { profile } = useAuth();
+  const unit = profile?.weight_unit_preference || 'kg';
+
+  const displayWeight =
+    unit === 'lbs' && typeof weightToday === 'number'
+      ? kgToLbs(weightToday)
+      : weightToday;
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={[colors.glassStrong, colors.glass]} style={styles.gradient}>
@@ -42,8 +52,8 @@ export default function TodayCard({ weightToday, streakDays, onLogProgress }: To
             <Text style={styles.statLabel}>WEIGHT</Text>
             <View style={styles.statValueRow}>
               <Icon name="scale-bathroom" size={18} color={colors.primary} />
-              <Text style={styles.statValue}>{typeof weightToday === 'number' ? weightToday.toFixed(1) : '--'}</Text>
-              <Text style={styles.statUnit}>kg</Text>
+              <Text style={styles.statValue}>{typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'}</Text>
+              <Text style={styles.statUnit}>{unit}</Text>
             </View>
           </View>
         </View>
@@ -232,4 +242,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 8,
   },
-}); 
+});

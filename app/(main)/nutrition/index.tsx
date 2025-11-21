@@ -496,7 +496,7 @@ const PlansScreen = () => {
       {/* App header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerLine} />
-        <Text style={styles.appName}>NUTRITION<Text style={{ color: colors.primary }}>HUB</Text></Text>
+        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
         <View style={styles.headerLine} />
       </View>
 
@@ -652,8 +652,8 @@ const PlansScreen = () => {
                         </View>
                       </View>
                       
-                      {/* Metabolic Calculation Breakdown - Only show for mathematical calculations */}
-                      {activePlan?.metabolic_calculations && activePlan.metabolic_calculations.calculation_method !== 'Manual Input' && (
+                      {/* Metabolic Calculation Breakdown - Only show for mathematical calculations, not AI plans */}
+                      {activePlan?.metabolic_calculations && activePlan.metabolic_calculations.calculation_method !== 'Manual Input' && activePlan.plan_type !== 'ai_generated' && (
                         <View style={styles.calculationBreakdownContainer}>
                           <View style={styles.calculationBreakdownHeader}>
                             <Text style={styles.calculationBreakdownTitle}>📊 HOW YOUR TARGETS WERE CALCULATED</Text>
@@ -898,9 +898,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   appName: {
-    ...typography.h5,
-    fontWeight: '700',
     color: colors.white,
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 2,
     marginHorizontal: 12,
   },

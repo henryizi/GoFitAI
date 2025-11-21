@@ -68,38 +68,40 @@ export default function FoodCameraScreen() {
 
   return (
     <View style={styles.container}>
-      {!captured ? (
-        <CameraView
-          ref={(r) => { cameraRef.current = r; }}
-          style={styles.camera}
-          facing={type}
-          enableTorch={flash === 'on'}
-        >
-          <View style={styles.overlay} />
-          {!capturing && (
-            <>
-              <View style={styles.frameContainer}>
-                <View style={styles.frame} />
-                <Text style={styles.scanText}>Scan food</Text>
-              </View>
-              <LinearGradient colors={[colors.overlay, 'transparent']} style={[styles.gradientTop, { paddingTop: insets.top + 12 }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}> 
-                  <Icon name="arrow-left" size={22} color={colors.text} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setFlash(flash === 'on' ? 'off' : 'on')} style={styles.iconBtn}>
-                  <Icon name={flash === 'on' ? 'flash' : 'flash-off'} size={22} color={colors.text} />
-                </TouchableOpacity>
-              </LinearGradient>
-              <View style={[styles.bottomControls, { bottom: insets.bottom + 24 }]}>
-                <TouchableOpacity onPress={onCapture} activeOpacity={0.9} style={styles.shutterOuter}>
-                  <View style={styles.shutterInner} />
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-          {flashOverlay && <View style={styles.flash} />}
-        </CameraView>
-      ) : (
+      <CameraView
+        ref={(r) => { cameraRef.current = r; }}
+        style={styles.camera}
+        facing={type}
+        enableTorch={flash === 'on'}
+      />
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+        <View style={styles.overlay} />
+        {!capturing && !captured && (
+          <>
+            <View style={styles.frameContainer}>
+              <View style={styles.frame} />
+              <Text style={styles.scanText}>Scan food</Text>
+            </View>
+            <LinearGradient colors={[colors.overlay, 'transparent']} style={[styles.gradientTop, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} pointerEvents="auto">
+                <Icon name="arrow-left" size={22} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFlash(flash === 'on' ? 'off' : 'on')} style={styles.iconBtn} pointerEvents="auto">
+                <Icon name={flash === 'on' ? 'flash' : 'flash-off'} size={22} color={colors.text} />
+              </TouchableOpacity>
+            </LinearGradient>
+            <View style={[styles.bottomControls, { bottom: insets.bottom + 24 }]}>
+              <TouchableOpacity onPress={onCapture} activeOpacity={0.9} style={styles.shutterOuter} pointerEvents="auto">
+                <View style={styles.shutterInner} />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
+
+      {flashOverlay && <View style={styles.flash} />}
+
+      {captured && (
         <View style={styles.previewWrap}>
           <Image source={{ uri: captured }} style={styles.preview} />
           <LinearGradient colors={[colors.overlay, 'transparent']} style={[styles.gradientTop, { paddingTop: insets.top + 12 }]}>
@@ -124,17 +126,22 @@ export default function FoodCameraScreen() {
   );
 }
 
-// Change to use a smaller 9:16 aspect ratio frame
-const FRAME_WIDTH = width * 0.85; // Reduced from 0.95 to 0.85
-// For a portrait 9:16 ratio, height should be (16/9) times the width
-const FRAME_HEIGHT = FRAME_WIDTH * (16/9);
+// Make the frame a square to match the camera preview
+const FRAME_WIDTH = width;
+const FRAME_HEIGHT = FRAME_WIDTH; // Make it a square
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
   },
-  camera: { flex: 1 },
+  camera: {
+    position: 'absolute',
+    top: (height - width) / 2, // Center the square preview
+    left: 0,
+    width,
+    height: width, // Square camera view
+  },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   flash: { ...StyleSheet.absoluteFillObject, backgroundColor: '#fff', opacity: 0.8 },
   gradientTop: {
@@ -147,7 +154,7 @@ const styles = StyleSheet.create({
   },
   frameContainer: { 
     position: 'absolute', 
-    top: (height - FRAME_HEIGHT) / 2 - 20, 
+    top: (height - FRAME_HEIGHT) / 2, 
     left: (width - FRAME_WIDTH) / 2, 
     width: FRAME_WIDTH, 
     height: FRAME_HEIGHT, 
@@ -165,8 +172,15 @@ const styles = StyleSheet.create({
   scanText: { position: 'absolute', bottom: -28, color: colors.textSecondary, fontWeight: '600' },
   shutterOuter: { width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
   shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#fff' },
-  previewWrap: { flex: 1, backgroundColor: '#000' },
-  preview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  previewWrap: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
+  preview: {
+    position: 'absolute',
+    top: (height - width) / 2,
+    left: 0,
+    width: width,
+    height: width,
+    resizeMode: 'cover',
+  },
   previewActions: {
     position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24,
   },
@@ -174,4 +188,4 @@ const styles = StyleSheet.create({
   secondaryText: { color: colors.text, fontWeight: '700' },
   primaryBtn: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, backgroundColor: colors.primary },
   primaryText: { color: '#fff', fontWeight: '800', letterSpacing: 0.5 },
-}); 
+});

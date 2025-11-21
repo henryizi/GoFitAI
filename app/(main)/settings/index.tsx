@@ -207,6 +207,14 @@ export default function SettingsScreen() {
           icon: 'target',
           onPress: () => handleNavigation('/(main)/settings/fitness-goals'),
         },
+        {
+          title: 'Adaptive Progression',
+          subtitle: 'Configure smart workout progression',
+          icon: 'trending-up',
+          onPress: () => handleNavigation('/(main)/settings/progression-settings'),
+          badge: 'AI',
+          badgeColor: colors.primary,
+        },
       ])}
 
       {/* App Settings */}
@@ -429,4 +437,4 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     lineHeight: 20,
   },
-}); 
+});

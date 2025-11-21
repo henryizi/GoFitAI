@@ -8313,8 +8313,8 @@ Format your response as JSON:
           console.error('[PROGRESSION] Failed to parse AI response:', parseError);
         }
 
-        return res.json({
-          success: true,
+            return res.json({
+              success: true,
           analysis: {
             exerciseName,
             windowWeeks,
@@ -8377,10 +8377,10 @@ Format your response as JSON:
       },
     });
 
-  } catch (error) {
+        } catch (error) {
     console.error('[PROGRESSION] Error analyzing progression:', error);
     res.status(500).json({ 
-      success: false, 
+        success: false, 
       error: error.message || 'Failed to analyze progression' 
     });
   }
@@ -8431,7 +8431,7 @@ app.get('/api/exercise-alternatives/:exerciseId', async (req, res) => {
       alternatives,
     });
 
-  } catch (error) {
+          } catch (error) {
     console.error('[PROGRESSION] Error fetching alternatives:', error);
     res.status(500).json({ 
       success: false, 
@@ -8448,7 +8448,7 @@ app.post('/api/detect-plateaus', async (req, res) => {
 
   if (!userId) {
     return res.status(400).json({ 
-      success: false, 
+            success: false, 
       error: 'userId is required' 
     });
   }
@@ -8481,8 +8481,8 @@ app.post('/api/detect-plateaus', async (req, res) => {
     }
 
     if (!sessions || sessions.length === 0) {
-      return res.json({
-        success: true,
+        return res.json({
+          success: true,
         plateaus: [],
         message: 'No workout data available for plateau detection'
       });
@@ -8612,324 +8612,15 @@ try {
     layer?.path === '/api/progression'
   );
   console.log('[ROUTES] Route layer found:', !!progressionLayer);
-} catch (error) {
+  } catch (error) {
   console.error('[ROUTES] ✗ ERROR: Failed to load progression routes:', error);
   console.error('[ROUTES] Error message:', error.message);
   console.error('[ROUTES] Error stack:', error.stack);
   // Don't exit - let server start so we can debug other routes
 }
 
-// Start the server with error handling
-const server = app.listen(port, '0.0.0.0', () => {
-  const localIp = getLocalIpAddress();
-  console.log(`GoFitAI Server v2.0 running on port ${port}`);
-  console.log(`Local IP: ${localIp}`);
-  console.log(`Server URL: http://${localIp}:${port}`);
-  console.log(`Test API with: curl http://${localIp}:${port}/api/test`);
-});
-
-// Set server timeout to 5 minutes for AI generation requests
-// Railway default is 5 minutes, so we match that
-server.timeout = 600000; // 10 minutes in milliseconds - increased for Railway deployment
-server.keepAliveTimeout = 610000; // Keep-alive should be slightly longer
-server.headersTimeout = 620000; // Headers timeout should be longer than keep-alive
-
-console.log(`[SERVER] Timeout configuration:`);
-console.log(`  - Request timeout: ${server.timeout / 1000}s`);
-console.log(`  - Keep-alive timeout: ${server.keepAliveTimeout / 1000}s`);
-console.log(`  - Headers timeout: ${server.headersTimeout / 1000}s`);
-
-// Handle server errors
-server.on('error', (error) => {
-  console.error('[SERVER] Server error:', error);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`[SERVER] Port ${port} is already in use`);
-    process.exit(1);
-  }
-});
-// Generate recipe endpoint
-app.post('/api/generate-recipe', async (req, res) => {
-  console.log(`[${new Date().toISOString()}] Received recipe generation request`);
-  
-  try {
-    // Extract request body first
-    const { mealType, targets, ingredients, strict } = req.body;
-
-    // Check rate limits first
-    if (!rateLimiter.isAllowed(req)) {
-      const rateLimitError = rateLimiter.createErrorResponse(req);
-      return res.status(429).json(rateLimitError);
-    }
-
-    // Check quota availability
-    const quotaStatus = quotaMonitor.getQuotaStatus();
-    const quotaWarning = quotaMonitor.getQuotaWarning();
-
-    // Check cache first for recipes
-    const cacheKey = responseCache.getRecipeCacheKey(mealType, targets, ingredients, strict);
-    let cachedRecipe = responseCache.get('recipe', cacheKey);
-
-    if (cachedRecipe) {
-      console.log('[RECIPE] ✅ Using cached recipe');
-      // Add rate limit headers
-      const rateLimitHeaders = rateLimiter.getHeaders(req);
-      Object.keys(rateLimitHeaders).forEach(header => {
-        res.setHeader(header, rateLimitHeaders[header]);
-      });
-
-      return res.json({
-        success: true,
-        recipe: attachPerIngredientMacros(cachedRecipe),
-        fallback: false,
-        quota: quotaStatus,
-        warning: quotaWarning,
-        cached: true
-      });
-    }
-    
-    // Check for meal plan recipe request (new behavior)
-    if (req.body.meal_plan_request === true) {
-      console.log(`[${new Date().toISOString()}] Received meal plan recipe request`);
-      console.log(`[MEAL PLAN RECIPE] Generating meal for ${mealType} with targets:`, targets);
-      console.log(`[MEAL PLAN RECIPE] Ingredients provided: ${ingredients ? ingredients.length : 0}`);
-      console.log(`[MEAL PLAN RECIPE] Using strategy: ${req.body.strategy || 'unknown'}, preferences: ${req.body.preferences || ''}`);
-      
-      // Generate template meal for meal plan
-      const schedule = generateMealTemplates(targets, req.body.strategy || 'balanced', req.body.preferences || []);
-      const mealTemplate = schedule.find(meal => meal.time_slot.toLowerCase() === mealType.toLowerCase())?.meal || 
-                          schedule[0]?.meal || 'Balanced meal';
-      console.log(`[MEAL PLAN RECIPE] Generated meal plan recipe: ${mealTemplate}`);
-      
-      return res.json({
-        success: true,
-        recipe: {
-          recipe_name: mealTemplate,
-          meal_type: mealType.toLowerCase(),
-          prep_time: 15,
-          cook_time: 20,
-          servings: 1,
-          ingredients: [],
-          instructions: [],
-          nutrition: targets || { calories: 400, protein: 25, carbs: 40, fat: 15 }
-        }
-      });
-    }
-    
-    // Validate inputs for regular recipe generation
-    if (!mealType || !targets || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid request. Required: mealType, targets, and ingredients array.' 
-      });
-    }
-
-    console.log(`[RECIPE GENERATION] Generating recipe for ${mealType} with ${ingredients.length} ingredients`);
-    console.log(`[RECIPE GENERATION] Ingredients: ${ingredients.join(', ')}`);
-    console.log(`[RECIPE GENERATION] Strict mode: ${strict ? 'enabled' : 'disabled'}`);
-    
-    // Get available AI providers in priority order
-    const availableProviders = [];
-    if (geminiTextService) availableProviders.push('gemini');
-    
-    console.log(`[RECIPE GENERATION] Available AI providers: [${availableProviders.join(', ')}]`);
-    
-    // Define AI_STRICT_EFFECTIVE locally to ensure availability
-    const AI_STRICT_EFFECTIVE = process.env.AI_STRICT_MODE === 'true';
-    
-    try {
-      // Try to generate recipe using AI services
-      console.log(`[RECIPE GENERATION] Trying ${AI_PROVIDER} for recipe generation`);
-      
-      let recipe = null;
-      let aiError = null;
-      
-      
-      if (AI_PROVIDER === 'gemini' && geminiTextService) {
-        try {
-          // Add timeout for recipe generation (should be longer than Gemini's internal timeout)
-          const RECIPE_TIMEOUT = 80000; // 80 seconds for recipe generation (allows for 60s + retry overhead)
-          const recipePromise = geminiTextService.generateRecipe(mealType, targets, ingredients);
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Recipe generation timeout')), RECIPE_TIMEOUT);
-          });
-          
-          recipe = await Promise.race([recipePromise, timeoutPromise]);
-          if (recipe) {
-            console.log(`[GEMINI] ✅ Recipe generated successfully: ${recipe.recipe_name || recipe.name}`);
-            console.log(`[RECIPE GENERATION] ✅ Recipe generated successfully using gemini`);
-
-            // Record successful AI usage
-            quotaMonitor.recordUsage();
-
-            // Cache successful AI response
-            responseCache.set('recipe', cacheKey, recipe, 60 * 60 * 1000); // 1 hour
-
-            // Add rate limit headers
-            const rateLimitHeaders = rateLimiter.getHeaders(req);
-            Object.keys(rateLimitHeaders).forEach(header => {
-              res.setHeader(header, rateLimitHeaders[header]);
-            });
-
-            return res.json({
-              success: true,
-              recipe: attachPerIngredientMacros(recipe),
-              fallback: false,
-              quota: quotaStatus,
-              warning: quotaWarning,
-              cached: false
-            });
-          }
-        } catch (error) {
-          aiError = error;
-          console.log(`[GEMINI] ❌ Failed: ${error.message}`);
-        }
-      }
-      
-      // If primary AI failed, try fallback services
-      if (!recipe && availableProviders.length > 1) {
-        for (const provider of availableProviders) {
-          if (provider === AI_PROVIDER) continue; // Skip the one we already tried
-          
-          try {
-            console.log(`[RECIPE GENERATION] Trying fallback provider: ${provider}`);
-            
-            if (provider === 'gemini' && geminiTextService) {
-              recipe = await geminiTextService.generateRecipe(mealType, targets, ingredients);
-            }
-            
-            if (recipe) {
-              console.log(`[${provider.toUpperCase()}] ✅ Recipe generated successfully (fallback): ${recipe.recipe_name || recipe.name}`);
-              return res.json({ success: true, recipe: attachPerIngredientMacros(recipe), fallback: false });
-            }
-          } catch (error) {
-            console.log(`[${provider.toUpperCase()}] ❌ Fallback failed: ${error.message}`);
-          }
-        }
-      }
-      
-      // If all AI services failed, use rule-based fallback
-      if (!recipe) {
-        console.log(`[RECIPE GENERATION] All AI services failed, using rule-based fallback`);
-        
-        if (AI_STRICT_EFFECTIVE) {
-          return res.status(502).json({ 
-            success: false, 
-            error: 'AI recipe generation failed and strict mode is enabled' 
-          });
-        }
-        
-        const highQualityRecipe = generateHighQualityRecipe(mealType, ingredients, targets);
-        console.log(`[RECIPE GENERATION] ✅ Rule-based recipe generated: ${highQualityRecipe.name}`);
-        // Cache fallback recipe too (with longer timeout)
-        responseCache.set('recipe', cacheKey, highQualityRecipe, 24 * 60 * 60 * 1000); // 24 hours
-
-        // Add rate limit headers
-        const rateLimitHeaders = rateLimiter.getHeaders(req);
-        Object.keys(rateLimitHeaders).forEach(header => {
-          res.setHeader(header, rateLimitHeaders[header]);
-        });
-
-        return res.json({
-          success: true,
-          recipe: attachPerIngredientMacros(highQualityRecipe),
-          fallback: true,
-          quota: quotaStatus,
-          warning: quotaWarning,
-          cached: false
-        });
-      }
-      
-    } catch (error) {
-      console.error(`[RECIPE GENERATION] Recipe generation error:`, error);
-      
-      if (AI_STRICT_EFFECTIVE) {
-        return res.status(502).json({ 
-          success: false, 
-          error: 'Recipe generation failed and strict mode is enabled' 
-        });
-      }
-      
-      // Final fallback - generate a simple recipe
-      try {
-        const simpleRecipe = generateSimpleRecipe(mealType, ingredients, targets);
-        console.log(`[RECIPE GENERATION] ✅ Simple recipe generated: ${simpleRecipe.recipe_name || simpleRecipe.name}`);
-        // Cache final fallback recipe
-        responseCache.set('recipe', cacheKey, simpleRecipe, 24 * 60 * 60 * 1000); // 24 hours
-
-        // Add rate limit headers
-        const rateLimitHeaders = rateLimiter.getHeaders(req);
-        Object.keys(rateLimitHeaders).forEach(header => {
-          res.setHeader(header, rateLimitHeaders[header]);
-        });
-
-        return res.json({
-          success: true,
-          recipe: attachPerIngredientMacros(simpleRecipe),
-          fallback: true,
-          quota: quotaStatus,
-          warning: quotaWarning,
-          cached: false
-        });
-      } catch (fallbackError) {
-        console.error(`[RECIPE GENERATION] Even fallback recipe generation failed:`, fallbackError);
-        return res.status(500).json({ 
-          success: false, 
-          error: 'Recipe generation failed completely.' 
-        });
-      }
-    }
-  } catch (error) {
-    console.error(`[RECIPE GENERATION] Recipe generation error:`, error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Recipe generation failed' 
-    });
-  }
-});
-
-// Simple fallback recipe endpoint (no AI required)
-app.get('/api/simple-recipe', (req, res) => {
-  console.log(`[${new Date().toISOString()}] Simple recipe request received`);
-  try {
-    const mealType = (req.query.mealType || 'Meal').toString();
-    const ingredientsParam = (req.query.ingredients || '').toString();
-    const ingredients = ingredientsParam.split(',').map((i) => i.trim()).filter(Boolean);
-    const targets = {
-      calories: parseInt(req.query.calories, 10) || 500,
-      protein: parseInt(req.query.protein, 10) || 30,
-      carbs: parseInt(req.query.carbs, 10) || 50,
-      fat: parseInt(req.query.fat, 10) || 15,
-    };
-    console.log(`[${new Date().toISOString()}] Generating simple recipe for ${mealType} with ingredients: ${ingredients.join(', ')}`);
-    
-    // Use a more sophisticated recipe generator for the fallback
-    const recipe = generateSimpleRecipe(mealType, ingredients, targets);
-    console.log(`[${new Date().toISOString()}] Simple recipe generated successfully`);
-        // Cache the recipe response
-        responseCache.set('recipe', cacheKey, recipe, 24 * 60 * 60 * 1000); // 24 hours
-
-        // Add rate limit headers
-        const rateLimitHeaders = rateLimiter.getHeaders(req);
-        Object.keys(rateLimitHeaders).forEach(header => {
-          res.setHeader(header, rateLimitHeaders[header]);
-        });
-
-        return res.json({
-          success: true,
-          recipe,
-          fallback: true,
-          quota: quotaStatus,
-          warning: quotaWarning,
-          cached: false
-        });
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error generating simple recipe:`, error);
-    return res.status(500).json({ success: false, error: 'Failed to generate simple recipe.' });
-  }
-});
-
 // ===================
-// ERROR HANDLING MIDDLEWARE (must be last)
+// ERROR HANDLING MIDDLEWARE (must be last, before server startup)
 // ===================
 
 // Global error handling middleware (must be last)
@@ -8960,4 +8651,33 @@ app.use((req, res) => {
     path: req.url,
     method: req.method
   });
+});
+
+// Start the server with error handling
+const server = app.listen(port, '0.0.0.0', () => {
+  const localIp = getLocalIpAddress();
+  console.log(`GoFitAI Server v2.0 running on port ${port}`);
+  console.log(`Local IP: ${localIp}`);
+  console.log(`Server URL: http://${localIp}:${port}`);
+  console.log(`Test API with: curl http://${localIp}:${port}/api/test`);
+});
+
+// Set server timeout to 5 minutes for AI generation requests
+// Railway default is 5 minutes, so we match that
+server.timeout = 600000; // 10 minutes in milliseconds - increased for Railway deployment
+server.keepAliveTimeout = 610000; // Keep-alive should be slightly longer
+server.headersTimeout = 620000; // Headers timeout should be longer than keep-alive
+
+console.log(`[SERVER] Timeout configuration:`);
+console.log(`  - Request timeout: ${server.timeout / 1000}s`);
+console.log(`  - Keep-alive timeout: ${server.keepAliveTimeout / 1000}s`);
+console.log(`  - Headers timeout: ${server.headersTimeout / 1000}s`);
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('[SERVER] Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`[SERVER] Port ${port} is already in use`);
+    process.exit(1);
+  }
 });

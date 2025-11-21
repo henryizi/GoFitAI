@@ -363,12 +363,12 @@ export class WorkoutService {
         firstDayHasExercises: plan.weeklySchedule?.[0]?.exercises?.length || plan.weekly_schedule?.[0]?.exercises?.length || 0
       });
 
-      // Generate a unique plan ID
+      // Generate a unique plan ID (always use as stored ID to ensure valid UUID)
       const planId = uuidv4();
 
       // Create the stored plan object - handle both new database structure and old structure
       const storedPlan: StoredWorkoutPlan = {
-        id: plan.id || planId, // Use database ID if available, otherwise generate one
+        id: planId, // Always use a valid UUID locally to avoid invalid UUID issues
         user_id: params.userId,
         name: plan.name || plan.plan_name || `${params.primaryGoal} Workout Plan`,
         is_active: plan.is_active || false,

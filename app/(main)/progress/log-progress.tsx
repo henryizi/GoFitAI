@@ -32,8 +32,21 @@ import { SafeImage } from '../../../src/components/ui/SafeImage';
 
 const { width } = Dimensions.get('window');
 
+const convertWeight = (value: number, fromUnit: 'kg' | 'lbs', toUnit: 'kg' | 'lbs') => {
+  if (fromUnit === toUnit) {
+    return value;
+  }
+  if (fromUnit === 'kg' && toUnit === 'lbs') {
+    return value * 2.20462;
+  }
+  if (fromUnit === 'lbs' && toUnit === 'kg') {
+    return value / 2.20462;
+  }
+  return value; // Should not happen
+};
+
 export default function LogProgressScreen() {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const insets = useSafeAreaInsets();
   
   // Weight state
@@ -151,19 +164,6 @@ export default function LogProgressScreen() {
     setWeight(normalized);
   };
 
-  // Get weight value in the current unit for input field
-  const getWeightInCurrentUnit = () => {
-    if (!weight) return '';
-    const weightNum = parseFloat(weight);
-    if (Number.isNaN(weightNum)) return weight;
-    
-    // Weight is stored in kg, convert to display unit if needed
-    if (unit === 'lbs') {
-      return convertWeight(weightNum, 'kg', 'lbs').toFixed(1);
-    }
-    return weightNum.toFixed(1);
-  };
-
   // Get weight value in kg for calculations and saving
   const getWeightInKg = () => {
     if (!weight) return NaN;
@@ -191,15 +191,11 @@ export default function LogProgressScreen() {
   const bodyFatNum = bodyFat ? parseFloat(bodyFat) : NaN;
   const isBodyFatInvalid = bodyFat.length > 0 && (Number.isNaN(bodyFatNum) || bodyFatNum < 0 || bodyFatNum > 100);
  
-  const convertWeight = (value: number, fromUnit: 'kg' | 'lbs', toUnit: 'kg' | 'lbs') => {
-    if (fromUnit === toUnit) return value;
-    if (fromUnit === 'kg' && toUnit === 'lbs') return value * 2.20462;
-    if (fromUnit === 'lbs' && toUnit === 'kg') return value / 2.20462;
-    return value;
-  };
-
   const getDisplayWeight = () => {
-    return getWeightInCurrentUnit();
+    if (!weight) return '0.0';
+    const weightNum = parseFloat(weight);
+    if (Number.isNaN(weightNum)) return '0.0';
+    return weightNum.toFixed(1);
   };
 
   // Handle first-time unit selection
@@ -247,10 +243,15 @@ export default function LogProgressScreen() {
             // Update user's weight unit preference in profile
             if (user) {
               try {
-                await supabase
+                const { error } = await supabase
                   .from('profiles')
                   .update({ weight_unit_preference: selectedUnit })
                   .eq('id', user.id);
+
+                if (error) throw error;
+                
+                // Manually update local profile state
+                updateProfile({ weight_unit_preference: selectedUnit });
                 console.log('Weight unit preference updated to:', selectedUnit);
               } catch (error) {
                 console.error('Error updating weight unit preference:', error);
@@ -298,8 +299,7 @@ export default function LogProgressScreen() {
     if (Number.isNaN(currentInUnit)) return;
     
     // Adjust in the current unit
-    const adjustedDelta = unit === 'lbs' ? delta * 2.20462 : delta; // Scale delta for lbs
-    const next = Math.max(0, currentInUnit + adjustedDelta);
+    const next = Math.max(0, currentInUnit + delta);
     setWeight(next ? next.toFixed(1) : '');
     
     // Haptic feedback

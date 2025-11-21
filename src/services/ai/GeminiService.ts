@@ -196,25 +196,25 @@ export class GeminiService {
   
   private static getBaseUrls(): string[] {
     const railwayUrl = 'https://gofitai-production.up.railway.app';
+    const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
     const localhostUrl = 'http://localhost:4000';
     const localIpUrl = 'http://192.168.0.174:4000'; // Local network IP from server startup
-    const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
 
     console.log('[GEMINI SERVICE] Available URLs:');
-    console.log('[GEMINI SERVICE] Railway URL:', railwayUrl);
-    console.log('[GEMINI SERVICE] Localhost URL:', localhostUrl);
-    console.log('[GEMINI SERVICE] Local IP URL:', localIpUrl);
+    console.log('[GEMINI SERVICE] Railway URL (PRIMARY):', railwayUrl);
     console.log('[GEMINI SERVICE] Environment URL:', envUrl);
+    console.log('[GEMINI SERVICE] Local IP URL:', localIpUrl);
+    console.log('[GEMINI SERVICE] Localhost URL:', localhostUrl);
 
-    // Priority order: production endpoints first, then local development fallbacks
+    // Priority order: Railway production first for stability
     const urls = [
-      railwayUrl,   // Production default
+      railwayUrl,   // Railway production (PRIMARY)
       envUrl,       // Environment override (if provided)
       localIpUrl,   // Local network IP (for development)
       localhostUrl, // Localhost fallback (for simulator)
     ].filter(Boolean) as string[];
 
-    console.log('[GEMINI SERVICE] Using URLs in order:', urls);
+    console.log('[GEMINI SERVICE] Using URLs in priority order:', urls);
     return urls;
   }
 

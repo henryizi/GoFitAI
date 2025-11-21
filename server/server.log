@@ -1,30 +1,13 @@
 --- SERVER RESTARTED ---
---- Code version: 4.0.1 - Gemini-Only-Clean: AI generation with mathematical fallback ---
-[QUOTA] Loaded usage data: 17 requests
-[QUOTA] Monitor initialized
-[QUOTA] Daily quota: 50
-[QUOTA] Reset time: 2025-10-01T16:00:00.000Z
-[CACHE] Response cache initialized
-[CACHE] Max cache size: 100
-[CACHE] Default timeout: 30 minutes
-[RATE LIMITER] Rate limiter initialized
-[RATE LIMITER] Window: 60 seconds
-[RATE LIMITER] Max requests: 5
-[RATE LIMITER] Max AI requests per hour: 10
+--- Code version: 4.0.2 - Gemini-Only-Clean: AI generation with mathematical fallback ---
 [VISION SERVICE] Initializing Gemini Vision Service
-[GEMINI VISION] Service initialized with model: gemini-1.5-flash
-[GEMINI VISION] Temperature: 0.1 (low for consistency)
-[GEMINI VISION] API Key configured: ✅ Yes
 [AI SERVICE] Initializing Gemini Text Service with API key rotation
-[API KEY] Manager initialized
-[API KEY] Keys loaded: 1
-[API KEY] Key quota: 50
-[API KEY] Selected best key 1 with 50 requests remaining
-[GEMINI TEXT] Using primary model: gemini-2.5-flash
-[GEMINI TEXT] Fallback models available: [ 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro' ]
 [GEMINI TEXT] Using key with best quota availability
+[GEMINI TEXT] Primary model: gemini-2.5-flash
+[GEMINI TEXT] Fallback chain: gemini-2.5-flash → gemini-2.0-flash-001 → gemini-flash-latest
 [GEMINI TEXT] Service initialized with model: gemini-2.5-flash
 [GEMINI TEXT] API Key rotation enabled: ✅ Yes
+[WORKOUT SERVICE] Initializing Gemini Workout Service
 === AI CONFIGURATION ===
 Available AI Providers: [ 'gemini', 'fallback' ]
 GEMINI_API_KEY exists: true
@@ -32,7 +15,7 @@ GEMINI_MODEL: gemini-2.5-flash
 Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 Gemini provider config: {
   name: 'gemini',
-  apiKey: 'AIzaSyA4MvRwO2jzzyXC9s14GltLzpGH-A7RpRg',
+  apiKey: 'AIzaSyBqOrYz0JIkAjfQxzesyRKqUeon-Lq-_Q8',
   apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
   model: 'gemini-2.5-flash',
   enabled: true
@@ -42,20 +25,480 @@ Total providers available: 2
 - gemini: ENABLED (gemini-2.5-flash)
 - fallback: ENABLED (rule-based)
 ========================
+[SERVER] Timeout configuration:
+  - Request timeout: 600s
+  - Keep-alive timeout: 610s
+  - Headers timeout: 620s
+[ROUTES] Progression analysis routes registered at /api/progression
 GoFitAI Server v2.0 running on port 4000
-Local IP: 192.168.0.176
-Server URL: http://192.168.0.176:4000
-Test API with: curl http://192.168.0.176:4000/api/test
-[EXERCISES API] Fetching exercises from database
-[EXERCISES API] Successfully fetched 801 exercises from database
-{"level":30,"time":1759297853119,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/exercises","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":58611},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"193438","etag":"W/\"2f39e-zem4ocu8Jko+P5kkRQorCslb3HE\""}},"responseTime":1623,"msg":"request completed"}
-[EXERCISES API] Fetching exercises from database
-[EXERCISES API] Successfully fetched 801 exercises from database
-{"level":30,"time":1759297907894,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/exercises","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"application/json"},"remoteAddress":"127.0.0.1","remotePort":58624},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"193438","etag":"W/\"2f39e-zem4ocu8Jko+P5kkRQorCslb3HE\""}},"responseTime":1440,"msg":"request completed"}
-{"level":30,"time":1759298448945,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-0PYY03+ZAupsg3bzKua0BpTi/h4\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59040},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-wpHxW5C9hIwQWhR3OVV8Lq10Q5w\""}},"responseTime":1,"msg":"request completed"}
-{"level":30,"time":1759298449022,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-wpHxW5C9hIwQWhR3OVV8Lq10Q5w\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59040},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-dc9QNktEr0JaoiWofMwT11WPk80\""}},"responseTime":0,"msg":"request completed"}
-{"level":30,"time":1759298732136,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-dc9QNktEr0JaoiWofMwT11WPk80\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59271},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-B/EB7fpHrO9haaO9GoRH3snnYFg\""}},"responseTime":1,"msg":"request completed"}
-{"level":30,"time":1759298732217,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"localhost:4000","content-type":"application/json","if-none-match":"W/\"b5-B/EB7fpHrO9haaO9GoRH3snnYFg\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"127.0.0.1","remotePort":59271},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-IJC4QR0+KrQt4/FTrDEL1SSLdK4\""}},"responseTime":1,"msg":"request completed"}
-{"level":30,"time":1759298764824,"pid":9420,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.176:4000","if-none-match":"W/\"b5-u1NuXJxgWIiKUQbP+4Bpytf//YA\"","accept":"*/*","user-agent":"Expo/54.0.6 CFNetwork/3826.600.41 Darwin/24.6.0","accept-language":"en-US,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.176","remotePort":59296},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-gnWVMg/SlD63Btp4dAyidRN07+A\""}},"responseTime":1,"msg":"request completed"}
-
-
+Local IP: 192.168.0.164
+Server URL: http://192.168.0.164:4000
+Test API with: curl http://192.168.0.164:4000/api/test
+[ProgressionAnalysis] Sync error: {
+  code: '42703',
+  details: null,
+  hint: null,
+  message: 'column workout_sessions.exercises_completed does not exist'
+}
+[ProgressionAnalysis] Analysis error: {
+  code: '42703',
+  details: null,
+  hint: null,
+  message: 'column workout_sessions.exercises_completed does not exist'
+}
+[API] /progression/analyze error: {
+  code: '42703',
+  details: null,
+  hint: null,
+  message: 'column workout_sessions.exercises_completed does not exist'
+}
+{"level":30,"time":1762488901131,"pid":18973,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"POST","url":"/api/progression/analyze","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*","content-type":"application/json","content-length":"43"},"remoteAddress":"127.0.0.1","remotePort":60176},"res":{"statusCode":500,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"86","etag":"W/\"56-Ct1iwnymieYa2wzhWBoQXFGhzoY\""}},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:114:39)\n    at ServerResponse.onResponseComplete (/Users/ngkwanho/Desktop/GoFitAI/server/node_modules/pino-http/logger.js:177:14)\n    at ServerResponse.emit (node:events:530:35)\n    at onFinish (node:_http_outgoing:1081:10)\n    at callback (node:internal/streams/writable:766:21)\n    at afterWrite (node:internal/streams/writable:710:5)\n    at afterWriteTick (node:internal/streams/writable:696:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1170,"msg":"request errored"}
+[SHUTDOWN] Received SIGTERM. Shutting down gracefully...
+[2025-11-11T15:03:26.568Z] Checking if port 4000 is free...
+[2025-11-11T15:03:26.570Z] Port 4000 is free
+[2025-11-11T15:03:26.570Z] Starting server (attempt 1/10)...
+--- SERVER RESTARTED ---
+--- Code version: 4.0.2 - Gemini-Only-Clean: AI generation with mathematical fallback ---
+[VISION SERVICE] Initializing Gemini Vision Service
+[AI SERVICE] Initializing Gemini Text Service with API key rotation
+[GEMINI TEXT] Using key with best quota availability
+[GEMINI TEXT] Primary model: gemini-2.5-flash
+[GEMINI TEXT] Fallback chain: gemini-2.5-flash → gemini-2.0-flash-001 → gemini-flash-latest
+[GEMINI TEXT] Service initialized with model: gemini-2.5-flash
+[GEMINI TEXT] API Key rotation enabled: ✅ Yes
+[WORKOUT SERVICE] Initializing Gemini Workout Service
+=== AI CONFIGURATION ===
+Available AI Providers: [ 'gemini', 'fallback' ]
+GEMINI_API_KEY exists: true
+GEMINI_MODEL: gemini-2.5-flash
+Using model URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+Gemini provider config: {
+  name: 'gemini',
+  apiKey: 'AIzaSyBqOrYz0JIkAjfQxzesyRKqUeon-Lq-_Q8',
+  apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  model: 'gemini-2.5-flash',
+  enabled: true
+}
+Default AI_PROVIDER: gemini
+Total providers available: 2
+- gemini: ENABLED (gemini-2.5-flash)
+- fallback: ENABLED (rule-based)
+========================
+[ROUTES] Attempting to load progression routes...
+[ProgressionRoutes] Routes file loaded and router created
+[ROUTES] Routes module loaded, type: function
+[ROUTES] Routes is function: true
+[ROUTES] Routes is object: false
+[ROUTES] ✓ Progression analysis routes registered at /api/progression
+[ROUTES] Available endpoints:
+  - POST /api/progression/analyze
+  - POST /api/progression/detect-plateaus
+  - POST /api/progression/recommendations
+  - GET /api/progression/test
+[ROUTES] Route layer found: true
+[SERVER] Timeout configuration:
+  - Request timeout: 600s
+  - Keep-alive timeout: 610s
+  - Headers timeout: 620s
+GoFitAI Server v2.0 running on port 4000
+Local IP: 192.168.0.164
+Server URL: http://192.168.0.164:4000
+Test API with: curl http://192.168.0.164:4000/api/test
+[ProgressionRoutes] ===== REQUEST RECEIVED =====
+[ProgressionRoutes] Method: GET
+[ProgressionRoutes] Path: /test
+[ProgressionRoutes] URL: /test
+[ProgressionRoutes] Original URL: /api/progression/test
+[ProgressionRoutes] Base URL: /api/progression
+[ProgressionRoutes] ============================
+[ProgressionRoutes] Initializing Supabase client
+[ProgressionRoutes] URL: ✅ Set
+[ProgressionRoutes] SUPABASE_SERVICE_KEY: ✅ Set
+[ProgressionRoutes] SUPABASE_ANON_KEY: ❌ Missing
+[ProgressionRoutes] EXPO_PUBLIC_SUPABASE_ANON_KEY: ✅ Set
+[ProgressionRoutes] Key exists: true
+[ProgressionRoutes] Supabase client initialized successfully
+[API] /progression/test - Route test endpoint hit
+{"level":30,"time":1762873423612,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":1,"method":"GET","url":"/api/progression/test","query":{},"params":{},"headers":{"host":"localhost:4000","user-agent":"curl/8.7.1","accept":"*/*"},"remoteAddress":"127.0.0.1","remotePort":53502},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"99","etag":"W/\"63-MqBXfPYBkHIuiDDA/x7QyyLTYkw\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1762875715434,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":2,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.154","remotePort":55027},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-mmSPwqpMOKEadprVj2TeQtfJk10\""}},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1762875715510,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":3,"method":"GET","url":"/api/health","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate","connection":"keep-alive"},"remoteAddress":"192.168.0.154","remotePort":55027},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"181","etag":"W/\"b5-vdnmU9Qu6TdpIo7sKPxr3RIwzdE\""}},"responseTime":1,"msg":"request completed"}
+[ProgressionRoutes] ===== REQUEST RECEIVED =====
+[ProgressionRoutes] Method: POST
+[ProgressionRoutes] Path: /sync-history
+[ProgressionRoutes] URL: /sync-history
+[ProgressionRoutes] Original URL: /api/progression/sync-history
+[ProgressionRoutes] Base URL: /api/progression
+[ProgressionRoutes] ============================
+[ProgressionAnalysis] Found 4 workout history records
+[ProgressionAnalysis] Processing 4 workout records
+[ProgressionAnalysis] Sample workout data: {
+  "id": "65f17641-b382-4cff-8f28-d50523886121",
+  "exercises_data": [
+    {
+      "id": "ex-id-0",
+      "name": "DB Shoulder Press",
+      "reps": [
+        12,
+        12,
+        12
+      ],
+      "sets": 3,
+      "weights": [
+        26,
+        26,
+        26
+      ]
+    }
+  ],
+  "completed_at": "2025-11-11T14:53:45.375+00:00",
+  "session_id": null
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 26,
+  reps: 12,
+  sets: 3,
+  volume_kg: 936,
+  one_rep_max_kg: 36.4,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '65f17641-b382-4cff-8f28-d50523886121',
+  performed_at: '2025-11-11T14:53:45.375+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 12,
+  sets: 3,
+  volume_kg: 900,
+  one_rep_max_kg: 35,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '1e7c8924-6c7b-4475-a4ac-bf9fe1f0fb5d',
+  performed_at: '2025-11-10T06:23:10.909+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 10,
+  sets: 3,
+  volume_kg: 750,
+  one_rep_max_kg: 33.33333333333333,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '6ae3874e-5d39-42b1-a610-6b07c7657a6d',
+  performed_at: '2025-11-07T05:32:42.539+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 11,
+  sets: 3,
+  volume_kg: 800,
+  one_rep_max_kg: 33.88888888888889,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: 'b5d8d2f2-a8e1-4d64-8948-bc1e1e10f51e',
+  performed_at: '2025-11-07T05:30:17.711+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] SYNC SUMMARY:
+[ProgressionAnalysis] - Workout records processed: 4
+[ProgressionAnalysis] - Exercise records synced: 0
+[ProgressionAnalysis] ========================================
+{"level":30,"time":1762875729001,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":4,"method":"POST","url":"/api/progression/sync-history","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","content-length":"68","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.154","remotePort":55027},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"81","etag":"W/\"51-DM2Ggc1/i0yHZ8acTBpFt8gRZ/g\""}},"responseTime":2333,"msg":"request completed"}
+[ProgressionRoutes] ===== REQUEST RECEIVED =====
+[ProgressionRoutes] Method: POST
+[ProgressionRoutes] Path: /analyze
+[ProgressionRoutes] URL: /analyze
+[ProgressionRoutes] Original URL: /api/progression/analyze
+[ProgressionRoutes] Base URL: /api/progression
+[ProgressionRoutes] ============================
+[API] /progression/analyze - Request received
+[API] /progression/analyze - Calling service for userId: 4c6dc7a2-c5cd-4a39-885c-eec81e7393f3
+[ProgressionRoutes] ===== REQUEST RECEIVED =====
+[ProgressionRoutes] Method: POST
+[ProgressionRoutes] Path: /detect-plateaus
+[ProgressionRoutes] URL: /detect-plateaus
+[ProgressionRoutes] Original URL: /api/progression/detect-plateaus
+[ProgressionRoutes] Base URL: /api/progression
+[ProgressionRoutes] ============================
+[API] /progression/detect-plateaus - Request received
+[API] /progression/detect-plateaus - Calling service for userId: 4c6dc7a2-c5cd-4a39-885c-eec81e7393f3
+[ProgressionRoutes] ===== REQUEST RECEIVED =====
+[ProgressionRoutes] Method: POST
+[ProgressionRoutes] Path: /recommendations
+[ProgressionRoutes] URL: /recommendations
+[ProgressionRoutes] Original URL: /api/progression/recommendations
+[ProgressionRoutes] Base URL: /api/progression
+[ProgressionRoutes] ============================
+[API] /progression/recommendations - Request received
+[API] /progression/recommendations - Calling service for userId: 4c6dc7a2-c5cd-4a39-885c-eec81e7393f3
+[ProgressionAnalysis] Found 4 workout history records
+[ProgressionAnalysis] Processing 4 workout records
+[ProgressionAnalysis] Sample workout data: {
+  "id": "65f17641-b382-4cff-8f28-d50523886121",
+  "exercises_data": [
+    {
+      "id": "ex-id-0",
+      "name": "DB Shoulder Press",
+      "reps": [
+        12,
+        12,
+        12
+      ],
+      "sets": 3,
+      "weights": [
+        26,
+        26,
+        26
+      ]
+    }
+  ],
+  "completed_at": "2025-11-11T14:53:45.375+00:00",
+  "session_id": null
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 26,
+  reps: 12,
+  sets: 3,
+  volume_kg: 936,
+  one_rep_max_kg: 36.4,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '65f17641-b382-4cff-8f28-d50523886121',
+  performed_at: '2025-11-11T14:53:45.375+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 12,
+  sets: 3,
+  volume_kg: 900,
+  one_rep_max_kg: 35,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '1e7c8924-6c7b-4475-a4ac-bf9fe1f0fb5d',
+  performed_at: '2025-11-10T06:23:10.909+00:00'
+}
+[API] /progression/detect-plateaus - Success, returning results
+{"level":30,"time":1762875729785,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":6,"method":"POST","url":"/api/progression/detect-plateaus","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","content-length":"66","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.154","remotePort":55029},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"30","etag":"W/\"1e-vKn2tBxL2iJT9RcUTAX1z7bx+q4\""}},"responseTime":656,"msg":"request completed"}
+[ProgressionAnalysis] Found 4 workout history records
+[ProgressionAnalysis] Processing 4 workout records
+[ProgressionAnalysis] Sample workout data: {
+  "id": "65f17641-b382-4cff-8f28-d50523886121",
+  "exercises_data": [
+    {
+      "id": "ex-id-0",
+      "name": "DB Shoulder Press",
+      "reps": [
+        12,
+        12,
+        12
+      ],
+      "sets": 3,
+      "weights": [
+        26,
+        26,
+        26
+      ]
+    }
+  ],
+  "completed_at": "2025-11-11T14:53:45.375+00:00",
+  "session_id": null
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 26,
+  reps: 12,
+  sets: 3,
+  volume_kg: 936,
+  one_rep_max_kg: 36.4,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '65f17641-b382-4cff-8f28-d50523886121',
+  performed_at: '2025-11-11T14:53:45.375+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 10,
+  sets: 3,
+  volume_kg: 750,
+  one_rep_max_kg: 33.33333333333333,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '6ae3874e-5d39-42b1-a610-6b07c7657a6d',
+  performed_at: '2025-11-07T05:32:42.539+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 12,
+  sets: 3,
+  volume_kg: 900,
+  one_rep_max_kg: 35,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '1e7c8924-6c7b-4475-a4ac-bf9fe1f0fb5d',
+  performed_at: '2025-11-10T06:23:10.909+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 11,
+  sets: 3,
+  volume_kg: 800,
+  one_rep_max_kg: 33.88888888888889,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: 'b5d8d2f2-a8e1-4d64-8948-bc1e1e10f51e',
+  performed_at: '2025-11-07T05:30:17.711+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 10,
+  sets: 3,
+  volume_kg: 750,
+  one_rep_max_kg: 33.33333333333333,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: '6ae3874e-5d39-42b1-a610-6b07c7657a6d',
+  performed_at: '2025-11-07T05:32:42.539+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] SYNC SUMMARY:
+[ProgressionAnalysis] - Workout records processed: 4
+[ProgressionAnalysis] - Exercise records synced: 0
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] Inserting exercise history: DB Shoulder Press {
+  user_id: '4c6dc7a2-c5cd-4a39-885c-eec81e7393f3',
+  exercise_id: 'ex-id-0',
+  exercise_name: 'DB Shoulder Press',
+  weight_kg: 25,
+  reps: 11,
+  sets: 3,
+  volume_kg: 800,
+  one_rep_max_kg: 33.88888888888889,
+  rpe: null,
+  form_quality: null,
+  workout_session_id: 'b5d8d2f2-a8e1-4d64-8948-bc1e1e10f51e',
+  performed_at: '2025-11-07T05:30:17.711+00:00'
+}
+[ProgressionAnalysis] Error upserting exercise history: {
+  code: '42P10',
+  details: null,
+  hint: null,
+  message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification'
+}
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] SYNC SUMMARY:
+[ProgressionAnalysis] - Workout records processed: 4
+[ProgressionAnalysis] - Exercise records synced: 0
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] EXERCISE HISTORY QUERY:
+[ProgressionAnalysis] - Cutoff date: 2025-10-12T15:42:10.798Z
+[ProgressionAnalysis] - Records found: 0
+[ProgressionAnalysis] ========================================
+[API] /progression/analyze - Success, returning results
+[ProgressionAnalysis] No exercise history found after sync
+{"level":30,"time":1762875731057,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":5,"method":"POST","url":"/api/progression/analyze","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","content-length":"67","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.154","remotePort":55027},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"68","etag":"W/\"44-f+bfk2IchSlyaNJ2fw9smmcdyNs\""}},"responseTime":1937,"msg":"request completed"}
+[ProgressionAnalysis] ========================================
+[ProgressionAnalysis] EXERCISE HISTORY QUERY:
+[ProgressionAnalysis] - Cutoff date: 2025-10-12T15:42:11.209Z
+[ProgressionAnalysis] - Records found: 0
+[ProgressionAnalysis] ========================================
+[API] /progression/recommendations - Success, returning results
+[ProgressionAnalysis] No exercise history found after sync
+{"level":30,"time":1762875731474,"pid":49935,"hostname":"MacBook-Air-126.local","req":{"id":7,"method":"POST","url":"/api/progression/recommendations","query":{},"params":{},"headers":{"host":"192.168.0.164:4000","content-type":"application/json","connection":"keep-alive","accept":"*/*","user-agent":"GoFitAI/7 CFNetwork/3826.500.111.2.2 Darwin/24.4.0","content-length":"49","accept-language":"en-GB,en;q=0.9","accept-encoding":"gzip, deflate"},"remoteAddress":"192.168.0.154","remotePort":55030},"res":{"statusCode":200,"headers":{"cross-origin-opener-policy":"same-origin","cross-origin-resource-policy":"same-origin","origin-agent-cluster":"?1","referrer-policy":"no-referrer","strict-transport-security":"max-age=15552000; includeSubDomains","x-content-type-options":"nosniff","x-dns-prefetch-control":"off","x-download-options":"noopen","x-frame-options":"SAMEORIGIN","x-permitted-cross-domain-policies":"none","x-xss-protection":"0","access-control-allow-origin":"*","access-control-allow-credentials":"true","access-control-expose-headers":"Content-Length,Content-Type","content-type":"application/json; charset=utf-8","content-length":"37","etag":"W/\"25-hpZKVBEBhqmJtyUGzFxHWGgwTLY\""}},"responseTime":2340,"msg":"request completed"}

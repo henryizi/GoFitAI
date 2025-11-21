@@ -189,8 +189,10 @@ export default function ProgressionInsightsScreen() {
         <Stack.Screen
           options={{
             title: 'Progression Insights',
+            headerShown: true,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.white,
+            headerBackVisible: true,
           }}
         />
         <View style={styles.loadingContainer}>
@@ -206,8 +208,10 @@ export default function ProgressionInsightsScreen() {
       <Stack.Screen
         options={{
           title: 'Progression Insights',
+          headerShown: true,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.white,
+          headerBackVisible: true,
           headerRight: () => (
             <TouchableOpacity onPress={() => router.push('/settings/progression-settings')}>
               <Ionicons name="settings-outline" size={24} color={colors.white} />
@@ -218,6 +222,7 @@ export default function ProgressionInsightsScreen() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -327,7 +332,7 @@ export default function ProgressionInsightsScreen() {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => Alert.alert('Coming Soon', 'Detailed analytics coming in the next update!')}
+            onPress={() => router.push('/(main)/workout/progression-analytics')}
           >
             <Ionicons name="bar-chart" size={20} color={colors.primary} />
             <Text style={styles.secondaryButtonText}>View Detailed Analytics</Text>
@@ -335,7 +340,7 @@ export default function ProgressionInsightsScreen() {
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
@@ -348,6 +353,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -572,3 +580,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 });
+

@@ -9,7 +9,10 @@ import { colors } from '../../../src/styles/colors';
 import { router, useFocusEffect } from 'expo-router';
 import { track as analyticsTrack } from '../../../src/services/analytics/analytics';
 
-export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row'];
+export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row'] & {
+  week_number?: number;
+  day_number?: number;
+};
 
 // Utility function to check if a string is a valid UUID
 const isValidUUID = (id: string): boolean => {
@@ -51,7 +54,7 @@ export default function StartTrainingScreen() {
         
       const { data, error } = await supabase
         .from('workout_sessions')
-        .select('*')
+        .select('id, user_id, plan_id, status, completed_at, created_at, updated_at, week_number, day_number')
         .eq('plan_id', activePlan.id)
         .eq('status', 'pending')
         .order('day_number');
@@ -86,7 +89,10 @@ export default function StartTrainingScreen() {
   }, []);
 
   const renderItem = ({ item }: { item: WorkoutSession }) => (
-    <TouchableOpacity onPress={() => router.push(`/(main)/workout/session/${item.id}`)}>
+    <TouchableOpacity onPress={() => router.push({
+      pathname: `/(main)/workout/session/[sessionId]`,
+      params: { sessionId: item.id }
+    })}>
       <Card style={styles.card}>
         <Card.Content>
           <Text style={styles.cardTitle}>Week {item.week_number} - Day {item.day_number}</Text>

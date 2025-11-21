@@ -1026,7 +1026,7 @@ const WorkoutPlansScreen = () => {
         <BlurView intensity={100} style={styles.blurHeader}>
           <View style={[styles.quickHeader, { paddingTop: insets.top + 16 }]}>
             <View style={styles.headerLine} />
-            <Text style={styles.appName}>WORKOUT<Text style={{ color: colors.primary }}>HUB</Text></Text>
+            <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
             <View style={styles.headerLine} />
           </View>
         </BlurView>
@@ -1059,6 +1059,23 @@ const WorkoutPlansScreen = () => {
       {/* Enhanced floating action buttons */}
       {plans.length > 0 && (
         <>
+          {/* Progression Insights Button */}
+          <TouchableOpacity 
+            style={styles.progressionInsightsButton}
+            onPress={() => {
+              analyticsTrack('progression_insights_tapped', { source: 'fab_button' });
+              router.push('/(main)/workout/progression-insights');
+            }}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[colors.success, '#2BAE4A']}
+              style={styles.progressionInsightsGradient}
+            >
+              <Icon name="chart-line" size={24} color={colors.white} />
+            </LinearGradient>
+          </TouchableOpacity>
+
           {/* Quick Workout Button */}
           <TouchableOpacity 
             style={styles.quickWorkoutButton}
@@ -1135,15 +1152,13 @@ const styles = StyleSheet.create({
   quickHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 16,
   },
   headerLine: {
     flex: 1,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 20,
   },
   appNameGradient: {
     flexDirection: 'row',
@@ -1204,8 +1219,7 @@ const styles = StyleSheet.create({
   appHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 16,
     marginBottom: 24,
   },
@@ -1526,6 +1540,28 @@ const styles = StyleSheet.create({
     color: colors.white,
     letterSpacing: 0.5,
   },
+  progressionInsightsButton: {
+    position: 'absolute',
+    bottom: 280,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  progressionInsightsGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   quickWorkoutButton: {
     position: 'absolute',
     bottom: 200,
@@ -1780,4 +1816,4 @@ const styles = StyleSheet.create({
 
 });
 
-export default WorkoutPlansScreen; 
+export default WorkoutPlansScreen;

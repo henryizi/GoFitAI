@@ -678,7 +678,7 @@ export default function PlanCreateScreen() {
         {/* App header */}
         <View style={[styles.header, { marginTop: insets.top }]}>
           <View style={styles.headerLine} />
-          <Text style={styles.appName}>WORKOUT<Text style={{ color: colors.primary }}>HUB</Text></Text>
+          <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
           <View style={styles.headerLine} />
         </View>
 

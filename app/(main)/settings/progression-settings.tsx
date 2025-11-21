@@ -43,8 +43,7 @@ export default function ProgressionSettingsScreen() {
     try {
       setLoading(true);
       const fetchedSettings = await AdaptiveProgressionService.getProgressionSettings(
-        user.id,
-        null // Global settings
+        user.id
       );
       setSettings(fetchedSettings);
     } catch (error) {
@@ -80,29 +79,52 @@ export default function ProgressionSettingsScreen() {
     value: ProgressionSettings[K]
   ) => {
     if (!settings) return;
-    setSettings({ ...settings, [key]: value });
+    setSettings((prev) => prev ? { ...prev, [key]: value } : null);
   };
 
   const selectProgressionMode = (mode: 'aggressive' | 'moderate' | 'conservative') => {
-    updateSetting('progressionMode', mode);
+    if (!settings) {
+      console.log('[ProgressionSettings] Cannot select mode - settings not loaded');
+      return;
+    }
+    
+    console.log('[ProgressionSettings] Selecting progression mode:', mode);
+    
+    // Update all settings at once to avoid state batching issues
+    let updatedSettings: Partial<ProgressionSettings> = {
+      progressionMode: mode,
+    };
     
     // Update related settings based on mode
     if (mode === 'aggressive') {
-      updateSetting('weightIncrementPercentage', 5.0);
-      updateSetting('volumeIncrementSets', 2);
-      updateSetting('rpeTargetMin', 8);
-      updateSetting('rpeTargetMax', 10);
+      updatedSettings = {
+        ...updatedSettings,
+        weightIncrementPercentage: 5.0,
+        volumeIncrementSets: 2,
+        rpeTargetMin: 8,
+        rpeTargetMax: 10,
+      };
     } else if (mode === 'conservative') {
-      updateSetting('weightIncrementPercentage', 1.0);
-      updateSetting('volumeIncrementSets', 0);
-      updateSetting('rpeTargetMin', 6);
-      updateSetting('rpeTargetMax', 8);
+      updatedSettings = {
+        ...updatedSettings,
+        weightIncrementPercentage: 1.0,
+        volumeIncrementSets: 0,
+        rpeTargetMin: 6,
+        rpeTargetMax: 8,
+      };
     } else {
-      updateSetting('weightIncrementPercentage', 2.5);
-      updateSetting('volumeIncrementSets', 1);
-      updateSetting('rpeTargetMin', 7);
-      updateSetting('rpeTargetMax', 9);
+      updatedSettings = {
+        ...updatedSettings,
+        weightIncrementPercentage: 2.5,
+        volumeIncrementSets: 1,
+        rpeTargetMin: 7,
+        rpeTargetMax: 9,
+      };
     }
+    
+    const newSettings = { ...settings, ...updatedSettings };
+    console.log('[ProgressionSettings] Updated settings:', newSettings);
+    setSettings(newSettings);
   };
 
   if (loading) {
@@ -113,6 +135,14 @@ export default function ProgressionSettingsScreen() {
             title: 'Progression Settings',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.white,
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Ionicons name="chevron-back" size={28} color={colors.primary} />
+              </TouchableOpacity>
+            ),
           }}
         />
         <View style={styles.loadingContainer}>
@@ -131,6 +161,14 @@ export default function ProgressionSettingsScreen() {
             title: 'Progression Settings',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.white,
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Ionicons name="chevron-back" size={28} color={colors.primary} />
+              </TouchableOpacity>
+            ),
           }}
         />
         <View style={styles.errorContainer}>
@@ -151,6 +189,14 @@ export default function ProgressionSettingsScreen() {
           title: 'Progression Settings',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.white,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back" size={28} color={colors.primary} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <TouchableOpacity onPress={saveSettings} disabled={saving}>
               {saving ? (
@@ -163,7 +209,11 @@ export default function ProgressionSettingsScreen() {
         }}
       />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Progression Mode */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Progression Mode</Text>
@@ -337,6 +387,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingTop: 40,
+  },
+  backButton: {
+    marginLeft: 8,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -480,3 +536,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+

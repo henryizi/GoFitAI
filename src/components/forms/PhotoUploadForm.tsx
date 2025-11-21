@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
   calendar: { borderBottomWidth: 1, borderColor: colors.border, marginBottom: 16 },
   photoGrid: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
   photoContainer: { alignItems: 'center' },
-  photoPlaceholder: { width: 150, height: 225, borderRadius: 8, backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  previewImage: { width: 150, height: 225, borderRadius: 8 },
+  photoPlaceholder: { width: 150, height: 200, borderRadius: 8, backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  previewImage: { width: 150, height: 200, borderRadius: 8 },
   buttonContainer: { 
     marginTop: 16, 
     marginBottom: 32,

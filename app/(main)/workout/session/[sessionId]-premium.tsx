@@ -251,6 +251,7 @@ export default function SessionExecutionScreen() {
   const [setNumber, setSetNumber] = useState(1);
   const [actualReps, setActualReps] = useState('');
   const [actualWeight, setActualWeight] = useState('');
+  const [actualRPE, setActualRPE] = useState('');
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(profile?.weight_unit_preference || 'kg');
   const [sessionWeightUnit, setSessionWeightUnit] = useState<'kg' | 'lbs' | null>(null);
   const [exerciseMap, setExerciseMap] = useState<Record<string, { name: string }>>({});
@@ -261,6 +262,7 @@ export default function SessionExecutionScreen() {
     weight: number | null;
     weight_unit: 'kg' | 'lbs';
     original_weight: number | null;
+    rpe: number | null;
     completed_at: string;
     set_number: number;
   }>>>({});
@@ -756,6 +758,7 @@ export default function SessionExecutionScreen() {
       weight: weightNum, // This is always in kg for database storage
       weight_unit: weightUnit,
       original_weight: actualWeight ? parseFloat(actualWeight) : null, // Original user input
+      rpe: actualRPE ? parseFloat(actualRPE) : null,
       completed_at: new Date().toISOString(),
       set_number: setNumber
     };
@@ -772,6 +775,7 @@ export default function SessionExecutionScreen() {
     // Clear input fields for next set
     setActualReps('');
     setActualWeight('');
+    setActualRPE('');
 
     // Insert log only if this is a real set (skip synthetic fallback ids)
     if (!String(currentSet.id).toString().startsWith('fallback-') && !String(currentSet.id).toString().startsWith('ex-')) {
@@ -782,7 +786,7 @@ export default function SessionExecutionScreen() {
           set_id: currentSet.id,
           actual_reps: repsNum,
           actual_weight: weightNum,
-          actual_rpe: null,
+          actual_rpe: actualRPE ? parseFloat(actualRPE) : null,
           completed_at: new Date().toISOString(),
         };
         
@@ -1032,7 +1036,7 @@ export default function SessionExecutionScreen() {
                     id: `custom-log-${set.exercise_id}-${index}`,
                     actual_reps: completedSet.reps,
                     actual_weight: completedSet.weight,
-                    actual_rpe: null,
+                    actual_rpe: completedSet.rpe || null,
                     completed_at: completedSet.completed_at,
                     notes: null
                   }))
@@ -1233,6 +1237,7 @@ export default function SessionExecutionScreen() {
                     weight: set.weight,
                     weight_unit: set.weight_unit,
                     original_weight: set.original_weight,
+                    rpe: set.rpe,
                     completed_at: set.completed_at,
                     set_number: set.set_number
                   }))
@@ -1312,7 +1317,8 @@ export default function SessionExecutionScreen() {
                   name: exerciseName,
                   sets: completedSetsList.length,
                   reps: completedSetsList.map(set => set.reps || 0),
-                  weights: completedSetsList.map(set => set.weight || 0)
+                  weights: completedSetsList.map(set => set.weight || 0),
+                  rpe: completedSetsList.map(set => set.rpe || null)
                 };
               });
 
@@ -1877,6 +1883,35 @@ export default function SessionExecutionScreen() {
                       );
                     }
                   })()}
+                      </View>
+                      
+                      {/* RPE Input */}
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>RPE (Rate of Perceived Exertion) - Optional</Text>
+                        <View style={styles.rpeContainer}>
+                          <TextInput
+                            mode="outlined"
+                            value={actualRPE}
+                            onChangeText={setActualRPE}
+                            keyboardType="numeric"
+                            style={[styles.input, styles.rpeInput]}
+                            outlineColor={colors.border}
+                            activeOutlineColor={colors.primary}
+                            placeholder="1-10"
+                            theme={{
+                              colors: {
+                                primary: colors.primary,
+                                outline: colors.border,
+                                onSurfaceVariant: colors.textSecondary,
+                                surface: colors.surface,
+                                onSurface: colors.text
+                              }
+                            }}
+                          />
+                          <Text style={styles.rpeHelpText}>
+                            1-3: Easy | 4-6: Moderate | 7-8: Hard | 9-10: Max effort
+                          </Text>
+                        </View>
                       </View>
                     </>
                   );
@@ -2809,6 +2844,20 @@ const styles = StyleSheet.create({
   },
   weightInput: {
     width: '100%',
+  },
+  rpeContainer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  rpeInput: {
+    width: '100%',
+  },
+  rpeHelpText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   unitSelector: {
     flexDirection: 'row',
