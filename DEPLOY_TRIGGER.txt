@@ -1,2 +1,4 @@
-# Deployment trigger - Tue Oct  7 20:45:31 HKT 2025
-# Force Railway redeploy - Tue Oct  7 20:52:13 HKT 2025
+Deployment triggered on Sat Nov 22 2025
+Fix: Ensure /api/behavioral-coaching-chat is available
+User: ngkwanho
+Timestamp: 2025-11-22T04:34:00.000Z

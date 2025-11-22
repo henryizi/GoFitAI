@@ -6306,6 +6306,12 @@ app.post('/api/generate-ai-nutrition-targets', async (req, res) => {
       throw new Error('Gemini AI service is not available');
     }
 
+    // Normalize profile data to handle both old and new column names
+    const weight = profile.weight_kg || profile.weight;
+    const height = profile.height_cm || profile.height;
+    
+    console.log('[AI NUTRITION TARGETS] Normalized data - weight:', weight, 'height:', height);
+
     // Create comprehensive prompt for AI nutrition calculation
     const prompt = `You are an expert sports nutritionist and registered dietitian with advanced knowledge of metabolic science, body composition, and athletic performance nutrition.
 
@@ -6314,8 +6320,8 @@ ANALYZE THIS USER PROFILE AND CALCULATE PRECISE NUTRITION TARGETS:
 USER PROFILE:
 - Age: ${profile.age || 'Not specified'} years old
 - Gender: ${profile.gender || 'Not specified'}
-- Weight: ${profile.weight || 'Not specified'} kg
-- Height: ${profile.height || 'Not specified'} cm
+- Weight: ${weight || 'Not specified'} kg
+- Height: ${height || 'Not specified'} cm
 - Body Fat: ${profile.body_fat || 'Not specified'}%
 - Primary Goal: ${profile.primary_goal || profile.goal_type || 'Not specified'}
 - Fitness Strategy: ${profile.fitness_strategy || 'Not specified'}

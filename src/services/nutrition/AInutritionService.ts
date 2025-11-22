@@ -30,8 +30,10 @@ export interface UserProfile {
   full_name?: string;
   age?: number;
   birthday?: string;
-  height?: number;
-  weight?: number;
+  height?: number;  // Legacy column (deprecated)
+  weight?: number;  // Legacy column (deprecated)
+  height_cm?: number;  // ✅ Used by onboarding
+  weight_kg?: number;  // ✅ Used by onboarding
   gender?: 'male' | 'female';
   activity_level?: 'sedentary' | 'moderately_active' | 'very_active';
   fitness_strategy?: 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining';
@@ -188,7 +190,15 @@ export class AInutritionService {
         return null;
       }
 
-      return data as UserProfile;
+      // Normalize profile data to handle both old and new column names
+      const profile = data as any;
+      return {
+        ...profile,
+        // Use weight_kg if available, fallback to weight
+        weight: profile.weight_kg || profile.weight,
+        // Use height_cm if available, fallback to height
+        height: profile.height_cm || profile.height,
+      } as UserProfile;
     } catch (error) {
       console.error('[AI NUTRITION] Exception fetching user profile:', error);
       return null;

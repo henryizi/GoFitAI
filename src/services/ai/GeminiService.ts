@@ -190,6 +190,7 @@ interface AppWorkoutPlan {
   is_bodybuilder?: boolean;
   source?: string;
   created_at?: string;
+  system_metadata?: any;
 }
 
 export class GeminiService {
@@ -332,6 +333,161 @@ export class GeminiService {
       error: (lastError as Error)?.message || 'Failed to generate recipe with Gemini AI',
       fallback: true
     };
+  }
+
+  /**
+   * Generate a detailed, personalized explanation for nutrition targets using Gemini AI
+   * Uses the behavioral-coaching-chat endpoint to leverage existing infrastructure
+   */
+  /**
+   * Generate AI-powered nutrition targets using Gemini
+   * Returns calories, protein, carbs, fat, and explanation
+   */
+  static async generateAINutritionTargets(profile: any): Promise<{
+    success: boolean;
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    explanation?: string;
+    error?: string;
+  }> {
+    console.log('[GEMINI SERVICE] 🤖 Generating AI nutrition targets via server API');
+    
+    const bases = this.getBaseUrls();
+    let lastError: unknown = null;
+
+    for (const base of bases) {
+      try {
+        console.log(`[GEMINI SERVICE] Trying base: ${base}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+        
+        const response = await fetch(`${base}/api/generate-ai-nutrition-targets`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'GoFitAI-Mobile/1.0',
+          },
+          body: JSON.stringify({ profile }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn(`[GEMINI SERVICE] 404 Not Found from ${base} for /api/generate-ai-nutrition-targets`);
+            continue;
+          }
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.calories) {
+          console.log('[GEMINI SERVICE] ✅ Generated AI nutrition targets:', {
+            calories: data.calories,
+            protein: data.protein,
+            carbs: data.carbs,
+            fat: data.fat
+          });
+          return {
+            success: true,
+            calories: data.calories,
+            protein: data.protein,
+            carbs: data.carbs,
+            fat: data.fat,
+            explanation: data.explanation
+          };
+        }
+        
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
+        continue;
+      }
+    }
+
+    console.warn('[GEMINI SERVICE] ❌ Failed to generate AI nutrition targets');
+    return {
+      success: false,
+      error: lastError instanceof Error ? lastError.message : 'Unknown error'
+    };
+  }
+
+  static async generateNutritionExplanation(
+    profile: any,
+    targets: any
+  ): Promise<string | null> {
+    console.log('[GEMINI SERVICE] Generating nutrition explanation via server API');
+    
+    const bases = this.getBaseUrls();
+    let lastError: unknown = null;
+
+    for (const base of bases) {
+      try {
+        console.log(`[GEMINI SERVICE] Trying base: ${base}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+
+        // Construct the prompt context
+        const insight = {
+          insight_type: "Nutrition Plan Generation",
+          insight_message: `User Profile: ${profile.age}yo ${profile.gender}, Goal: ${profile.primary_goal || profile.goal_type}, Strategy: ${profile.fitness_strategy}. Calculated Targets: ${targets.calories} kcal, ${targets.protein}g Protein, ${targets.carbs}g Carbs, ${targets.fat}g Fat.`
+        };
+
+        const chatHistory = [
+          {
+            sender: 'user',
+            text: "As an expert nutritionist, please explain why these specific macronutrient and calorie targets are perfect for me. Provide a personalized, motivating summary of my new plan."
+          }
+        ];
+        
+        const response = await fetch(`${base}/api/behavioral-coaching-chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'GoFitAI-Mobile/1.0',
+          },
+          body: JSON.stringify({
+            insight,
+            chatHistory
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // Handle 404 specifically - might be missing endpoint
+          if (response.status === 404) {
+            console.warn(`[GEMINI SERVICE] 404 Not Found from ${base} for endpoint /api/behavioral-coaching-chat`);
+            continue;
+          }
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.aiMessage) {
+          console.log('[GEMINI SERVICE] ✅ Generated nutrition explanation');
+          return data.aiMessage;
+        }
+        
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
+        continue;
+      }
+    }
+
+    console.warn('[GEMINI SERVICE] Failed to generate AI explanation, falling back to template');
+    return null;
   }
 
   private static buildRecipePrompt(
@@ -1265,8 +1421,3 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
     };
   };
 }
-
-
-
-
-
