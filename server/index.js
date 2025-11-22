@@ -4552,18 +4552,13 @@ app.post('/api/customize-meal', async (req, res) => {
       newIngredient,
     });
 
-    const aiResponse = await axios.post(
-      AI_API_URL,
-      {
-        model: CHAT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        max_tokens: 300,
-      },
-      { headers: { Authorization: `Bearer ${AI_API_KEY}` } }
-    );
+    let rawAiContent;
+    if (geminiTextService) {
+      rawAiContent = await geminiTextService.generateText(prompt);
+    } else {
+       throw new Error('AI Service unavailable');
+    }
 
-    const rawAiContent = aiResponse.data.choices[0].message.content;
     const responseData = findAndParseJson(rawAiContent);
 
     if (!responseData || !responseData.new_meal_description) {
@@ -6275,25 +6270,128 @@ app.post('/api/behavioral-coaching-chat', async (req, res) => {
 
   try {
     const prompt = composeBehavioralCoachingPrompt(insight, chatHistory);
-    const aiResponse = await axios.post(
-      AI_API_URL,
-      {
-        model: CHAT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 100,
-        temperature: 0.7,
-      },
-      { headers: { Authorization: `Bearer ${AI_API_KEY}` } }
-    );
-
-    const aiMessage =
-      aiResponse.data.choices[0].message.content ||
-      'Sorry, I had trouble generating a response. Please try again.';
+    
+    let aiMessage;
+    if (geminiTextService) {
+      aiMessage = await geminiTextService.generateText(prompt);
+    } else {
+      // Fallback message if service is unavailable
+      aiMessage = 'Sorry, I am currently offline. Please try again later.';
+    }
 
     res.json({ success: true, aiMessage });
   } catch (error) {
     console.error('[COACHING CHAT] Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// NEW: Generate AI nutrition targets using Gemini
+app.post('/api/generate-ai-nutrition-targets', async (req, res) => {
+  console.log('[AI NUTRITION TARGETS] Received request for AI-powered nutrition calculation');
+  const { profile } = req.body;
+  
+  // Log the received profile to debug
+  console.log('[AI NUTRITION TARGETS] Received profile data:', JSON.stringify(profile, null, 2));
+  
+  if (!profile) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'User profile is required' 
+    });
+  }
+
+  try {
+    if (!geminiTextService) {
+      throw new Error('Gemini AI service is not available');
+    }
+
+    // Create comprehensive prompt for AI nutrition calculation
+    const prompt = `You are an expert sports nutritionist and registered dietitian with advanced knowledge of metabolic science, body composition, and athletic performance nutrition.
+
+ANALYZE THIS USER PROFILE AND CALCULATE PRECISE NUTRITION TARGETS:
+
+USER PROFILE:
+- Age: ${profile.age || 'Not specified'} years old
+- Gender: ${profile.gender || 'Not specified'}
+- Weight: ${profile.weight || 'Not specified'} kg
+- Height: ${profile.height || 'Not specified'} cm
+- Body Fat: ${profile.body_fat || 'Not specified'}%
+- Primary Goal: ${profile.primary_goal || profile.goal_type || 'Not specified'}
+- Fitness Strategy: ${profile.fitness_strategy || 'Not specified'}
+- Activity Level: ${profile.activity_level || 'Not specified'}
+- Exercise Frequency: ${profile.exercise_frequency || 'Not specified'} times per week
+- Training Level: ${profile.training_level || 'Not specified'}
+- Weight Trend: ${profile.weight_trend || 'Not specified'}
+- Goal Fat Reduction: ${profile.goal_fat_reduction || 'Not specified'} kg
+- Goal Muscle Gain: ${profile.goal_muscle_gain || 'Not specified'} kg
+
+CALCULATION REQUIREMENTS:
+1. Calculate precise BMR using the most appropriate formula (Katch-McArdle if body fat is known, otherwise Mifflin-St Jeor)
+2. Determine TDEE based on activity level and exercise frequency
+3. Apply appropriate caloric surplus/deficit based on fitness strategy and goals
+4. Calculate optimal protein intake (consider training level, goal, body composition)
+5. Determine carbohydrate needs (based on activity level and performance goals)
+6. Calculate fat requirements (for hormonal health and nutrient absorption)
+7. Provide a detailed, personalized explanation of why these targets are optimal
+
+RESPOND WITH ONLY THIS JSON FORMAT (no markdown, no code blocks):
+{
+  "calories": <daily calorie target as integer>,
+  "protein": <protein in grams as integer>,
+  "carbs": <carbohydrates in grams as integer>,
+  "fat": <fat in grams as integer>,
+  "explanation": "<2-3 paragraph personalized explanation of why these targets are perfect for this user, including specific references to their profile factors>"
+}
+
+Calculate now:`;
+
+    console.log('[AI NUTRITION TARGETS] Sending prompt to Gemini');
+    const aiResponse = await geminiTextService.generateText(prompt);
+    
+    console.log('[AI NUTRITION TARGETS] Raw AI response:', aiResponse);
+    
+    // Parse the AI response
+    const cleanedResponse = aiResponse
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    
+    const parsedData = JSON.parse(cleanedResponse);
+    
+    // Validate the response
+    if (!parsedData.calories || !parsedData.protein || !parsedData.carbs || !parsedData.fat) {
+      throw new Error('AI response missing required nutrition fields');
+    }
+    
+    // Ensure all values are valid numbers
+    const result = {
+      success: true,
+      calories: Math.round(Number(parsedData.calories)),
+      protein: Math.round(Number(parsedData.protein)),
+      carbs: Math.round(Number(parsedData.carbs)),
+      fat: Math.round(Number(parsedData.fat)),
+      explanation: parsedData.explanation || 'Your personalized nutrition plan is ready.',
+      method: 'gemini_ai',
+      model: 'gemini-2.5-flash'
+    };
+    
+    console.log('[AI NUTRITION TARGETS] ✅ Successfully generated targets:', {
+      calories: result.calories,
+      protein: result.protein,
+      carbs: result.carbs,
+      fat: result.fat
+    });
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('[AI NUTRITION TARGETS] Error:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: 'Failed to generate AI nutrition targets. The system will fall back to mathematical calculations.'
+    });
   }
 });
 
@@ -6332,17 +6430,15 @@ app.post('/api/generate-motivational-message', async (req, res) => {
     }
 
     const prompt = composeMotivationalMessagePrompt(triggerEvent, userProfile);
-    const aiResponse = await axios.post(
-      AI_API_URL,
-      {
-        model: CHAT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      },
-      { headers: { Authorization: `Bearer ${AI_API_KEY}` } }
-    );
+    
+    let aiContent;
+    if (geminiTextService) {
+      aiContent = await geminiTextService.generateText(prompt);
+    } else {
+      throw new Error('AI Service unavailable');
+    }
 
-    const aiData = findAndParseJson(aiResponse.data.choices[0].message.content);
+    const aiData = findAndParseJson(aiContent);
     if (!aiData || !aiData.message) {
       throw new Error('AI failed to return a valid message.');
     }

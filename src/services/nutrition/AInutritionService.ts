@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/client';
+import { GeminiService } from '../ai/GeminiService';
 
 export interface AInutritionPlan {
   id: string;
@@ -64,13 +65,75 @@ export class AInutritionService {
         throw new Error('User profile not found');
       }
 
-      console.log('[AI NUTRITION] User profile loaded:', userProfile);
+      console.log('[AI NUTRITION] User profile loaded:', JSON.stringify(userProfile, null, 2));
+      console.log('[AI NUTRITION] Profile fields check:',  {
+        hasAge: !!userProfile.age,
+        hasBirthday: !!userProfile.birthday,
+        hasWeight: !!userProfile.weight,
+        hasHeight: !!userProfile.height,
+        hasGender: !!userProfile.gender,
+        weight: userProfile.weight,
+        height: userProfile.height,
+        age: userProfile.age
+      });
 
-      // Calculate AI-optimized nutrition targets
-      const nutritionTargets = await this.calculateAInutritionTargets(userProfile);
-      
-      // Generate detailed explanation
-      const explanation = this.generateExplanation(userProfile, nutritionTargets);
+      let nutritionTargets: any;
+      let explanation: any;
+      let usingAIGeneration = false;
+
+      // 🤖 TRY TO GENERATE TARGETS WITH REAL AI FIRST
+      console.log('[AI NUTRITION] 🧠 Attempting to generate nutrition targets with Gemini AI...');
+      try {
+        const aiResult = await GeminiService.generateAINutritionTargets(userProfile);
+        
+        if (aiResult.success && aiResult.calories) {
+          console.log('[AI NUTRITION] ✅ Successfully generated AI nutrition targets');
+          nutritionTargets = {
+            calories: Math.round(aiResult.calories),
+            protein: Math.round(aiResult.protein || 0),
+            carbs: Math.round(aiResult.carbs || 0),
+            fat: Math.round(aiResult.fat || 0),
+            proteinPercentage: Math.round((aiResult.protein! * 4 / aiResult.calories) * 100),
+            carbsPercentage: Math.round((aiResult.carbs! * 4 / aiResult.calories) * 100),
+            fatPercentage: Math.round((aiResult.fat! * 9 / aiResult.calories) * 100),
+          };
+          
+          explanation = {
+            summary: aiResult.explanation || 'Your personalized AI nutrition plan is ready.',
+            reasoning: {
+              ai_generated: true,
+              model: 'gemini',
+              message: 'All targets calculated by Gemini AI based on your complete profile.'
+            }
+          };
+          
+          usingAIGeneration = true;
+          console.log('[AI NUTRITION] 🎯 Using 100% AI-generated targets and explanation');
+        } else {
+          throw new Error(aiResult.error || 'AI generation failed');
+        }
+      } catch (aiError) {
+        console.warn('[AI NUTRITION] ⚠️ AI generation failed, falling back to mathematical calculation:', aiError);
+        
+        // FALLBACK: Calculate AI-optimized nutrition targets using math
+        nutritionTargets = await this.calculateAInutritionTargets(userProfile);
+        
+        // Generate detailed explanation
+        explanation = this.generateExplanation(userProfile, nutritionTargets);
+
+        // Try to enhance explanation with AI at least
+        try {
+          console.log('[AI NUTRITION] 🧠 Enhancing explanation with Generative AI...');
+          const aiExplanation = await GeminiService.generateNutritionExplanation(userProfile, nutritionTargets);
+          
+          if (aiExplanation) {
+            console.log('[AI NUTRITION] ✨ Successfully generated AI explanation');
+            explanation.summary = aiExplanation;
+          }
+        } catch (explError) {
+          console.warn('[AI NUTRITION] ⚠️ Failed to generate AI explanation, using template fallback:', explError);
+        }
+      }
 
       // Determine goal_type from user profile
       let goalType = 'maintenance';
