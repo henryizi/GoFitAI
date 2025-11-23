@@ -447,8 +447,8 @@ export class RevenueCatService {
           identifier: 'gofitai_premium_lifetime1',
           description: 'Premium Lifetime Access - One-time payment, yours forever!',
           title: 'GoFitAI Premium Lifetime',
-          price: 99.99,
-          priceString: '$99.99',
+          price: 79.99,
+          priceString: '$79.99',
           currencyCode: 'USD'
         },
         offeringIdentifier: 'default'

@@ -243,9 +243,9 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
                 
                 <Text style={styles.lifetimePricingTitle}>Lifetime Premium</Text>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.lifetimePrice}>
-                    {lifetimePackage.product.priceString || '$99.99'}
-                  </Text>
+              <Text style={styles.lifetimePrice}>
+                {lifetimePackage.product.priceString || '$79.99'}
+              </Text>
                 </View>
                 <Text style={styles.lifetimeSubtext}>
                   One-time payment • Lifetime access
