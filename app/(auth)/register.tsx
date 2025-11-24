@@ -67,21 +67,24 @@ const RegisterScreen = () => {
   };
 
   return (
-    <LinearGradient
-      colors={['#000000', '#1C1C1E', '#2C2C2E']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0F0F11', '#18181B', '#000000']}
+        style={styles.backgroundGradient}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
+      
       <KeyboardAvoidingView 
         style={styles.keyboardContainer} 
-        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          style={styles.scrollView}
           bounces={false}
         >
           {/* Header Section */}
@@ -100,18 +103,12 @@ const RegisterScreen = () => {
             <Text style={styles.welcomeSubtitle}>
               Create your account to start your fitness journey
             </Text>
-            
-            <View style={styles.decorativeLine}>
-              <View style={styles.line} />
-              <View style={styles.dot} />
-              <View style={styles.line} />
-            </View>
           </View>
 
           {/* Register Form Section */}
           <View style={styles.formSection}>
-            <Card style={styles.formCard}>
-              <Card.Content style={styles.cardContent}>
+            <View style={styles.formCard}>
+              <View style={styles.cardContent}>
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email Address</Text>
@@ -125,14 +122,20 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="email-outline" />}
+                    placeholder="Enter your email"
+                    placeholderTextColor={colors.textTertiary}
+                    left={<TextInput.Icon icon="email-outline" color={colors.textSecondary} />}
                     theme={{
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
-                        outline: colors.border,
+                        outline: 'rgba(255, 255, 255, 0.1)',
                         onSurface: colors.text,
-                      }
+                        background: 'transparent',
+                        surface: 'transparent',
+                        placeholder: colors.textTertiary,
+                      },
+                      roundness: 16,
                     }}
                   />
                 </View>
@@ -148,10 +151,13 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="lock-outline" />}
+                    placeholder="Create a password"
+                    placeholderTextColor={colors.textTertiary}
+                    left={<TextInput.Icon icon="lock-outline" color={colors.textSecondary} />}
                     right={
                       <TextInput.Icon
                         icon={showPassword ? 'eye-off' : 'eye'}
+                        color={colors.textSecondary}
                         onPress={() => setShowPassword(!showPassword)}
                       />
                     }
@@ -161,9 +167,13 @@ const RegisterScreen = () => {
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
-                        outline: colors.border,
+                        outline: 'rgba(255, 255, 255, 0.1)',
                         onSurface: colors.text,
-                      }
+                        background: 'transparent',
+                        surface: 'transparent',
+                        placeholder: colors.textTertiary,
+                      },
+                      roundness: 16,
                     }}
                   />
                   <Text style={styles.passwordHint}>
@@ -182,10 +192,13 @@ const RegisterScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="lock-check-outline" />}
+                    placeholder="Confirm your password"
+                    placeholderTextColor={colors.textTertiary}
+                    left={<TextInput.Icon icon="lock-check-outline" color={colors.textSecondary} />}
                     right={
                       <TextInput.Icon
                         icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                        color={colors.textSecondary}
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                       />
                     }
@@ -195,9 +208,13 @@ const RegisterScreen = () => {
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
-                        outline: colors.border,
+                        outline: 'rgba(255, 255, 255, 0.1)',
                         onSurface: colors.text,
-                      }
+                        background: 'transparent',
+                        surface: 'transparent',
+                        placeholder: colors.textTertiary,
+                      },
+                      roundness: 16,
                     }}
                   />
                 </View>
@@ -205,28 +222,37 @@ const RegisterScreen = () => {
                 {/* Error Message */}
                 {error && (
                   <View style={styles.errorContainer}>
-                    <IconButton icon="alert-circle" size={16} iconColor={colors.error} />
+                    <IconButton icon="alert-circle" size={18} iconColor="#FF5252" style={{margin: 0}} />
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
 
                 {/* Sign Up Button */}
-                <Button
-                  variant="primary"
-                  onPress={handleRegister}
-                  disabled={isLoading || !email || !password || !confirmPassword}
-                  loading={isLoading}
-                  fullWidth
-                  size="large"
-                  style={styles.signUpButton}
-                >
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
-                </Button>
+                <View style={styles.buttonContainer}>
+                  <LinearGradient
+                    colors={[colors.primary, '#E55A2B']}
+                    style={styles.buttonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Button
+                      variant="primary"
+                      onPress={handleRegister}
+                      disabled={isLoading || !email || !password || !confirmPassword}
+                      loading={isLoading}
+                      fullWidth
+                      size="large"
+                      style={styles.signUpButton}
+                      labelStyle={styles.signUpButtonLabel}
+                    >
+                      {isLoading ? 'Creating Account...' : 'Create Account'}
+                    </Button>
+                  </LinearGradient>
+                </View>
 
                 {/* Social Authentication Buttons */}
                 <SocialAuthButtons
                   onSuccess={() => {
-                    // Handle successful social auth
                     console.log('Social auth successful');
                   }}
                   onError={(error) => {
@@ -244,8 +270,8 @@ const RegisterScreen = () => {
                     <Text style={styles.signinLink}>Sign In</Text>
                   </Link>
                 </View>
-              </Card.Content>
-            </Card>
+              </View>
+            </View>
           </View>
 
           {/* Health Disclaimer Section */}
@@ -259,20 +285,25 @@ const RegisterScreen = () => {
               By creating an account, you agree to our Terms of Service, Privacy Policy, and Health Disclaimer
             </Text>
           </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-    </LinearGradient>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   keyboardContainer: {
-    flex: 1,
-  },
-  scrollView: {
     flex: 1,
   },
   scrollContent: {
@@ -289,150 +320,146 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    marginBottom: 28,
+    marginBottom: 24,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    backgroundColor: 'transparent',
   },
   logoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    elevation: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    width: 88,
+    height: 88,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   welcomeTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   welcomeSubtitle: {
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  decorativeLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  line: {
-    width: 40,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    marginHorizontal: 12,
+    maxWidth: '80%',
   },
   
   // Form Section
   formSection: {
-    flex: 1,
+    width: '100%',
   },
   formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    elevation: 8,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
   },
   cardContent: {
-    padding: 32,
+    padding: 24,
   },
   inputContainer: {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
     marginBottom: 8,
     marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    fontSize: 16,
   },
   inputContent: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+    color: '#FFFFFF',
   },
   inputOutline: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
   },
   passwordHint: {
     fontSize: 12,
     color: colors.textTertiary,
-    marginTop: 4,
+    marginTop: 6,
     marginLeft: 4,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${colors.error}15`,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 24,
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.2)',
   },
   errorText: {
-    color: colors.error,
-    fontSize: 14,
+    color: '#FF5252',
+    fontSize: 13,
     marginLeft: 8,
     flex: 1,
+    fontWeight: '500',
+  },
+  buttonContainer: {
+    marginBottom: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonGradient: {
+    borderRadius: 16,
   },
   signUpButton: {
-    marginBottom: 32,
-    elevation: 4,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    backgroundColor: 'transparent',
+    height: 56,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginHorizontal: 16,
+  signUpButtonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   signinContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   signinText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 14,
   },
   signinLink: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   
   // Disclaimer Section
   disclaimerSection: {
-    marginTop: 20,
-    marginHorizontal: 16,
+    marginTop: 24,
+    marginHorizontal: 4,
   },
   
   // Footer Section

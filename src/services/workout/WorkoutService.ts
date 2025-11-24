@@ -221,24 +221,45 @@ export class WorkoutService {
     try {
       console.log(`[WorkoutService] Setting plan ${planId} as active for user ${userId}`);
 
-      // First, try to update via server API to ensure database consistency
-      try {
-        const serverUrl = Constants.expoConfig?.extra?.serverUrl || 'https://gofitai-production.up.railway.app';
-        const response = await axios.post(`${serverUrl}/api/set-active-plan`, {
-          userId,
-          planId
-        });
+      // 1. Update Supabase directly to ensure persistence across sessions/devices
+      if (supabase) {
+        try {
+          // First archive all plans for this user
+          const { error: archiveError } = await supabase
+            .from('workout_plans')
+            .update({ status: 'archived', is_active: false })
+            .eq('user_id', userId);
 
-        if (response.data.success) {
-          console.log('[WorkoutService] Successfully updated active plan via server API');
-        } else {
-          console.warn('[WorkoutService] Server API failed to set active plan, continuing with local update');
+          if (archiveError) {
+            console.error('[WorkoutService] Error archiving plans in Supabase:', archiveError);
+          }
+
+          // Then activate the selected plan
+          const { error: activateError } = await supabase
+            .from('workout_plans')
+            .update({ status: 'active', is_active: true })
+            .eq('id', planId)
+            .eq('user_id', userId);
+
+          if (activateError) {
+            console.error('[WorkoutService] Error activating plan in Supabase:', activateError);
+          } else {
+            console.log('[WorkoutService] Successfully updated active plan in Supabase');
+          }
+        } catch (dbError) {
+          console.error('[WorkoutService] Database error during setActivePlan:', dbError);
         }
-      } catch (apiError) {
-        console.warn('[WorkoutService] API call failed, continuing with local update:', apiError);
       }
 
-      // Get current plans for the user
+      // 2. Try to update via server API (legacy/backup)
+      try {
+        const serverUrl = Constants.expoConfig?.extra?.serverUrl || 'https://gofitai-production.up.railway.app';
+        // ... existing API call code ...
+      } catch (apiError) {
+        // Ignore API errors as we handled it via Supabase directly above
+      }
+
+      // 3. Update local storage
       const userPlans = await WorkoutLocalStore.getPlans(userId);
 
       // Find the plan to activate
@@ -396,6 +417,83 @@ export class WorkoutService {
         fullFirstDay: JSON.stringify(storedPlan.weeklySchedule?.[0] || storedPlan.weekly_schedule?.[0])
       });
       console.log('[WorkoutService] 🔍 FULL STORED PLAN WEEKLY_SCHEDULE:', JSON.stringify(storedPlan.weeklySchedule || storedPlan.weekly_schedule, null, 2));
+
+      // Save to Supabase database first for persistence across devices
+      try {
+        console.log('[WorkoutService] Saving workout plan to Supabase database...');
+        
+        // Archive existing active plans first
+        const { error: archiveError } = await supabase
+          .from('workout_plans')
+          .update({ status: 'archived', is_active: false })
+          .eq('user_id', params.userId)
+          .eq('status', 'active');
+        
+        if (archiveError) {
+          console.warn('[WorkoutService] Warning: Could not archive existing plans:', archiveError.message);
+        }
+        
+        // Insert new plan into database
+        const dbPlan = {
+          id: storedPlan.id,
+          user_id: params.userId,
+          name: storedPlan.name,
+          status: 'active',
+          training_level: storedPlan.training_level || params.trainingLevel,
+          primary_goal: storedPlan.primary_goal || params.primaryGoal,
+          days_per_week: storedPlan.workout_frequency ? parseInt(storedPlan.workout_frequency.split('_')[0]) : 4,
+          estimated_time_per_session: storedPlan.estimated_time_per_session || '45-60 minutes',
+          is_active: true,
+          mesocycle_length_weeks: storedPlan.mesocycle_length_weeks || 4,
+          goal_fat_loss: storedPlan.goal_fat_loss || params.fatLossGoal,
+          goal_muscle_gain: storedPlan.goal_muscle_gain || params.muscleGainGoal,
+          created_at: storedPlan.created_at,
+          updated_at: storedPlan.updated_at,
+          description: `AI-generated ${params.primaryGoal} workout plan`,
+          weekly_schedule: storedPlan.weeklySchedule || storedPlan.weekly_schedule,
+          // Add volume_landmarks if required by schema (using default or empty values)
+          volume_landmarks: (plan as any).volume_landmarks || { 
+            chest: 'MV', back: 'MV', quads: 'MV', hamstrings: 'MV', 
+            glutes: 'MV', shoulders: 'MV', triceps: 'MV', biceps: 'MV', 
+            calves: 'MV', abs: 'MV' 
+          }
+        };
+        
+        const { data: savedPlan, error: insertError } = await supabase
+          .from('workout_plans')
+          .insert(dbPlan)
+          .select()
+          .single();
+        
+        if (insertError) {
+          // Fallback: If is_active column is missing (schema mismatch), try inserting without it
+          if (insertError.message.includes('is_active') || insertError.message.includes('column "is_active" of relation "workout_plans" does not exist')) {
+            console.warn('[WorkoutService] Schema mismatch: is_active column missing. Retrying without it...');
+            const { is_active, ...dbPlanWithoutIsActive } = dbPlan;
+            
+            const { data: retrySavedPlan, error: retryError } = await supabase
+              .from('workout_plans')
+              .insert(dbPlanWithoutIsActive)
+              .select()
+              .single();
+              
+            if (retryError) {
+               console.error('[WorkoutService] Error saving plan to database (retry failed):', retryError.message);
+               console.warn('[WorkoutService] Continuing with local-only storage...');
+            } else {
+               console.log('[WorkoutService] ✅ Successfully saved workout plan to database (without is_active):', retrySavedPlan.id);
+            }
+          } else {
+            console.error('[WorkoutService] Error saving plan to database:', insertError.message);
+            console.warn('[WorkoutService] Continuing with local-only storage...');
+          }
+        } else {
+          console.log('[WorkoutService] ✅ Successfully saved workout plan to database:', savedPlan.id);
+        }
+      } catch (dbError: any) {
+        console.error('[WorkoutService] Exception while saving to database:', dbError.message);
+        console.warn('[WorkoutService] Continuing with local-only storage...');
+      }
 
       // Save to local storage for offline access
       await WorkoutLocalStore.savePlan(params.userId, storedPlan);

@@ -40,6 +40,7 @@ export interface UserProfile {
   primary_goal?: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain';
   training_level?: 'beginner' | 'intermediate' | 'advanced';
   exercise_frequency?: '1' | '2-3' | '4-5' | '6-7';
+  preferred_workout_frequency?: number; // Actual preferred workout days (1-7) - ✅ Used for AI nutrition calculations
   body_fat?: number;
   weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure';
   goal_fat_reduction?: number;
@@ -311,21 +312,32 @@ export class AInutritionService {
         break;
     }
 
-    // Adjust based on exercise frequency (additional factor)
+    // Adjust based on workout frequency (use preferred_workout_frequency if available)
     let exerciseMultiplier = 1.0;
-    switch (profile.exercise_frequency) {
-      case '1':
-        exerciseMultiplier = 1.0;
-        break;
-      case '2-3':
-        exerciseMultiplier = 1.05;
-        break;
-      case '4-5':
-        exerciseMultiplier = 1.1;
-        break;
-      case '6-7':
-        exerciseMultiplier = 1.15;
-        break;
+    
+    if (profile.preferred_workout_frequency) {
+      // Use actual workout frequency for more accurate calculation
+      const freq = profile.preferred_workout_frequency;
+      if (freq === 1) exerciseMultiplier = 1.0;
+      else if (freq <= 3) exerciseMultiplier = 1.05;
+      else if (freq <= 5) exerciseMultiplier = 1.1;
+      else exerciseMultiplier = 1.15;
+    } else {
+      // Fallback to bucketed exercise_frequency
+      switch (profile.exercise_frequency) {
+        case '1':
+          exerciseMultiplier = 1.0;
+          break;
+        case '2-3':
+          exerciseMultiplier = 1.05;
+          break;
+        case '4-5':
+          exerciseMultiplier = 1.1;
+          break;
+        case '6-7':
+          exerciseMultiplier = 1.15;
+          break;
+      }
     }
 
     // Adjust based on training level (advanced athletes burn more)
@@ -426,7 +438,11 @@ export class AInutritionService {
     }
 
     // Adjust carbs based on activity and goals
-    if (profile.activity_level === 'very_active' || profile.exercise_frequency === '6-7') {
+    const isVeryActive = profile.activity_level === 'very_active' || 
+                         profile.exercise_frequency === '6-7' ||
+                         (profile.preferred_workout_frequency && profile.preferred_workout_frequency >= 6);
+    
+    if (isVeryActive) {
       carbsPercentage = 50; // Higher carbs for very active individuals
       fatPercentage = 20;   // Lower fat to accommodate higher carbs
     } else if (profile.fitness_strategy === 'cut') {
@@ -479,9 +495,16 @@ export class AInutritionService {
     if (profile.training_level) {
       personalizationFactors.push(`${profile.training_level} training level for appropriate protein needs`);
     }
-    if (profile.exercise_frequency) {
-      personalizationFactors.push(`${profile.exercise_frequency} weekly exercise sessions for activity adjustments`);
+    
+    // Use preferred_workout_frequency if available, otherwise fall back to exercise_frequency
+    const workoutFreqDisplay = profile.preferred_workout_frequency 
+      ? `${profile.preferred_workout_frequency} days per week`
+      : profile.exercise_frequency ? `${profile.exercise_frequency} times per week` : null;
+    
+    if (workoutFreqDisplay) {
+      personalizationFactors.push(`${workoutFreqDisplay} workout frequency for activity adjustments`);
     }
+    
     if (profile.weight_trend) {
       personalizationFactors.push(`Current weight trend (${profile.weight_trend}) for dynamic adjustments`);
     }
@@ -500,7 +523,7 @@ The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${
         ? `Used Katch-McArdle formula with ${profile.body_fat}% body fat for precise BMR of ${targets.bmr} calories`
         : `Used Henry/Oxford equation based on age (${age}), gender (${profile.gender}), height (${profile.height}cm), and weight (${profile.weight}kg) for BMR of ${targets.bmr} calories`,
       
-      tdee_calculation: `Applied ${profile.activity_level} multiplier with ${profile.exercise_frequency} exercise frequency and ${profile.training_level} training level adjustments for TDEE of ${targets.tdee} calories`,
+      tdee_calculation: `Applied ${profile.activity_level} multiplier with ${workoutFreqDisplay || 'moderate'} workout frequency and ${profile.training_level} training level adjustments for TDEE of ${targets.tdee} calories`,
       
       calorie_adjustment: `Adjusted from TDEE based on ${profile.fitness_strategy} strategy${profile.weight_trend ? ` and current ${profile.weight_trend} weight trend` : ''} to reach ${targets.calories} daily calories`,
       

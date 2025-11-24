@@ -140,12 +140,21 @@ const AIPlanResultScreen = () => {
     );
   }
 
-  const renderMacroCard = (label: string, grams: number, percentage: number, color: string) => (
+  const renderMacroCard = (label: string, grams: number, percentage: number, color: string, iconName: string) => (
     <View style={styles.macroCard}>
-      <View style={[styles.macroColorBar, { backgroundColor: color }]} />
-      <Text style={styles.macroLabel}>{label}</Text>
-      <Text style={styles.macroGrams}>{Math.round(grams)}g</Text>
-      <Text style={styles.macroPercentage}>{Math.round(percentage)}%</Text>
+      <View style={[styles.macroIconContainer, { backgroundColor: color + '20' }]}>
+        <Icon name={iconName as any} size={20} color={color} />
+      </View>
+      <View style={styles.macroInfo}>
+        <Text style={styles.macroLabel}>{label}</Text>
+        <Text style={styles.macroGrams}>{Math.round(grams)}g</Text>
+        <View style={styles.percentageRow}>
+          <View style={[styles.percentageBar, { backgroundColor: color + '30', width: 40 }]}>
+            <View style={[styles.percentageFill, { backgroundColor: color, width: `${percentage}%` }]} />
+          </View>
+          <Text style={styles.macroPercentage}>{Math.round(percentage)}%</Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -155,15 +164,16 @@ const AIPlanResultScreen = () => {
     sectionKey: string,
     icon: string
   ) => (
-    <View style={styles.expandableSection}>
+    <View style={[styles.expandableSection, expandedSections[sectionKey] && styles.expandableSectionActive]}>
       <TouchableOpacity
         style={styles.sectionHeader}
         onPress={() => toggleSection(sectionKey)}
+        activeOpacity={0.7}
       >
-        <View style={styles.sectionHeaderLeft}>
-          <Icon name={icon as any} size={20} color={colors.primary} />
-          <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={[styles.sectionIconContainer, { backgroundColor: expandedSections[sectionKey] ? colors.primary + '20' : colors.surface }]}>
+          <Icon name={icon as any} size={20} color={expandedSections[sectionKey] ? colors.primary : colors.textSecondary} />
         </View>
+        <Text style={[styles.sectionTitle, expandedSections[sectionKey] && styles.sectionTitleActive]}>{title}</Text>
         <Icon
           name={expandedSections[sectionKey] ? 'chevron-up' : 'chevron-down'}
           size={20}
@@ -172,6 +182,7 @@ const AIPlanResultScreen = () => {
       </TouchableOpacity>
       {expandedSections[sectionKey] && (
         <View style={styles.sectionContent}>
+          <View style={styles.sectionDivider} />
           <Text style={styles.sectionText}>{content}</Text>
         </View>
       )}
@@ -190,107 +201,127 @@ const AIPlanResultScreen = () => {
         >
           <Icon name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Your AI Nutrition Plan</Text>
-        <View style={styles.headerRight} />
+        <Text style={styles.headerTitle}>Your Plan</Text>
+        <TouchableOpacity style={styles.infoButton}>
+          <Icon name="information-variant" size={20} color={colors.white} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Plan Overview */}
-        <LinearGradient
-          colors={['rgba(76,175,80,0.1)', 'rgba(76,175,80,0.05)']}
-          style={styles.overviewCard}
-        >
-          <View style={styles.overviewHeader}>
-            <Icon name="brain" size={32} color={colors.success} />
-            <Text style={styles.planName}>{aiPlan.plan_name}</Text>
-          </View>
-          
-          <View style={styles.caloriesSection}>
-            <Text style={styles.caloriesLabel}>Daily Calories</Text>
-            <Text style={styles.caloriesValue}>{aiPlan.daily_calories}</Text>
-            <Text style={styles.caloriesUnit}>kcal</Text>
-          </View>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 40 }
+        ]}
+      >
+        {/* Plan Overview Hero */}
+        <View style={styles.heroSection}>
+          <LinearGradient
+            colors={['#2C2C2E', '#1C1C1E']}
+            style={styles.overviewCard}
+          >
+            <View style={styles.planHeaderRow}>
+              <View style={styles.planBadge}>
+                <Icon name="star-four-points" size={14} color={colors.primary} />
+                <Text style={styles.planBadgeText}>AI GENERATED</Text>
+              </View>
+              <Text style={styles.planName}>{aiPlan.plan_name}</Text>
+            </View>
+            
+            <View style={styles.caloriesCircle}>
+              <View style={styles.caloriesInner}>
+                <Text style={styles.caloriesValue}>{aiPlan.daily_calories}</Text>
+                <Text style={styles.caloriesLabel}>Daily kcal</Text>
+              </View>
+            </View>
 
-          <View style={styles.macrosGrid}>
-            {renderMacroCard('Protein', aiPlan.protein_grams, aiPlan.protein_percentage, colors.primary)}
-            {renderMacroCard('Carbs', aiPlan.carbs_grams, aiPlan.carbs_percentage, colors.accent)}
-            {renderMacroCard('Fat', aiPlan.fat_grams, aiPlan.fat_percentage, colors.secondary)}
-          </View>
-        </LinearGradient>
+            <View style={styles.macrosGrid}>
+              {renderMacroCard('Protein', aiPlan.protein_grams, aiPlan.protein_percentage, colors.primary, 'food-drumstick')}
+              {renderMacroCard('Carbs', aiPlan.carbs_grams, aiPlan.carbs_percentage, colors.accent, 'barley')}
+              {renderMacroCard('Fat', aiPlan.fat_grams, aiPlan.fat_percentage, colors.secondary, 'water')}
+            </View>
+          </LinearGradient>
+        </View>
 
-        {/* AI Explanation */}
-        <View style={styles.explanationCard}>
-          <View style={styles.explanationHeader}>
-            <Icon name="lightbulb-outline" size={24} color={colors.success} />
-            <Text style={styles.explanationTitle}>Why This Plan?</Text>
+        {/* AI Insight */}
+        <View style={styles.insightContainer}>
+          <View style={styles.insightHeader}>
+            <LinearGradient colors={[colors.success, '#43A047']} style={styles.insightIcon}>
+              <Icon name="robot" size={16} color={colors.white} />
+            </LinearGradient>
+            <Text style={styles.insightTitle}>AI Insight</Text>
           </View>
-          <Text style={styles.explanationText}>{aiPlan.explanation}</Text>
+          <View style={styles.insightContent}>
+            <Text style={styles.insightText}>{aiPlan.explanation}</Text>
+          </View>
         </View>
 
         {/* Detailed Reasoning */}
         <View style={styles.reasoningSection}>
-          <Text style={styles.reasoningSectionTitle}>Detailed Analysis</Text>
+          <Text style={styles.sectionHeaderTitle}>Strategy Breakdown</Text>
           
           {aiPlan.reasoning.bmr_calculation && renderExpandableSection(
-            'BMR Calculation',
+            'BMR Analysis',
             aiPlan.reasoning.bmr_calculation,
             'bmr',
-            'calculator'
+            'calculator-variant'
           )}
           
           {aiPlan.reasoning.tdee_calculation && renderExpandableSection(
-            'TDEE Calculation',
+            'Activity Level (TDEE)',
             aiPlan.reasoning.tdee_calculation,
             'tdee',
-            'run'
+            'run-fast'
           )}
           
           {aiPlan.reasoning.calorie_adjustment && renderExpandableSection(
             'Calorie Adjustments',
             aiPlan.reasoning.calorie_adjustment,
             'calories',
-            'tune'
+            'scale-balance'
           )}
           
           {aiPlan.reasoning.macro_distribution && renderExpandableSection(
-            'Macro Distribution',
+            'Macro Split Strategy',
             aiPlan.reasoning.macro_distribution,
             'macros',
             'chart-pie'
           )}
           
           {aiPlan.reasoning.personalization_factors && aiPlan.reasoning.personalization_factors.length > 0 && renderExpandableSection(
-            'Personalization Factors',
+            'Personalization',
             aiPlan.reasoning.personalization_factors.join('\n• '),
             'personalization',
-            'account-cog'
+            'account-check'
           )}
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
+            style={styles.acceptButtonContainer}
             onPress={handleAcceptPlan}
+            activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[colors.success, '#45a049']}
-              style={styles.buttonGradient}
+              colors={[colors.primary, '#E65100']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.acceptButton}
             >
-              <Icon name="check" size={20} color={colors.white} />
-              <Text style={styles.buttonText}>Accept This Plan</Text>
+              <Text style={styles.acceptButtonText}>Start This Plan</Text>
+              <Icon name="arrow-right" size={20} color={colors.white} />
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.modifyButton]}
+            style={styles.modifyButton}
             onPress={handleModifyPlan}
           >
-            <Text style={styles.modifyButtonText}>Try Different Approach</Text>
+            <Text style={styles.modifyButtonText}>Regenerate Plan</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: insets.bottom + 20 }} />
       </ScrollView>
     </View>
   );
@@ -306,17 +337,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: colors.text,
+    color: colors.textSecondary,
     fontSize: 16,
-    fontWeight: '500',
+    marginTop: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
     backgroundColor: colors.background,
+    zIndex: 10,
   },
   backButton: {
     width: 40,
@@ -325,136 +357,209 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  headerRight: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  overviewCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  overviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  planName: {
+  headerTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '600',
-    marginLeft: 12,
+  },
+  infoButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
     flex: 1,
   },
-  caloriesSection: {
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  heroSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  overviewCard: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  planHeaderRow: {
+    flexDirection: 'column',
     alignItems: 'center',
     marginBottom: 24,
   },
-  caloriesLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  planBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
+    letterSpacing: 0.5,
+  },
+  planName: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  caloriesCircle: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  caloriesInner: {
+    alignItems: 'center',
   },
   caloriesValue: {
     color: colors.text,
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 56,
+    fontWeight: '800',
+    lineHeight: 64,
+    includeFontPadding: false,
   },
-  caloriesUnit: {
+  caloriesLabel: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
   macrosGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 8,
   },
   macroCard: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: 12,
     alignItems: 'center',
-    position: 'relative',
   },
-  macroColorBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+  macroIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  macroInfo: {
+    alignItems: 'center',
   },
   macroLabel: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   macroGrams: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  percentageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  percentageBar: {
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.border,
+  },
+  percentageFill: {
+    height: '100%',
+    borderRadius: 1.5,
+  },
+  percentageIcon: {
+    // removed
+  },
+  percentageText: {
+    // removed
   },
   macroPercentage: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '500',
   },
-  explanationCard: {
+  
+  // AI Insight
+  insightContainer: {
+    marginHorizontal: 20,
+    marginBottom: 32,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  explanationHeader: {
+  insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  explanationTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
+  insightIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
-  explanationText: {
+  insightTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  insightContent: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+  },
+  insightText: {
     color: colors.textSecondary,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
+
+  // Reasoning
   reasoningSection: {
-    marginBottom: 30,
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
-  reasoningSectionTitle: {
+  sectionHeaderTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 16,
+    marginLeft: 4,
   },
   expandableSection: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
+    overflow: 'hidden',
     borderWidth: 1,
+    borderColor: colors.surface, // Hidden border initially
+  },
+  expandableSectionActive: {
     borderColor: colors.border,
+    backgroundColor: '#252527',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -462,60 +567,74 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
   },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
+  sectionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
+    marginRight: 12,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: colors.textSecondary,
+    fontSize: 15,
     fontWeight: '500',
-    marginLeft: 8,
+    flex: 1,
+  },
+  sectionTitleActive: {
+    color: colors.text,
+    fontWeight: '600',
   },
   sectionContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: 16,
+    opacity: 0.5,
   },
   sectionText: {
     color: colors.textSecondary,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
   },
+
+  // Actions
   actionButtons: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  actionButton: {
-    borderRadius: 12,
-    marginBottom: 12,
+  acceptButtonContainer: {
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   acceptButton: {
-    overflow: 'hidden',
-  },
-  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: 18,
+    borderRadius: 16,
+    gap: 8,
   },
-  buttonText: {
+  acceptButtonText: {
     color: colors.white,
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   modifyButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 16,
-    paddingHorizontal: 24,
     alignItems: 'center',
   },
   modifyButtonText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
   },
 });

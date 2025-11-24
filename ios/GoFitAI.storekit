@@ -5,22 +5,7 @@
   ],
   "products" : [
     {
-      "displayPrice" : "4.99",
-      "familyShareable" : false,
-      "internalID" : "6736697506",
-      "localizations" : [
-        {
-          "description" : "Get unlimited access to all premium features including AI meal planning, advanced analytics, and personalized workout recommendations.",
-          "displayName" : "GoFitAI Premium Monthly",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "gofitai_premium_monthly1",
-      "referenceName" : "GoFitAI Premium Monthly",
-      "type" : "NonConsumable"
-    },
-    {
-      "displayPrice" : "29.99",
+      "displayPrice" : "79.99",
       "familyShareable" : false,
       "internalID" : "6736697507",
       "localizations" : [
@@ -91,14 +76,51 @@
     ]
   },
   "subscriptionGroups" : [
+    {
+      "id" : "2132B31C",
+      "localizations" : [
+        {
+          "description" : "GoFitAI Premium",
+          "displayName" : "GoFitAI Premium",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
 
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6736697506",
+          "introductoryOffer" : {
+            "internalID" : "8D27C26E",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Get unlimited access to all premium features including AI meal planning, advanced analytics, and personalized workout recommendations.",
+              "displayName" : "GoFitAI Premium Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "gofitai_premium_monthly1",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "GoFitAI Premium Monthly",
+          "subscriptionGroupID" : "2132B31C",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
   ],
   "version" : {
     "major" : 3,
     "minor" : 0
   }
 }
-
-
-
-

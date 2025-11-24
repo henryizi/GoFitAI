@@ -233,7 +233,7 @@ export default function ProgressScreen() {
       case 1:
         return <HistoryTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
       case 2:
-        return <PhotosTab onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
+        return <PhotosTab onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} entries={entries} />;
       default:
         return null;
     }
@@ -790,46 +790,82 @@ const EnhancedHistoryItem = ({ item, index, unit }) => {
   );
 };
 
-const PhotosTab = ({ onRefresh, refreshing, scrollY }) => {
+const PhotosTab = ({ onRefresh, refreshing, scrollY, entries = [] }: { onRefresh: () => void, refreshing: boolean, scrollY: any, entries?: DailyMetric[] }) => {
   const [viewMode, setViewMode] = useState('comparison'); // 'comparison' or 'grid'
   const { user, profile } = useAuth();
   const unit = profile?.weight_unit_preference || 'kg';
-  // TODO: Fetch photos from within this component
-  const photos = [];
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const renderViewModeToggle = () => (
-    <View style={styles.viewModeToggle}>
-      <TouchableOpacity
-        style={[styles.viewModeButton, viewMode === 'comparison' && styles.viewModeButtonActive]}
-        onPress={() => setViewMode('comparison')}
-      >
-        <LinearGradient
-          colors={viewMode === 'comparison' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
-          style={styles.viewModeButtonGradient}
-        >
-          <Icon name="compare" size={16} color={viewMode === 'comparison' ? colors.white : colors.primary} />
-          <Text style={[styles.viewModeButtonText, viewMode === 'comparison' && styles.viewModeButtonTextActive]}>
-            Before/After
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+  const fetchPhotos = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const fetchedPhotos = await ProgressService.getProgressPhotos(user.id);
       
-      <TouchableOpacity
-        style={[styles.viewModeButton, viewMode === 'grid' && styles.viewModeButtonActive]}
-        onPress={() => setViewMode('grid')}
-      >
-        <LinearGradient
-          colors={viewMode === 'grid' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
-          style={styles.viewModeButtonGradient}
+      // Merge weight data from entries if available
+      const enrichedPhotos = fetchedPhotos.map(photo => {
+        const dateEntry = entries.find(e => e.metric_date === photo.date);
+        return {
+          ...photo,
+          weight_kg: dateEntry?.weight_kg || null
+        };
+      });
+      
+      setPhotos(enrichedPhotos);
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, entries]);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, [fetchPhotos, refreshing]);
+
+  if (loading && !refreshing && photos.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  const renderViewModeToggle = () => {
+    return (
+      <View style={styles.viewModeToggle}>
+        <TouchableOpacity
+          style={[styles.viewModeButton, viewMode === 'comparison' && styles.viewModeButtonActive]}
+          onPress={() => setViewMode('comparison')}
         >
-          <Icon name="grid" size={16} color={viewMode === 'grid' ? colors.white : colors.primary} />
-          <Text style={[styles.viewModeButtonText, viewMode === 'grid' && styles.viewModeButtonTextActive]}>
-            Photo Grid
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
+          <LinearGradient
+            colors={viewMode === 'comparison' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
+            style={styles.viewModeButtonGradient}
+          >
+            <Icon name="compare" size={16} color={viewMode === 'comparison' ? colors.white : colors.primary} />
+            <Text style={[styles.viewModeButtonText, viewMode === 'comparison' && styles.viewModeButtonTextActive]}>
+              Before/After
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.viewModeButton, viewMode === 'grid' && styles.viewModeButtonActive]}
+          onPress={() => setViewMode('grid')}
+        >
+          <LinearGradient
+            colors={viewMode === 'grid' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
+            style={styles.viewModeButtonGradient}
+          >
+            <Icon name="grid" size={16} color={viewMode === 'grid' ? colors.white : colors.primary} />
+            <Text style={[styles.viewModeButtonText, viewMode === 'grid' && styles.viewModeButtonTextActive]}>
+              Photo Grid
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (!photos || photos.length === 0) {
     return (
@@ -934,10 +970,20 @@ const PhotosTab = ({ onRefresh, refreshing, scrollY }) => {
               {renderViewModeToggle()}
               
               <View style={styles.comparisonContainer}>
-                <Text style={styles.comparisonTitle}>Progress Comparison</Text>
-                <Text style={styles.comparisonSubtitle}>
-                  Track your transformation with before/after photos
-                </Text>
+                <View style={styles.comparisonHeaderRow}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={styles.comparisonIconContainer}
+                  >
+                    <Icon name="compare" size={24} color="#FFFFFF" />
+                  </LinearGradient>
+                  <View style={styles.comparisonTextContainer}>
+                    <Text style={styles.comparisonTitle}>Progress Comparison</Text>
+                    <Text style={styles.comparisonSubtitle}>
+                      Track your transformation journey
+                    </Text>
+                  </View>
+                </View>
               </View>
             </>
           }
@@ -1871,20 +1917,45 @@ const styles = StyleSheet.create({
   // Comparison container styles
   comparisonContainer: {
     paddingHorizontal: 24,
-    marginBottom: 20,
+    marginBottom: 24,
+    marginTop: 8,
+  },
+  comparisonHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  comparisonIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  comparisonTextContainer: {
+    flex: 1,
   },
   comparisonTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 6,
-    textAlign: 'center',
+    marginBottom: 4,
+    letterSpacing: 0.5,
   },
   comparisonSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+    fontWeight: '500',
+    lineHeight: 18,
   },
 });

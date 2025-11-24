@@ -17,7 +17,14 @@ const mockOfferings: PurchasesOffering[] = [
           price: 9.99,
           priceString: '$9.99',
           currencyCode: 'USD',
-          introPrice: null,
+          introPrice: {
+            price: 0,
+            priceString: '$0.00',
+            period: 'P1W',
+            cycles: 1,
+            periodUnit: 'WEEK',
+            periodNumberOfUnits: 1,
+          } as any,
           discounts: [],
           pricePerWeek: 2.49,
           pricePerMonth: 9.99,
@@ -44,8 +51,8 @@ const mockOfferings: PurchasesOffering[] = [
           identifier: 'gofitai_premium_lifetime1',
           description: 'Premium Lifetime Access',
           title: 'Premium Lifetime',
-          price: 199.99,
-          priceString: '$199.99',
+          price: 79.99,
+          priceString: '$79.99',
           currencyCode: 'USD',
           introPrice: null,
           discounts: [],
@@ -100,9 +107,12 @@ const mockCustomerInfo: CustomerInfo = {
   firstSeenString: new Date().toISOString(),
   originalPurchaseDateString: new Date().toISOString(),
   latestExpirationDateString: null,
-} as CustomerInfo;
+} as unknown as CustomerInfo;
 
 export class MockRevenueCatService {
+  // Default to false, but can be toggled by purchase/restore
+  private static isPremium = false;
+
   static async initialize(): Promise<void> {
     console.log('MockRevenueCatService: Initialized');
     return Promise.resolve();
@@ -115,17 +125,55 @@ export class MockRevenueCatService {
 
   static async getCustomerInfo(): Promise<CustomerInfo> {
     console.log('MockRevenueCatService: Getting customer info');
+    
+    if (this.isPremium) {
+      // Return info with premium entitlement
+      const premiumEntitlement = {
+        identifier: 'premium',
+        isActive: true,
+        willRenew: true,
+        latestPurchaseDate: new Date().toISOString(),
+        originalPurchaseDate: new Date().toISOString(),
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        store: 'MOCK_STORE' as any,
+        productIdentifier: 'gofitai_premium_monthly1',
+        isSandbox: true,
+        periodType: 'NORMAL' as any,
+        ownershipType: 'PURCHASED' as any,
+        verification: 'NOT_REQUESTED' as any
+      };
+
+      return Promise.resolve({
+        ...mockCustomerInfo,
+        entitlements: {
+          ...mockCustomerInfo.entitlements,
+          active: { premium: premiumEntitlement },
+          all: { premium: premiumEntitlement }
+        }
+      } as unknown as CustomerInfo);
+    }
+
     return Promise.resolve(mockCustomerInfo);
   }
 
   static async isPremiumActive(): Promise<boolean> {
-    console.log('MockRevenueCatService: Checking premium status');
-    // Return false for testing paywall functionality
-    return Promise.resolve(false);
+    console.log('MockRevenueCatService: Checking premium status:', this.isPremium);
+    return Promise.resolve(this.isPremium);
   }
 
   static async getSubscriptionInfo(): Promise<{ isPremium: boolean; productId?: string; expirationDate?: string; willRenew?: boolean; periodType?: 'monthly' | 'lifetime' }> {
     console.log('MockRevenueCatService: Getting subscription info');
+    
+    if (this.isPremium) {
+      return Promise.resolve({
+        isPremium: true,
+        productId: 'gofitai_premium_monthly1',
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        willRenew: true,
+        periodType: 'monthly',
+      });
+    }
+
     return Promise.resolve({
       isPremium: false,
       productId: undefined,
@@ -138,91 +186,24 @@ export class MockRevenueCatService {
   static async purchasePackage(packageToPurchase: PurchasesPackage): Promise<{ success: boolean; customerInfo?: CustomerInfo; error?: string }> {
     console.log('MockRevenueCatService: Purchasing package', packageToPurchase.identifier);
     
-    // Simulate successful purchase
-    const updatedCustomerInfo = {
-      ...mockCustomerInfo,
-      entitlements: {
-        all: {
-          premium: {
-            identifier: 'premium',
-            isActive: true,
-            willRenew: true,
-            latestPurchaseDate: new Date().toISOString(),
-            originalPurchaseDate: new Date().toISOString(),
-            expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-            store: 'MOCK_STORE' as any,
-            productIdentifier: packageToPurchase.product.identifier,
-            productPlanIdentifier: null,
-            isSandbox: true,
-            unsubscribeDetectedAt: null,
-            billingIssueDetectedAt: null,
-            periodType: 'NORMAL' as any,
-            latestPurchaseDateString: new Date().toISOString(),
-            originalPurchaseDateString: new Date().toISOString(),
-            expirationDateString: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            unsubscribeDetectedAtString: null,
-            billingIssueDetectedAtString: null,
-            latestPurchaseDateMillis: Date.now(),
-            originalPurchaseDateMillis: Date.now(),
-            expirationDateMillis: Date.now() + 30 * 24 * 60 * 60 * 1000,
-            unsubscribeDetectedAtMillis: null,
-            billingIssueDetectedAtMillis: null,
-            ownershipType: 'PURCHASED' as any,
-            verification: 'NOT_REQUESTED' as any,
-          },
-        },
-        active: {
-          premium: {
-            identifier: 'premium',
-            isActive: true,
-            willRenew: true,
-            latestPurchaseDate: new Date().toISOString(),
-            originalPurchaseDate: new Date().toISOString(),
-            expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-            store: 'MOCK_STORE' as any,
-            productIdentifier: packageToPurchase.product.identifier,
-            productPlanIdentifier: null,
-            isSandbox: true,
-            unsubscribeDetectedAt: null,
-            billingIssueDetectedAt: null,
-            periodType: 'NORMAL' as any,
-            latestPurchaseDateString: new Date().toISOString(),
-            originalPurchaseDateString: new Date().toISOString(),
-            expirationDateString: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            unsubscribeDetectedAtString: null,
-            billingIssueDetectedAtString: null,
-            latestPurchaseDateMillis: Date.now(),
-            originalPurchaseDateMillis: Date.now(),
-            expirationDateMillis: Date.now() + 30 * 24 * 60 * 60 * 1000,
-            unsubscribeDetectedAtMillis: null,
-            billingIssueDetectedAtMillis: null,
-            ownershipType: 'PURCHASED' as any,
-            verification: 'NOT_REQUESTED' as any,
-          },
-        },
-        verification: 'NOT_REQUESTED' as any,
-      },
-    } as CustomerInfo;
+    this.isPremium = true;
+    const customerInfo = await this.getCustomerInfo();
 
     return Promise.resolve({
       success: true,
-      customerInfo: updatedCustomerInfo,
+      customerInfo: customerInfo,
+    });
+  }
+
+  static async restorePurchases(): Promise<{ success: boolean; customerInfo?: CustomerInfo; error?: string }> {
+    console.log('MockRevenueCatService: Restoring purchases');
+    
+    this.isPremium = true;
+    const customerInfo = await this.getCustomerInfo();
+
+    return Promise.resolve({
+      success: true,
+      customerInfo: customerInfo,
     });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -23,6 +23,7 @@ export interface Database {
           training_level: 'beginner' | 'intermediate' | 'advanced' | null;
           primary_goal: 'general_fitness' | 'hypertrophy' | 'athletic_performance' | 'fat_loss' | 'muscle_gain' | null;
           workout_frequency: '2_3' | '4_5' | '6' | null;
+          preferred_workout_frequency: number | null; // Actual preferred workout days (1-7)
           onboarding_completed: boolean;
           body_fat: number | null;
           weight_trend: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
@@ -150,14 +151,14 @@ export interface Database {
           status: 'active' | 'archived' | 'completed';
           created_at: string;
           updated_at: string;
-          mesocycle_length: number;
+          mesocycle_length_weeks: number;
           goal_fat_loss: number | null;
           goal_muscle_gain: number | null;
           image_url: string | null;
           plan_id: string;
           split_id: string | null;
           estimated_calories: number | null;
-          training_splits: Json | null;
+          weekly_schedule: Json | null;
         };
         Insert: {
           id?: string;

@@ -63,6 +63,7 @@ const ExerciseFrequencyScreen = () => {
     
     const exerciseFrequency = mapToExerciseFrequency(frequency);
     const workoutFrequency = mapToWorkoutFrequency(frequency);
+    const preferredWorkoutFrequency = parseInt(frequency, 10); // Store actual user preference (1-7)
     
     // Save data in background (non-blocking)
     saveOnboardingData(
@@ -70,9 +71,10 @@ const ExerciseFrequencyScreen = () => {
         id: user.id,
         exercise_frequency: exerciseFrequency,
         workout_frequency: workoutFrequency,
+        preferred_workout_frequency: preferredWorkoutFrequency, // NEW: Store exact number for AI calculations
         onboarding_completed: false
       }).select(),
-      `Saving exercise frequency: ${exerciseFrequency}, workout frequency: ${workoutFrequency}`,
+      `Saving exercise frequency: ${exerciseFrequency}, workout frequency: ${workoutFrequency}, preferred: ${preferredWorkoutFrequency}`,
       undefined,
       user.id
     );
@@ -80,7 +82,8 @@ const ExerciseFrequencyScreen = () => {
     // Analytics in background
     try { identify(user.id, {
       exercise_frequency: exerciseFrequency,
-      workout_frequency: workoutFrequency
+      workout_frequency: workoutFrequency,
+      preferred_workout_frequency: preferredWorkoutFrequency
     }); } catch {}
     
     console.log('🚀 Navigating to activity-level screen...');

@@ -12,6 +12,7 @@ import { ProgressService } from '../../services/progressService';
 import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
 import { Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ImageOptimizer } from '../../services/storage/imageOptimizer';
 import HealthDisclaimer from '../legal/HealthDisclaimer';
 import ContentSafetyWarning from '../legal/ContentSafetyWarning';
@@ -294,16 +295,6 @@ export default function BeforeAfterComparison({
   };
 
   const renderBeforeAfterComparison = () => {
-    // Debug logging
-    console.log('renderBeforeAfterComparison - Debug Info:');
-    console.log('hasBeforeAfterPhotos:', hasBeforeAfterPhotos);
-    console.log('photoEntriesForView.length:', photoEntriesForView.length);
-    console.log('beforeIndex:', beforeIndex);
-    console.log('afterIndex:', afterIndex);
-    console.log('beforeEntry:', beforeEntry);
-    console.log('afterEntry:', afterEntry);
-    console.log('selectedView:', selectedView);
-    
     if (!hasBeforeAfterPhotos) {
       return renderNoPhotosMessage();
     }
@@ -316,109 +307,86 @@ export default function BeforeAfterComparison({
         {/* Main App Layout - Side by Side */}
         <View style={styles.comparisonContainer}>
           {/* Before Photo - Left */}
-          <View style={styles.photoContainer}>
-            <Card style={styles.photoCard}>
-              <Card.Content style={styles.photoContent}>
-                <View style={styles.photoImageContainer}>
-                  {beforePhoto ? (
-                    <Image 
-                      source={{ uri: beforePhoto.storage_path }}
-                      style={styles.photoImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.noPhotoPlaceholder}>
-                      <Icon name="image-off" size={48} color={colors.textSecondary} />
-                      <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
-                    </View>
-                  )}
-                  <View style={styles.photoLabelOverlay}>
-                    <Text style={styles.photoLabelOverlayText}>BEFORE</Text>
-                  </View>
+          <TouchableOpacity 
+            style={styles.photoColumn} 
+            onPress={() => setOpenSelector('before')}
+            activeOpacity={0.9}
+          >
+            <View style={styles.photoFrame}>
+              {beforePhoto ? (
+                <Image 
+                  source={{ uri: beforePhoto.storage_path }}
+                  style={styles.photoImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.noPhotoPlaceholder}>
+                  <Icon name="image-off" size={32} color={colors.textSecondary} />
                 </View>
-              </Card.Content>
-            </Card>
-            <View style={styles.photoLabel}>
-              <Text style={styles.photoLabelMainText}>BEFORE</Text>
-              <Text style={styles.photoDateMainText}>{beforeEntry?.date}</Text>
+              )}
+              
+              <LinearGradient
+                colors={['rgba(0,0,0,0.6)', 'transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
+
+              <View style={styles.photoHeader}>
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>BEFORE</Text>
+                </View>
+              </View>
+
+              <View style={styles.photoFooter}>
+                <Icon name="calendar" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                <Text style={styles.dateText}>{beforeEntry?.date}</Text>
+                <Icon name="chevron-down" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* After Photo - Right */}
-          <View style={styles.photoContainer}>
-            <Card style={styles.photoCard}>
-              <Card.Content style={styles.photoContent}>
-                <View style={styles.photoImageContainer}>
-                  {afterPhoto ? (
-                    <Image 
-                      source={{ uri: afterPhoto.storage_path }}
-                      style={styles.photoImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.noPhotoPlaceholder}>
-                      <Icon name="image-off" size={48} color={colors.textSecondary} />
-                      <Text style={styles.noPhotoText}>No {selectedView} photo</Text>
-                    </View>
-                  )}
-                  <View style={styles.photoLabelOverlay}>
-                    <Text style={styles.photoLabelOverlayText}>AFTER</Text>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-            <View style={styles.photoLabel}>
-              <Text style={styles.photoLabelMainText}>AFTER</Text>
-              <Text style={styles.photoDateMainText}>{afterEntry?.date}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Date Selection Buttons */}
-        <View style={styles.dateSelectorRow}>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.dateSelectorItem,
-              pressed && styles.dateSelectorItemPressed
-            ]}
-            onPress={() => setOpenSelector('before')}
-          >
-            <Icon name="calendar" size={16} color={colors.primary} style={styles.dateButtonIcon} />
-            <Text style={styles.dateChipText}>BEFORE: {beforeEntry?.date}</Text>
-          </Pressable>
-          
-          <Pressable 
-            style={({ pressed }) => [
-              styles.dateSelectorItem,
-              pressed && styles.dateSelectorItemPressed
-            ]}
+          <TouchableOpacity 
+            style={styles.photoColumn} 
             onPress={() => setOpenSelector('after')}
+            activeOpacity={0.9}
           >
-            <Icon name="calendar" size={16} color={colors.primary} style={styles.dateButtonIcon} />
-            <Text style={styles.dateChipText}>AFTER: {afterEntry?.date}</Text>
-          </Pressable>
+            <View style={styles.photoFrame}>
+              {afterPhoto ? (
+                <Image 
+                  source={{ uri: afterPhoto.storage_path }}
+                  style={styles.photoImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.noPhotoPlaceholder}>
+                  <Icon name="image-off" size={32} color={colors.textSecondary} />
+                </View>
+              )}
+              
+              <LinearGradient
+                colors={['rgba(0,0,0,0.6)', 'transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
+
+              <View style={styles.photoHeader}>
+                <View style={[styles.badgeContainer, styles.badgeContainerActive]}>
+                  <Text style={[styles.badgeText, styles.badgeTextActive]}>AFTER</Text>
+                </View>
+              </View>
+
+              <View style={styles.photoFooter}>
+                <Icon name="calendar" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                <Text style={styles.dateText}>{afterEntry?.date}</Text>
+                <Icon name="chevron-down" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Progress Summary */}
-        {renderProgressSummary(      )}
-
-      {/* Share Progress Button - Temporarily Disabled */}
-        {/* {beforeEntry && afterEntry && (
-          <Card style={styles.shareCard}>
-            <Card.Content>
-              <Button 
-                mode="contained" 
-                onPress={handleShareProgress}
-                style={[styles.shareButton, { backgroundColor: isSharing ? colors.disabled : '#FF6B35' }]}
-                icon={isSharing ? "loading" : "share-variant"}
-                labelStyle={styles.shareButtonText}
-                disabled={isSharing}
-              >
-                {isSharing ? 'Preparing...' : 'Share Progress'}
-              </Button>
-            </Card.Content>
-          </Card>
-        )} */}
+        {renderProgressSummary()}
 
         {/* Hidden ViewShot for Sharing - Full Screen Before/After Layout */}
         <ViewShot ref={viewShotRef} style={styles.shareViewShotContainer} options={{ format: 'png', quality: 0.9 }}>
@@ -539,26 +507,174 @@ export default function BeforeAfterComparison({
       (new Date(afterEntry.date).getTime() - new Date(beforeEntry.date).getTime()) / (1000 * 60 * 60 * 24)
     );
 
+    // Calculate weight change if available
+    const weightChange = beforeEntry.weight_kg && afterEntry.weight_kg
+      ? afterEntry.weight_kg - beforeEntry.weight_kg
+      : null;
+    
+    // Calculate body fat change if available
+    const bodyFatChange = beforeEntry.body_fat_percentage && afterEntry.body_fat_percentage
+      ? afterEntry.body_fat_percentage - beforeEntry.body_fat_percentage
+      : null;
+
+    const weeksBetween = Math.floor(daysBetween / 7);
+    const monthsBetween = Math.floor(daysBetween / 30);
+
     return (
-      <Card style={styles.summaryCard}>
-        <Card.Content>
-          <Text style={styles.summaryTitle}>Progress Summary</Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Icon name="calendar" size={16} color={colors.primary} />
-              <Text style={styles.summaryLabel}>Duration</Text>
-              <Text style={styles.summaryValue}>{daysBetween} days</Text>
+      <View style={styles.summaryCardContainer}>
+        <LinearGradient
+          colors={[
+            'rgba(255, 107, 53, 0.15)',
+            'rgba(255, 107, 53, 0.08)',
+            'rgba(255, 255, 255, 0.05)'
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryCardGradient}
+        >
+          {/* Header */}
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryHeaderIconContainer}>
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark]}
+                style={styles.summaryHeaderIcon}
+              >
+                <Icon name="chart-line-variant" size={20} color="#FFFFFF" />
+              </LinearGradient>
             </View>
-            <View style={styles.summaryItem}>
-              <Icon name="camera" size={16} color={colors.primary} />
-              <Text style={styles.summaryLabel}>Photos</Text>
-              <Text style={styles.summaryValue}>{sortedEntries.length}</Text>
+            <View style={styles.summaryHeaderText}>
+              <Text style={styles.summaryTitle}>Progress Summary</Text>
+              <Text style={styles.summarySubtitle}>Your transformation journey</Text>
             </View>
           </View>
-          
 
-        </Card.Content>
-      </Card>
+          {/* Stats Grid */}
+          <View style={styles.summaryStatsGrid}>
+            {/* Duration Card */}
+            <View style={styles.summaryStatCard}>
+              <View style={styles.summaryStatIconContainer}>
+                <LinearGradient
+                  colors={['rgba(255, 107, 53, 0.2)', 'rgba(255, 107, 53, 0.1)']}
+                  style={styles.summaryStatIconBg}
+                >
+                  <Icon name="calendar-clock" size={20} color={colors.primary} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.summaryStatValue}>
+                {daysBetween}
+              </Text>
+              <Text style={styles.summaryStatLabel}>Days</Text>
+              {(weeksBetween > 0 || monthsBetween > 0) && (
+                <Text style={styles.summaryStatSubtext}>
+                  {monthsBetween > 0 ? `${monthsBetween}mo` : ''}
+                  {monthsBetween > 0 && weeksBetween % 4 > 0 ? ' ' : ''}
+                  {weeksBetween % 4 > 0 ? `${weeksBetween % 4}w` : ''}
+                </Text>
+              )}
+            </View>
+
+            {/* Photos Card */}
+            <View style={styles.summaryStatCard}>
+              <View style={styles.summaryStatIconContainer}>
+                <LinearGradient
+                  colors={['rgba(255, 107, 53, 0.2)', 'rgba(255, 107, 53, 0.1)']}
+                  style={styles.summaryStatIconBg}
+                >
+                  <Icon name="image-multiple" size={20} color={colors.primary} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.summaryStatValue}>
+                {sortedEntries.length}
+              </Text>
+              <Text style={styles.summaryStatLabel}>Photos</Text>
+              <Text style={styles.summaryStatSubtext}>
+                {photoEntriesForView.length} {selectedView}
+              </Text>
+            </View>
+
+            {/* Weight Change Card (if available) */}
+            {weightChange !== null && (
+              <View style={styles.summaryStatCard}>
+                <View style={styles.summaryStatIconContainer}>
+                  <LinearGradient
+                    colors={[
+                      weightChange < 0 
+                        ? 'rgba(52, 199, 89, 0.2)' 
+                        : 'rgba(255, 107, 53, 0.2)',
+                      weightChange < 0 
+                        ? 'rgba(52, 199, 89, 0.1)' 
+                        : 'rgba(255, 107, 53, 0.1)'
+                    ]}
+                    style={styles.summaryStatIconBg}
+                  >
+                    <Icon 
+                      name={weightChange < 0 ? "trending-down" : "trending-up"} 
+                      size={20} 
+                      color={weightChange < 0 ? colors.success : colors.primary} 
+                    />
+                  </LinearGradient>
+                </View>
+                <Text style={[
+                  styles.summaryStatValue,
+                  weightChange < 0 && styles.summaryStatValuePositive
+                ]}>
+                  {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)}
+                </Text>
+                <Text style={styles.summaryStatLabel}>kg</Text>
+                <Text style={styles.summaryStatSubtext}>Weight</Text>
+              </View>
+            )}
+
+            {/* Body Fat Change Card (if available) */}
+            {bodyFatChange !== null && (
+              <View style={styles.summaryStatCard}>
+                <View style={styles.summaryStatIconContainer}>
+                  <LinearGradient
+                    colors={[
+                      bodyFatChange < 0 
+                        ? 'rgba(52, 199, 89, 0.2)' 
+                        : 'rgba(255, 107, 53, 0.2)',
+                      bodyFatChange < 0 
+                        ? 'rgba(52, 199, 89, 0.1)' 
+                        : 'rgba(255, 107, 53, 0.1)'
+                    ]}
+                    style={styles.summaryStatIconBg}
+                  >
+                    <Icon 
+                      name={bodyFatChange < 0 ? "trending-down" : "trending-up"} 
+                      size={20} 
+                      color={bodyFatChange < 0 ? colors.success : colors.primary} 
+                    />
+                  </LinearGradient>
+                </View>
+                <Text style={[
+                  styles.summaryStatValue,
+                  bodyFatChange < 0 && styles.summaryStatValuePositive
+                ]}>
+                  {bodyFatChange > 0 ? '+' : ''}{bodyFatChange.toFixed(1)}%
+                </Text>
+                <Text style={styles.summaryStatLabel}>Body Fat</Text>
+                <Text style={styles.summaryStatSubtext}>Change</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Date Range Footer */}
+          <View style={styles.summaryFooter}>
+            <View style={styles.summaryDateRange}>
+              <View style={styles.summaryDateItem}>
+                <Icon name="calendar-start" size={14} color={colors.textSecondary} />
+                <Text style={styles.summaryDateText}>{beforeEntry.date}</Text>
+              </View>
+              <Icon name="arrow-right" size={16} color={colors.primary} style={{ marginHorizontal: 12 }} />
+              <View style={styles.summaryDateItem}>
+                <Icon name="calendar-end" size={14} color={colors.textSecondary} />
+                <Text style={styles.summaryDateText}>{afterEntry.date}</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
     );
   };
 
@@ -596,39 +712,53 @@ export default function BeforeAfterComparison({
     );
   };
 
-  const renderViewToggle = () => (
-    <View style={styles.segmentContainer}>
-      <TouchableOpacity
-        onPress={() => setSelectedView('front')}
-        style={[styles.segment, selectedView === 'front' && styles.segmentActive]}
-      >
-        <Text style={[styles.segmentText, selectedView === 'front' && styles.segmentTextActive]}>Front</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => setSelectedView('back')}
-        style={[styles.segment, selectedView === 'back' && styles.segmentActive]}
-      >
-        <Text style={[styles.segmentText, selectedView === 'back' && styles.segmentTextActive]}>Back</Text>
-      </TouchableOpacity>
+  const renderControls = () => (
+    <View style={styles.controlsCard}>
+      <View style={styles.controlsRow}>
+        {/* View Selector (Front/Back) */}
+        <View style={styles.viewToggleContainer}>
+          <TouchableOpacity
+            onPress={() => setSelectedView('front')}
+            style={[styles.viewToggleItem, selectedView === 'front' && styles.viewToggleItemActive]}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.viewToggleText, selectedView === 'front' && styles.viewToggleTextActive]}>Front</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSelectedView('back')}
+            style={[styles.viewToggleItem, selectedView === 'back' && styles.viewToggleItemActive]}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.viewToggleText, selectedView === 'back' && styles.viewToggleTextActive]}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Mode Selector (Icons) */}
+        <View style={styles.modeToggleContainer}>
+           <TouchableOpacity
+            onPress={() => setComparisonMode('beforeAfter')}
+            style={[styles.modeIconBtn, comparisonMode === 'beforeAfter' && styles.modeIconBtnActive]}
+            activeOpacity={0.8}
+          >
+            <Icon name="compare" size={20} color={comparisonMode === 'beforeAfter' ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
+           <TouchableOpacity
+            onPress={() => setComparisonMode('timeline')}
+            style={[styles.modeIconBtn, comparisonMode === 'timeline' && styles.modeIconBtnActive]}
+            activeOpacity={0.8}
+          >
+            <Icon name="timeline-clock-outline" size={20} color={comparisonMode === 'timeline' ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
       
-
-    </View>
-  );
-
-  const renderComparisonModeToggle = () => (
-    <View style={styles.segmentContainer}>
-      <TouchableOpacity
-        onPress={() => setComparisonMode('beforeAfter')}
-        style={[styles.segment, comparisonMode === 'beforeAfter' && styles.segmentActive]}
-      >
-        <Text style={[styles.segmentText, comparisonMode === 'beforeAfter' && styles.segmentTextActive]}>Before/After</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => setComparisonMode('timeline')}
-        style={[styles.segment, comparisonMode === 'timeline' && styles.segmentActive]}
-      >
-        <Text style={[styles.segmentText, comparisonMode === 'timeline' && styles.segmentTextActive]}>Timeline</Text>
-      </TouchableOpacity>
+      {comparisonMode === 'beforeAfter' && beforeEntry && afterEntry && (
+        <View style={{ paddingBottom: 12, alignItems: 'center' }}>
+           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+             Comparing <Text style={{ color: colors.text, fontWeight: 'bold' }}>{beforeEntry.date}</Text> vs <Text style={{ color: colors.text, fontWeight: 'bold' }}>{afterEntry.date}</Text>
+           </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -653,19 +783,8 @@ export default function BeforeAfterComparison({
         showAcceptButton={false}
       />
 
-      
-      {/* Compact controls card */}
-      <Card style={styles.controlsCard}>
-        <Card.Content>
-          <View style={styles.controlsRowWrap}>
-            {renderComparisonModeToggle()}
-            {renderViewToggle()}
-          </View>
-          {comparisonMode === 'beforeAfter' && (
-            <Text style={styles.compareHint}>Comparing {beforeEntry?.date || '—'} → {afterEntry?.date || '—'}</Text>
-          )}
-        </Card.Content>
-      </Card>
+      {/* Controls */}
+      {renderControls()}
 
       {/* Photo Comparison */}
       {renderPhotoComparison()}
@@ -771,54 +890,51 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 120, // Increased to account for bottom tab bar (60px + safe area + extra margin)
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '500',
-  },
-  modeToggleContainer: {
+  controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
   },
-  segmentContainer: {
+  viewToggleContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 3,
-    marginHorizontal: 8,
-    marginBottom: 16,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 2,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  segment: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 9,
-    marginHorizontal: 1,
+  viewToggleItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 18,
   },
-  segmentActive: {
+  viewToggleItemActive: {
     backgroundColor: colors.primary,
   },
-  segmentText: {
-    color: colors.text,
+  viewToggleText: {
+    color: colors.textSecondary,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
-  segmentTextActive: {
+  viewToggleTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  modeToggleContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modeIconBtn: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeIconBtnActive: {
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderColor: colors.primary,
   },
   comparisonContainer: {
     flexDirection: 'row',
@@ -837,13 +953,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  controlsRowWrap: {
-    gap: 12,
+  photoFrame: {
+    width: '100%',
+    height: 240,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  compareHint: {
-    marginTop: 8,
-    textAlign: 'center',
-    color: colors.textSecondary,
+  photoHeader: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  badgeContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  badgeContainerActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  badgeTextActive: {
+    color: '#FFFFFF',
+  },
+  photoFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  dateText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   dateSelectorRow: {
     flexDirection: 'row',
@@ -1076,36 +1241,135 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    marginTop: 4,
+  summaryCardContainer: {
+    marginHorizontal: 8,
+    marginTop: 20,
     marginBottom: 12,
-    zIndex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+    elevation: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  summaryCardGradient: {
+    padding: 20,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  summaryHeaderIconContainer: {
+    marginRight: 12,
+  },
+  summaryHeaderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  summaryHeaderText: {
+    flex: 1,
   },
   summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.text,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  summarySubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  summaryStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
+  },
+  summaryStatCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 12,
+  },
+  summaryStatIconContainer: {
+    marginBottom: 12,
+  },
+  summaryStatIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryStatValue: {
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.text,
+    marginBottom: 4,
+  },
+  summaryStatValuePositive: {
+    color: colors.success,
+  },
+  summaryStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  summaryStatSubtext: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryFooter: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  summaryDateRange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryDateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  summaryDateText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   shareButton: {
     flexDirection: 'row',

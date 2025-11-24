@@ -182,6 +182,7 @@ interface AppWorkoutPlan {
   weekly_schedule?: WorkoutDay[];
   mesocycleLength?: number;
   mesocycle_length?: number;
+  mesocycle_length_weeks?: number;
   estimatedTimePerSession?: string;
   estimated_time_per_session?: string;
   specialNotes?: string;

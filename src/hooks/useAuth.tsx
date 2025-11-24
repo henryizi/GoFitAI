@@ -67,6 +67,17 @@ export const signUp = async (email: string, password: string) => {
   }
 };
 
+export const resetPassword = async (email: string) => {
+  try {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'gofitai://reset-password',
+    });
+    return { data, error };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
 export const signOut = async (userId?: string) => {
   try {
     console.log('🚪 Starting logout process...');
@@ -132,38 +143,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, []);
 
-  const fetchProfile = useCallback(async (userId: string, signal?: AbortSignal) => {
-    console.log('🚀 [fetchProfile] FUNCTION CALLED - Starting execution...');
-    console.log('🚀 [fetchProfile] userId parameter:', userId);
+  const fetchProfile = useCallback(async (userId: string, passedSession?: Session | null) => {
+    console.log('🚀🚀🚀 [fetchProfile] FUNCTION CALLED - Starting execution...');
+    console.log('🚀🚀🚀 [fetchProfile] userId parameter:', userId);
     
     try {
       console.log('🔍 [fetchProfile] Step 1: Getting current session...');
-      // Get current session to verify auth.uid() matches userId
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      const authUid = currentSession?.user?.id || null;
+      // Use passed session if available to avoid timing out on getSession calls
+      let currentSession = passedSession;
+      
+      if (!currentSession) {
+        try {
+          const sessionResult = await Promise.race([
+            supabase.auth.getSession(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 2000))
+          ]) as any;
+          currentSession = sessionResult.data?.session;
+        } catch (sessionErr) {
+          console.warn('⚠️ [fetchProfile] getSession timed out or failed:', sessionErr);
+          // Fallback: check if we can proceed without verified session (unlikely to work with RLS)
+        }
+      } else {
+        console.log('✅ [fetchProfile] Using explicitly passed session');
+      }
+      
+      let authUid = currentSession?.user?.id || null;
       console.log('🔍 [fetchProfile] Step 1 complete - authUid:', authUid);
+      console.log('🔍 [fetchProfile] Session email:', currentSession?.user?.email);
       
       console.log('🔍 [RLS Check] Fetching profile:');
       console.log('   Query userId:', userId);
       console.log('   auth.uid():', authUid);
       console.log('   Match:', authUid === userId ? '✅ YES' : '❌ NO - This could cause RLS to block!');
       
-      // CRITICAL: If no active session (authUid is null), abort immediately
-      // This prevents RLS errors after logout when pending async operations try to fetch/create profiles
+      // If we have a userId but no authUid (session timeout), we should TRY the query anyway
+      // instead of aborting. The query might succeed if the internal session is valid.
       if (!authUid) {
-        console.warn('⚠️ [RLS Warning] No active session detected (auth.uid() is null)!');
-        console.warn('   This usually happens after logout when pending operations try to access profiles.');
-        console.warn('   Aborting profile fetch to prevent RLS policy violations.');
-        return null;
+        console.warn('⚠️ [RLS Warning] No active session detected (auth.uid() is null).');
+        console.warn('   Proceeding with query anyway as a last resort...');
+        authUid = userId; // Assume match to bypass client-side check and let RLS handle it
       }
+      
+      // Skip the strict "wait and retry" block that was causing aborts
       
       if (authUid !== userId) {
         console.warn('⚠️ [RLS Warning] User ID mismatch detected!');
         console.warn('   This might cause RLS policy to block the query.');
-        console.warn('   RLS policy checks: auth.uid() = id');
-        console.warn('   But we\'re querying with different userId:', userId);
-        // Don't proceed if IDs don't match - RLS will block anyway
-        return null;
+        // ... log warnings but proceed ...
       }
       
       console.log('🔍 [fetchProfile] Step 2: Querying profiles table...');
@@ -176,15 +202,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
       
       // Note: Supabase JS client doesn't support AbortSignal directly, but we can track cancellation
-      const result = await query;
-      console.log('🔍 [fetchProfile] Step 2 complete - query result received');
+      // Add timeout to prevent hanging queries
+      const queryPromise = query;
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile query timeout after 6 seconds')), 6000)
+      );
+      
+      let result;
+      try {
+        result = await Promise.race([queryPromise, timeoutPromise]);
+        console.log('🔍 [fetchProfile] Step 2 complete - query result received');
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) {
+          console.warn('⏰ [fetchProfile] Query timed out - session may not be ready');
+          console.warn('   This is common immediately after Google sign-in');
+          return null;
+        }
+        throw err;
+      }
       
       // Check if aborted (though Supabase doesn't support it, we can track it)
+      // signal check removed as parameter was removed
+      /*
       if (signal?.aborted) {
         throw new Error('Profile fetch aborted');
       }
+      */
 
-      const { data, error } = result;
+      const { data, error } = result as any;
       
       console.log('🔍 [fetchProfile] Step 3: Processing query result...');
       console.log('   Data:', data ? 'Profile found' : 'No profile');
@@ -326,7 +371,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!isLinkedAccount) {
       // Not a linked account, use regular fetch
       console.log('   → Not a linked account, calling fetchProfile directly...');
-      return fetchProfile(user.id, signal);
+      return fetchProfile(user.id, currentSession);
     }
 
     console.log('🔗 Linked account detected - checking profile...');
@@ -341,7 +386,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Try the current user ID first (most likely - Supabase should preserve the primary account's ID)
     console.log('   → Calling fetchProfile with user ID:', user.id);
-    let profile = await fetchProfile(user.id, signal);
+    let profile = await fetchProfile(user.id, currentSession);
     if (profile) {
       console.log('✅ Profile found with current user ID:', user.id);
       return profile;
@@ -390,7 +435,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('⏳ Waiting for session sync before final profile check...');
     await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
     
-    const retryProfile = await fetchProfile(user.id, signal);
+    const retryProfile = await fetchProfile(user.id, currentSession);
     if (retryProfile) {
       console.log('✅ Profile found after session sync wait!');
       return retryProfile;
@@ -416,7 +461,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // If error is due to profile already existing, that's actually good - try to fetch it
         if (createError.code === '23505') { // Unique constraint violation
           console.log('✅ Profile already exists (unique constraint), attempting to fetch...');
-          const existingProfile = await fetchProfile(user.id, signal);
+          const existingProfile = await fetchProfile(user.id, currentSession);
           if (existingProfile) {
             console.log('✅ Successfully fetched existing profile after constraint error');
             return existingProfile;
@@ -429,7 +474,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('✅ Profile created successfully for OAuth user:', user.id);
       
       // Try fetching the newly created profile
-      const newProfile = await fetchProfile(user.id, signal);
+      const newProfile = await fetchProfile(user.id, currentSession);
       if (newProfile) {
         console.log('✅ Successfully fetched newly created profile');
         return newProfile;
@@ -495,13 +540,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🚀 [useAuth] Auth state change:', event, session?.user?.id);
-      console.log('🚀 [useAuth] Auth state change details:', { 
-        event, 
-        hasSession: !!session, 
-        userId: session?.user?.id,
-        provider: session?.user?.app_metadata?.provider 
-      });
+      console.log('🎯🎯🎯 [useAuth] ============ AUTH STATE CHANGE TRIGGERED ============');
+      console.log('🎯🎯🎯 [useAuth] Event:', event);
+      console.log('🎯🎯🎯 [useAuth] User ID:', session?.user?.id);
+      console.log('🎯🎯🎯 [useAuth] User Email:', session?.user?.email);
+      console.log('🎯🎯🎯 [useAuth] Provider:', session?.user?.app_metadata?.provider);
+      console.log('🎯🎯🎯 [useAuth] Session exists:', !!session);
+      console.log('🎯🎯🎯 [useAuth] ================================================');
       
       // Handle token refresh errors
       if (event === 'TOKEN_REFRESHED' && !session) {
@@ -532,7 +577,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               await new Promise(resolve => setTimeout(resolve, 100));
             }
             
-            const profile = await fetchProfile(userId);
+            // Pass the session explicitly!
+            const profile = await fetchProfile(userId, session);
             
             if (profile) {
               console.log('✅ Profile fetch successful on attempt', attempt);
@@ -577,7 +623,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshProfile = useCallback(async () => {
     // Get session directly from Supabase instead of relying on context state
     // This ensures we have the latest session even if context hasn't updated yet
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    // Wrap getSession in timeout to prevent hanging
+    let currentSession = null;
+    try {
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 2000))
+      ]) as any;
+      currentSession = sessionResult.data?.session;
+    } catch (sessionErr) {
+      console.warn('⚠️ [refreshProfile] getSession timed out or failed:', sessionErr);
+      // Fallback: use session from state if available
+      if (session) {
+        console.log('⚠️ [refreshProfile] Using fallback session from state');
+        currentSession = session;
+      }
+    }
     
     if (currentSession?.user) {
       console.log('🔄 Refreshing profile data for user:', currentSession.user.id);
@@ -596,7 +657,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
           
-          const profile = await fetchProfile(userId);
+          // Pass the session explicitly!
+          const profile = await fetchProfile(userId, currentSession);
           
           if (profile) {
             console.log('✅ Profile refresh successful on attempt', attempt);
@@ -614,8 +676,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
       
       // Use the retry mechanism with timeout
-      const timeoutMs = 5000; // 5 second timeout
+      const timeoutMs = 20000; // 20 second timeout
       const updatedProfile = await Promise.race([
+        // Pass the session explicitly!
         fetchProfileWithRetry(currentSession.user.id),
         new Promise<null>((resolve) => {
           setTimeout(() => {

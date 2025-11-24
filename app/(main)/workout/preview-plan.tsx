@@ -46,7 +46,7 @@ const colors = {
 // Helper function to check if an exercise is cardio-based
 const isCardioExercise = (exercise: any): boolean => {
   // Explicitly exclude strength exercises that should never be treated as cardio
-  const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly'];
+  const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly', 'rope pushdown', 'tricep rope', 'tricep pushdown'];
   if (exercise.name && strengthExerciseNames.some(name => 
     exercise.name.toLowerCase().includes(name)
   )) {

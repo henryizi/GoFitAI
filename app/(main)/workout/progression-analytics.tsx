@@ -7,7 +7,7 @@
  * ============================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  TextInput,
+  FlatList,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +30,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
 
 const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
 
 interface ExerciseDataPoint {
   date: string;
@@ -53,12 +59,21 @@ export default function ProgressionAnalyticsScreen() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [analytics, setAnalytics] = useState<ExerciseAnalytics[]>([]);
   const [allExercises, setAllExercises] = useState<string[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user?.id) {
       loadAnalytics();
     }
   }, [user?.id, timeRange]);
+
+  const filteredExercises = useMemo(() => {
+    if (!searchQuery) return allExercises;
+    return allExercises.filter(ex => 
+      ex.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allExercises, searchQuery]);
 
   const loadAnalytics = async () => {
     if (!user?.id) return;
@@ -373,8 +388,83 @@ export default function ProgressionAnalyticsScreen() {
     );
   }
 
+  const renderExerciseSelectorModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isModalVisible}
+      onRequestClose={() => setIsModalVisible(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Exercise</Text>
+            <TouchableOpacity
+              onPress={() => setIsModalVisible(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search exercises..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus={true}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <FlatList
+            data={filteredExercises}
+            keyExtractor={(item) => item}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.exerciseListItem,
+                  selectedExercise === item && styles.exerciseListItemActive
+                ]}
+                onPress={() => {
+                  setSelectedExercise(item);
+                  setIsModalVisible(false);
+                }}
+              >
+                <Text style={[
+                  styles.exerciseListItemText,
+                  selectedExercise === item && styles.exerciseListItemTextActive
+                ]}>
+                  {item}
+                </Text>
+                {selectedExercise === item && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyListContainer}>
+                <Text style={styles.emptyListText}>No exercises found</Text>
+              </View>
+            }
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
+      {renderExerciseSelectorModal()}
       <Stack.Screen
         options={{
           headerShown: true,
@@ -425,32 +515,23 @@ export default function ProgressionAnalyticsScreen() {
         {allExercises.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Select Exercise</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.exerciseSelector}
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setIsModalVisible(true)}
             >
-              {allExercises.map((exercise) => (
-                <TouchableOpacity
-                  key={exercise}
-                  style={[
-                    styles.exerciseButton,
-                    selectedExercise === exercise && styles.exerciseButtonActive,
-                  ]}
-                  onPress={() => setSelectedExercise(exercise)}
-                >
-                  <Text
-                    style={[
-                      styles.exerciseButtonText,
-                      selectedExercise === exercise && styles.exerciseButtonTextActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {exercise}
+              <View style={styles.selectorContent}>
+                <View style={styles.selectorIconContainer}>
+                  <Ionicons name="barbell-outline" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.selectorTextContainer}>
+                  <Text style={styles.selectorLabel}>Current Exercise</Text>
+                  <Text style={styles.selectorValue} numberOfLines={1}>
+                    {selectedExercise || 'Select an exercise'}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                </View>
+              </View>
+              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -613,30 +694,125 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 16,
   },
-  exerciseSelector: {
-    marginBottom: 20,
-  },
-  exerciseButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  // Selector Styles
+  selectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.card,
-    marginRight: 12,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'transparent',
-    minWidth: 100,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  exerciseButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  selectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
   },
-  exerciseButtonText: {
+  selectorIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)', // Primary color low opacity
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectorTextContainer: {
+    flex: 1,
+  },
+  selectorLabel: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  selectorValue: {
+    color: colors.white,
+    fontSize: 16,
     fontWeight: '600',
   },
-  exerciseButtonTextActive: {
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  modalTitle: {
     color: colors.white,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 16,
+    height: '100%',
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  exerciseListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  exerciseListItemActive: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  exerciseListItemText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+  },
+  exerciseListItemTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  emptyListContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyListText: {
+    color: colors.textSecondary,
+    fontSize: 16,
   },
   summaryRow: {
     flexDirection: 'row',

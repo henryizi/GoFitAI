@@ -8,8 +8,9 @@ import {
   RefreshControl,
   FlatList,
   Dimensions,
+  Text,
+  ActivityIndicator,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';

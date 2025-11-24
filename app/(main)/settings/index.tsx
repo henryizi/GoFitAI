@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { Text, IconButton, Badge } from 'react-native-paper';
 import { router, useFocusEffect } from 'expo-router';
@@ -6,11 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { colors } from '../../../src/styles/colors';
 import { useAuth, signOut } from '../../../src/hooks/useAuth';
+import { supabase } from '../../../src/services/supabase/client';
+import { formatHeightWithUnit, formatWeightWithUnit } from '../../../src/utils/unitConversions';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export default function SettingsScreen() {
   const { profile, user, refreshProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
+  const [latestWeight, setLatestWeight] = useState<number | null>(null);
 
   const handleCopyUserId = async () => {
     if (user?.id) {
@@ -28,12 +32,39 @@ export default function SettingsScreen() {
         console.warn('Failed to refresh profile on settings screen:', err);
       });
       
+      // Fetch latest weight
+      const fetchLatestWeight = async () => {
+        if (!user?.id) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('daily_user_metrics')
+            .select('weight_kg')
+            .eq('user_id', user.id)
+            .not('weight_kg', 'is', null)
+            .order('metric_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (data?.weight_kg) {
+            setLatestWeight(data.weight_kg);
+          } else {
+            setLatestWeight(profile?.weight_kg || null);
+          }
+        } catch (e) {
+          console.warn('Error fetching weight:', e);
+          setLatestWeight(profile?.weight_kg || null);
+        }
+      };
+      
+      fetchLatestWeight();
+      
       // Log user ID when settings screen loads
       if (user?.id) {
         console.log('🆔 Your User ID:', user.id);
         console.log('📧 Your Email:', user.email);
       }
-    }, [refreshProfile, user])
+    }, [refreshProfile, user, profile?.weight_kg])
   );
 
   const handleLogout = async () => {
@@ -149,6 +180,35 @@ export default function SettingsScreen() {
           <View style={styles.statusContainer}>
             <Text style={styles.profileEmail}>{user?.email || 'No email'}</Text>
           </View>
+          
+          {/* Height & Weight Stats */}
+          <View style={styles.statsRow}>
+             {(profile?.height_cm || latestWeight) && (
+               <>
+                 {profile?.height_cm && (
+                   <View style={styles.statItem}>
+                     <Icon name="ruler" size={14} color={colors.textSecondary} style={{marginRight: 4}} />
+                     <Text style={styles.statText}>
+                       {formatHeightWithUnit(profile.height_cm, profile.height_unit_preference)}
+                     </Text>
+                   </View>
+                 )}
+                 
+                 {profile?.height_cm && latestWeight && (
+                   <View style={styles.statDivider} />
+                 )}
+                 
+                 {latestWeight && (
+                   <View style={styles.statItem}>
+                     <Icon name="scale-bathroom" size={14} color={colors.textSecondary} style={{marginRight: 4}} />
+                     <Text style={styles.statText}>
+                       {formatWeightWithUnit(latestWeight, profile?.weight_unit_preference)}
+                     </Text>
+                   </View>
+                 )}
+               </>
+             )}
+          </View>
         </View>
       </View>
 
@@ -245,27 +305,7 @@ export default function SettingsScreen() {
         },
       ])}
 
-      {/* Support Section */}
-      {renderSettingsSection('Support', [
-        {
-          title: 'Help & Support',
-          subtitle: 'Get help and contact support',
-          icon: 'help-circle',
-          onPress: () => Alert.alert('Support', 'Contact support at support@gofitai.com'),
-        },
-        {
-          title: 'Terms of Service',
-          subtitle: 'Read our terms and conditions',
-          icon: 'file-document',
-          onPress: () => Alert.alert('Terms', 'Terms of Service would open here'),
-        },
-        {
-          title: 'Privacy Policy',
-          subtitle: 'Read our privacy policy',
-          icon: 'shield-check',
-          onPress: () => Alert.alert('Privacy', 'Privacy Policy would open here'),
-        },
-      ])}
+      {/* Support Section - Removed non-functional placeholder buttons */}
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
@@ -348,6 +388,27 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     marginRight: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: colors.textSecondary,
+    marginHorizontal: 10,
+    opacity: 0.3,
   },
   section: {
     marginBottom: 24,

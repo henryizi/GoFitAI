@@ -6310,7 +6310,26 @@ app.post('/api/generate-ai-nutrition-targets', async (req, res) => {
     const weight = profile.weight_kg || profile.weight;
     const height = profile.height_cm || profile.height;
     
-    console.log('[AI NUTRITION TARGETS] Normalized data - weight:', weight, 'height:', height);
+    // Get the actual workout frequency (1-7 days) - prioritize preferred_workout_frequency
+    let workoutFrequency = profile.preferred_workout_frequency;
+    
+    // Fallback: If preferred_workout_frequency not set, convert from exercise_frequency
+    if (!workoutFrequency && profile.exercise_frequency) {
+      const exerciseFreqMap = {
+        '1': 1,
+        '2-3': 2.5,
+        '4-5': 4.5,
+        '6-7': 6.5
+      };
+      workoutFrequency = exerciseFreqMap[profile.exercise_frequency] || 4;
+    }
+    
+    // Final fallback
+    if (!workoutFrequency) {
+      workoutFrequency = 4; // Default to 4 days per week
+    }
+    
+    console.log('[AI NUTRITION TARGETS] Normalized data - weight:', weight, 'height:', height, 'workout frequency:', workoutFrequency, 'days/week');
 
     // Create comprehensive prompt for AI nutrition calculation
     const prompt = `You are an expert sports nutritionist and registered dietitian with advanced knowledge of metabolic science, body composition, and athletic performance nutrition.
@@ -6326,7 +6345,7 @@ USER PROFILE:
 - Primary Goal: ${profile.primary_goal || profile.goal_type || 'Not specified'}
 - Fitness Strategy: ${profile.fitness_strategy || 'Not specified'}
 - Activity Level: ${profile.activity_level || 'Not specified'}
-- Exercise Frequency: ${profile.exercise_frequency || 'Not specified'} times per week
+- Workout Frequency: ${workoutFrequency} days per week (actual preferred workout days)
 - Training Level: ${profile.training_level || 'Not specified'}
 - Weight Trend: ${profile.weight_trend || 'Not specified'}
 - Goal Fat Reduction: ${profile.goal_fat_reduction || 'Not specified'} kg
@@ -6334,12 +6353,13 @@ USER PROFILE:
 
 CALCULATION REQUIREMENTS:
 1. Calculate precise BMR using the most appropriate formula (Katch-McArdle if body fat is known, otherwise Mifflin-St Jeor)
-2. Determine TDEE based on activity level and exercise frequency
+2. Determine TDEE based on activity level AND the exact workout frequency (${workoutFrequency} days/week of training)
+   - IMPORTANT: Use the workout frequency to accurately adjust TDEE - ${workoutFrequency} training days per week means significant caloric expenditure
 3. Apply appropriate caloric surplus/deficit based on fitness strategy and goals
 4. Calculate optimal protein intake (consider training level, goal, body composition)
-5. Determine carbohydrate needs (based on activity level and performance goals)
+5. Determine carbohydrate needs (prioritize for workout days - ${workoutFrequency} days/week of training requires adequate carbs)
 6. Calculate fat requirements (for hormonal health and nutrient absorption)
-7. Provide a detailed, personalized explanation of why these targets are optimal
+7. Provide a detailed, personalized explanation of why these targets are optimal, specifically mentioning the ${workoutFrequency} workout days per week
 
 RESPOND WITH ONLY THIS JSON FORMAT (no markdown, no code blocks):
 {

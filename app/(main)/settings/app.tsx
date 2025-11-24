@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ScrollView, View, StyleSheet, Alert } from 'react-native';
-import { Text, Switch, IconButton, Button } from 'react-native-paper';
+import { Text, IconButton, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../../src/styles/colors';
 import { useAuth, signOut } from '../../../src/hooks/useAuth';
 
 export default function AppSettingsScreen() {
   const { user } = useAuth();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -29,29 +27,14 @@ export default function AppSettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <IconButton icon="arrow-left" size={24} onPress={() => router.back()} style={styles.backButton} />
-        <Text variant="headlineSmall" style={styles.title}>App Settings</Text>
-      </View>
-
-      <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>Enable Notifications</Text>
-        <Switch
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
-          color={colors.primary}
-        />
-      </View>
-
-      <View style={styles.settingRow}>
-        <Text style={styles.settingLabel}>Dark Mode</Text>
-        <Switch
-          value={darkMode}
-          onValueChange={setDarkMode}
-          color={colors.primary}
-        />
+        <Text style={styles.title}>App Settings</Text>
       </View>
 
       <View style={styles.placeholderSection}>
-        <Text style={styles.placeholderText}>More settings coming soon...</Text>
+        <Text style={styles.placeholderText}>App preferences coming soon...</Text>
+        <Text style={[styles.placeholderText, { marginTop: 8, fontSize: 12 }]}>
+          For notifications, use the Notifications screen.
+        </Text>
       </View>
 
       <Button
@@ -85,6 +68,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.text,
     flex: 1,
   },

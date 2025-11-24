@@ -78,6 +78,14 @@ export class WorkoutHistoryService {
    * Helper function to check if an exercise is cardio based on name
    */
   private static isCardioExercise(exerciseName: string): boolean {
+    // Explicitly exclude strength exercises that should never be treated as cardio
+    const strengthExerciseNames = ['face pull', 'cable face pull', 'reverse fly', 'rear delt fly', 'rope pushdown', 'tricep rope', 'tricep pushdown'];
+    if (exerciseName && strengthExerciseNames.some(name => 
+      exerciseName.toLowerCase().includes(name)
+    )) {
+      return false;
+    }
+
     const cardioKeywords = ['jump', 'burpee', 'running', 'sprint', 'hiit', 'interval', 'rope', 'mountain', 'climber', 
                             'jack', 'knee', 'kicker', 'bound', 'crawl', 'star', 'battle', 'swing', 'slam', 'shuttle', 
                             'fartlek', 'swimming', 'dance', 'dancing', 'step', 'stair', 'climb', 'cardio'];

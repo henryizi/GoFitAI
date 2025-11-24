@@ -590,17 +590,6 @@ export default function LogFoodScreen() {
       </Animated>
   );
 
-  const renderSearch = () => (
-    <Animated 
-      style={styles.contentContainer}
-    >
-      <View style={styles.emptyState}>
-        <Icon name="magnify" size={48} color={colors.textSecondary} />
-        <Text style={styles.emptyStateText}>Search is coming soon!</Text>
-      </View>
-    </Animated>
-  );
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Animated style={styles.header}>
@@ -629,18 +618,10 @@ export default function LogFoodScreen() {
               AI
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.segmentButton, mode === 'search' && styles.segmentButtonActive]}
-            onPress={() => setMode('search')}>
-            <Text style={[styles.segmentText, mode === 'search' && styles.segmentTextActive]}>
-              Search
-            </Text>
-          </TouchableOpacity>
         </Animated>
 
         {mode === 'manual' && renderManualForm()}
         {mode === 'ai' && renderAiLogFood()}
-        {mode === 'search' && renderSearch()}
       </ScrollView>
 
       {/* Loading overlay disabled during rebuild */}
@@ -952,29 +933,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: 10,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    marginTop: 20,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 24,
   },
   analysisCard: {
     width: '100%',

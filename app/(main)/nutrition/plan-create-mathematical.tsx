@@ -506,7 +506,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 90, // Increased to account for tab bar
+    paddingTop: 16,
+    backgroundColor: colors.background,
   },
   buttonRow: {
     flexDirection: 'row',

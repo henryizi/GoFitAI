@@ -95,6 +95,23 @@ eas submit --platform ios --profile testflight
 
 ## 🐛 故障排除
 
+### 🚨 常见错误: Provisioning Profile Capability Missing
+如果看到类似以下的错误：
+`Provisioning profile doesn't support the Sign in with Apple capability`
+
+**原因**: 你最近添加了 Apple 登录功能，但 EAS 服务器上缓存的 Provisioning Profile 是旧的（添加功能之前创建的）。
+
+**解决步骤**:
+1. 运行以下命令管理凭证：
+   ```bash
+   npx eas-cli credentials
+   ```
+2. 选择 **iOS**
+3. 选择 **production** (或 build 使用的 profile)
+4. 选择 **Provisioning Profiles**
+5. 找到并 **删除** (Delete) 旧的 profile (查看创建日期)
+6. 重新运行构建命令，EAS 会自动生成新的 profile
+
 ### RevenueCat 相关错误
 ```
 Error: "None of the products registered"
@@ -133,7 +150,3 @@ Error: Bundle identifier
 - [ ] 订阅功能正常工作
 - [ ] 购买流程显示正确价格
 - [ ] 购买完成后功能正确解锁
-
-
-
-

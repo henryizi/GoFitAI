@@ -1,8 +1,8 @@
 
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, ImageBackground, Dimensions, TouchableOpacity, Alert, FlatList } from 'react-native';
-import { Text, ActivityIndicator, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, RefreshControl, ImageBackground, Dimensions, TouchableOpacity, Alert, FlatList, Text, ActivityIndicator } from 'react-native';
+import { Divider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
@@ -10,18 +10,18 @@ import { NutritionService } from '../../../src/services/nutrition/NutritionServi
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { typography } from '../../../src/styles/fonts';
-
+import { colors as globalColors } from '../../../src/styles/colors';
 
 // Modern, premium colors
 const colors = {
+  ...globalColors,
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
   accent: '#FF8F65',
   secondary: '#FF8F65',
-  background: '#121212',
-  surface: '#1C1C1E',
-  text: '#FFFFFF',
+  // Overriding textSecondary for this screen's specific look if needed, 
+  // or we can remove these to use global. 
+  // But 'rgba(235, 235, 245, 0.6)' is specific here.
   textSecondary: 'rgba(235, 235, 245, 0.6)',
   textTertiary: 'rgba(235, 235, 245, 0.3)',
   success: '#34C759',
@@ -909,12 +909,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   titleDate: {
-    ...typography.labelLarge,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.primary,
     letterSpacing: 1,
   },
   titleMain: {
-    ...typography.h1,
     fontSize: 38,
     fontWeight: '800',
     letterSpacing: 1,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   titleDescription: {
-    ...typography.body1,
+    fontSize: 16,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.7)',
     lineHeight: 22,
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    ...typography.body1,
+    fontSize: 16,
     marginTop: 16,
     color: colors.white,
   },
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   summaryTitle: {
-    ...typography.body1,
+    fontSize: 16,
     fontWeight: '800',
     color: colors.white,
     letterSpacing: 1,
@@ -1015,13 +1015,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   calorieCount: {
-    ...typography.h1,
+    fontSize: 32,
     fontWeight: '800',
     letterSpacing: 1,
     color: colors.white,
   },
   calorieTotal: {
-    ...typography.body1,
+    fontSize: 16,
     color: 'rgba(255,255,255,0.6)',
     marginBottom: 6,
     marginLeft: 4,
@@ -1073,13 +1073,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   macroProgressLabel: {
-    ...typography.caption,
+    fontSize: 12,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.7)',
     letterSpacing: 0.5,
   },
   macroProgressValue: {
-    ...typography.caption,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.7)',
   },
   miniProgressBarContainer: {
@@ -1115,14 +1115,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   insightTitle: {
-    ...typography.labelLarge,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.white,
     marginBottom: 6,
     letterSpacing: 1,
   },
   insightText: {
-    ...typography.body2,
+    fontSize: 14,
     color: colors.white,
     lineHeight: 20,
   },
@@ -1202,13 +1202,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planName: {
-    ...typography.body1,
+    fontSize: 16,
     fontWeight: '700',
     letterSpacing: 1,
     color: colors.white,
   },
   planDate: {
-    ...typography.caption,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 2,
   },
@@ -1469,20 +1469,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   metabolicTitle: {
-    ...typography.labelLarge,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 1,
     color: colors.white,
     marginBottom: 2,
   },
   metabolicSubtitle: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textSecondary,
     flexWrap: 'wrap', // Allow text to wrap
     maxWidth: '90%', // Limit width to prevent overlap
   },
   metabolicValue: {
-    ...typography.labelLarge,
+    fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1,
     color: colors.white,
@@ -1491,12 +1491,12 @@ const styles = StyleSheet.create({
     flexShrink: 0, // Prevent shrinking
   },
   finalTargetValue: {
-    ...typography.body1,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.primary,
   },
   metabolicUnit: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textSecondary,
   },
 });

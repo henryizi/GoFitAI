@@ -13,6 +13,7 @@ export interface LocalBodyPhoto {
   user_id: string;
   photo_type: 'front' | 'back';
   local_uri: string;
+  filename?: string; // Add filename for path reconstruction
   uploaded_at: string;
   date: string; // The date this photo represents progress for
   is_analyzed: boolean;
@@ -28,6 +29,13 @@ export interface ProgressPhotoSession {
 export class LocalPhotoStorageService {
   private static PHOTO_DIRECTORY = `${FileSystem.documentDirectory}progress_photos/`;
   private static STORAGE_KEY_PREFIX = 'progress_photos_';
+
+  /**
+   * Helper to get full path from filename, handling dynamic document directory
+   */
+  private static getPhotoPath(filename: string): string {
+    return `${this.PHOTO_DIRECTORY}${filename}`;
+  }
 
   /**
    * Initialize the photo storage directory
@@ -102,7 +110,7 @@ export class LocalPhotoStorageService {
       const timestamp = new Date().toISOString();
       const photoId = `${userId}_${photoType}_${date}_${timestamp}`;
       const filename = `${photoId}.jpg`;
-      const localPath = `${this.PHOTO_DIRECTORY}${filename}`;
+      const localPath = this.getPhotoPath(filename);
 
       // Copy the image to our app's document directory
       await FileSystem.copyAsync({
@@ -117,7 +125,8 @@ export class LocalPhotoStorageService {
         id: photoId,
         user_id: userId,
         photo_type: photoType,
-        local_uri: localPath,
+        local_uri: localPath, // Keep for backward compatibility but use filename as primary
+        filename: filename,   // Store filename for path reconstruction
         uploaded_at: timestamp,
         date: date,
         is_analyzed: false,
@@ -182,20 +191,127 @@ export class LocalPhotoStorageService {
       }
 
       const photos: LocalBodyPhoto[] = JSON.parse(photosJson);
+      let hasUpdates = false;
       
-      // Filter out photos where the file no longer exists
+      // Fix paths and filter out photos where the file no longer exists
       const validPhotos: LocalBodyPhoto[] = [];
+      
+      // Initialize directory to ensure it exists for checks
+      await this.initializeDirectory();
+
+      // RECOVERY: Scan for orphaned files (files that exist but lost metadata due to path changes)
+      try {
+        const files = await FileSystem.readDirectoryAsync(this.PHOTO_DIRECTORY);
+        const existingFilenames = new Set(photos.map(p => p.filename || p.local_uri.split('/').pop()));
+        
+        for (const file of files) {
+          if (!file.endsWith('.jpg')) continue;
+          
+          // Check if we already have this file in metadata
+          if (existingFilenames.has(file)) continue;
+
+          // Parse filename: userId_photoType_date_timestamp.jpg
+          // Example: user123_front_2023-10-27_2023-10-27T10:00:00.000Z.jpg
+          // Note: userId might contain underscores, so we need to be careful.
+          // But our standard format uses underscores as separators. 
+          // Let's try to match the specific structure.
+          
+          if (file.startsWith(userId + '_')) {
+            console.log('🕵️ Found orphaned photo file, recovering:', file);
+            
+            try {
+              // Remove extension
+              const nameWithoutExt = file.replace('.jpg', '');
+              const parts = nameWithoutExt.split('_');
+              
+              // We expect at least: userId, type, date, timestamp
+              // userId might be the first part(s). 
+              // timestamp is the last part.
+              // date is second to last.
+              // type is third to last? 
+              
+              // Let's work backwards
+              const timestamp = parts.pop(); // 2023-10-27T...
+              const date = parts.pop();      // 2023-10-27
+              const type = parts.pop();      // front or back
+              
+              // Verify these look valid
+              if (timestamp && date && (type === 'front' || type === 'back')) {
+                // The rest is the userId
+                const extractedUserId = parts.join('_');
+                
+                if (extractedUserId === userId) {
+                  const recoveredPhoto: LocalBodyPhoto = {
+                    id: nameWithoutExt, // ID is usually the filename without ext
+                    user_id: userId,
+                    photo_type: type as 'front' | 'back',
+                    local_uri: this.getPhotoPath(file),
+                    filename: file,
+                    uploaded_at: timestamp,
+                    date: date,
+                    is_analyzed: false,
+                    analysis_status: 'pending'
+                  };
+                  
+                  photos.push(recoveredPhoto);
+                  existingFilenames.add(file);
+                  hasUpdates = true;
+                  console.log('✅ Recovered photo metadata for:', file);
+                }
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse orphaned file:', file, parseError);
+            }
+          }
+        }
+      } catch (scanError) {
+        console.warn('Error scanning for orphaned files:', scanError);
+      }
+
       for (const photo of photos) {
-        const fileInfo = await FileSystem.getInfoAsync(photo.local_uri);
-        if (fileInfo.exists) {
-          validPhotos.push(photo);
-        } else {
-          console.warn(`Photo file no longer exists: ${photo.local_uri}`);
+        // 1. Ensure we have a filename
+        if (!photo.filename) {
+          // Extract filename from old absolute path
+          const parts = photo.local_uri.split('/');
+          photo.filename = parts[parts.length - 1];
+          hasUpdates = true;
+        }
+
+        // 2. Reconstruct the correct absolute path for the current session
+        // This fixes the issue where iOS changes the container UUID between updates
+        const correctPath = this.getPhotoPath(photo.filename);
+        
+        if (photo.local_uri !== correctPath) {
+          console.log(`🔧 Fixing photo path: ${photo.filename}`);
+          photo.local_uri = correctPath;
+          hasUpdates = true;
+        }
+
+        // 3. Verify file existence
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(photo.local_uri);
+          if (fileInfo.exists) {
+            validPhotos.push(photo);
+          } else {
+            console.warn(`Photo file missing: ${photo.local_uri}`);
+            // Don't remove metadata immediately, maybe the file system is just temporarily inaccessible?
+            // Actually, if we are sure the path is correct (reconstructed) and it's gone, it's gone.
+            // But let's be safe and keep metadata if we just fixed the path, to avoid deleting data if something else is wrong.
+            // For now, we filter it out from the RETURNED list so the UI doesn't break, 
+            // but we might want to keep it in storage or handle it better.
+            // However, the original code removed it. Let's stick to removing it to keep DB clean, 
+            // unless the user wants to debug why files are gone. 
+            // If the path was just fixed, and it still doesn't exist, then the file is truly lost.
+            // validPhotos.push(photo); // Uncomment to keep broken links
+          }
+        } catch (err) {
+            console.warn(`Error checking file: ${photo.local_uri}`, err);
         }
       }
 
-      // Update storage if we removed any invalid photos
-      if (validPhotos.length !== photos.length) {
+      // Update storage if we fixed paths or removed invalid photos
+      if (hasUpdates || validPhotos.length !== photos.length) {
+        console.log('💾 Updating photo storage with fixed paths');
         await AsyncStorage.setItem(storageKey, JSON.stringify(validPhotos));
       }
 

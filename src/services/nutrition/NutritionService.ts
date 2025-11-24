@@ -550,21 +550,58 @@ export class NutritionService {
     userId: string
   ): Promise<NutritionPlan | null> {
     try {
-      console.log('[NUTRITION] Using mock data for getLatestNutritionPlan');
-      console.log('[NUTRITION] User ID:', userId);
-      console.log('[NUTRITION] Mock store plans:', mockPlansStore.plans.map(p => ({ id: p.id, name: p.plan_name, user_id: p.user_id })));
-      console.log('[NUTRITION] Deleted default plan flag:', mockPlansStore.deletedDefaultPlan);
+      console.log('[NUTRITION] Fetching latest nutrition plan for user:', userId);
       
-      // First, try to find a plan from our mock store
+      // 1. Try to fetch from Supabase first
+      try {
+        const { data, error } = await supabase
+          .from('nutrition_plans')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data) {
+          const planData = data as any;
+          console.log('[NUTRITION] ✅ Found latest plan in Supabase:', planData.id);
+          
+          // Normalize daily_targets
+          if (planData.daily_targets) {
+            if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
+              planData.daily_targets.protein = planData.daily_targets.protein_grams;
+            }
+            if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
+              planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
+            }
+            if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
+              planData.daily_targets.fat = planData.daily_targets.fat_grams;
+            }
+          }
+          
+          return planData;
+        }
+        
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+          console.warn('[NUTRITION] Error fetching from Supabase:', error);
+        }
+      } catch (dbError) {
+        console.warn('[NUTRITION] Exception fetching from Supabase:', dbError);
+      }
+
+      console.log('[NUTRITION] Falling back to mock data for getLatestNutritionPlan');
+      console.log('[NUTRITION] Mock store plans:', mockPlansStore.plans.map(p => ({ id: p.id, name: p.plan_name, user_id: p.user_id })));
+      
+      // 2. Fallback to mock store
       const userPlans = mockPlansStore.plans.filter(plan => plan.user_id === userId);
-      console.log('[NUTRITION] User plans found:', userPlans.length);
+      console.log('[NUTRITION] User plans found in mock store:', userPlans.length);
       
       if (userPlans.length > 0) {
         // Return the most recently created plan
         const sortedPlans = [...userPlans].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
-        console.log('[NUTRITION] Returning most recent user plan:', sortedPlans[0].plan_name);
+        console.log('[NUTRITION] Returning most recent user plan from mock:', sortedPlans[0].plan_name);
         return sortedPlans[0];
       }
       
@@ -581,6 +618,40 @@ export class NutritionService {
     planId: string
   ): Promise<NutritionPlan | null> {
     try {
+      // 1. Try to fetch from Supabase first
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data, error } = await supabase
+            .from('nutrition_plans')
+            .select('*')
+            .eq('id', planId)
+            .maybeSingle();
+
+          if (data) {
+            const planData = data as any;
+            console.log('[NUTRITION] ✅ Found plan in Supabase:', planData.id);
+
+            // Normalize daily_targets to ensure compatibility with UI
+            if (planData.daily_targets) {
+              if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
+                planData.daily_targets.protein = planData.daily_targets.protein_grams;
+              }
+              if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
+                planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
+              }
+              if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
+                planData.daily_targets.fat = planData.daily_targets.fat_grams;
+              }
+            }
+
+            return planData;
+          }
+        }
+      } catch (err) {
+        console.warn('[NUTRITION] Exception fetching plan from Supabase:', err);
+      }
+
       console.log('[NUTRITION] Using mock data for getNutritionPlanById');
       console.log('[NUTRITION] Looking for plan ID:', planId);
       console.log('[NUTRITION] Available plans in mock store:', mockPlansStore.plans.map(p => ({ 
@@ -637,9 +708,51 @@ export class NutritionService {
     userId: string
   ): Promise<NutritionPlan[]> {
     try {
-      console.log('[NUTRITION] Using mock data for getAllNutritionPlans');
+      console.log('[NUTRITION] Fetching all nutrition plans for user:', userId);
+      
+      // 1. Try to fetch from Supabase first
+      try {
+        const { data, error } = await supabase
+          .from('nutrition_plans')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (data && data.length > 0) {
+          console.log(`[NUTRITION] ✅ Found ${data.length} plans in Supabase`);
+          
+          // Normalize plans
+          const normalizedPlans = data.map(item => {
+            const plan = item as any;
+            
+            // Normalize daily_targets
+            if (plan.daily_targets) {
+              if (!plan.daily_targets.protein && plan.daily_targets.protein_grams) {
+                plan.daily_targets.protein = plan.daily_targets.protein_grams;
+              }
+              if (!plan.daily_targets.carbs && plan.daily_targets.carbs_grams) {
+                plan.daily_targets.carbs = plan.daily_targets.carbs_grams;
+              }
+              if (!plan.daily_targets.fat && plan.daily_targets.fat_grams) {
+                plan.daily_targets.fat = plan.daily_targets.fat_grams;
+              }
+            }
+            
+            return plan;
+          });
+          
+          return normalizedPlans;
+        }
+        
+        if (error) {
+          console.warn('[NUTRITION] Error fetching plans from Supabase:', error);
+        }
+      } catch (dbError) {
+        console.warn('[NUTRITION] Exception fetching plans from Supabase:', dbError);
+      }
+
+      console.log('[NUTRITION] Falling back to mock data for getAllNutritionPlans');
       console.log('[NUTRITION] Current mock store plans:', mockPlansStore.plans.map(p => ({ id: p.id, name: p.plan_name, user_id: p.user_id })));
-      console.log('[NUTRITION] Requesting plans for user:', userId);
       
       // Return any stored plans for this user
       const userPlans = mockPlansStore.plans
@@ -716,6 +829,22 @@ export class NutritionService {
     planId: string
   ): Promise<any[]> {
     try {
+      // 1. Try to fetch from Supabase first
+      try {
+        const { data, error } = await supabase
+          .from('historical_nutrition_targets')
+          .select('*')
+          .eq('nutrition_plan_id', planId)
+          .order('created_at', { ascending: false });
+        
+        if (data && data.length > 0) {
+          console.log('[NUTRITION] ✅ Found historical targets in Supabase');
+          return data;
+        }
+      } catch (err) {
+        console.warn('[NUTRITION] Exception fetching historical targets:', err);
+      }
+
       console.log('[NUTRITION] Using mock data for getHistoricalNutritionTargets');
       console.log('[NUTRITION] Looking for targets for plan ID:', planId);
       

@@ -1,35 +1,10 @@
-import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Text, Switch, IconButton } from 'react-native-paper';
+import React from 'react';
+import { ScrollView, View, StyleSheet } from 'react-native';
+import { Text, IconButton } from 'react-native-paper';
 import { router } from 'expo-router';
 import { colors } from '../../../src/styles/colors';
 
 export default function PrivacySecurityScreen() {
-  const [dataSharing, setDataSharing] = useState(false);
-  const [analytics, setAnalytics] = useState(true);
-  const [biometrics, setBiometrics] = useState(false);
-
-  const SettingRow = ({ title, subtitle, value, onValueChange, icon }) => (
-    <View style={styles.settingRow}>
-      <View style={styles.settingInfo}>
-        <View style={styles.iconContainer}>
-          <IconButton icon={icon} size={20} iconColor={colors.primary} />
-        </View>
-        <View style={styles.settingText}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-        </View>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: 'rgba(255,255,255,0.2)', true: colors.primary }}
-        thumbColor={value ? colors.white : 'rgba(255,255,255,0.8)'}
-        ios_backgroundColor="rgba(255,255,255,0.2)"
-      />
-    </View>
-  );
-
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -40,92 +15,22 @@ export default function PrivacySecurityScreen() {
           onPress={() => router.back()} 
           style={styles.backButton} 
         />
-        <Text variant="headlineSmall" style={styles.title}>Privacy & Security</Text>
+        <Text style={styles.title}>Privacy & Security</Text>
       </View>
 
-      {/* Privacy Settings */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>PRIVACY</Text>
-        
-        <SettingRow
-          title="Data Sharing"
-          subtitle="Share usage data to improve app experience"
-          value={dataSharing}
-          onValueChange={setDataSharing}
-          icon="share"
-        />
-        
-        <SettingRow
-          title="Analytics"
-          subtitle="Help us improve the app with usage analytics"
-          value={analytics}
-          onValueChange={setAnalytics}
-          icon="chart-line"
-        />
-      </View>
-
-      {/* Security Settings */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>SECURITY</Text>
-        
-        <SettingRow
-          title="Biometric Lock"
-          subtitle="Use fingerprint or face ID to secure app"
-          value={biometrics}
-          onValueChange={setBiometrics}
-          icon="fingerprint"
-        />
-      </View>
-
-      {/* Data Management */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>DATA MANAGEMENT</Text>
-        
-        <TouchableOpacity 
-          style={styles.actionRow}
-          onPress={() => Alert.alert('Export Data', 'This feature will be available soon.')}
-        >
-          <View style={styles.settingInfo}>
-            <View style={styles.iconContainer}>
-              <IconButton icon="download" size={20} iconColor={colors.primary} />
-            </View>
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>Export My Data</Text>
-              <Text style={styles.settingSubtitle}>Download a copy of your data</Text>
-            </View>
-          </View>
-          <IconButton icon="chevron-right" size={16} iconColor={colors.textSecondary} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionRow}
-          onPress={() => Alert.alert(
-            'Delete Account', 
-            'This will permanently delete your account and all data. This action cannot be undone.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Feature Coming Soon', 'Account deletion will be available in a future update.') }
-            ]
-          )}
-        >
-          <View style={styles.settingInfo}>
-            <View style={styles.iconContainer}>
-              <IconButton icon="delete" size={20} iconColor={colors.accent} />
-            </View>
-            <View style={styles.settingText}>
-              <Text style={[styles.settingTitle, { color: colors.accent }]}>Delete Account</Text>
-              <Text style={styles.settingSubtitle}>Permanently delete your account</Text>
-            </View>
-          </View>
-          <IconButton icon="chevron-right" size={16} iconColor={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Info Section */}
+      {/* Privacy & Security Info */}
       <View style={styles.infoSection}>
+        <Text style={[styles.infoText, { fontSize: 16, fontWeight: '600', marginBottom: 16 }]}>
+          Your Privacy Matters
+        </Text>
         <Text style={styles.infoText}>
-          Your privacy is important to us. We only collect data necessary to provide and improve our services. 
-          For more details, please read our Privacy Policy.
+          Your privacy is important to us. We only collect data necessary to provide and improve our services.
+        </Text>
+        <Text style={[styles.infoText, { marginTop: 16 }]}>
+          • Your workout and nutrition data is encrypted{'\n'}
+          • We never share your personal information{'\n'}
+          • You maintain full control of your data{'\n'}
+          • Account deletion available upon request
         </Text>
       </View>
     </ScrollView>
@@ -148,6 +53,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   title: {
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.text,
     flex: 1,
   },

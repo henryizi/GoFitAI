@@ -2,6 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '../supabase/client';
 
@@ -321,7 +322,7 @@ export class SocialAuthService {
               }
             }
             
-            // Handle implicit flow (tokens in fragment) - use ID token or setSession
+            // Handle implicit flow (tokens in fragment) - use ID token first (most reliable)
             if (idToken) {
               console.log('🔍 Signing in with ID token...');
               
@@ -389,15 +390,25 @@ export class SocialAuthService {
                     success: true,
                     user: sessionData.user
                   };
+                } else {
+                  // signInWithIdToken succeeded but returned no user - this should be rare
+                  console.error('❌ signInWithIdToken succeeded but returned no user');
+                  return {
+                    success: false,
+                    error: 'Authentication succeeded but user data is missing'
+                  };
                 }
-              } catch (error) {
+              } catch (error: any) {
                 console.error('❌ ID token sign-in error:', error);
                 return {
                   success: false,
-                  error: error.message
+                  error: error.message || 'ID token sign-in failed'
                 };
               }
-            } else if (accessToken) {
+            }
+            
+            // Only try accessToken if we don't have idToken
+            if (accessToken) {
               console.log('🔍 No ID token, but access token found - trying exchangeCodeForSession first...');
               
               console.log('🔍 Tokens found:', { 
@@ -456,7 +467,21 @@ export class SocialAuthService {
               // Approach 2: Try getSession() - Supabase might have auto-detected the session
               try {
                 console.log('🔄 Approach 2: Checking if session was auto-detected...');
-                const { data: { session: autoSession }, error: getSessionError } = await supabase.auth.getSession();
+                
+                // Wrap getSession in timeout to prevent hanging
+                let autoSession = null;
+                let getSessionError = null;
+                
+                try {
+                  const sessionResult = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 2000))
+                  ]) as any;
+                  autoSession = sessionResult.data?.session;
+                  getSessionError = sessionResult.error;
+                } catch (timeoutErr) {
+                  console.log('⚠️ Approach 2 (getSession) timed out - proceeding to fallback');
+                }
                 
                 if (!getSessionError && autoSession?.user) {
                   console.log('✅ Session auto-detected via getSession()!');
@@ -853,14 +878,35 @@ export class SocialAuthService {
       }
     }
 
+    // Helper to get env var from process.env OR Constants
+    const getEnvVar = (key: string) => {
+      // Check process.env (standard for Expo SDK 49+)
+      if (process.env[key]) return process.env[key];
+      
+      // Check Constants.expoConfig.extra (legacy/fallback)
+      const extra = Constants.expoConfig?.extra as any;
+      if (extra && extra[key]) return extra[key];
+      
+      return null;
+    };
+
     // Check Google Sign-In configuration
     const googleClientId = Platform.select({
-      ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      ios: getEnvVar('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'),
+      android: getEnvVar('EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID'),
+      default: getEnvVar('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'),
     });
 
-    providers.google = !!googleClientId && googleClientId !== 'your-web-client-id.googleusercontent.com' && googleClientId !== 'your-ios-client-id.googleusercontent.com' && googleClientId !== 'your-android-client-id.googleusercontent.com';
+    console.log('🔍 Checking Google Sign-In availability:', { 
+      platform: Platform.OS,
+      iosClientId: getEnvVar('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID') ? 'present' : 'missing',
+      resolvedClientId: googleClientId ? 'present' : 'missing' 
+    });
+
+    providers.google = !!googleClientId && 
+                       googleClientId !== 'your-web-client-id.googleusercontent.com' && 
+                       googleClientId !== 'your-ios-client-id.googleusercontent.com' && 
+                       googleClientId !== 'your-android-client-id.googleusercontent.com';
 
     return providers;
   }

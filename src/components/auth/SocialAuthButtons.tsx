@@ -153,6 +153,11 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({
           
           // Profile verification is now handled by the ProfileService after navigation
           console.log('🔍 Profile verification completed for Google sign-in');
+        } else {
+          // For regular (non-linked) accounts, wait briefly for auth state to propagate
+          console.log('👤 Regular Google account - waiting for auth state to propagate...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('✅ Auth state propagation wait completed');
         }
         
         console.log('🚀 Navigating to app (index route will handle routing)...');

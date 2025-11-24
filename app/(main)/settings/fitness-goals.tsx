@@ -212,6 +212,7 @@ export default function FitnessGoalsScreen() {
         training_level: selectedTrainingLevel as 'beginner' | 'intermediate' | 'advanced',
         primary_goal: selectedGoal as 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_performance',
         workout_frequency: mapWorkoutFrequencyToDatabase(selectedFrequency),
+        preferred_workout_frequency: parseInt(selectedFrequency, 10), // NEW: Store exact number for AI calculations
         fitness_strategy: selectedFitnessStrategy as 'bulk' | 'cut' | 'maintenance' | 'recomp' | 'maingaining',
       };
 

@@ -49,27 +49,18 @@ const LoginScreen = () => {
     <View style={styles.container}>
       {/* Professional Background Gradient */}
       <LinearGradient
-        colors={['#1C1C1E', '#000000']}
+        colors={['#0F0F11', '#18181B', '#000000']}
         style={styles.backgroundGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       />
       
-      {/* Subtle Overlay */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent']}
-        style={styles.overlayGradient}
-      />
+      {/* Subtle Grid/Mesh Pattern Overlay could go here if we had an image asset */}
       
-      {/* Elegant Accent Elements */}
-      <View style={styles.accentLine1} />
-      <View style={styles.accentLine2} />
-      <View style={styles.accentDot} />
-
       <KeyboardAvoidingView 
         style={styles.keyboardContainer} 
-        behavior={Platform.OS === 'ios' ? 'height' : 'height'}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
@@ -94,18 +85,12 @@ const LoginScreen = () => {
             <Text style={styles.welcomeSubtitle}>
               Sign in to continue your fitness journey
             </Text>
-            
-            <View style={styles.decorativeLine}>
-              <View style={styles.line} />
-              <View style={styles.dot} />
-              <View style={styles.line} />
-            </View>
           </View>
 
           {/* Login Form Section */}
           <View style={styles.formSection}>
-            <Card style={styles.formCard}>
-              <Card.Content style={styles.cardContent}>
+            <View style={styles.formCard}>
+              <View style={styles.cardContent}>
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email Address</Text>
@@ -119,14 +104,20 @@ const LoginScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="email-outline" />}
+                    placeholder="Enter your email"
+                    placeholderTextColor={colors.textTertiary}
+                    left={<TextInput.Icon icon="email-outline" color={colors.textSecondary} />}
                     theme={{
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
-                        outline: colors.border,
+                        outline: 'rgba(255, 255, 255, 0.1)',
                         onSurface: colors.text,
-                      }
+                        background: 'transparent',
+                        surface: 'transparent',
+                        placeholder: colors.textTertiary,
+                      },
+                      roundness: 16,
                     }}
                   />
                 </View>
@@ -142,10 +133,13 @@ const LoginScreen = () => {
                     style={styles.input}
                     contentStyle={styles.inputContent}
                     outlineStyle={styles.inputOutline}
-                    left={<TextInput.Icon icon="lock-outline" />}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.textTertiary}
+                    left={<TextInput.Icon icon="lock-outline" color={colors.textSecondary} />}
                     right={
                       <TextInput.Icon
                         icon={showPassword ? 'eye-off' : 'eye'}
+                        color={colors.textSecondary}
                         onPress={() => setShowPassword(!showPassword)}
                       />
                     }
@@ -153,9 +147,13 @@ const LoginScreen = () => {
                       colors: {
                         primary: colors.primary,
                         onSurfaceVariant: colors.textSecondary,
-                        outline: colors.border,
+                        outline: 'rgba(255, 255, 255, 0.1)',
                         onSurface: colors.text,
-                      }
+                        background: 'transparent',
+                        surface: 'transparent',
+                        placeholder: colors.textTertiary,
+                      },
+                      roundness: 16,
                     }}
                   />
                 </View>
@@ -163,7 +161,7 @@ const LoginScreen = () => {
                 {/* Error Message */}
                 {error && (
                   <View style={styles.errorContainer}>
-                    <IconButton icon="alert-circle" size={16} iconColor={colors.error} />
+                    <IconButton icon="alert-circle" size={18} iconColor="#FF5252" style={{margin: 0}} />
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
@@ -178,7 +176,7 @@ const LoginScreen = () => {
                 {/* Sign In Button */}
                 <View style={styles.buttonContainer}>
                   <LinearGradient
-                    colors={['#FF6B35', '#E55A2B']}
+                    colors={[colors.primary, '#E55A2B']}
                     style={styles.buttonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -191,6 +189,7 @@ const LoginScreen = () => {
                       fullWidth
                       size="large"
                       style={styles.signInButton}
+                      labelStyle={styles.signInButtonLabel}
                     >
                       {isLoading ? 'Signing In...' : 'Sign In'}
                     </Button>
@@ -200,7 +199,6 @@ const LoginScreen = () => {
                 {/* Social Authentication Buttons */}
                 <SocialAuthButtons
                   onSuccess={() => {
-                    // Handle successful social auth
                     console.log('Social auth successful');
                   }}
                   onError={(error) => {
@@ -218,15 +216,8 @@ const LoginScreen = () => {
                     <Text style={styles.signupLink}>Create Account</Text>
                   </Link>
                 </View>
-              </Card.Content>
-            </Card>
-          </View>
-
-          {/* Footer Section */}
-          <View style={styles.footerSection}>
-            <Text style={styles.footerText}>
-              By signing in, you agree to our Terms of Service and Privacy Policy
-            </Text>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -237,6 +228,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   backgroundGradient: {
     position: 'absolute',
@@ -244,41 +236,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  overlayGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  accentLine1: {
-    position: 'absolute',
-    top: height * 0.15,
-    right: width * 0.1,
-    width: 2,
-    height: 60,
-    backgroundColor: colors.primary,
-    opacity: 0.6,
-  },
-  accentLine2: {
-    position: 'absolute',
-    bottom: height * 0.25,
-    left: width * 0.08,
-    width: 1,
-    height: 40,
-    backgroundColor: colors.primary,
-    opacity: 0.4,
-  },
-  accentDot: {
-    position: 'absolute',
-    top: height * 0.35,
-    right: width * 0.15,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    opacity: 0.8,
   },
   keyboardContainer: {
     flex: 1,
@@ -293,176 +250,147 @@ const styles = StyleSheet.create({
   // Header Section
   headerSection: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logoContainer: {
-    marginBottom: 28,
+    marginBottom: 24,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    backgroundColor: 'transparent',
   },
   logoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    elevation: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    width: 88,
+    height: 88,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   welcomeTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    letterSpacing: 0.5,
   },
   welcomeSubtitle: {
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 24,
-  },
-  decorativeLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  line: {
-    width: 30,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    marginHorizontal: 12,
+    maxWidth: '80%',
   },
   
   // Form Section
   formSection: {
-    flex: 1,
+    width: '100%',
   },
   formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    elevation: 8,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
   },
   cardContent: {
-    padding: 32,
+    padding: 24,
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
     marginBottom: 8,
     marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     fontSize: 16,
   },
   inputContent: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+    color: '#FFFFFF',
   },
   inputOutline: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${colors.error}15`,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.2)',
   },
   errorText: {
-    color: colors.error,
-    fontSize: 14,
+    color: '#FF5252',
+    fontSize: 13,
     marginLeft: 8,
     flex: 1,
+    fontWeight: '500',
   },
   forgotPasswordContainer: {
     alignItems: 'flex-end',
-    marginBottom: 32,
+    marginTop: -4,
+    marginBottom: 24,
   },
   forgotPasswordLink: {
     color: colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   buttonContainer: {
-    marginBottom: 32,
+    marginBottom: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    elevation: 6,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonGradient: {
     borderRadius: 16,
   },
   signInButton: {
     backgroundColor: 'transparent',
-    elevation: 0,
-    shadowOpacity: 0,
+    height: 56,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginHorizontal: 16,
+  signInButtonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   signupText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 14,
   },
   signupLink: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  
-  // Footer Section
-  footerSection: {
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  footerText: {
-    color: colors.textTertiary,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 4,
   },
 });
 

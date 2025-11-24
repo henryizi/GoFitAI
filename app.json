@@ -18,8 +18,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.695497385151-kfqeoau5une2sekuus8ai0pd45kie0d8"
+            ]
+          }
+        ],
         "LSMinimumSystemVersion": "13.4",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,

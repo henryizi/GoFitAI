@@ -12,6 +12,7 @@ export default function Index() {
   const { isPremium, isLoading: subscriptionLoading } = useSubscription();
   const [forceProceed, setForceProceed] = useState(false);
   const [profileRetryAttempted, setProfileRetryAttempted] = useState(false);
+  const [retriesFinished, setRetriesFinished] = useState(false);
   const [hasSkipped, setHasSkipped] = useState<boolean | null>(null);
   const [linkedAccountWaitTime, setLinkedAccountWaitTime] = useState(0);
   const [profileRetryCount, setProfileRetryCount] = useState(0);
@@ -97,12 +98,14 @@ export default function Index() {
         }
         
         console.log(`✅ Profile retry completed after ${maxRetries} attempts - no profile found (new user)`);
-        setProfileRetryCount(0); // Reset counter
+        setProfileRetryCount(0);
+        setRetriesFinished(true);
       };
       
       retryProfileFetch().catch((error) => {
         console.warn('⚠️ Profile retry process failed:', error.message);
         setProfileRetryCount(0);
+        setRetriesFinished(true);
       });
     }
   }, [session, profile, isLoading, profileRetryAttempted, refreshProfile]);
@@ -116,6 +119,7 @@ export default function Index() {
       // Reset retry attempted flag when profile loads so we can retry again if needed
       if (profile) {
         setProfileRetryAttempted(false);
+        setRetriesFinished(false);
       }
     }
   }, [profile, session]);
@@ -139,21 +143,18 @@ export default function Index() {
         // Wrap entire verification in a max timeout to prevent infinite waiting
         const verifyProfile = async () => {
           const maxTimeoutId = setTimeout(() => {
-            console.warn('   ⚠️ Verification exceeded maximum time (4s) - forcing completion');
+            console.warn('   ⚠️ Verification exceeded maximum time (8s) - forcing completion');
             setFinalVerificationDone(true);
-          }, 4000); // Max 4 seconds total for entire verification
+          }, 8000); // Max 8 seconds total for entire verification
           
           let timeoutId: NodeJS.Timeout | null = null;
           try {
             // First, verify session is properly authenticated
             console.log('   → Verifying session before query...');
-            const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
             
-            if (sessionError) {
-              console.error('   ❌ Session error:', sessionError.message);
-              setFinalVerificationDone(true);
-              return;
-            }
+            // USE EXISTING SESSION FROM CONTEXT INSTEAD OF AWAITING getSession()
+            // getSession() can hang on Android/iOS after social login
+            const currentSession = session;
             
             if (!currentSession) {
               console.error('   ❌ No active session found!');
@@ -478,6 +479,16 @@ export default function Index() {
       );
     }
     
+    // Wait for retries to finish if they are still running
+    if (!retriesFinished) {
+       console.log('⏳ Still retrying profile fetch...');
+       return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+    
     if (isLinkedAccount && linkedAccountWaitTime === 0) {
       // For linked accounts, give extra time - profile might still be loading
       // This prevents redirecting to onboarding when account is actually linked
@@ -493,7 +504,7 @@ export default function Index() {
     // Either not a linked account, or we've waited long enough for linked account
     // Only redirect if final verification is done (or skipped for non-linked accounts)
     if (!isLinkedAccount || finalVerificationDone) {
-      console.log('🔍 Session exists but no profile after retry - redirecting to onboarding for new user');
+      console.log('🔍 Session exists but no profile after ALL retries - redirecting to onboarding for new user');
       return <Redirect href="/(onboarding)/name" />;
     }
     

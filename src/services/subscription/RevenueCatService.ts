@@ -23,8 +23,8 @@ import { MockRevenueCatService } from './MockRevenueCatService';
 // - Keep ENABLE_REAL_STOREKIT_TESTING = false
 // - Mock service simulates purchases without Apple UI
 // FORCE MODULE RELOAD - Changed timestamp: 2025-11-02-11:20-FINAL
-const ENABLE_REAL_STOREKIT_TESTING = true;
-const USE_MOCK_SERVICE = false; // FORCE REAL PURCHASES - FINAL VERSION
+const ENABLE_REAL_STOREKIT_TESTING = false;
+const USE_MOCK_SERVICE = true; // FORCE REAL PURCHASES - FINAL VERSION
 
 // Debug logging - FORCE RELOAD v2
 console.log('🔧 RevenueCat Config Debug (FORCE RELOAD v2 - loaded at ' + new Date().toISOString() + '):');
@@ -628,6 +628,10 @@ export class RevenueCatService {
    * Restore purchases
    */
   static async restorePurchases(): Promise<PurchaseResult> {
+    if (USE_MOCK_SERVICE) {
+      return MockRevenueCatService.restorePurchases();
+    }
+    
     // Check if RevenueCat is enabled
     if (!this.isRevenueCatEnabled()) {
       console.warn('[RevenueCat] restorePurchases() called but RevenueCat is disabled');

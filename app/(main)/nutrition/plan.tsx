@@ -11,16 +11,17 @@ import {
   Animated,
   Dimensions,
   Platform,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import {
-  Appbar,
   Button,
   Card,
   Divider,
   List,
-  Text,
   useTheme,
 } from 'react-native-paper';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,25 +36,24 @@ import { useSubscription } from '../../../src/hooks/useSubscription';
 import PaywallPreview from '../../../src/components/nutrition/PaywallPreview';
 import DailyMenuCard from '../../../src/components/nutrition/DailyMenuCard';
 import { mockPlansStore, mockNutritionPlan } from '../../../src/mock-data';
-import { typography } from '../../../src/styles/fonts';
+// import { typography } from '../../../src/styles/fonts';
+
+import { colors as globalColors } from '../../../src/styles/colors';
 
 const { width, height } = Dimensions.get('window');
 
 // Enhanced color palette
 const colors = {
+  ...globalColors,
   primary: '#FF6B35',
   primaryLight: '#FF8A65',
-  secondary: '#4ECDC4',
+  secondary: '#4ECDC4', // Teal for status/tags
   accent: '#FFE66D',
-  background: '#121212',
-  surface: '#1E1E1E',
-  white: '#FFFFFF',
   gray: '#8E8E93',
   lightGray: '#F2F2F7',
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF3B30',
-  dark: '#000000',
 };
 
 const NutritionPlanScreen = () => {
@@ -402,10 +402,13 @@ const NutritionPlanScreen = () => {
           />
         </ImageBackground>
         
-        <Appbar.Header statusBarHeight={top} style={styles.transparentHeader}>
-          <Appbar.BackAction onPress={() => router.push('/(main)/nutrition')} color={colors.white} />
-          <Appbar.Content title="Plan Error" titleStyle={{ color: colors.white }} />
-        </Appbar.Header>
+        <View style={[styles.customHeader, { marginTop: top }]}>
+          <TouchableOpacity onPress={() => router.push('/(main)/nutrition')} style={styles.headerButton}>
+            <Icon name="arrow-left" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Plan Error</Text>
+          <View style={styles.headerButtonPlaceholder} />
+        </View>
         
         <View style={styles.errorContainer}>
           <View style={styles.errorCard}>
@@ -508,16 +511,21 @@ const NutritionPlanScreen = () => {
       </ImageBackground>
 
       {/* Header */}
-      <Appbar.Header statusBarHeight={top} style={styles.transparentHeader}>
-        <Appbar.BackAction onPress={() => router.push('/(main)/nutrition')} color={colors.white} />
-        <Appbar.Content title={plan.plan_name || 'Nutrition Plan'} titleStyle={{ color: colors.white }} />
-        <Appbar.Action
-          icon="delete"
-          onPress={handleDeletePlan}
-          disabled={isDeleting}
-          iconColor={colors.error}
-        />
-      </Appbar.Header>
+      <View style={[styles.customHeader, { marginTop: top }]}>
+        <TouchableOpacity onPress={() => router.push('/(main)/nutrition')} style={styles.headerButton}>
+          <Icon name="arrow-left" size={24} color={colors.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {plan.plan_name || 'Nutrition Plan'}
+        </Text>
+        <TouchableOpacity 
+          onPress={handleDeletePlan} 
+          disabled={isDeleting} 
+          style={styles.headerButton}
+        >
+          <Icon name="delete-outline" size={24} color={colors.error} />
+        </TouchableOpacity>
+      </View>
 
       <Animated.ScrollView
         style={[styles.scrollView, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
@@ -786,6 +794,31 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
   },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    height: 56,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  headerButton: {
+    padding: 12,
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerButtonPlaceholder: {
+    width: 48,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.white,
+    flex: 1,
+    textAlign: 'center',
+  },
   transparentHeader: {
     backgroundColor: 'transparent',
     elevation: 0,
@@ -804,9 +837,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    ...typography.body1,
-    color: colors.white,
-    marginTop: 16,
+    fontSize: 16,
     fontWeight: '600',
   },
   errorContainer: {
@@ -828,16 +859,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorTitle: {
-    ...typography.h3,
+    fontSize: 24,
+    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 16,
     color: colors.white,
   },
   errorMessage: {
-    ...typography.body1,
+    fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
-    color: colors.gray,
+    color: colors.textSecondary,
     lineHeight: 24,
   },
   errorButton: {
@@ -858,9 +890,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   sectionTitle: {
-    ...typography.h3,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: colors.white,
     marginBottom: 20,
   },
@@ -880,14 +911,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overviewLabel: {
-    ...typography.caption,
-    color: colors.gray,
+    fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   overviewValue: {
-    ...typography.body1,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   macroGrid: {
     flexDirection: 'row',
@@ -907,22 +937,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   macroLabel: {
-    ...typography.caption,
-    color: colors.gray,
+    fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 4,
     textAlign: 'center',
   },
   macroValue: {
-    ...typography.metric,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: colors.white,
     textAlign: 'center',
   },
   macroUnit: {
-    ...typography.body2,
-    fontWeight: 'normal',
-    color: colors.gray,
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   chartContainer: {
     alignItems: 'center',
@@ -948,13 +976,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   micronutrientName: {
-    ...typography.body1,
+    fontSize: 16,
     color: colors.white,
     fontWeight: '600',
   },
   micronutrientValue: {
-    ...typography.caption,
-    color: colors.gray,
+    fontSize: 12,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   
@@ -988,35 +1016,34 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   metabolicTitle: {
-    ...typography.labelLarge,
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.white,
     marginBottom: 2,
   },
   metabolicSubtitle: {
-    ...typography.caption,
-    color: colors.gray,
+    fontSize: 12,
+    color: colors.textSecondary,
     lineHeight: 16,
     flexWrap: 'wrap', // Allow text to wrap
     maxWidth: '90%', // Limit width to prevent overlap
   },
   metabolicValue: {
-    ...typography.labelLarge,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: 'bold',
     color: colors.white,
     textAlign: 'right',
     minWidth: 100, // Ensure minimum width for the value
     flexShrink: 0, // Prevent shrinking
   },
   finalTargetValue: {
-    ...typography.body1,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.primary,
   },
   metabolicUnit: {
-    ...typography.caption,
-    fontWeight: '400',
-    color: colors.gray,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });
 
