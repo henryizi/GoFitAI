@@ -82,7 +82,9 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
       setLastCheckTime(new Date());
       
       // Only show alert if not suppressed and server is not connected
-      if (!connected && !suppressAlerts) {
+      // In production, we don't want to show a blocking alert on startup as it looks unprofessional
+      // The app will handle API errors gracefully when features are actually used
+      if (!connected && !suppressAlerts && __DEV__) {
         console.log(`[SERVER STATUS] Showing connection error alert (__DEV__: ${__DEV__})`);
         setTimeout(() => {
           Alert.alert(
@@ -94,7 +96,10 @@ export const ServerStatusProvider: React.FC<ServerStatusProviderProps> = ({ chil
               { text: "Retry", onPress: () => checkServerStatus() }
             ]
           );
-        }, 1000); // Reduced delay
+        }, 1000);
+      } else if (!connected) {
+        // Log for production debugging but don't disturb user
+        console.warn('[SERVER STATUS] Server connection failed. AI features may be unavailable.');
       }
       
     } catch (error) {
