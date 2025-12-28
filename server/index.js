@@ -540,12 +540,26 @@ function applyWeeklyDistribution(aiWorkoutPlan, userProfile) {
     console.log('[applyWeeklyDistribution] ✅ Padded schedule to 7 days');
   }
   
-  return {
+  // Explicitly preserve ai_reasoning if it exists
+  const result = {
     ...aiWorkoutPlan,
     weekly_schedule: newWeeklySchedule,
     sessions_per_week: boundedWorkoutDays,
     distribution_applied: true
   };
+  
+  // CRITICAL: ALWAYS preserve ai_reasoning (even if null/undefined) to maintain field presence
+  result.ai_reasoning = aiWorkoutPlan.ai_reasoning || null;
+  if (aiWorkoutPlan.ai_reasoning) {
+    console.log('[applyWeeklyDistribution] ✅ Preserved AI reasoning in result:', {
+      hasSplit: !!aiWorkoutPlan.ai_reasoning.split_reasoning,
+      hasExercise: !!aiWorkoutPlan.ai_reasoning.exercise_selection_reasoning
+    });
+  } else {
+    console.warn('[applyWeeklyDistribution] ⚠️ No ai_reasoning in input plan - setting to null');
+  }
+  
+  return result;
 }
 // Generate personalized exercises based on user profile
 function generatePersonalizedExercises(userProfile, goal, level, age, gender, workoutTypes, equipment, intensity, targetWorkoutDays) {
@@ -2260,7 +2274,7 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
   };
 }
 // Enhanced AI Workout Generator
-const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse } = require('./services/aiWorkoutGenerator');
+const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse, generateFallbackReasoning } = require('./services/aiWorkoutGenerator');
 // Add a new endpoint for generating personalized workout plans
 app.post('/api/generate-workout-plan', async (req, res) => {
   console.log('[WORKOUT] /api/generate-workout-plan called');
@@ -2396,6 +2410,13 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       
       console.log('[WORKOUT] ✅ Raw plan received from Gemini');
       console.log('[WORKOUT] 🔍 Raw plan structure - weekly_schedule length:', rawPlan?.weekly_schedule?.length || 0);
+      console.log('[WORKOUT] 🔍 Raw plan AI Reasoning check:', {
+        hasSplitReasoning: !!rawPlan?.split_reasoning,
+        hasExerciseReasoning: !!rawPlan?.exercise_selection_reasoning,
+        splitReasoningPreview: rawPlan?.split_reasoning?.substring(0, 100) || 'N/A',
+        exerciseReasoningPreview: rawPlan?.exercise_selection_reasoning?.substring(0, 100) || 'N/A',
+        rawPlanKeys: rawPlan ? Object.keys(rawPlan) : []
+      });
       if (rawPlan?.weekly_schedule?.length > 0) {
         console.log('[WORKOUT] 🔍 Raw plan days:', rawPlan.weekly_schedule.map(d => ({ 
           day: d.day_name || d.day, 
@@ -2429,6 +2450,13 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         exerciseCount: d.exercises?.length || 0,
         hasExercises: !!(d.exercises && d.exercises.length > 0)
       })));
+      console.log('[WORKOUT] 🔍 AI Reasoning in transformed plan:', {
+        hasAiReasoning: !!transformedPlan.ai_reasoning,
+        splitReasoning: !!transformedPlan.ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!transformedPlan.ai_reasoning?.exercise_selection_reasoning,
+        splitReasoningPreview: transformedPlan.ai_reasoning?.split_reasoning?.substring(0, 100) || 'N/A',
+        exerciseReasoningPreview: transformedPlan.ai_reasoning?.exercise_selection_reasoning?.substring(0, 100) || 'N/A'
+      });
 
       // Apply weekly distribution to add rest days
       const planForDistribution = {
@@ -2437,10 +2465,26 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       };
       
       console.log('[WORKOUT] 🔍 Before applyWeeklyDistribution - workoutDays:', transformedPlan.weeklySchedule.length);
+      console.log('[WORKOUT] 🔍 Before applyWeeklyDistribution - AI Reasoning:', {
+        hasAiReasoning: !!planForDistribution.ai_reasoning,
+        splitReasoning: !!planForDistribution.ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!planForDistribution.ai_reasoning?.exercise_selection_reasoning
+      });
       
       const finalPlan = applyWeeklyDistribution(planForDistribution, profileData);
       
+      // Explicitly preserve ai_reasoning after applyWeeklyDistribution
+      if (planForDistribution.ai_reasoning && !finalPlan.ai_reasoning) {
+        console.log('[WORKOUT] ⚠️ AI reasoning was lost in applyWeeklyDistribution, restoring it...');
+        finalPlan.ai_reasoning = planForDistribution.ai_reasoning;
+      }
+      
       console.log('[WORKOUT] 🔍 After applyWeeklyDistribution - total days:', finalPlan.weekly_schedule?.length || 0);
+      console.log('[WORKOUT] 🔍 After applyWeeklyDistribution - AI Reasoning:', {
+        hasAiReasoning: !!finalPlan.ai_reasoning,
+        splitReasoning: !!finalPlan.ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!finalPlan.ai_reasoning?.exercise_selection_reasoning
+      });
       if (finalPlan.weekly_schedule) {
         const workoutDays = finalPlan.weekly_schedule.filter(d => d.exercises && d.exercises.length > 0);
         const restDays = finalPlan.weekly_schedule.filter(d => !d.exercises || d.exercises.length === 0);
@@ -2448,17 +2492,78 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       }
 
       // Convert back to app format
+      // CRITICAL: Explicitly preserve ai_reasoning from transformedPlan or finalPlan
+      // Priority: finalPlan (after applyWeeklyDistribution) > transformedPlan (before distribution)
+      const reasoningToInclude = finalPlan.ai_reasoning || transformedPlan.ai_reasoning || null;
+      
+      console.log('[WORKOUT] 🔍 Reasoning to include in appFormatPlan:', {
+        hasReasoning: !!reasoningToInclude,
+        fromFinalPlan: !!finalPlan.ai_reasoning,
+        fromTransformedPlan: !!transformedPlan.ai_reasoning,
+        reasoningValue: reasoningToInclude,
+        finalPlanKeys: Object.keys(finalPlan || {}).slice(0, 15),
+        transformedPlanKeys: Object.keys(transformedPlan || {}).slice(0, 15)
+      });
+      
+      // Create appFormatPlan - ALWAYS include ai_reasoning field (even if null) for debugging
       const appFormatPlan = {
-        ...finalPlan,
+        name: finalPlan.name || transformedPlan.name,
+        training_level: finalPlan.training_level || transformedPlan.training_level,
+        primary_goal: finalPlan.primary_goal || transformedPlan.primary_goal || profileData.primary_goal,
+        primaryGoal: finalPlan.primary_goal || transformedPlan.primary_goal || profileData.primary_goal,
+        workout_frequency: finalPlan.workout_frequency || transformedPlan.workout_frequency,
+        mesocycle_length_weeks: finalPlan.mesocycle_length_weeks || transformedPlan.mesocycle_length_weeks,
+        estimated_time_per_session: finalPlan.estimated_time_per_session || transformedPlan.estimated_time_per_session,
+        goal_fat_loss: finalPlan.goal_fat_loss || transformedPlan.goal_fat_loss,
+        goal_muscle_gain: finalPlan.goal_muscle_gain || transformedPlan.goal_muscle_gain,
+        status: finalPlan.status || transformedPlan.status,
+        is_active: finalPlan.is_active !== undefined ? finalPlan.is_active : transformedPlan.is_active,
+        source: finalPlan.source || transformedPlan.source,
         weeklySchedule: finalPlan.weekly_schedule, // Use the 7-day schedule from applyWeeklyDistribution
-        primaryGoal: finalPlan.primary_goal || profileData.primary_goal,
-        primary_goal: finalPlan.primary_goal || profileData.primary_goal
+        // CRITICAL: ALWAYS include ai_reasoning field (even if null) so we can debug
+        ai_reasoning: reasoningToInclude
       };
-      delete appFormatPlan.weekly_schedule;
+      
+      console.log('[WORKOUT] AI Reasoning in final plan:', {
+        hasAiReasoning: !!appFormatPlan.ai_reasoning,
+        splitReasoning: !!appFormatPlan.ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!appFormatPlan.ai_reasoning?.exercise_selection_reasoning,
+        splitReasoningPreview: appFormatPlan.ai_reasoning?.split_reasoning?.substring(0, 100) || 'N/A',
+        exerciseReasoningPreview: appFormatPlan.ai_reasoning?.exercise_selection_reasoning?.substring(0, 100) || 'N/A',
+        fullAiReasoning: appFormatPlan.ai_reasoning
+      });
+      
+      // If reasoning is missing, log a warning
+      if (!appFormatPlan.ai_reasoning || 
+          (!appFormatPlan.ai_reasoning.split_reasoning && !appFormatPlan.ai_reasoning.exercise_selection_reasoning)) {
+        console.warn('[WORKOUT] ⚠️ WARNING: Final plan has no AI reasoning! This means the AI did not generate reasoning or it was lost in transformation.');
+        console.warn('[WORKOUT] Raw plan had reasoning:', {
+          rawPlanHasSplit: !!rawPlan?.split_reasoning,
+          rawPlanHasExercise: !!rawPlan?.exercise_selection_reasoning
+        });
+        console.warn('[WORKOUT] Transformed plan had reasoning:', {
+          transformedHasAiReasoning: !!transformedPlan.ai_reasoning,
+          transformedSplit: !!transformedPlan.ai_reasoning?.split_reasoning,
+          transformedExercise: !!transformedPlan.ai_reasoning?.exercise_selection_reasoning
+        });
+      }
 
       console.log('[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated');
       console.log('[WORKOUT] Final schedule:', appFormatPlan.weeklySchedule?.length || 0, 'days');
       console.log('[WORKOUT] Final schedule preview:', appFormatPlan.weeklySchedule?.map(d => ({ day: d.day, focus: d.focus, exerciseCount: d.exercises?.length || 0 })));
+      console.log('[WORKOUT] 🔍 Final appFormatPlan before sending - ai_reasoning check:', {
+        hasAiReasoning: !!appFormatPlan.ai_reasoning,
+        aiReasoningValue: appFormatPlan.ai_reasoning,
+        appFormatPlanKeys: Object.keys(appFormatPlan),
+        aiReasoningInKeys: 'ai_reasoning' in appFormatPlan
+      });
+      
+      // CRITICAL: Verify ai_reasoning is actually in the object before sending
+      if (!('ai_reasoning' in appFormatPlan)) {
+        console.error('[WORKOUT] ❌❌❌ CRITICAL ERROR: ai_reasoning is NOT in appFormatPlan keys!');
+        console.error('[WORKOUT] This should never happen - adding it now as fallback');
+        appFormatPlan.ai_reasoning = reasoningToInclude || transformedPlan.ai_reasoning || finalPlan.ai_reasoning || null;
+      }
 
       return res.json({ 
         success: true, 
@@ -3284,13 +3389,14 @@ app.post('/api/save-plan', async (req, res) => {
               if (exerciseError || !exerciseData || exerciseData.length === 0) {
                 // Create a new exercise
                 const category = getExerciseCategory(exercise.name);
+                const muscleGroups = inferMuscleGroupsFromName(exercise.name);
                 
                 const { data: newExercise, error: newExerciseError } = await supabase
                   .from('exercises')
                   .insert({
                     name: exercise.name,
                     category: category.type,
-                    muscle_groups: [category.muscleGroup],
+                    muscle_groups: muscleGroups.length > 0 ? muscleGroups : [category.muscleGroup || 'full body'],
                     difficulty: 'intermediate',
                     equipment_needed: [],
                     is_custom: false
@@ -3338,6 +3444,78 @@ app.post('/api/save-plan', async (req, res) => {
   } catch (err) {
           console.error('[SAVE PLAN] Error creating training splits, sessions, or sets:', err);
           // Continue anyway - we'll return the plan ID even if some splits/sessions failed
+        }
+
+        // Helper function to infer muscle groups from exercise name
+        function inferMuscleGroupsFromName(exerciseName) {
+          const name = exerciseName.toLowerCase();
+          const muscleGroups = [];
+          
+          // Chest
+          if (name.includes('chest') || 
+              name.includes('bench') || 
+              (name.includes('press') && !name.includes('shoulder') && !name.includes('overhead')) ||
+              name.includes('fly') ||
+              name.includes('pec') ||
+              name.includes('pectoral')) {
+            muscleGroups.push('chest');
+          }
+          
+          // Back
+          if (name.includes('back') || 
+              name.includes('row') || 
+              name.includes('pull') || 
+              name.includes('lat') || 
+              name.includes('deadlift') ||
+              name.includes('rhomboid') ||
+              name.includes('trap')) {
+            muscleGroups.push('back');
+          }
+          
+          // Legs
+          if (name.includes('leg') || 
+              name.includes('squat') || 
+              name.includes('lunge') || 
+              name.includes('calf') ||
+              name.includes('quad') ||
+              name.includes('hamstring') ||
+              name.includes('glute') ||
+              name.includes('thigh')) {
+            muscleGroups.push('legs');
+          }
+          
+          // Shoulders
+          if (name.includes('shoulder') || 
+              name.includes('delt') || 
+              (name.includes('press') && (name.includes('overhead') || name.includes('shoulder'))) ||
+              name.includes('lateral raise') ||
+              name.includes('rear delt') ||
+              name.includes('front raise')) {
+            muscleGroups.push('shoulders');
+          }
+          
+          // Arms
+          if (name.includes('arm') || 
+              name.includes('bicep') || 
+              name.includes('tricep') || 
+              name.includes('curl') ||
+              name.includes('forearm')) {
+            muscleGroups.push('arms');
+          }
+          
+          // Core
+          if (name.includes('core') || 
+              name.includes('abs') || 
+              name.includes('abdominal') || 
+              name.includes('crunch') ||
+              name.includes('plank') ||
+              name.includes('sit-up') ||
+              name.includes('oblique')) {
+            muscleGroups.push('core');
+          }
+          
+          // Remove duplicates
+          return [...new Set(muscleGroups)];
         }
 
         // Helper function to categorize exercises
@@ -3887,41 +4065,353 @@ function filterFoodSuggestions(preferences) {
   }
 }
 /**
+ * Repair malformed JSON from AI responses
+ * Fixes common issues like unquoted keys, stray quotes, mixed arrays, duplicate properties, etc.
+ */
+function repairMalformedJSON(jsonString) {
+  try {
+    // First, try parsing as-is - if it works, return it
+    JSON.parse(jsonString);
+    return jsonString;
+  } catch (e) {
+    // JSON is malformed, try to fix it
+    console.log('[GEMINI MEAL PLAN] 🔧 Attempting to repair malformed JSON...');
+  }
+  
+  let repaired = jsonString;
+  
+  // Fix unquoted property names (e.g., carbs_grams: 430 -> "carbs_grams": 430)
+  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+  
+  // Remove stray quotes around numbers
+  repaired = repaired.replace(/:\s*"\s*([0-9.]+)\s*"/g, ': $1');
+  repaired = repaired.replace(/:\s*"\s*"/g, ': null');
+  
+  // Fix missing commas between properties (but not inside strings)
+  // Look for } or ] followed by " or { or [ without a comma
+  repaired = repaired.replace(/([}\]\"])\s*"([a-zA-Z_])/g, '$1, "$2');
+  repaired = repaired.replace(/([}\]\"])\s*\{/g, '$1, {');
+  repaired = repaired.replace(/([}\]\"])\s*\[/g, '$1, [');
+  
+  // CRITICAL FIX: Fix missing commas after numbers (common when macros are removed)
+  // Pattern: number followed by quote or closing bracket without comma
+  repaired = repaired.replace(/([0-9.]+)\s*"([a-zA-Z_])/g, '$1, "$2');
+  repaired = repaired.replace(/([0-9.]+)\s*\]/g, '$1]');
+  repaired = repaired.replace(/([0-9.]+)\s*"/g, '$1, "');
+  
+  // Fix trailing commas before closing braces/brackets
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Fix double commas that might result from the above fixes
+  repaired = repaired.replace(/,\s*,/g, ',');
+  
+  // CRITICAL FIX: Remove macro properties from wrong locations before processing
+  // Fix cases where macros appear outside the macros object (e.g., in ingredients array)
+  const macroProps = ['protein_grams', 'carbs_grams', 'fat_grams', 'calories'];
+  for (const prop of macroProps) {
+    // Remove macro properties that appear outside of a "macros" object
+    // Pattern: "protein_grams": 35, that's not inside "macros": { ... }
+    repaired = repaired.replace(new RegExp(`"ingredients"\\s*:\\s*\\[([^\\]]*)"${prop}"\\s*:\\s*([0-9.]+)([^\\]]*)\\]`, 'g'), (match, before, value, after) => {
+      // Remove the macro property from ingredients
+      const cleaned = before.replace(new RegExp(`"${prop}"\\s*:\\s*${value}\\s*,?\\s*`, 'g'), '');
+      return `"ingredients": [${cleaned}${after}]`;
+    });
+  }
+  
+  // Fix duplicate properties - find and remove duplicates, keeping the first occurrence
+  // This is complex, so we'll do it per meal object
+  const mealPattern = /\{[^{}]*"meal_type"[^{}]*\}/g;
+  const meals = [];
+  let mealMatch;
+  
+  while ((mealMatch = mealPattern.exec(repaired)) !== null) {
+    let mealStr = mealMatch[0];
+    
+    // Remove duplicate properties in each meal object
+    const seenProps = new Set();
+    const props = [];
+    const propPattern = /"([^"]+)"\s*:\s*([^,}]+(?:\{[^}]*\}|\[[^\]]*\])?[^,}]*)/g;
+    let propMatch;
+    
+    while ((propMatch = propPattern.exec(mealStr)) !== null) {
+      const key = propMatch[1];
+      const value = propMatch[2].trim();
+      // Skip macro properties that shouldn't be at the meal level
+      if (macroProps.includes(key) && !mealStr.includes('"macros"')) {
+        continue; // Skip this property, it should be in macros object
+      }
+      if (!seenProps.has(key)) {
+        seenProps.add(key);
+        props.push(`"${key}": ${value}`);
+      }
+    }
+    
+    // Rebuild meal object
+    if (props.length > 0) {
+      meals.push(`{${props.join(', ')}}`);
+    }
+  }
+  
+  // If we extracted meals, rebuild the array
+  if (meals.length > 0) {
+    repaired = `[${meals.join(', ')}]`;
+  } else {
+    // Fallback: fix macros objects specifically
+    repaired = repaired.replace(/"macros"\s*:\s*\{([^}]*)\}/g, (match, content) => {
+      const props = new Map();
+      const propPattern = /"([^"]+)"\s*:\s*([^,}]+)/g;
+      let propMatch;
+      while ((propMatch = propPattern.exec(content)) !== null) {
+        props.set(propMatch[1], propMatch[2].trim());
+      }
+      const cleaned = Array.from(props.entries())
+        .map(([key, value]) => `"${key}": ${value}`)
+        .join(', ');
+      return `"macros": {${cleaned}}`;
+    });
+    
+    // CRITICAL FIX: Remove macro properties and fix swapped ingredients/instructions
+    // Pattern: ingredients array containing things like "protein_grams": 35, or instruction text
+    repaired = repaired.replace(/"ingredients"\s*:\s*\[([^\]]*)\]/g, (match, content) => {
+      const macroProps = ['protein_grams', 'carbs_grams', 'fat_grams', 'calories', 'protein', 'carbs', 'fat'];
+      
+      // First, remove all macro property patterns from the content
+      let cleanedContent = content;
+      for (const prop of macroProps) {
+        // Remove patterns like: "protein_grams": 35, (with or without quotes, with or without comma)
+        cleanedContent = cleanedContent.replace(new RegExp(`"${prop}"\\s*:\\s*[0-9.]+\\s*,?\\s*`, 'gi'), '');
+        cleanedContent = cleanedContent.replace(new RegExp(`${prop}\\s*:\\s*[0-9.]+\\s*,?\\s*`, 'gi'), '');
+      }
+      
+      // Now extract valid ingredient strings (filter out instruction-like text)
+      const items = [];
+      const stringPattern = /"([^"]+)"/g;
+      let strMatch;
+      while ((strMatch = stringPattern.exec(cleanedContent)) !== null) {
+        const item = strMatch[1];
+        // Filter out:
+        // 1. Macro property names
+        // 2. Instruction-like strings (action verbs, longer descriptions, cooking steps)
+        // 3. Strings that are clearly instructions (contain "until", "about X minutes", etc.)
+        const isInstruction = item.length > 80 || 
+                            item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear|Steam|Boil|Bring|Transfer|Drain|Rinse|Divide|Ladle|Taste|Adjust)/i) ||
+                            item.match(/\b(until|about|minutes|seconds|hours|until|until|stirring|occasionally|gently|carefully)\b/i) ||
+                            item.match(/^\d+\s*(minute|second|hour)/i) ||
+                            item.match(/^[A-Z][a-z]+\s+[a-z]+\s+(until|about|for|over|in|on|with)/i);
+        
+        if (!macroProps.includes(item.toLowerCase()) && 
+            !isInstruction &&
+            item.length < 100) {
+          items.push(`"${item}"`);
+        }
+      }
+      
+      return `"ingredients": [${items.join(', ')}]`;
+    });
+    
+    // Now fix any macros objects that are missing the extracted values
+    // This will be handled by the existing macros repair logic below
+    
+    repaired = repaired.replace(/"instructions"\s*:\s*\[([^\]]*)\]/g, (match, content) => {
+      // Extract strings that look like instructions (filter out ingredient-like text)
+      const items = [];
+      const stringPattern = /"([^"]+)"/g;
+      let strMatch;
+      while ((strMatch = stringPattern.exec(content)) !== null) {
+        const item = strMatch[1];
+        // Keep instruction-like strings (action verbs, cooking steps)
+        // Filter out ingredient-like strings (short, no action verbs, ingredient format)
+        const isIngredient = item.length < 50 && 
+                           !item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear|Steam|Boil|Bring|Transfer|Drain|Rinse|Divide|Ladle|Taste|Adjust)/i) &&
+                           !item.match(/\b(until|about|minutes|seconds|hours|stirring|occasionally|gently|carefully)\b/i) &&
+                           !item.match(/^\d+\s*(minute|second|hour)/i) &&
+                           (item.match(/^\d+[gml]?\s+/) || item.match(/^\d+\/\d+\s+/) || item.match(/^\d+\.\d+\s+/));
+        
+        // Keep if it's clearly an instruction (action verb, longer, or contains cooking terms)
+        if (!isIngredient && (item.length > 20 || 
+            item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear|Steam|Boil|Bring|Transfer|Drain|Rinse|Divide|Ladle|Taste|Adjust)/i) ||
+            item.match(/\b(until|about|minutes|seconds|hours|stirring|occasionally|gently|carefully)\b/i))) {
+          items.push(`"${item}"`);
+        }
+      }
+      return `"instructions": [${items.join(', ')}]`;
+    });
+  }
+  
+  // CRITICAL FIX: Detect and swap ingredients/instructions arrays if they're swapped
+  // Process each meal object individually to handle nested structures
+  const mealObjectPattern = /\{[^{}]*"meal_type"[^{}]*\}/g;
+  let mealMatch2;
+  const fixedMeals = [];
+  let lastIndex = 0;
+  
+  while ((mealMatch2 = mealObjectPattern.exec(repaired)) !== null) {
+    const mealStart = mealMatch2.index;
+    const mealEnd = mealMatch2.index + mealMatch2[0].length;
+    const mealStr = mealMatch2[0];
+    
+    // Extract ingredients and instructions arrays from this meal
+    const ingredientsMatch = mealStr.match(/"ingredients"\s*:\s*\[([^\]]*)\]/);
+    const instructionsMatch = mealStr.match(/"instructions"\s*:\s*\[([^\]]*)\]/);
+    
+    if (ingredientsMatch && instructionsMatch) {
+      const ingredientsContent = ingredientsMatch[1];
+      const instructionsContent = instructionsMatch[1];
+      
+      // Count instruction-like items in ingredients array
+      const ingredientStrings = ingredientsContent.match(/"([^"]+)"/g) || [];
+      const instructionStrings = instructionsContent.match(/"([^"]+)"/g) || [];
+      
+      let instructionCountInIngredients = 0;
+      let ingredientCountInInstructions = 0;
+      
+      ingredientStrings.forEach(str => {
+        const item = str.match(/"([^"]+)"/)?.[1] || '';
+        if (item.length > 60 || 
+            item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear|Steam|Boil|Bring|Transfer|Drain|Rinse|Divide|Ladle|Taste|Adjust)/i) ||
+            item.match(/\b(until|about|minutes|seconds|hours|stirring|occasionally|gently|carefully)\b/i)) {
+          instructionCountInIngredients++;
+        }
+      });
+      
+      instructionStrings.forEach(str => {
+        const item = str.match(/"([^"]+)"/)?.[1] || '';
+        if (item.length < 50 && 
+            (item.match(/^\d+[gml]?\s+/) || item.match(/^\d+\/\d+\s+/) || item.match(/^\d+\.\d+\s+/)) &&
+            !item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear|Steam|Boil|Bring|Transfer|Drain|Rinse|Divide|Ladle|Taste|Adjust)/i)) {
+          ingredientCountInInstructions++;
+        }
+      });
+      
+      // If more than 50% of ingredients are actually instructions, and more than 50% of instructions are actually ingredients, swap them
+      if (ingredientStrings.length > 0 && instructionStrings.length > 0) {
+        const ingredientsAreInstructions = instructionCountInIngredients / ingredientStrings.length > 0.5;
+        const instructionsAreIngredients = ingredientCountInInstructions / instructionStrings.length > 0.5;
+        
+        if (ingredientsAreInstructions && instructionsAreIngredients) {
+          console.log('[GEMINI MEAL PLAN] 🔄 Detected swapped ingredients/instructions arrays in meal, swapping them back...');
+          // Swap the arrays in this meal
+          const fixedMeal = mealStr.replace(/"ingredients"\s*:\s*\[([^\]]*)\]/, `"ingredients": [${instructionsContent}]`)
+                                   .replace(/"instructions"\s*:\s*\[([^\]]*)\]/, `"instructions": [${ingredientsContent}]`);
+          fixedMeals.push({ start: mealStart, end: mealEnd, fixed: fixedMeal });
+        }
+      }
+    }
+  }
+  
+  // Apply fixes in reverse order to preserve indices
+  fixedMeals.reverse().forEach(fix => {
+    repaired = repaired.substring(0, fix.start) + fix.fixed + repaired.substring(fix.end);
+  });
+  
+  // Remove any remaining stray quotes around numbers
+  repaired = repaired.replace(/:\s*"\s*([0-9.]+)\s*"/g, ': $1');
+  
+  return repaired;
+}
+
+/**
  * Generate a personalized meal plan using Gemini AI
  */
-async function generateGeminiMealPlan(targets, dietaryPreferences = []) {
+async function generateGeminiMealPlan(targets, dietaryPreferences = [], cuisinePreference = undefined, useSimplifiedPrompt = true) {
   console.log('[GEMINI MEAL PLAN] Starting AI generation with targets:', targets);
   console.log('[GEMINI MEAL PLAN] Dietary preferences:', dietaryPreferences);
+  console.log('[GEMINI MEAL PLAN] Cuisine preference:', cuisinePreference);
+  console.log('[GEMINI MEAL PLAN] Using simplified prompt:', useSimplifiedPrompt, '(default: true for better reliability)');
 
   try {
     // Create a comprehensive prompt for creative meal plan generation
-    const prompt = `You are a world-class chef and nutritionist. Create a complete, creative daily meal plan that meets these nutritional targets. Be innovative and create delicious, varied meals from global cuisines without being restricted to specific ingredients.
-
-DAILY NUTRITIONAL TARGETS:
-- Total Calories: ${targets.daily_calories} kcal
+    // Use a simpler, more direct prompt if the complex one fails
+    const prompt = useSimplifiedPrompt ? 
+      // Simplified prompt - simple, everyday meals
+      `Create a simple daily meal plan with 4 meals (breakfast, lunch, dinner, snack) that meets these targets:
+- Calories: ${targets.daily_calories} kcal
 - Protein: ${targets.protein_grams}g
-- Carbohydrates: ${targets.carbs_grams}g
+- Carbs: ${targets.carbs_grams}g
 - Fat: ${targets.fat_grams}g
 
-DIETARY PREFERENCES: ${dietaryPreferences.length > 0 ? dietaryPreferences.join(', ') : 'No specific restrictions'}
+Dietary preferences: ${dietaryPreferences.length > 0 ? dietaryPreferences.join(', ') : 'None'}
+${cuisinePreference ? `\n**IMPORTANT - CUISINE REQUIREMENT:** All meals MUST be ${cuisinePreference} cuisine style. Use ${cuisinePreference} ingredients, flavors, and cooking methods. Keep meals simple and easy to cook.` : ''}
 
-CREATIVITY GUIDELINES:
-- Draw inspiration from global cuisines (Italian, Asian, Mediterranean, Mexican, Indian, etc.)
-- Create restaurant-quality meals that people actually want to eat
-- Use fresh, whole foods and interesting flavor combinations
-- Don't limit yourself to basic ingredients - be creative and diverse
-- Each meal should be unique and exciting
-- Focus on nutrition density and taste appeal
+IMPORTANT: Use simple, everyday meals that are easy to cook. Avoid complex recipes or exotic ingredients. Keep ingredient lists short (5-8 items max) and instructions simple (3-5 steps max).
 
-MEAL DISTRIBUTION:
-- Breakfast: ~25% of daily calories (${Math.round(targets.daily_calories * 0.25)} kcal)
-- Lunch: ~35% of daily calories (${Math.round(targets.daily_calories * 0.35)} kcal)
-- Dinner: ~30% of daily calories (${Math.round(targets.daily_calories * 0.30)} kcal)
-- Snack: ~10% of daily calories (${Math.round(targets.daily_calories * 0.10)} kcal)
+Return ONLY a valid JSON array with this exact format:
+[
+  {
+    "meal_type": "breakfast",
+    "recipe_name": "Meal name",
+    "prep_time": 15,
+    "cook_time": 10,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.25)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.25)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.30)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.25)}
+    }
+  },
+  {
+    "meal_type": "lunch",
+    "recipe_name": "Meal name",
+    "prep_time": 20,
+    "cook_time": 15,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.35)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.35)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.35)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.30)}
+    }
+  },
+  {
+    "meal_type": "dinner",
+    "recipe_name": "Meal name",
+    "prep_time": 25,
+    "cook_time": 20,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.30)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.30)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.25)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.35)}
+    }
+  },
+  {
+    "meal_type": "snack",
+    "recipe_name": "Snack name",
+    "prep_time": 5,
+    "cook_time": 0,
+    "servings": 1,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "instructions": ["step 1", "step 2"],
+    "macros": {
+      "calories": ${Math.round(targets.daily_calories * 0.10)},
+      "protein_grams": ${Math.round(targets.protein_grams * 0.10)},
+      "carbs_grams": ${Math.round(targets.carbs_grams * 0.10)},
+      "fat_grams": ${Math.round(targets.fat_grams * 0.10)}
+    }
+  }
+]` :
+      // Comprehensive prompt - simple, everyday meals
+      `Create a simple daily meal plan (4 meals: breakfast, lunch, dinner, snack) meeting these targets:
+- Calories: ${targets.daily_calories} kcal
+- Protein: ${targets.protein_grams}g
+- Carbs: ${targets.carbs_grams}g
+- Fat: ${targets.fat_grams}g
+Dietary: ${dietaryPreferences.length > 0 ? dietaryPreferences.join(', ') : 'None'}
+${cuisinePreference ? `\n**CRITICAL - CUISINE REQUIREMENT:** ALL 4 meals MUST be ${cuisinePreference} cuisine style. Use ${cuisinePreference} ingredients, flavors, spices, and cooking techniques. Every meal should reflect ${cuisinePreference} cuisine traditions. Keep meals simple and easy to cook.` : ''}
 
-Create 4 diverse, delicious meals that together meet the exact nutritional targets above.
+Guidelines: Use simple, everyday meals that are easy to cook. Keep ingredients common and instructions straightforward. Avoid complex recipes or exotic ingredients. Each meal should have 5-8 ingredients max and 3-5 cooking steps max.
 
-Respond with a JSON array in this exact format:
+Meal distribution: Breakfast 25%, Lunch 35%, Dinner 30%, Snack 10% of daily calories.
+
+Respond ONLY with valid JSON array in this exact format:
 [
   {
     "meal_type": "breakfast",
@@ -3993,27 +4483,28 @@ Respond with a JSON array in this exact format:
   }
 ]
 
-REQUIREMENTS:
-1. Create EXCITING, restaurant-quality meals from diverse global cuisines
-2. Use creative ingredients and flavor combinations - don't be boring!
-3. Each meal should be completely different in style and cuisine
-4. Ensure nutritional targets are met as closely as possible
-5. Provide realistic but interesting ingredients and detailed cooking instructions
-6. Consider dietary preferences: ${dietaryPreferences.join(', ') || 'none'}
-7. Make meals practical for home cooking but impressive in taste
-8. Focus on meals that are Instagram-worthy and crave-able
-9. Respond ONLY with valid JSON, no additional text
-
-INSPIRATION EXAMPLES:
-- Breakfast: Korean-style avocado toast, Mediterranean shakshuka, Japanese tamago bowl
-- Lunch: Thai curry bowl, Mexican quinoa salad, Italian grain bowl
-- Dinner: Moroccan tagine, Indian curry, Mediterranean fish, Asian stir-fry
-- Snack: Greek yogurt parfait, energy balls, hummus plate, fruit and nut mix
-
-Generate a complete, nutritionally balanced daily meal plan now!`;
+Requirements: Simple, everyday meals that are easy to cook. Keep recipes practical and straightforward. Meet macro targets. Respond ONLY with valid JSON, no other text.`;
 
     // Call Gemini AI using the working generateText method
-    const text = await geminiTextService.generateText(prompt);
+    console.log('[GEMINI MEAL PLAN] Calling Gemini API...');
+    const apiStartTime = Date.now();
+    
+    let text;
+    try {
+      text = await geminiTextService.generateText(prompt);
+      const apiElapsed = Date.now() - apiStartTime;
+      console.log(`[GEMINI MEAL PLAN] ✅ Gemini API responded in ${(apiElapsed/1000).toFixed(1)}s`);
+    } catch (apiError) {
+      const apiElapsed = Date.now() - apiStartTime;
+      console.error(`[GEMINI MEAL PLAN] ❌ Gemini API failed after ${(apiElapsed/1000).toFixed(1)}s:`, {
+        message: apiError.message,
+        name: apiError.name,
+        code: apiError.code,
+        status: apiError.status,
+        cause: apiError.cause
+      });
+      throw apiError;
+    }
 
     console.log('[GEMINI MEAL PLAN] Raw response length:', text.length);
     console.log('[GEMINI MEAL PLAN] Response preview:', text.substring(0, 200) + '...');
@@ -4033,11 +4524,73 @@ Generate a complete, nutritionally balanced daily meal plan now!`;
       
       // Find JSON array
       const jsonStart = cleanResponse.indexOf('[');
-      const jsonEnd = cleanResponse.lastIndexOf(']');
+      let jsonEnd = cleanResponse.lastIndexOf(']');
       
-      if (jsonStart !== -1 && jsonEnd !== -1) {
+      // CRITICAL FIX: Handle truncated responses where closing bracket is missing
+      if (jsonStart !== -1) {
+        if (jsonEnd === -1 || jsonEnd < jsonStart) {
+          // JSON is truncated - try to find the last complete meal object
+          console.log('[GEMINI MEAL PLAN] ⚠️ JSON appears truncated, attempting to extract complete meals...');
+          
+          // Find all complete meal objects by looking for closing braces
+          const mealObjects = [];
+          let braceCount = 0;
+          let currentMealStart = jsonStart + 1;
+          let inString = false;
+          let escapeNext = false;
+          
+          for (let i = jsonStart + 1; i < cleanResponse.length; i++) {
+            const char = cleanResponse[i];
+            
+            if (escapeNext) {
+              escapeNext = false;
+              continue;
+            }
+            
+            if (char === '\\') {
+              escapeNext = true;
+              continue;
+            }
+            
+            if (char === '"' && !escapeNext) {
+              inString = !inString;
+              continue;
+            }
+            
+            if (!inString) {
+              if (char === '{') {
+                if (braceCount === 0) {
+                  currentMealStart = i;
+                }
+                braceCount++;
+              } else if (char === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  // Found a complete meal object
+                  const mealStr = cleanResponse.substring(currentMealStart, i + 1);
+                  if (mealStr.includes('"meal_type"') && mealStr.includes('"macros"')) {
+                    mealObjects.push(mealStr);
+                  }
+                }
+              }
+            }
+          }
+          
+          if (mealObjects.length > 0) {
+            // Reconstruct JSON array with complete meals only
+            cleanResponse = `[${mealObjects.join(', ')}]`;
+            console.log(`[GEMINI MEAL PLAN] ✅ Extracted ${mealObjects.length} complete meals from truncated response`);
+          } else {
+            // Fallback: try to close incomplete structures
+            jsonEnd = cleanResponse.length;
+          }
+        } else {
         cleanResponse = cleanResponse.substring(jsonStart, jsonEnd + 1);
+        }
       }
+      
+      // Try to repair malformed JSON
+      cleanResponse = repairMalformedJSON(cleanResponse);
       
       mealPlan = JSON.parse(cleanResponse);
       
@@ -4068,12 +4621,363 @@ Generate a complete, nutritionally balanced daily meal plan now!`;
       
     } catch (parseError) {
       console.error('[GEMINI MEAL PLAN] ❌ Failed to parse response:', parseError.message);
-      console.error('[GEMINI MEAL PLAN] Raw response for debugging:', text);
+      console.error('[GEMINI MEAL PLAN] Raw response for debugging:', text.substring(0, 2000));
+      
+      // Try a more aggressive repair strategy
+      try {
+        console.log('[GEMINI MEAL PLAN] 🔧 Attempting aggressive JSON repair...');
+        let aggressiveRepair = text.trim();
+        
+        // Remove markdown code blocks
+        aggressiveRepair = aggressiveRepair.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Extract just the array portion
+        const arrayStart = aggressiveRepair.indexOf('[');
+        let arrayEnd = aggressiveRepair.lastIndexOf(']');
+        
+        // CRITICAL FIX: If JSON is truncated, extract complete meal objects
+        if (arrayStart !== -1 && (arrayEnd === -1 || arrayEnd < arrayStart)) {
+          console.log('[GEMINI MEAL PLAN] 🔧 JSON truncated, extracting complete meals...');
+          
+          // Extract complete meal objects
+          const mealObjects = [];
+          let braceCount = 0;
+          let currentMealStart = arrayStart + 1;
+          let inString = false;
+          let escapeNext = false;
+          let lastCompleteMealEnd = arrayStart;
+          
+          for (let i = arrayStart + 1; i < aggressiveRepair.length; i++) {
+            const char = aggressiveRepair[i];
+            
+            if (escapeNext) {
+              escapeNext = false;
+              continue;
+            }
+            
+            if (char === '\\') {
+              escapeNext = true;
+              continue;
+            }
+            
+            if (char === '"' && !escapeNext) {
+              inString = !inString;
+              continue;
+            }
+            
+            if (!inString) {
+              if (char === '{') {
+                if (braceCount === 0) {
+                  currentMealStart = i;
+                }
+                braceCount++;
+              } else if (char === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  // Found a complete meal object
+                  const mealStr = aggressiveRepair.substring(currentMealStart, i + 1);
+                  // Validate it has required fields
+                  if (mealStr.includes('"meal_type"') && mealStr.includes('"macros"') && mealStr.includes('"recipe_name"')) {
+                    mealObjects.push(mealStr);
+                    lastCompleteMealEnd = i + 1;
+                  }
+                }
+              }
+            }
+          }
+          
+          if (mealObjects.length > 0) {
+            aggressiveRepair = `[${mealObjects.join(', ')}]`;
+            console.log(`[GEMINI MEAL PLAN] ✅ Extracted ${mealObjects.length} complete meals`);
+          } else if (arrayEnd === -1) {
+            // No complete meals found, try to close the structure
+            arrayEnd = aggressiveRepair.length;
+            aggressiveRepair = aggressiveRepair.substring(arrayStart, arrayEnd);
+          }
+        } else if (arrayStart !== -1 && arrayEnd !== -1) {
+          aggressiveRepair = aggressiveRepair.substring(arrayStart, arrayEnd + 1);
+        }
+        
+        // More aggressive fixes
+        // Fix unquoted keys more comprehensively
+        aggressiveRepair = aggressiveRepair.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+        
+        // Remove stray quotes and fix malformed values
+        aggressiveRepair = aggressiveRepair.replace(/:\s*"\s*([0-9.]+)\s*"/g, ': $1');
+        aggressiveRepair = aggressiveRepair.replace(/:\s*"\s*"/g, ': null');
+        aggressiveRepair = aggressiveRepair.replace(/:\s*"([^"]*)"\s*"/g, ': "$1"');
+        
+        // Fix trailing commas
+        aggressiveRepair = aggressiveRepair.replace(/,(\s*[}\]])/g, '$1');
+        
+        // Remove duplicate keys in macros by rebuilding the object
+        aggressiveRepair = aggressiveRepair.replace(/"macros"\s*:\s*\{([^}]*)\}/g, (match, content) => {
+          const props = new Map();
+          // Extract all key-value pairs
+          const pairs = content.match(/"([^"]+)"\s*:\s*([^,}]+)/g) || [];
+          pairs.forEach(pair => {
+            const kv = pair.match(/"([^"]+)"\s*:\s*(.+)/);
+            if (kv) {
+              props.set(kv[1], kv[2].trim());
+            }
+          });
+          // Rebuild with unique keys
+          const cleaned = Array.from(props.entries())
+            .map(([key, value]) => `"${key}": ${value}`)
+            .join(', ');
+          return `"macros": {${cleaned}}`;
+        });
+        
+        // Fix mixed ingredients/instructions arrays
+        aggressiveRepair = aggressiveRepair.replace(/"ingredients"\s*:\s*\[([^\]]*)\]/g, (match, content) => {
+          const items = [];
+          const stringPattern = /"([^"]+)"/g;
+          let strMatch;
+          while ((strMatch = stringPattern.exec(content)) !== null) {
+            const item = strMatch[1];
+            // Filter out instruction-like strings (longer, contain action verbs, start with verbs)
+            if (item.length < 100 && 
+                !item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Season|Remove|Set aside)/i) &&
+                !item.match(/^[A-Z][a-z]+\s+[a-z]+\s+(according|until|with|for|over|on|in)/i)) {
+              items.push(`"${item}"`);
+            }
+          }
+          return `"ingredients": [${items.join(', ')}]`;
+        });
+        
+        aggressiveRepair = aggressiveRepair.replace(/"instructions"\s*:\s*\[([^\]]*)\]/g, (match, content) => {
+          const items = [];
+          const stringPattern = /"([^"]+)"/g;
+          let strMatch;
+          let lastIndex = 0;
+          
+          while ((strMatch = stringPattern.exec(content)) !== null) {
+            const item = strMatch[1];
+            lastIndex = strMatch.index + strMatch[0].length;
+            // Keep instruction-like strings (action verbs, longer descriptions)
+            if (item.length > 10 || 
+                item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish|Arrange|Drizzle|Sprinkle|In the same|Pour|Combine|Fluff|Remove|Set aside|Prepare|Cook|Sauté|Sear)/i) ||
+                item.match(/^[A-Z][a-z]+\s+[a-z]+\s+(according|until|with|for|over|on|in)/i)) {
+              items.push(`"${item}"`);
+            }
+          }
+          
+          // CRITICAL FIX: Handle incomplete strings at the end of the array
+          // Check if there's text after the last complete string that's not closed
+          const remaining = content.substring(lastIndex).trim();
+          if (remaining) {
+            // Check if it starts with a quote (incomplete string)
+            const incompleteMatch = remaining.match(/^"([^"]*)$/);
+            if (incompleteMatch) {
+              const incompleteText = incompleteMatch[1].trim();
+              // Only include if it's substantial (not just a few words)
+              if (incompleteText.length > 30 && !incompleteText.match(/^(half of|and|the|a|an|for|with|to|in|on|at)\s*$/i)) {
+                items.push(`"${incompleteText}"`);
+              }
+            } else {
+              // Check if there's unquoted text that looks like an incomplete instruction
+              const unquotedMatch = remaining.match(/^([A-Z][^"]{20,})/);
+              if (unquotedMatch) {
+                const unquotedText = unquotedMatch[1].trim();
+                // Only include if it's substantial and looks like an instruction
+                if (unquotedText.length > 30 && unquotedText.match(/^[A-Z]/)) {
+                  items.push(`"${unquotedText}"`);
+                }
+              }
+            }
+          }
+          
+          return `"instructions": [${items.join(', ')}]`;
+        });
+        
+        // CRITICAL FIX: Close incomplete strings in arrays
+        // Pattern: array with unclosed string at the end (e.g., "half of without closing quote)
+        aggressiveRepair = aggressiveRepair.replace(/(\[[^\]]*)"([^"]*?)(?=\s*[\]\}])/g, (match, before, incomplete) => {
+          // If we have an incomplete string before a closing bracket/brace, close it
+          if (incomplete.trim().length > 5 && !incomplete.endsWith('"')) {
+            return `${before}"${incomplete.trim()}"`;
+          }
+          return match;
+        });
+        
+        // CRITICAL FIX: Remove incomplete strings at the end of arrays
+        // Pattern: array ending with an unclosed quote followed by bracket/brace
+        aggressiveRepair = aggressiveRepair.replace(/(\[[^\]]*)"([^"]{0,50}?)(\s*[\]\}])/g, (match, before, incomplete, closing) => {
+          // If the incomplete string is too short or clearly cut off, remove it
+          if (incomplete.trim().length < 10 || incomplete.match(/^(half of|and|the|a|an|for|with|to|in|on|at)$/i)) {
+            // Remove the incomplete string
+            return `${before}${closing}`;
+          }
+          // Otherwise, close it properly
+          return `${before}"${incomplete.trim()}"${closing}`;
+        });
+        
+        // CRITICAL FIX: Close incomplete structures
+        // If JSON ends without closing brackets, try to close them
+        let openBraces = (aggressiveRepair.match(/\{/g) || []).length;
+        let closeBraces = (aggressiveRepair.match(/\}/g) || []).length;
+        let openBrackets = (aggressiveRepair.match(/\[/g) || []).length;
+        let closeBrackets = (aggressiveRepair.match(/\]/g) || []).length;
+        
+        // Close incomplete arrays first
+        while (openBrackets > closeBrackets) {
+          aggressiveRepair += ']';
+          closeBrackets++;
+        }
+        
+        // Close incomplete objects
+        while (openBraces > closeBraces) {
+          aggressiveRepair += '}';
+          closeBraces++;
+        }
+        
+        // Fix missing commas between properties
+        aggressiveRepair = aggressiveRepair.replace(/([}\]\"])\s*"([a-zA-Z_])/g, '$1, "$2');
+        aggressiveRepair = aggressiveRepair.replace(/([}\]\"])\s*\{/g, '$1, {');
+        aggressiveRepair = aggressiveRepair.replace(/([}\]\"])\s*\[/g, '$1, [');
+        
+        mealPlan = JSON.parse(aggressiveRepair);
+        
+        // Validate the structure
+        if (Array.isArray(mealPlan) && mealPlan.length > 0) {
+          console.log('[GEMINI MEAL PLAN] ✅ Successfully repaired and parsed JSON');
+          // Validate each meal
+          const validMeals = mealPlan.filter(meal => {
+            return meal && meal.meal_type && meal.recipe_name && meal.macros &&
+                   typeof meal.macros.calories === 'number' &&
+                   typeof (meal.macros.protein_grams ?? meal.macros.protein) === 'number' &&
+                   typeof (meal.macros.carbs_grams ?? meal.macros.carbs) === 'number' &&
+                   typeof (meal.macros.fat_grams ?? meal.macros.fat) === 'number';
+          });
+          
+          if (validMeals.length > 0) {
+            // Normalize macro field names
+            validMeals.forEach(meal => {
+              if (meal.macros) {
+                meal.macros.protein_grams = meal.macros.protein_grams ?? meal.macros.protein ?? 0;
+                meal.macros.carbs_grams = meal.macros.carbs_grams ?? meal.macros.carbs ?? 0;
+                meal.macros.fat_grams = meal.macros.fat_grams ?? meal.macros.fat ?? 0;
+                delete meal.macros.protein;
+                delete meal.macros.carbs;
+                delete meal.macros.fat;
+              }
+            });
+            
+            console.log(`[GEMINI MEAL PLAN] ✅ Using ${validMeals.length} valid meals from repaired JSON`);
+            return validMeals;
+          }
+        }
+      } catch (repairError) {
+        console.error('[GEMINI MEAL PLAN] ❌ Aggressive repair also failed:', repairError.message);
+        
+        // Last resort: Try to extract individual meal objects and reconstruct
+        try {
+          console.log('[GEMINI MEAL PLAN] 🔧 Attempting meal object extraction...');
+          const extractedMeals = [];
+          
+          // Find all potential meal objects by looking for meal_type
+          const mealTypePattern = /"meal_type"\s*:\s*"([^"]+)"/g;
+          let mealTypeMatch;
+          const mealStarts = [];
+          
+          while ((mealTypeMatch = mealTypePattern.exec(text)) !== null) {
+            mealStarts.push({
+              index: mealTypeMatch.index,
+              mealType: mealTypeMatch[1]
+            });
+          }
+          
+          // For each meal, try to extract its properties
+          for (let i = 0; i < mealStarts.length; i++) {
+            const start = mealStarts[i].index;
+            const end = i < mealStarts.length - 1 ? mealStarts[i + 1].index : text.length;
+            const mealSection = text.substring(start - 200, end); // Include some context before
+            
+            // Try to extract key properties
+            const recipeMatch = mealSection.match(/"recipe_name"\s*:\s*"([^"]+)"/);
+            const prepMatch = mealSection.match(/"prep_time"\s*:\s*(\d+)/);
+            const cookMatch = mealSection.match(/"cook_time"\s*:\s*(\d+)/);
+            const servingsMatch = mealSection.match(/"servings"\s*:\s*(\d+)/);
+            
+            // Extract macros
+            const caloriesMatch = mealSection.match(/"calories"\s*:\s*(\d+)/);
+            const proteinMatch = mealSection.match(/"protein_grams"\s*:\s*(\d+)/);
+            const carbsMatch = mealSection.match(/"carbs_grams"\s*:\s*(\d+)/);
+            const fatMatch = mealSection.match(/"fat_grams"\s*:\s*(\d+)/);
+            
+            // Extract ingredients (look for array)
+            const ingredientsMatch = mealSection.match(/"ingredients"\s*:\s*\[([^\]]*)\]/);
+            const ingredients = [];
+            if (ingredientsMatch) {
+              const ingredientStrings = ingredientsMatch[1].match(/"([^"]+)"/g) || [];
+              ingredientStrings.forEach(str => {
+                const item = str.replace(/"/g, '');
+                if (item.length < 100 && !item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish)/i)) {
+                  ingredients.push(item);
+                }
+              });
+            }
+            
+            // Extract instructions
+            const instructionsMatch = mealSection.match(/"instructions"\s*:\s*\[([^\]]*)\]/);
+            const instructions = [];
+            if (instructionsMatch) {
+              const instructionStrings = instructionsMatch[1].match(/"([^"]+)"/g) || [];
+              instructionStrings.forEach(str => {
+                const item = str.replace(/"/g, '');
+                if (item.length > 10 || item.match(/^(Meanwhile|Heat|Add|Stir|Return|Season|Serve|Garnish)/i)) {
+                  instructions.push(item);
+                }
+              });
+            }
+            
+            // Build a valid meal object if we have minimum required fields
+            if (recipeMatch && caloriesMatch && proteinMatch && carbsMatch && fatMatch) {
+              const meal = {
+                meal_type: mealStarts[i].mealType,
+                recipe_name: recipeMatch[1],
+                prep_time: prepMatch ? parseInt(prepMatch[1]) : 15,
+                cook_time: cookMatch ? parseInt(cookMatch[1]) : 20,
+                servings: servingsMatch ? parseInt(servingsMatch[1]) : 1,
+                ingredients: ingredients.length > 0 ? ingredients : ['Ingredients not available'],
+                instructions: instructions.length > 0 ? instructions : ['Follow recipe instructions'],
+                macros: {
+                  calories: parseInt(caloriesMatch[1]),
+                  protein_grams: parseInt(proteinMatch[1]),
+                  carbs_grams: parseInt(carbsMatch[1]),
+                  fat_grams: parseInt(fatMatch[1])
+                }
+              };
+              extractedMeals.push(meal);
+            }
+          }
+          
+          if (extractedMeals.length > 0) {
+            console.log(`[GEMINI MEAL PLAN] ✅ Extracted ${extractedMeals.length} valid meals from malformed JSON`);
+            return extractedMeals;
+          }
+        } catch (extractError) {
+          console.error('[GEMINI MEAL PLAN] ❌ Meal extraction failed:', extractError.message);
+        }
+      }
+      
       throw new Error(`Failed to parse Gemini meal plan response: ${parseError.message}`);
     }
     
   } catch (error) {
-    console.error('[GEMINI MEAL PLAN] ❌ Error generating meal plan:', error.message);
+    console.error('[GEMINI MEAL PLAN] ❌ Error generating meal plan:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      status: error.status,
+      stack: error.stack?.substring(0, 300) // First 300 chars of stack
+    });
+    console.error('[GEMINI MEAL PLAN] 💡 Possible causes:');
+    console.error('[GEMINI MEAL PLAN]   1. Gemini API key invalid or expired');
+    console.error('[GEMINI MEAL PLAN]   2. Gemini API quota exceeded');
+    console.error('[GEMINI MEAL PLAN]   3. Network connectivity issues');
+    console.error('[GEMINI MEAL PLAN]   4. Gemini API service outage');
+    console.error('[GEMINI MEAL PLAN]   5. Request too large or malformed');
     throw error;
   }
 }
@@ -5474,10 +6378,10 @@ function buildDailyMealPlanPrompt(dailyCalories, proteinGrams, carbsGrams, fatGr
     : '';
   
   const cuisineText = cuisinePreference 
-    ? `\nPreferred cuisine style: ${cuisinePreference}`
-    : '\nCuisine variety: Mix of different international cuisines for variety';
+    ? `\n**CRITICAL - CUISINE REQUIREMENT:** ALL meals MUST be ${cuisinePreference} cuisine style. Use ${cuisinePreference} ingredients, flavors, spices, and cooking techniques. Every meal should reflect ${cuisinePreference} cuisine traditions. Keep meals simple and easy to cook.`
+    : '\nCuisine: Use simple, everyday meals';
 
-  return `Create a complete daily meal plan that meets these exact nutritional targets:
+  return `Create a simple daily meal plan that meets these exact nutritional targets:
 
 DAILY NUTRITIONAL TARGETS:
 - Total Calories: ${dailyCalories} kcal
@@ -5488,16 +6392,15 @@ DAILY NUTRITIONAL TARGETS:
 MEAL DISTRIBUTION REQUIREMENTS:
 - Generate 4 meals: Breakfast, Lunch, Dinner, and 1 Snack
 - Distribute calories and macros appropriately across meals
-- Each meal should be from a different cuisine/cooking style for variety
 - Each meal must include a complete recipe with cooking instructions
 
 RECIPE REQUIREMENTS FOR EACH MEAL:
-- Creative, appetizing meal names
+- Simple, everyday meal names
 - Realistic prep and cook times
-- Detailed ingredient list with amounts
-- Step-by-step cooking instructions (4-6 steps minimum)
+- Short ingredient list (5-8 items max) with amounts
+- Simple step-by-step cooking instructions (3-5 steps max)
 - Accurate nutritional breakdown per ingredient
-- Practical and achievable recipes
+- Practical and easy-to-cook recipes
 
 Please respond with a JSON object in this EXACT format:
 {
@@ -5633,7 +6536,13 @@ app.post('/api/generate-daily-meal-plan-ai', async (req, res) => {
 
     // Check if Gemini service is available
     if (!geminiTextService) {
-      throw new Error('Gemini AI service is not available');
+      console.error('[AI MEAL PLAN] ❌ Gemini service not initialized');
+      console.error('[AI MEAL PLAN] 🔍 Debugging info:');
+      console.error('[AI MEAL PLAN]   - GEMINI_API_KEY exists:', !!GEMINI_API_KEY);
+      console.error('[AI MEAL PLAN]   - GEMINI_API_KEY length:', GEMINI_API_KEY ? GEMINI_API_KEY.length : 0);
+      console.error('[AI MEAL PLAN]   - GEMINI_MODEL:', GEMINI_MODEL);
+      console.error('[AI MEAL PLAN]   - NODE_ENV:', process.env.NODE_ENV);
+      throw new Error('Gemini AI service is not available - check GEMINI_API_KEY configuration on server');
     }
 
     // Create targets object in the expected format
@@ -5644,8 +6553,81 @@ app.post('/api/generate-daily-meal-plan-ai', async (req, res) => {
       fat_grams: fatGrams
     };
 
-    // Use the working generateGeminiMealPlan function
-    const mealPlan = await generateGeminiMealPlan(targets, dietaryPreferences);
+    // Add timeout wrapper for meal plan generation 
+    // Increased to 85 seconds to give more time for complex meal plan generation
+    // Client timeout is 90s, so server should respond before that
+    const MEAL_PLAN_TIMEOUT = 85000; // 85 seconds (was 75s, increased for complex requests)
+    console.log('[AI MEAL PLAN] Starting Gemini meal plan generation (timeout: 85s)');
+    const startTime = Date.now();
+    
+    let mealPlan;
+    try {
+      // CRITICAL FIX: Try simplified prompt FIRST (shorter, less likely to be blocked or timeout)
+      // The simplified prompt is more reliable and faster, reducing empty response issues
+      console.log('[AI MEAL PLAN] 🎯 Using simplified prompt first for better reliability');
+      const mealPlanPromise = generateGeminiMealPlan(targets, dietaryPreferences, cuisinePreference, true);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          const elapsed = Date.now() - startTime;
+          console.error(`[AI MEAL PLAN] ⏱️ Generation timeout after ${elapsed}ms (${MEAL_PLAN_TIMEOUT/1000}s limit)`);
+          reject(new Error(`Meal plan generation timeout after ${(elapsed/1000).toFixed(1)}s - Gemini API may be slow or unresponsive`));
+        }, MEAL_PLAN_TIMEOUT);
+      });
+
+      // Race between meal plan generation and timeout
+      mealPlan = await Promise.race([mealPlanPromise, timeoutPromise]);
+      const elapsed = Date.now() - startTime;
+      console.log(`[AI MEAL PLAN] ✅ Generation completed in ${(elapsed/1000).toFixed(1)}s`);
+    } catch (firstError) {
+      // If simplified prompt fails, try comprehensive prompt as fallback
+      const errorMessage = firstError.message || '';
+      const errorStack = firstError.stack || '';
+      
+      const isEmptyResponse = errorMessage.includes('Empty response from Gemini') || 
+                              errorMessage.includes('empty response') ||
+                              errorMessage.includes('no candidates') ||
+                              errorMessage.includes('Failed to extract text') ||
+                              errorStack.includes('Empty response');
+      
+      const isBlocked = errorMessage.includes('blocked by safety') ||
+                       errorMessage.includes('prompt blocked') ||
+                       errorMessage.includes('safety ratings');
+      
+      const is503Error = errorMessage.includes('503') ||
+                        errorMessage.includes('Service Unavailable') ||
+                        errorMessage.includes('overloaded');
+      
+      // For empty responses or 503 errors, try comprehensive prompt as fallback
+      // (though it's less likely to work if simplified failed)
+      if (!isEmptyResponse && !isBlocked && !is503Error) {
+        console.log('[AI MEAL PLAN] ⚠️ Simplified prompt failed with non-empty error, trying comprehensive prompt...');
+        console.log('[AI MEAL PLAN] First error:', errorMessage);
+        
+        try {
+          const comprehensivePromise = generateGeminiMealPlan(targets, dietaryPreferences, cuisinePreference, false);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Comprehensive prompt also timed out'));
+            }, MEAL_PLAN_TIMEOUT);
+          });
+          
+          mealPlan = await Promise.race([comprehensivePromise, timeoutPromise]);
+          const elapsed = Date.now() - startTime;
+          console.log(`[AI MEAL PLAN] ✅ Comprehensive prompt succeeded in ${(elapsed/1000).toFixed(1)}s`);
+        } catch (secondError) {
+          console.error('[AI MEAL PLAN] ❌ Comprehensive prompt also failed:', secondError.message);
+          console.error('[AI MEAL PLAN] Both prompts failed, falling back to mathematical meal plan');
+          throw new Error(`AI meal plan generation failed: ${firstError.message}`);
+        }
+      } else {
+        // For empty responses, blocks, or 503 errors, don't retry with comprehensive
+        // (it's likely to have the same issue)
+        console.error('[AI MEAL PLAN] ❌ Simplified prompt failed with:', errorMessage);
+        console.error('[AI MEAL PLAN] Error type - Empty:', isEmptyResponse, 'Blocked:', isBlocked, '503:', is503Error);
+        console.error('[AI MEAL PLAN] Skipping comprehensive prompt retry, falling back to mathematical meal plan');
+        throw firstError;
+      }
+    }
     
     console.log('[AI MEAL PLAN] Successfully generated meal plan with', mealPlan.length, 'meals');
     
@@ -6575,6 +7557,71 @@ app.delete('/api/delete-workout-plan/:planId', async (req, res) => {
     });
   }
 });
+
+// Account deletion endpoint - properly deletes user account and all data
+app.post('/api/delete-account', async (req, res) => {
+  const { userId, authToken } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'User ID is required.' });
+  }
+
+  if (!authToken) {
+    return res.status(401).json({ success: false, error: 'Authentication required.' });
+  }
+
+  try {
+    console.log(`[ACCOUNT DELETE] Deleting account for user: ${userId}`);
+    
+    if (!supabase) {
+      return res.status(500).json({ success: false, error: 'Server configuration error.' });
+    }
+
+    // Verify the user token and ownership using service key client
+    const { data: authUser, error: authError } = await supabase.auth.getUser(authToken);
+    if (authError || !authUser.user || authUser.user.id !== userId) {
+      return res.status(403).json({ success: false, error: 'Unauthorized. You can only delete your own account.' });
+    }
+
+    // Step 1: Delete all user data using the database function
+    // Use service key client for admin operations
+    const { error: deleteDataError } = await supabase.rpc('delete_user_account', {
+      user_id_to_delete: userId
+    });
+
+    if (deleteDataError) {
+      console.error(`[ACCOUNT DELETE] Error deleting user data:`, deleteDataError);
+      // Continue with auth deletion even if some data deletion fails
+    }
+
+    // Step 2: Delete the auth user (requires admin/service key)
+    const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userId);
+    
+    if (deleteAuthError) {
+      console.error(`[ACCOUNT DELETE] Error deleting auth user:`, deleteAuthError);
+      // If auth deletion fails, data is already deleted, so we should still return success
+      // but log the error for manual cleanup if needed
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Account data deleted but auth user deletion failed. Please contact support.',
+        partial: true
+      });
+    }
+
+    console.log(`[ACCOUNT DELETE] Successfully deleted account ${userId}`);
+    res.json({ 
+      success: true, 
+      message: 'Account and all associated data have been permanently deleted.' 
+    });
+  } catch (error) {
+    console.error(`[ACCOUNT DELETE] Exception during account deletion:`, error);
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete the account.' 
+    });
+  }
+});
+
 app.post('/api/predict-progress', async (req, res) => {
   const { userId } = req.body;
   if (!userId) {

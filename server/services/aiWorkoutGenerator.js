@@ -186,6 +186,28 @@ Advanced: 20-25+ sets per muscle group per week
 - Week 8: Peak week (test new maxes)
 
 ═══════════════════════════════════════════════════════════
+🚨🚨🚨 MANDATORY REASONING FIELDS - READ THIS FIRST 🚨🚨🚨
+═══════════════════════════════════════════════════════════
+
+⚠️⚠️⚠️ CRITICAL: YOU MUST INCLUDE TWO REASONING FIELDS IN YOUR JSON RESPONSE ⚠️⚠️⚠️
+
+FIELD 1 - "split_reasoning": 
+You MUST write 2-3 sentences explaining why you chose this ${freq.display} training split for a ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal. 
+Example: "I chose a ${freq.display} training split because it allows optimal recovery while providing sufficient training volume for ${primaryGoal.replace(/_/g, ' ')}. This frequency is ideal for ${trainingLevel} trainees as it balances intensity with adequate rest periods."
+
+FIELD 2 - "exercise_selection_reasoning":
+You MUST write 2-3 sentences explaining your exercise selection strategy for this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal.
+Example: "I selected these exercises to prioritize compound movements for overall strength development while including targeted isolation work for ${primaryGoal.replace(/_/g, ' ')}. The ${trainingLevel} level allows for progressive overload with proper form."
+
+🚨🚨🚨 THESE FIELDS ARE ABSOLUTELY MANDATORY 🚨🚨🚨
+- YOUR RESPONSE WILL BE REJECTED IF THEY ARE MISSING
+- DO NOT use placeholder text or brackets like "[REQUIRED:...]"
+- DO NOT copy the example text - write YOUR OWN reasoning
+- DO NOT leave these fields empty, null, or undefined
+- Write actual personalized reasoning based on the user's profile
+- These fields MUST be present and contain substantial text (at least 50 characters each)
+
+═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (CRITICAL - MUST FOLLOW EXACTLY)
 ═══════════════════════════════════════════════════════════
 
@@ -197,6 +219,8 @@ The JSON structure MUST be:
 
 {
   "plan_name": "${fullName}'s ${primaryGoal.replace(/_/g, ' ')} ${freq.display} Plan",
+  "split_reasoning": "I chose this ${freq.display} training split for this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal because...",
+  "exercise_selection_reasoning": "For this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal, I selected these exercises because...",
   "weekly_schedule": [
     {
       "day": "Monday",
@@ -243,6 +267,14 @@ CRITICAL REQUIREMENTS:
 6. Do NOT use numeric day values (1, 2, 3) - use day names
 7. Do NOT use "warm_up", "main_workout", or "cool_down" fields
 8. ONLY use "exercises" array for each workout day
+9. 🚨🚨🚨 CRITICAL - REASONING FIELDS ARE ABSOLUTELY MANDATORY 🚨🚨🚨
+   - The "split_reasoning" and "exercise_selection_reasoning" fields MUST be included in your JSON response
+   - They MUST contain actual reasoning text (2-3 sentences each), NOT placeholder text
+   - DO NOT use text like "Write your actual reasoning here" - that is an example, replace it with real reasoning
+   - DO NOT leave these fields empty, null, or undefined
+   - YOU MUST write personalized explanations based on: ${freq.display} frequency, ${primaryGoal.replace(/_/g, ' ')} goal, ${trainingLevel} level
+   - Example format: "I chose a ${freq.display} split because..." or "This split was selected because..."
+   - YOUR RESPONSE WILL BE REJECTED IF THESE FIELDS ARE MISSING OR CONTAIN PLACEHOLDER TEXT
 
 EXAMPLE FOR 5-DAY PLAN:
 {
@@ -299,6 +331,15 @@ CRITICAL REQUIREMENTS
 6. Consider recovery between similar muscle groups
 7. Make the plan professional and detailed like a coach would write it
 8. CRITICAL: If user requests 5 days, generate 5 workout days. If user requests 4 days, generate 4 workout days. Do NOT default to 3 days.
+9. 🚨🚨🚨 CRITICAL - REASONING FIELDS ARE ABSOLUTELY MANDATORY 🚨🚨🚨
+   - You MUST include "split_reasoning" and "exercise_selection_reasoning" fields in your JSON response
+   - They MUST contain actual reasoning text (2-3 sentences each), NOT example text or placeholders
+   - DO NOT copy "Write your actual reasoning here" - that is an example, replace it with real reasoning
+   - DO NOT use placeholder text, empty strings, or null values
+   - Generate personalized reasoning based on: ${freq.display} frequency, ${primaryGoal.replace(/_/g, ' ')} goal, ${trainingLevel} level
+   - Example: "I chose a ${freq.display} split because..." or "This split was selected because..."
+   - YOUR RESPONSE WILL BE REJECTED IF THESE FIELDS ARE MISSING OR CONTAIN PLACEHOLDER TEXT
+
 BEGIN GENERATING THE WORKOUT PLAN NOW (JSON ONLY):`;
 
   return prompt;
@@ -406,6 +447,54 @@ function transformAIWorkoutResponse(rawPlan, params) {
   const estimatedTime = avgExercises <= 5 ? '45-60 min' :
                        avgExercises <= 7 ? '60-75 min' : '75-90 min';
 
+  // Log reasoning data from AI response
+  // Check both top-level fields and nested ai_reasoning object
+  const splitReasoning = rawPlan.split_reasoning || rawPlan.ai_reasoning?.split_reasoning;
+  const exerciseReasoning = rawPlan.exercise_selection_reasoning || rawPlan.ai_reasoning?.exercise_selection_reasoning;
+  
+  const hasValidSplitReasoning = splitReasoning && 
+    typeof splitReasoning === 'string' && 
+    splitReasoning.trim() && 
+    !splitReasoning.includes('YOUR ACTUAL REASONING') &&
+    !splitReasoning.includes('<YOUR PERSONALIZED REASONING') &&
+    !splitReasoning.includes('Write your actual reasoning here') &&
+    !splitReasoning.startsWith('<') &&
+    splitReasoning.length > 20; // Must be substantial text, not just a few words
+  const hasValidExerciseReasoning = exerciseReasoning && 
+    typeof exerciseReasoning === 'string' && 
+    exerciseReasoning.trim() && 
+    !exerciseReasoning.includes('YOUR ACTUAL REASONING') &&
+    !exerciseReasoning.includes('<YOUR PERSONALIZED REASONING') &&
+    !exerciseReasoning.includes('Write your actual reasoning here') &&
+    !exerciseReasoning.startsWith('<') &&
+    exerciseReasoning.length > 20; // Must be substantial text, not just a few words
+  
+  console.log('[AI WORKOUT] 🔍 Reasoning data from AI:', {
+    hasSplitReasoning: !!splitReasoning,
+    hasValidSplitReasoning,
+    hasExerciseReasoning: !!exerciseReasoning,
+    hasValidExerciseReasoning,
+    splitReasoning: splitReasoning?.substring(0, 100) || 'N/A',
+    exerciseReasoning: exerciseReasoning?.substring(0, 100) || 'N/A',
+    splitReasoningIsPlaceholder: splitReasoning?.includes('YOUR ACTUAL REASONING') || splitReasoning?.includes('Write your actual reasoning here') || false,
+    exerciseReasoningIsPlaceholder: exerciseReasoning?.includes('YOUR ACTUAL REASONING') || exerciseReasoning?.includes('Write your actual reasoning here') || false,
+    rawPlanKeys: rawPlan ? Object.keys(rawPlan).slice(0, 20) : [],
+    hasAiReasoningObject: !!rawPlan.ai_reasoning
+  });
+  
+  // CRITICAL: If AI didn't generate reasoning, log a warning
+  if (!splitReasoning && !exerciseReasoning) {
+    console.error('[AI WORKOUT] ❌ AI DID NOT GENERATE ANY REASONING FIELDS!');
+    console.error('[AI WORKOUT] Raw plan keys:', rawPlan ? Object.keys(rawPlan) : []);
+    console.error('[AI WORKOUT] This means the AI did not include split_reasoning or exercise_selection_reasoning in the response.');
+    console.error('[AI WORKOUT] Check the AI prompt to ensure it explicitly requests reasoning.');
+  } else if (!hasValidSplitReasoning && !hasValidExerciseReasoning) {
+    console.warn('[AI WORKOUT] ⚠️ AI generated reasoning but it failed validation (may contain placeholders):');
+    console.warn('[AI WORKOUT] Split reasoning:', splitReasoning?.substring(0, 150) || 'MISSING');
+    console.warn('[AI WORKOUT] Exercise reasoning:', exerciseReasoning?.substring(0, 150) || 'MISSING');
+    console.warn('[AI WORKOUT] Including reasoning anyway - client can handle validation.');
+  }
+
   // Transform to app format
   const transformedPlan = {
     name: rawPlan.plan_name || `${fullName}'s ${primaryGoal.replace(/_/g, ' ')} Plan`,
@@ -419,6 +508,20 @@ function transformAIWorkoutResponse(rawPlan, params) {
     status: 'active',
     is_active: true,
     source: 'ai_generated',
+    // CRITICAL: ALWAYS include ai_reasoning field - use fallback if AI doesn't provide it
+    ai_reasoning: (splitReasoning || exerciseReasoning) ? {
+      split_reasoning: splitReasoning ? splitReasoning.trim() : '',
+      exercise_selection_reasoning: exerciseReasoning ? exerciseReasoning.trim() : ''
+    } : generateFallbackReasoning({
+      trainingLevel,
+      primaryGoal,
+      workoutFrequency,
+      age,
+      weight,
+      height,
+      gender,
+      fullName
+    }),
     weeklySchedule: rawPlan.weekly_schedule.map(day => {
       // Handle both new format (exercises array) and old format (warm_up, main_workout, cool_down)
       let exercises = [];
@@ -648,9 +751,72 @@ function determineExerciseCategory(exerciseName) {
   return 'compound'; // Default
 }
 
+/**
+ * Generate fallback reasoning if AI doesn't provide it
+ */
+function generateFallbackReasoning(params) {
+  const {
+    trainingLevel = 'intermediate',
+    primaryGoal = 'general_fitness',
+    workoutFrequency = '4_5',
+    age,
+    weight,
+    height,
+    gender,
+    fullName = 'Client'
+  } = params;
+
+  // Parse workout frequency for display
+  const freqMap = {
+    '1': '1 day',
+    '2': '2 days',
+    '2_3': '3 days',
+    '3': '3 days',
+    '3_4': '4 days',
+    '4': '4 days',
+    '4_5': '5 days',
+    '5': '5 days',
+    '5_6': '6 days',
+    '6': '6 days',
+    '6_7': '7 days',
+    '7': '7 days'
+  };
+  const freqDisplay = freqMap[workoutFrequency] || '4-5 days';
+
+  // Goal-specific reasoning
+  const goalReasoning = {
+    'muscle_gain': {
+      split: `I chose a ${freqDisplay} training split for ${fullName} because it provides optimal training frequency for muscle hypertrophy while allowing adequate recovery. This intermediate-level program balances training volume with rest to maximize muscle growth.`,
+      exercises: `For muscle gain, I selected compound movements like squats, deadlifts, bench press, and overhead press as the foundation, supplemented with isolation exercises for balanced development. This approach ensures progressive overload while targeting all major muscle groups effectively.`
+    },
+    'fat_loss': {
+      split: `I selected a ${freqDisplay} training split for ${fullName} to support fat loss goals by combining strength training with metabolic conditioning. This frequency allows for sufficient calorie burn while maintaining muscle mass during a caloric deficit.`,
+      exercises: `I chose exercises that combine compound movements with higher-rep accessory work to maximize calorie expenditure. Circuit-style training with shorter rest periods helps maintain an elevated heart rate for better fat loss results.`
+    },
+    'athletic_performance': {
+      split: `I chose a ${freqDisplay} training split for ${fullName} to develop athletic performance through functional movement patterns and power development. This program emphasizes explosive exercises and sport-specific conditioning.`,
+      exercises: `I selected functional exercises that improve power, speed, and coordination. Olympic lifts, plyometrics, and compound movements form the core of this program to enhance overall athletic capabilities.`
+    },
+    'general_fitness': {
+      split: `I chose a ${freqDisplay} training split for ${fullName} to provide a balanced approach to overall fitness development. This program combines strength, endurance, and mobility work for comprehensive physical conditioning.`,
+      exercises: `I selected a mix of compound and isolation exercises to develop full-body strength and functionality. This balanced approach ensures all major movement patterns are addressed for complete fitness development.`
+    }
+  };
+
+  const reasoning = goalReasoning[primaryGoal] || goalReasoning['general_fitness'];
+
+  console.log('[AI WORKOUT] ⚠️ Using fallback reasoning generation - AI did not provide reasoning fields');
+
+  return {
+    split_reasoning: reasoning.split,
+    exercise_selection_reasoning: reasoning.exercises
+  };
+}
+
 module.exports = {
   composeEnhancedWorkoutPrompt,
-  transformAIWorkoutResponse
+  transformAIWorkoutResponse,
+  generateFallbackReasoning
 };
 
 
