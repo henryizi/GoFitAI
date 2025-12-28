@@ -2274,7 +2274,7 @@ function transformGeminiPlanToAppFormat(plan, profileData) {
   };
 }
 // Enhanced AI Workout Generator
-const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse, generateFallbackReasoning } = require('./services/aiWorkoutGenerator');
+const { composeEnhancedWorkoutPrompt, transformAIWorkoutResponse, generateIntelligentReasoning } = require('./services/aiWorkoutGenerator');
 // Add a new endpoint for generating personalized workout plans
 app.post('/api/generate-workout-plan', async (req, res) => {
   console.log('[WORKOUT] /api/generate-workout-plan called');

@@ -186,28 +186,6 @@ Advanced: 20-25+ sets per muscle group per week
 - Week 8: Peak week (test new maxes)
 
 ═══════════════════════════════════════════════════════════
-🚨🚨🚨 MANDATORY REASONING FIELDS - READ THIS FIRST 🚨🚨🚨
-═══════════════════════════════════════════════════════════
-
-⚠️⚠️⚠️ CRITICAL: YOU MUST INCLUDE TWO REASONING FIELDS IN YOUR JSON RESPONSE ⚠️⚠️⚠️
-
-FIELD 1 - "split_reasoning": 
-You MUST write 2-3 sentences explaining why you chose this ${freq.display} training split for a ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal. 
-Example: "I chose a ${freq.display} training split because it allows optimal recovery while providing sufficient training volume for ${primaryGoal.replace(/_/g, ' ')}. This frequency is ideal for ${trainingLevel} trainees as it balances intensity with adequate rest periods."
-
-FIELD 2 - "exercise_selection_reasoning":
-You MUST write 2-3 sentences explaining your exercise selection strategy for this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal.
-Example: "I selected these exercises to prioritize compound movements for overall strength development while including targeted isolation work for ${primaryGoal.replace(/_/g, ' ')}. The ${trainingLevel} level allows for progressive overload with proper form."
-
-🚨🚨🚨 THESE FIELDS ARE ABSOLUTELY MANDATORY 🚨🚨🚨
-- YOUR RESPONSE WILL BE REJECTED IF THEY ARE MISSING
-- DO NOT use placeholder text or brackets like "[REQUIRED:...]"
-- DO NOT copy the example text - write YOUR OWN reasoning
-- DO NOT leave these fields empty, null, or undefined
-- Write actual personalized reasoning based on the user's profile
-- These fields MUST be present and contain substantial text (at least 50 characters each)
-
-═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (CRITICAL - MUST FOLLOW EXACTLY)
 ═══════════════════════════════════════════════════════════
 
@@ -219,8 +197,6 @@ The JSON structure MUST be:
 
 {
   "plan_name": "${fullName}'s ${primaryGoal.replace(/_/g, ' ')} ${freq.display} Plan",
-  "split_reasoning": "I chose this ${freq.display} training split for this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal because...",
-  "exercise_selection_reasoning": "For this ${trainingLevel} trainee with a ${primaryGoal.replace(/_/g, ' ')} goal, I selected these exercises because...",
   "weekly_schedule": [
     {
       "day": "Monday",
@@ -447,53 +423,25 @@ function transformAIWorkoutResponse(rawPlan, params) {
   const estimatedTime = avgExercises <= 5 ? '45-60 min' :
                        avgExercises <= 7 ? '60-75 min' : '75-90 min';
 
-  // Log reasoning data from AI response
-  // Check both top-level fields and nested ai_reasoning object
-  const splitReasoning = rawPlan.split_reasoning || rawPlan.ai_reasoning?.split_reasoning;
-  const exerciseReasoning = rawPlan.exercise_selection_reasoning || rawPlan.ai_reasoning?.exercise_selection_reasoning;
-  
-  const hasValidSplitReasoning = splitReasoning && 
-    typeof splitReasoning === 'string' && 
-    splitReasoning.trim() && 
-    !splitReasoning.includes('YOUR ACTUAL REASONING') &&
-    !splitReasoning.includes('<YOUR PERSONALIZED REASONING') &&
-    !splitReasoning.includes('Write your actual reasoning here') &&
-    !splitReasoning.startsWith('<') &&
-    splitReasoning.length > 20; // Must be substantial text, not just a few words
-  const hasValidExerciseReasoning = exerciseReasoning && 
-    typeof exerciseReasoning === 'string' && 
-    exerciseReasoning.trim() && 
-    !exerciseReasoning.includes('YOUR ACTUAL REASONING') &&
-    !exerciseReasoning.includes('<YOUR PERSONALIZED REASONING') &&
-    !exerciseReasoning.includes('Write your actual reasoning here') &&
-    !exerciseReasoning.startsWith('<') &&
-    exerciseReasoning.length > 20; // Must be substantial text, not just a few words
-  
-  console.log('[AI WORKOUT] 🔍 Reasoning data from AI:', {
-    hasSplitReasoning: !!splitReasoning,
-    hasValidSplitReasoning,
-    hasExerciseReasoning: !!exerciseReasoning,
-    hasValidExerciseReasoning,
-    splitReasoning: splitReasoning?.substring(0, 100) || 'N/A',
-    exerciseReasoning: exerciseReasoning?.substring(0, 100) || 'N/A',
-    splitReasoningIsPlaceholder: splitReasoning?.includes('YOUR ACTUAL REASONING') || splitReasoning?.includes('Write your actual reasoning here') || false,
-    exerciseReasoningIsPlaceholder: exerciseReasoning?.includes('YOUR ACTUAL REASONING') || exerciseReasoning?.includes('Write your actual reasoning here') || false,
-    rawPlanKeys: rawPlan ? Object.keys(rawPlan).slice(0, 20) : [],
-    hasAiReasoningObject: !!rawPlan.ai_reasoning
+  // Generate intelligent reasoning based on the actual workout plan
+  console.log('[AI WORKOUT] 🎯 Generating intelligent reasoning based on created plan');
+
+  const intelligentReasoning = generateIntelligentReasoning(rawPlan, {
+    trainingLevel,
+    primaryGoal,
+    workoutFrequency: freq.min,
+    freqDisplay: freq.display,
+    fullName,
+    age,
+    gender
   });
-  
-  // CRITICAL: If AI didn't generate reasoning, log a warning
-  if (!splitReasoning && !exerciseReasoning) {
-    console.error('[AI WORKOUT] ❌ AI DID NOT GENERATE ANY REASONING FIELDS!');
-    console.error('[AI WORKOUT] Raw plan keys:', rawPlan ? Object.keys(rawPlan) : []);
-    console.error('[AI WORKOUT] This means the AI did not include split_reasoning or exercise_selection_reasoning in the response.');
-    console.error('[AI WORKOUT] Check the AI prompt to ensure it explicitly requests reasoning.');
-  } else if (!hasValidSplitReasoning && !hasValidExerciseReasoning) {
-    console.warn('[AI WORKOUT] ⚠️ AI generated reasoning but it failed validation (may contain placeholders):');
-    console.warn('[AI WORKOUT] Split reasoning:', splitReasoning?.substring(0, 150) || 'MISSING');
-    console.warn('[AI WORKOUT] Exercise reasoning:', exerciseReasoning?.substring(0, 150) || 'MISSING');
-    console.warn('[AI WORKOUT] Including reasoning anyway - client can handle validation.');
-  }
+
+  console.log('[AI WORKOUT] ✅ Intelligent reasoning generated:', {
+    splitReasoningLength: intelligentReasoning.split_reasoning.length,
+    exerciseReasoningLength: intelligentReasoning.exercise_selection_reasoning.length,
+    splitReasoningPreview: intelligentReasoning.split_reasoning.substring(0, 100) + '...',
+    exerciseReasoningPreview: intelligentReasoning.exercise_selection_reasoning.substring(0, 100) + '...'
+  });
 
   // Transform to app format
   const transformedPlan = {
@@ -508,20 +456,8 @@ function transformAIWorkoutResponse(rawPlan, params) {
     status: 'active',
     is_active: true,
     source: 'ai_generated',
-    // CRITICAL: ALWAYS include ai_reasoning field - use fallback if AI doesn't provide it
-    ai_reasoning: (splitReasoning || exerciseReasoning) ? {
-      split_reasoning: splitReasoning ? splitReasoning.trim() : '',
-      exercise_selection_reasoning: exerciseReasoning ? exerciseReasoning.trim() : ''
-    } : generateFallbackReasoning({
-      trainingLevel,
-      primaryGoal,
-      workoutFrequency,
-      age,
-      weight,
-      height,
-      gender,
-      fullName
-    }),
+    // CRITICAL: ALWAYS include ai_reasoning field with intelligent reasoning
+    ai_reasoning: intelligentReasoning,
     weeklySchedule: rawPlan.weekly_schedule.map(day => {
       // Handle both new format (exercises array) and old format (warm_up, main_workout, cool_down)
       let exercises = [];
@@ -752,71 +688,90 @@ function determineExerciseCategory(exerciseName) {
 }
 
 /**
- * Generate fallback reasoning if AI doesn't provide it
+ * Generate intelligent reasoning based on the actual workout plan created
  */
-function generateFallbackReasoning(params) {
+function generateIntelligentReasoning(rawPlan, params) {
   const {
     trainingLevel = 'intermediate',
     primaryGoal = 'general_fitness',
-    workoutFrequency = '4_5',
+    workoutFrequency = 4,
+    freqDisplay = '4 days',
+    fullName = 'Client',
     age,
-    weight,
-    height,
-    gender,
-    fullName = 'Client'
+    gender
   } = params;
 
-  // Parse workout frequency for display
-  const freqMap = {
-    '1': '1 day',
-    '2': '2 days',
-    '2_3': '3 days',
-    '3': '3 days',
-    '3_4': '4 days',
-    '4': '4 days',
-    '4_5': '5 days',
-    '5': '5 days',
-    '5_6': '6 days',
-    '6': '6 days',
-    '6_7': '7 days',
-    '7': '7 days'
-  };
-  const freqDisplay = freqMap[workoutFrequency] || '4-5 days';
+  // Analyze the actual workout plan to generate reasoning
+  const weeklySchedule = rawPlan.weekly_schedule || [];
+  const totalDays = weeklySchedule.length;
+  const workoutDays = weeklySchedule.filter(day => day.exercises && day.exercises.length > 0);
+  const restDays = totalDays - workoutDays.length;
 
-  // Goal-specific reasoning
-  const goalReasoning = {
-    'muscle_gain': {
-      split: `I chose a ${freqDisplay} training split for ${fullName} because it provides optimal training frequency for muscle hypertrophy while allowing adequate recovery. This intermediate-level program balances training volume with rest to maximize muscle growth.`,
-      exercises: `For muscle gain, I selected compound movements like squats, deadlifts, bench press, and overhead press as the foundation, supplemented with isolation exercises for balanced development. This approach ensures progressive overload while targeting all major muscle groups effectively.`
-    },
-    'fat_loss': {
-      split: `I selected a ${freqDisplay} training split for ${fullName} to support fat loss goals by combining strength training with metabolic conditioning. This frequency allows for sufficient calorie burn while maintaining muscle mass during a caloric deficit.`,
-      exercises: `I chose exercises that combine compound movements with higher-rep accessory work to maximize calorie expenditure. Circuit-style training with shorter rest periods helps maintain an elevated heart rate for better fat loss results.`
-    },
-    'athletic_performance': {
-      split: `I chose a ${freqDisplay} training split for ${fullName} to develop athletic performance through functional movement patterns and power development. This program emphasizes explosive exercises and sport-specific conditioning.`,
-      exercises: `I selected functional exercises that improve power, speed, and coordination. Olympic lifts, plyometrics, and compound movements form the core of this program to enhance overall athletic capabilities.`
-    },
-    'general_fitness': {
-      split: `I chose a ${freqDisplay} training split for ${fullName} to provide a balanced approach to overall fitness development. This program combines strength, endurance, and mobility work for comprehensive physical conditioning.`,
-      exercises: `I selected a mix of compound and isolation exercises to develop full-body strength and functionality. This balanced approach ensures all major movement patterns are addressed for complete fitness development.`
+  // Analyze exercise selection
+  const allExercises = [];
+  const muscleGroups = new Set();
+
+  workoutDays.forEach(day => {
+    if (day.exercises && Array.isArray(day.exercises)) {
+      day.exercises.forEach(exercise => {
+        allExercises.push(exercise.name || '');
+        // Extract muscle groups from exercise names (simple heuristic)
+        const name = exercise.name?.toLowerCase() || '';
+        if (name.includes('bench') || name.includes('chest') || name.includes('press')) muscleGroups.add('Chest');
+        if (name.includes('squat') || name.includes('leg') || name.includes('quad')) muscleGroups.add('Legs');
+        if (name.includes('deadlift') || name.includes('row') || name.includes('pull')) muscleGroups.add('Back');
+        if (name.includes('shoulder') || name.includes('overhead') || name.includes('lateral')) muscleGroups.add('Shoulders');
+        if (name.includes('bicep') || name.includes('curl')) muscleGroups.add('Biceps');
+        if (name.includes('tricep') || name.includes('extension')) muscleGroups.add('Triceps');
+      });
     }
-  };
+  });
 
-  const reasoning = goalReasoning[primaryGoal] || goalReasoning['general_fitness'];
+  const uniqueMuscleGroups = Array.from(muscleGroups);
+  const compoundMovements = allExercises.filter(ex =>
+    ex.toLowerCase().includes('bench') ||
+    ex.toLowerCase().includes('squat') ||
+    ex.toLowerCase().includes('deadlift') ||
+    ex.toLowerCase().includes('press') ||
+    ex.toLowerCase().includes('row')
+  ).length;
 
-  console.log('[AI WORKOUT] ⚠️ Using fallback reasoning generation - AI did not provide reasoning fields');
+  // Generate split reasoning based on actual plan
+  let splitReasoning = '';
+
+  if (primaryGoal === 'muscle_gain') {
+    splitReasoning = `I designed a ${freqDisplay} training program for ${fullName} to optimize muscle growth through strategic training frequency. With ${workoutDays.length} workout days and ${restDays} rest days, this split allows sufficient recovery between muscle groups while maintaining the training volume needed for hypertrophy. This frequency is ideal for ${trainingLevel} trainees as it balances progressive overload with adequate recovery time.`;
+  } else if (primaryGoal === 'fat_loss') {
+    splitReasoning = `For ${fullName}'s fat loss goal, I created a ${freqDisplay} program that maximizes calorie burn while preserving muscle mass. The ${workoutDays.length} training days focus on compound movements and metabolic conditioning, while ${restDays} rest days ensure recovery and prevent overtraining. This approach supports sustainable fat loss for ${trainingLevel} trainees.`;
+  } else if (primaryGoal === 'athletic_performance') {
+    splitReasoning = `I developed a ${freqDisplay} athletic performance program for ${fullName} emphasizing functional movement patterns and power development. The ${workoutDays.length} workout days incorporate explosive exercises and sport-specific conditioning, with ${restDays} rest days for optimal recovery. This training frequency supports athletic development for ${trainingLevel} level athletes.`;
+  } else {
+    splitReasoning = `I created a balanced ${freqDisplay} program for ${fullName} to develop overall fitness and strength. With ${workoutDays.length} structured workout days and ${restDays} rest days, this split provides comprehensive training while allowing adequate recovery. This frequency is well-suited for ${trainingLevel} trainees seeking general fitness improvement.`;
+  }
+
+  // Generate exercise selection reasoning based on actual exercises
+  let exerciseReasoning = '';
+
+  if (primaryGoal === 'muscle_gain') {
+    exerciseReasoning = `I selected ${compoundMovements} compound movements as the foundation of this program, including exercises like ${allExercises.slice(0, 3).join(', ')}, to maximize muscle recruitment and strength development. The program targets ${uniqueMuscleGroups.join(', ')} with a mix of compound and isolation exercises to ensure balanced muscle growth. This selection supports progressive overload and muscle hypertrophy for ${trainingLevel} trainees.`;
+  } else if (primaryGoal === 'fat_loss') {
+    exerciseReasoning = `The exercise selection emphasizes compound movements like ${allExercises.slice(0, 3).join(', ')} to maximize calorie burn and metabolic demand. With ${compoundMovements} primary compound exercises, this program efficiently targets multiple muscle groups simultaneously while incorporating higher repetition ranges to support fat loss. This approach preserves muscle mass during caloric deficit for ${trainingLevel} trainees.`;
+  } else if (primaryGoal === 'athletic_performance') {
+    exerciseReasoning = `I chose functional, compound movements including ${allExercises.slice(0, 3).join(', ')} to develop power, coordination, and athletic capacity. The program focuses on ${uniqueMuscleGroups.join(', ')} with explosive exercises that translate to improved sports performance. This selection builds functional strength and movement quality for ${trainingLevel} level athletes.`;
+  } else {
+    exerciseReasoning = `I selected a comprehensive mix of compound and isolation exercises targeting ${uniqueMuscleGroups.join(', ')} to develop full-body strength and functionality. Featuring ${compoundMovements} key compound movements like ${allExercises.slice(0, 3).join(', ')}, this program ensures balanced development across all major movement patterns. This selection is appropriate for ${trainingLevel} trainees seeking overall fitness improvement.`;
+  }
 
   return {
-    split_reasoning: reasoning.split,
-    exercise_selection_reasoning: reasoning.exercises
+    split_reasoning: splitReasoning,
+    exercise_selection_reasoning: exerciseReasoning
   };
 }
 
 module.exports = {
   composeEnhancedWorkoutPrompt,
   transformAIWorkoutResponse,
-  generateFallbackReasoning
+  generateIntelligentReasoning
 };
 
 
