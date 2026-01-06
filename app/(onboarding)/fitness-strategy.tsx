@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
 import { colors } from '../../src/styles/colors';
@@ -24,8 +25,10 @@ interface StrategyOption {
 }
 
 const FitnessStrategyScreen = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const insets = useSafeAreaInsets();
   const [selectedStrategy, setSelectedStrategy] = useState<FitnessStrategy | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const strategies: StrategyOption[] = [
     {
@@ -81,32 +84,114 @@ const FitnessStrategyScreen = () => {
   ];
 
   const handleNext = async () => {
-    if (!user || !selectedStrategy) return;
+    if (!user || !selectedStrategy || isCompleting) return;
 
-    // Save data in background (non-blocking)
-    saveOnboardingData(
-      supabase.from('profiles').upsert({ 
-        id: user.id,
-        fitness_strategy: selectedStrategy,
-        onboarding_completed: false
-      }).select(),
-      `Saving fitness strategy: ${selectedStrategy}`,
-      undefined,
-      user.id
+    setIsCompleting(true);
+    console.log('🚀 Starting onboarding completion...');
+
+    // Start save operation with timeout protection
+    const savePromise = supabase.from('profiles').upsert({ 
+      id: user.id,
+      fitness_strategy: selectedStrategy,
+      onboarding_completed: true 
+    }).select();
+
+    // Create timeout promise (3 seconds max wait)
+    const timeoutPromise = new Promise<{ error: null; data: null; timedOut: true }>((resolve) => 
+      setTimeout(() => resolve({ error: null, data: null, timedOut: true }), 3000)
     );
-    
-    // Analytics in background
-    try { 
-      identify(user.id, { fitness_strategy: selectedStrategy }); 
-      analyticsTrack('onboarding_fitness_strategy_success', { 
-        user_id: user.id, 
-        strategy: selectedStrategy 
-      }); 
-      analyticsTrack('onboarding_step_next', { step: 'fitness-strategy' });
-    } catch {}
-    
-    console.log('🚀 Navigating to level screen...');
-    router.replace('/(onboarding)/level');
+
+    try {
+      console.log('💾 Saving onboarding data...');
+      
+      // Race between save and timeout - don't wait longer than 3 seconds
+      const result = await Promise.race([
+        savePromise.then((result) => ({ ...result, timedOut: false })),
+        timeoutPromise
+      ]) as any;
+      
+      const { error, data, timedOut } = result;
+
+      if (timedOut) {
+        console.log('⏱️ Save timeout - continuing navigation, save will complete in background');
+        // Continue saving in background
+        savePromise.then((result: any) => {
+          if (result.error) {
+            console.error('Background save error:', result.error);
+          } else {
+            console.log('✅ Background save completed:', result.data);
+          }
+        }).catch((err) => {
+          console.error('Background save failed:', err);
+        });
+      } else if (error) {
+        console.error('❌ Error saving onboarding completion:', error);
+        // Don't block - continue saving in background and navigate anyway
+        console.warn('⚠️ Save error, but continuing navigation - save will retry in background');
+        savePromise.catch((err) => {
+          console.error('Background save also failed:', err);
+        });
+      } else if (data) {
+        console.log('✅ Onboarding data saved successfully:', data);
+      }
+      
+      // Refresh profile - wait for it (with timeout) so app state is updated
+      console.log('🔄 Refreshing profile to update app state...');
+      try {
+        const refreshPromise = refreshProfile();
+        const refreshTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile refresh timeout')), 16000)
+        );
+        
+        const refreshedProfile = await Promise.race([refreshPromise, refreshTimeout]) as any;
+        if (refreshedProfile) {
+          console.log('✅ Profile refreshed successfully:', refreshedProfile.onboarding_completed ? 'onboarding marked complete' : 'onboarding not yet complete');
+        } else {
+          console.warn('⚠️ Profile refresh returned null - may need retry');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const retryProfile = await refreshProfile();
+          console.log('🔄 Retry profile refresh:', retryProfile ? 'success' : 'still null');
+        }
+      } catch (refreshError: any) {
+        console.warn('⚠️ Profile refresh failed:', refreshError.message);
+        setTimeout(() => {
+          refreshProfile().catch(() => {
+            console.log('Background profile refresh also failed');
+          });
+        }, 1000);
+      }
+      
+      // Analytics in background (non-blocking)
+      setTimeout(() => {
+        try { identify(user.id, { fitness_strategy: selectedStrategy, onboarding_completed: true }); } catch {}
+        try { analyticsTrack('onboarding_complete_success', { user_id: user.id, fitness_strategy: selectedStrategy }); } catch {}
+      }, 0);
+      
+      console.log('🚀 Completing onboarding, navigating to analysis screen...');
+      router.replace('/(onboarding)/analyzing');
+    } catch (error: any) {
+      console.error('❌ Failed to complete onboarding:', error);
+      
+      console.log('⚠️ Unexpected error, but navigating anyway - save continues in background');
+      savePromise.then((result: any) => {
+        if (result.error) {
+          console.error('Background save error:', result.error);
+        } else {
+          console.log('✅ Background save completed:', result.data);
+        }
+      }).catch((err) => {
+        console.error('Background save failed:', err);
+      });
+      
+      refreshProfile().catch(() => {});
+      
+      setTimeout(() => {
+        try { identify(user.id, { fitness_strategy: selectedStrategy, onboarding_completed: true }); } catch {}
+        try { analyticsTrack('onboarding_complete_success', { user_id: user.id, fitness_strategy: selectedStrategy }); } catch {}
+      }, 0);
+      
+      router.replace('/(onboarding)/analyzing');
+    }
   };
 
   const handleBack = () => {
@@ -123,8 +208,8 @@ const FitnessStrategyScreen = () => {
     <OnboardingLayout
       title="What's Your Fitness Strategy?"
       subtitle="Choose your approach to reach your physique goals. This will determine your calorie targets and macronutrient ratios."
-      progress={0.91}
-      currentStep={11}
+      progress={1.0}
+      currentStep={12}
       totalSteps={12}
       showBackButton={true}
       showCloseButton={false}
@@ -134,6 +219,9 @@ const FitnessStrategyScreen = () => {
     >
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          <View style={styles.questionLabel}>
+            <Text style={styles.questionLabelText}>Question 12</Text>
+          </View>
           <View style={styles.strategiesContainer}>
             {strategies.map((strategy) => (
               <TouchableOpacity
@@ -188,11 +276,11 @@ const FitnessStrategyScreen = () => {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(34, insets.bottom + 16) }]}>
         <OnboardingButton
-          title="Continue"
+          title={isCompleting ? "Completing..." : "Complete Setup"}
           onPress={handleNext}
-          disabled={!selectedStrategy}
+          disabled={!selectedStrategy || isCompleting}
         />
       </View>
     </OnboardingLayout>
@@ -203,6 +291,16 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingVertical: 20,
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   strategiesContainer: {
     gap: 16,
@@ -260,7 +358,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
 });
 

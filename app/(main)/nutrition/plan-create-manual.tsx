@@ -15,8 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Components
 import { Button } from '../../../src/components/ui/Button';
-import ProgressBar from '../../../src/components/ui/ProgressBar';
-import { Header } from '../../../src/components/ui/Header';
 
 // Utils
 import { theme } from '../../../src/styles/theme';
@@ -43,50 +41,63 @@ export default function ManualPlanCreateScreen() {
   const [fatGrams, setFatGrams] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Modern dark theme colors matching the app
+  const appColors = {
+    background: '#000000',
+    surface: 'rgba(255, 255, 255, 0.04)',
+    text: '#FFFFFF',
+    textSecondary: 'rgba(235, 235, 245, 0.6)',
+    primary: '#FF6B35',
+    border: 'rgba(255, 255, 255, 0.06)',
+    info: '#007AFF',
+  };
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: appColors.background,
     },
     content: {
       flex: 1,
       paddingHorizontal: 20,
+      paddingTop: 16,
     },
     section: {
       marginTop: 24,
     },
     sectionTitle: {
       fontSize: 18,
-      fontFamily: fontFamily.secondary,
-      color: colors.text,
+      fontWeight: '700',
+      color: appColors.text,
       marginBottom: 4,
     },
     sectionSubtitle: {
       fontSize: 14,
-      fontFamily: fontFamily.secondary,
-      color: colors.textSecondary,
+      fontWeight: '500',
+      color: appColors.textSecondary,
       marginBottom: 16,
+      lineHeight: 20,
     },
     inputContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
+      borderColor: appColors.border,
+      borderRadius: 14,
+      backgroundColor: appColors.surface,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 14,
     },
     input: {
       flex: 1,
       fontSize: 16,
-      fontFamily: fontFamily.secondary,
-      color: colors.white,
+      fontWeight: '500',
+      color: appColors.text,
     },
     inputUnit: {
       fontSize: 14,
-      fontFamily: fontFamily.secondary,
-      color: colors.textSecondary,
+      fontWeight: '500',
+      color: appColors.textSecondary,
       marginLeft: 8,
     },
     macroContainer: {
@@ -96,33 +107,35 @@ export default function ManualPlanCreateScreen() {
       marginBottom: 8,
     },
     macroLabel: {
-      fontSize: 16,
-      fontFamily: fontFamily.secondary,
-      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+      color: appColors.text,
       marginBottom: 8,
     },
     infoSection: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      backgroundColor: colors.info + '10',
+      backgroundColor: 'rgba(0, 122, 255, 0.1)',
       padding: 16,
-      borderRadius: 12,
+      borderRadius: 14,
       marginTop: 24,
       marginBottom: 24,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 122, 255, 0.2)',
     },
     infoText: {
       fontSize: 14,
-      fontFamily: fontFamily.secondary,
-      color: colors.textSecondary,
+      fontWeight: '400',
+      color: appColors.textSecondary,
       marginLeft: 12,
       flex: 1,
       lineHeight: 20,
     },
     footer: {
       paddingHorizontal: 20,
-      paddingBottom: 60 + (insets.bottom || 0), // Account for tab bar height (60) + safe area
+      paddingBottom: 60 + (insets.bottom || 0),
       paddingTop: 16,
-      backgroundColor: colors.background,
+      backgroundColor: appColors.background,
     },
     createButton: {
       width: '100%',
@@ -173,13 +186,22 @@ export default function ManualPlanCreateScreen() {
 
       console.log('[NUTRITION] ✅ Manual plan created successfully:', createdPlan.id);
 
+      // Small delay to ensure database transaction commits
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       Alert.alert(
         'Plan Created',
         'Your manual nutrition plan has been created successfully!',
         [
           {
             text: 'OK',
-            onPress: () => router.replace(`/(main)/nutrition/plan?planId=${createdPlan.id}`),
+            onPress: () => {
+              // Navigate to nutrition index first to trigger refresh, then to plan detail
+              router.replace('/(main)/nutrition');
+              setTimeout(() => {
+                router.push(`/(main)/nutrition/plan?planId=${createdPlan.id}`);
+              }, 100);
+            },
           },
         ]
       );
@@ -194,15 +216,59 @@ export default function ManualPlanCreateScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      <Header
-        title="Manual Plan Setup"
-        showBackButton={true}
-        onBackPress={() => router.back()}
-      />
+      {/* Custom Header matching app style */}
+      <View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 20, 
+        paddingTop: insets.top + 8,
+        paddingBottom: 16,
+        backgroundColor: appColors.background
+      }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: appColors.surface,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 12,
+            borderWidth: 1,
+            borderColor: appColors.border,
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color={appColors.text} />
+        </TouchableOpacity>
+        <Text style={{ 
+          fontSize: 20, 
+          fontWeight: '700', 
+          color: appColors.text,
+          flex: 1 
+        }}>
+          Manual Plan Setup
+        </Text>
+      </View>
 
-      <ProgressBar currentStep={1} totalSteps={1} />
+      {/* Progress Bar */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View style={{ 
+          height: 4, 
+          backgroundColor: appColors.surface, 
+          borderRadius: 2,
+          overflow: 'hidden'
+        }}>
+          <View style={{ 
+            height: '100%', 
+            width: '100%', 
+            backgroundColor: appColors.primary,
+            borderRadius: 2
+          }} />
+        </View>
+      </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
@@ -218,7 +284,7 @@ export default function ManualPlanCreateScreen() {
               onChangeText={setCalorieTarget}
               placeholder="Enter calorie target"
               keyboardType="numeric"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={appColors.textSecondary}
             />
             <Text style={styles.inputUnit}>calories</Text>
           </View>
@@ -241,7 +307,7 @@ export default function ManualPlanCreateScreen() {
                   onChangeText={setProteinGrams}
                   placeholder="150"
                   keyboardType="numeric"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={appColors.textSecondary}
                 />
                 <Text style={styles.inputUnit}>g</Text>
               </View>
@@ -256,7 +322,7 @@ export default function ManualPlanCreateScreen() {
                   onChangeText={setCarbsGrams}
                   placeholder="200"
                   keyboardType="numeric"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={appColors.textSecondary}
                 />
                 <Text style={styles.inputUnit}>g</Text>
               </View>
@@ -271,7 +337,7 @@ export default function ManualPlanCreateScreen() {
                   onChangeText={setFatGrams}
                   placeholder="80"
                   keyboardType="numeric"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={appColors.textSecondary}
                 />
                 <Text style={styles.inputUnit}>g</Text>
               </View>
@@ -280,10 +346,10 @@ export default function ManualPlanCreateScreen() {
         </View>
 
         <View style={styles.infoSection}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
+          <Ionicons name="information-circle-outline" size={20} color={appColors.info} />
           <Text style={styles.infoText}>
             These targets will be used to track your daily nutrition and provide personalized recommendations.{"\n\n"}
-            💡 <Text style={{fontWeight: '600'}}>Tip:</Text> Enter your exact daily gram targets based on your specific dietary needs or professional recommendations.
+            💡 <Text style={{fontWeight: '600', color: appColors.text}}>Tip:</Text> Enter your exact daily gram targets based on your specific dietary needs or professional recommendations.
           </Text>
         </View>
       </ScrollView>

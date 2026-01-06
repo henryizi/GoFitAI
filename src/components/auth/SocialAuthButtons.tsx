@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Alert, Platform, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -200,36 +200,38 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({
 
       {/* Social Auth Buttons */}
       <View style={styles.socialButtonsContainer}>
-        {/* Apple Sign-In Button */}
+        {/* Apple Sign-In Button - Following Apple's Official Design Guidelines (White style) */}
         {availableProviders.apple && (
-          <Button
+          <TouchableOpacity
             onPress={handleAppleSignIn}
             disabled={disabled || isAppleLoading || isGoogleLoading}
             style={[styles.socialButton, styles.appleButton]}
+            activeOpacity={0.8}
           >
             <View style={styles.buttonContent}>
               {isAppleLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#000000" />
               ) : (
-                <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                <Ionicons name="logo-apple" size={20} color="#000000" />
               )}
               <Text style={styles.appleButtonText}>
                 {isAppleLoading ? 'Signing in...' : 'Continue with Apple'}
               </Text>
             </View>
-          </Button>
+          </TouchableOpacity>
         )}
 
-        {/* Google Sign-In Button */}
+        {/* Google Sign-In Button - Matching Apple button style */}
         {availableProviders.google && (
-          <Button
+          <TouchableOpacity
             onPress={handleGoogleSignIn}
             disabled={disabled || isAppleLoading || isGoogleLoading}
             style={[styles.socialButton, styles.googleButton]}
+            activeOpacity={0.8}
           >
             <View style={styles.buttonContent}>
               {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#1F2937" />
+                <ActivityIndicator size="small" color="#000000" />
               ) : (
                 <Ionicons name="logo-google" size={20} color="#4285F4" />
               )}
@@ -237,7 +239,7 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({
                 {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}
               </Text>
             </View>
-          </Button>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -278,15 +280,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
   },
   appleButton: {
-    backgroundColor: '#000000',
-    borderColor: '#333333',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#000000',
+    borderWidth: 1,
   },
   googleButton: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
+    borderColor: '#000000',
+    borderWidth: 1,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -294,14 +297,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   appleButtonText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? '-apple-system' : 'sans-serif',
   },
   googleButtonText: {
-    color: '#1F2937',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? '-apple-system' : 'sans-serif',
   },
   privacyText: {
     textAlign: 'center',

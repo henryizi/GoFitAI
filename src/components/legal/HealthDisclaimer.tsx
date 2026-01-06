@@ -7,6 +7,7 @@ import {
   ScrollView,
   Modal,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,7 +52,37 @@ const HealthDisclaimer: React.FC<HealthDisclaimerProps> = ({
     ],
     liability: "You acknowledge that you participate in fitness activities at your own risk. If you experience chest pain, dizziness, shortness of breath, or any discomfort during exercise, stop immediately and seek medical attention.",
     ai: "AI-generated workout and nutrition plans are based on general fitness principles and may not be suitable for your individual health needs. These recommendations should supplement, not replace, professional guidance.",
-    emergency: "In case of medical emergency, contact your local emergency services immediately."
+    emergency: "In case of medical emergency, contact your local emergency services immediately.",
+    citations: "Our fitness and nutrition recommendations are based on evidence-based research from:",
+    citationsList: [
+      {
+        name: "American College of Sports Medicine (ACSM) Exercise Guidelines",
+        url: "https://www.acsm.org/education-resources/trending-topics-resources/physical-activity-guidelines"
+      },
+      {
+        name: "American Heart Association Physical Activity Recommendations",
+        url: "https://www.heart.org/en/healthy-living/fitness/fitness-basics/aha-recs-for-physical-activity-in-adults"
+      },
+      {
+        name: "U.S. Department of Health & Human Services Physical Activity Guidelines",
+        url: "https://health.gov/our-work/nutrition-physical-activity/physical-activity-guidelines"
+      },
+      {
+        name: "Academy of Nutrition and Dietetics Evidence-Based Practice Guidelines",
+        url: "https://www.eatright.org/health"
+      },
+      {
+        name: "World Health Organization (WHO) Physical Activity Guidelines",
+        url: "https://www.who.int/news-room/fact-sheets/detail/physical-activity"
+      }
+    ]
+  };
+
+  const handleOpenCitation = (url: string) => {
+    Linking.openURL(url).catch(err => {
+      Alert.alert('Error', 'Unable to open link. Please check your internet connection.');
+      console.error('Error opening URL:', err);
+    });
   };
 
   const CompactDisclaimer = () => (
@@ -66,10 +97,25 @@ const HealthDisclaimer: React.FC<HealthDisclaimerProps> = ({
       <Text style={styles.consultText}>
         {disclaimerText.consultation}
       </Text>
-      <TouchableOpacity onPress={handleViewFull} style={styles.readMoreButton}>
-        <Text style={styles.readMoreText}>Read Full Disclaimer</Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-      </TouchableOpacity>
+      <View style={styles.compactActions}>
+        <TouchableOpacity onPress={handleViewFull} style={styles.readMoreButton}>
+          <Text style={styles.readMoreText}>Read Full Disclaimer</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => {
+            setIsModalVisible(true);
+            // Scroll to citations section after modal opens
+            setTimeout(() => {
+              // This will be handled by the modal's scroll view
+            }, 300);
+          }} 
+          style={styles.citationsButton}
+        >
+          <Ionicons name="library" size={14} color={colors.primary} />
+          <Text style={styles.citationsButtonText}>View Citations</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -115,6 +161,28 @@ const HealthDisclaimer: React.FC<HealthDisclaimerProps> = ({
       <View style={styles.emergencySection}>
         <Text style={styles.emergencyTitle}>🚨 Emergency</Text>
         <Text style={styles.emergencyText}>{disclaimerText.emergency}</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📚 Research Citations & Sources</Text>
+        <Text style={styles.bodyText}>{disclaimerText.citations}</Text>
+        <View style={styles.citationsList}>
+          {disclaimerText.citationsList.map((citation, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.citationItem}
+              onPress={() => handleOpenCitation(citation.url)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="link" size={16} color={colors.primary} style={styles.citationIcon} />
+              <Text style={styles.citationText}>{citation.name}</Text>
+              <Ionicons name="open-outline" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.citationNote}>
+          Tap any citation above to view the source material. These evidence-based guidelines inform our fitness and nutrition recommendations.
+        </Text>
       </View>
 
       {showAcceptButton && (
@@ -200,16 +268,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  compactActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
   readMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
   },
   readMoreText: {
     fontSize: 14,
     color: colors.primary,
     fontWeight: '500',
     marginRight: 4,
+  },
+  citationsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  citationsButtonText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   fullContainer: {
     flex: 1,
@@ -312,6 +403,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
     marginLeft: 8,
+  },
+  citationsList: {
+    marginTop: 16,
+    gap: 12,
+  },
+  citationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  citationIcon: {
+    marginRight: 12,
+  },
+  citationText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  citationNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 12,
+    lineHeight: 18,
   },
 });
 

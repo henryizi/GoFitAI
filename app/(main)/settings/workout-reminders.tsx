@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,13 @@ import {
   Alert,
   Switch,
   RefreshControl,
+  Platform,
+  Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { colors } from '../../../src/styles/colors';
 import { 
   WorkoutReminderService, 
   WorkoutReminder, 
@@ -21,6 +22,27 @@ import {
 } from '../../../src/services/notifications/WorkoutReminderService';
 import { NotificationInitializer } from '../../../src/services/notifications/NotificationInitializer';
 import { useAuth } from '../../../src/hooks/useAuth';
+
+// Clean Design System
+const colors = {
+  primary: '#FF6B35',
+  primaryDark: '#E55A2B',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(235, 235, 245, 0.6)',
+  success: '#22C55E',
+  warning: '#FF9500',
+  error: '#FF453A',
+};
+
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Monday', short: 'Mon' },
+  { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
+  { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+  { key: 'thursday', label: 'Thursday', short: 'Thu' },
+  { key: 'friday', label: 'Friday', short: 'Fri' },
+  { key: 'saturday', label: 'Saturday', short: 'Sat' },
+  { key: 'sunday', label: 'Sunday', short: 'Sun' },
+];
 
 export default function WorkoutRemindersScreen() {
   const insets = useSafeAreaInsets();
@@ -42,10 +64,10 @@ export default function WorkoutRemindersScreen() {
     name: 'Your Workout Plan',
     workoutTypes: [] as string[],
   });
-
+  
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user?.id]);
 
   const loadData = async () => {
     try {
@@ -179,6 +201,32 @@ export default function WorkoutRemindersScreen() {
     );
   };
 
+  const toggleDay = (day: string) => {
+    // Note: this might be unused now if we move the modal logic
+  };
+
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    message = reminders.length > 0 
+      ? `You have ${reminders.length} workout reminder${reminders.length !== 1 ? 's' : ''} set up.`
+      : "Set up workout reminders to stay consistent with your fitness routine.";
+    
+    return { greeting, message };
+  }, [reminders.length]);
+
   const ReminderSettingItem = ({ 
     title, 
     subtitle, 
@@ -193,39 +241,32 @@ export default function WorkoutRemindersScreen() {
     icon: string;
   }) => (
     <View style={styles.settingItem}>
-      <View style={styles.settingInfo}>
-        <Icon name={icon as any} size={24} color={colors.primary} />
-        <View style={styles.settingText}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          <Text style={styles.settingSubtitle}>{subtitle}</Text>
-        </View>
+      <View style={styles.settingIconContainer}>
+        <Icon name={icon as any} size={20} color={colors.primary} />
+      </View>
+      <View style={styles.settingText}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        <Text style={styles.settingSubtitle}>{subtitle}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: 'rgba(255,255,255,0.2)', true: colors.primary }}
-        thumbColor={value ? colors.white : colors.textSecondary}
+        thumbColor={value ? colors.text : colors.textSecondary}
       />
     </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Icon name="arrow-left" size={24} color={colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Workout Reminders</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
+      <StatusBar style="light" />
+      
       <ScrollView
-        style={styles.scrollView}
         contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 20 }
+          styles.content,
+          { paddingTop: insets.top + 16, paddingBottom: 60 + insets.bottom + 20 }
         ]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -234,78 +275,96 @@ export default function WorkoutRemindersScreen() {
           />
         }
       >
-        {/* Status Card */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            01 <Text style={styles.sectionTitleText}>NOTIFICATION STATUS</Text>
-          </Text>
-          <LinearGradient
-            colors={[
-              notificationStatus.permissionsGranted 
-                ? 'rgba(76, 175, 80, 0.2)' 
-                : 'rgba(244, 67, 54, 0.2)',
-              'rgba(0,0,0,0.3)'
-            ]}
-            style={styles.statusCard}
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
+          <TouchableOpacity 
+            onPress={() => router.replace('/(main)/dashboard')} 
+            style={styles.backButton}
+            activeOpacity={0.8}
           >
-            <View style={styles.statusHeader}>
+            <Icon name="arrow-left" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
+          </View>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+          </View>
+          <TouchableOpacity 
+            onPress={() => router.push('/(main)/settings/create-reminder')}
+            style={styles.addButton}
+            activeOpacity={0.8}
+          >
+            <Icon name="plus" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <View style={[
+              styles.statusIconContainer,
+              { backgroundColor: notificationStatus.permissionsGranted ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255, 69, 58, 0.12)' }
+            ]}>
               <Icon 
                 name={notificationStatus.permissionsGranted ? "check-circle" : "alert-circle"} 
-                size={24} 
-                color={notificationStatus.permissionsGranted ? '#4CAF50' : '#F44336'} 
+                size={20} 
+                color={notificationStatus.permissionsGranted ? colors.success : colors.error} 
               />
+            </View>
+            <View style={styles.statusTextContainer}>
               <Text style={styles.statusTitle}>
                 {notificationStatus.permissionsGranted ? 'Notifications Enabled' : 'Permissions Required'}
               </Text>
+              <Text style={styles.statusSubtitle}>
+                {notificationStatus.permissionsGranted 
+                  ? `${notificationStatus.scheduledCount} reminder${notificationStatus.scheduledCount !== 1 ? 's' : ''} scheduled`
+                  : 'Enable notifications to receive workout reminders'
+                }
+              </Text>
             </View>
-            <Text style={styles.statusSubtitle}>
-              {notificationStatus.permissionsGranted 
-                ? `${notificationStatus.scheduledCount} reminders scheduled`
-                : 'Enable notifications to receive workout reminders'
-              }
-            </Text>
-            {!notificationStatus.permissionsGranted && (
-              <TouchableOpacity
-                style={styles.enableButton}
-                onPress={handleRequestPermissions}
-              >
-                <Text style={styles.enableButtonText}>Enable Notifications</Text>
-              </TouchableOpacity>
-            )}
-          </LinearGradient>
+          </View>
+          {!notificationStatus.permissionsGranted && (
+            <TouchableOpacity
+              style={styles.enableButton}
+              onPress={handleRequestPermissions}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.enableButtonText}>Enable Notifications</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Workout Plan Info */}
         {workoutPlanInfo.workoutTypes.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              02 <Text style={styles.sectionTitleText}>WORKOUT PLAN</Text>
-            </Text>
-            <LinearGradient
-              colors={['rgba(255,107,53,0.2)', 'rgba(0,0,0,0.3)']}
-              style={styles.planCard}
-            >
-              <View style={styles.planHeader}>
-                <Icon name="dumbbell" size={24} color={colors.primary} />
+          <View style={styles.planCard}>
+            <View style={styles.planHeader}>
+              <View style={styles.planIconContainer}>
+                <Icon name="dumbbell" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.planTextContainer}>
                 <Text style={styles.planTitle}>{workoutPlanInfo.name}</Text>
+                <Text style={styles.planSubtitle}>Available workout types for reminders</Text>
               </View>
-              <Text style={styles.planSubtitle}>Available workout types for reminders:</Text>
-              <View style={styles.workoutTypesList}>
-                {workoutPlanInfo.workoutTypes.map((type, index) => (
-                  <View key={index} style={styles.workoutTypeChip}>
-                    <Text style={styles.workoutTypeText}>{type}</Text>
-                  </View>
-                ))}
-              </View>
-            </LinearGradient>
+            </View>
+            <View style={styles.workoutTypesList}>
+              {workoutPlanInfo.workoutTypes.map((type, index) => (
+                <View key={index} style={styles.workoutTypeChip}>
+                  <Text style={styles.workoutTypeText}>{type}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
         {/* Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            03 <Text style={styles.sectionTitleText}>REMINDER SETTINGS</Text>
-          </Text>
+          <Text style={styles.sectionTitle}>Reminder Settings</Text>
           
           <ReminderSettingItem
             title="Workout Reminders"
@@ -335,67 +394,69 @@ export default function WorkoutRemindersScreen() {
         {/* Active Reminders */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              04 <Text style={styles.sectionTitleText}>YOUR REMINDERS</Text>
-            </Text>
-            <Text style={styles.reminderCount}>
-              {reminders.length} {reminders.length === 1 ? 'reminder' : 'reminders'}
-            </Text>
+            <Text style={styles.sectionTitle}>Your Reminders</Text>
+            <TouchableOpacity 
+              style={styles.addReminderButton}
+              onPress={() => router.push('/(main)/settings/create-reminder')}
+              activeOpacity={0.8}
+            >
+              <Icon name="plus" size={16} color={colors.primary} />
+              <Text style={styles.addReminderButtonText}>Add</Text>
+            </TouchableOpacity>
           </View>
 
           {reminders.length === 0 ? (
-            <LinearGradient
-              colors={['rgba(255,255,255,0.05)', 'rgba(0,0,0,0.2)']}
-              style={styles.emptyCard}
-            >
-              <Icon name="calendar-clock" size={48} color={colors.textSecondary} />
+            <View style={styles.emptyCard}>
+              <Icon name="calendar-clock" size={40} color={colors.textSecondary} />
               <Text style={styles.emptyTitle}>No Reminders Set</Text>
               <Text style={styles.emptySubtitle}>
-                Go to the dashboard to create your first workout reminder
+                Tap the + button to create your first workout reminder
               </Text>
               <TouchableOpacity
-                style={styles.dashboardButton}
-                onPress={() => router.push('/(main)/dashboard')}
+                style={styles.addReminderButtonLarge}
+                onPress={() => router.push('/(main)/settings/create-reminder')}
+                activeOpacity={0.8}
               >
-                <Icon name="home" size={16} color={colors.primary} />
-                <Text style={styles.dashboardButtonText}>Go to Dashboard</Text>
+                <Icon name="plus" size={18} color={colors.primary} />
+                <Text style={styles.addReminderButtonLargeText}>Add Reminder</Text>
               </TouchableOpacity>
-            </LinearGradient>
+            </View>
           ) : (
             <View style={styles.remindersList}>
               {reminders.map((reminder) => (
-                <LinearGradient
-                  key={reminder.id}
-                  colors={['rgba(255,107,53,0.1)', 'rgba(0,0,0,0.2)']}
-                  style={styles.reminderCard}
-                >
-                  <View style={styles.reminderHeader}>
-                    <View style={styles.reminderInfo}>
-                      <Text style={styles.reminderName}>{reminder.workoutName}</Text>
-                      <Text style={styles.reminderDetails}>
-                        {WorkoutReminderService.formatTime(reminder.scheduledTime)} • {WorkoutReminderService.formatDays(reminder.days)}
-                      </Text>
-                      <Text style={styles.reminderCreated}>
-                        Created {new Date(reminder.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    <View style={styles.reminderActions}>
-                      <Switch
-                        value={reminder.isActive}
-                        onValueChange={() => handleToggleReminder(reminder.id)}
-                        trackColor={{ false: 'rgba(255,255,255,0.2)', true: colors.primary }}
-                        thumbColor={reminder.isActive ? colors.white : colors.textSecondary}
-                        style={styles.reminderSwitch}
-                      />
-                      <TouchableOpacity
-                        onPress={() => handleDeleteReminder(reminder.id, reminder.workoutName)}
-                        style={styles.deleteButton}
-                      >
-                        <Icon name="delete" size={20} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
+                <View key={reminder.id} style={styles.reminderCard}>
+                  <View style={styles.reminderIconContainer}>
+                    <Icon name="dumbbell" size={20} color={colors.primary} />
                   </View>
-                </LinearGradient>
+                  <View style={styles.reminderInfo}>
+                    <Text style={styles.reminderName}>{reminder.workoutName}</Text>
+                    <Text style={styles.reminderDetails}>
+                      {WorkoutReminderService.formatTime(reminder.scheduledTime)}
+                      {reminder.type === 'recurring' && reminder.days.length > 0 && (
+                        <Text> • {WorkoutReminderService.formatDays(reminder.days)}</Text>
+                      )}
+                    </Text>
+                    <Text style={styles.reminderCreated}>
+                      Created {new Date(reminder.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={styles.reminderActions}>
+                    <Switch
+                      value={reminder.isActive}
+                      onValueChange={() => handleToggleReminder(reminder.id)}
+                      trackColor={{ false: 'rgba(255,255,255,0.2)', true: colors.primary }}
+                      thumbColor={reminder.isActive ? colors.text : colors.textSecondary}
+                      style={styles.reminderSwitch}
+                    />
+                    <TouchableOpacity
+                      onPress={() => handleDeleteReminder(reminder.id, reminder.workoutName)}
+                      style={styles.deleteButton}
+                      activeOpacity={0.8}
+                    >
+                      <Icon name="delete-outline" size={18} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ))}
             </View>
           )}
@@ -404,37 +465,35 @@ export default function WorkoutRemindersScreen() {
         {/* Advanced Actions */}
         {reminders.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              04 <Text style={styles.sectionTitleText}>ADVANCED</Text>
-            </Text>
+            <Text style={styles.sectionTitle}>Advanced</Text>
             
             <TouchableOpacity
               style={styles.advancedButton}
               onPress={handleClearAllNotifications}
+              activeOpacity={0.8}
             >
-              <Icon name="notification-clear-all" size={20} color="#F44336" />
+              <View style={styles.advancedIconContainer}>
+                <Icon name="notification-clear-all" size={18} color={colors.error} />
+              </View>
               <Text style={styles.advancedButtonText}>Clear All Notifications</Text>
-              <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+              <Icon name="chevron-right" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
 
         {/* Info Section */}
-        <View style={styles.infoSection}>
-          <LinearGradient
-            colors={['rgba(255,107,53,0.1)', 'rgba(255,107,53,0.05)']}
-            style={styles.infoCard}
-          >
-            <Icon name="information" size={24} color={colors.primary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>About Workout Reminders</Text>
-              <Text style={styles.infoText}>
-                Workout reminders help you stay consistent with your fitness routine. 
-                Set up reminders for specific workout types and days to get notified 
-                when it's time to "lock in" and crush your goals! 💪
-              </Text>
-            </View>
-          </LinearGradient>
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconContainer}>
+            <Icon name="information" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>About Workout Reminders</Text>
+            <Text style={styles.infoText}>
+              Workout reminders help you stay consistent with your fitness routine. 
+              Set up reminders for specific workout types and days to get notified 
+              when it's time to "lock in" and crush your goals! 💪
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -444,72 +503,108 @@ export default function WorkoutRemindersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
-  header: {
+  content: {
+    paddingHorizontal: 20,
+  },
+
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    marginBottom: 24,
+    paddingTop: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    color: colors.white,
-    fontWeight: '600',
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  scrollView: {
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    color: colors.primary,
+  coachGreeting: {
+    fontSize: 22,
     fontWeight: '700',
-    letterSpacing: 1,
+    color: colors.text,
+    marginBottom: 4,
   },
-  sectionTitleText: {
-    color: colors.white,
-    marginLeft: 8,
-    letterSpacing: 1,
-  },
-  reminderCount: {
-    fontSize: 12,
+  coachMessage: {
+    fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '500',
+    lineHeight: 20,
   },
-  statusCard: {
-    borderRadius: 16,
-    padding: 20,
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+  },
+
+  // Status Card
+  statusCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   statusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  statusIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  statusTextContainer: {
+    flex: 1,
   },
   statusTitle: {
-    fontSize: 16,
-    color: colors.white,
+    fontSize: 15,
     fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
   },
   statusSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 16,
   },
   enableButton: {
     backgroundColor: colors.primary,
@@ -519,153 +614,219 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   enableButtonText: {
-    color: colors.white,
-    fontWeight: '600',
+    color: colors.text,
+    fontWeight: '700',
     fontSize: 14,
   },
+
+  // Plan Card
   planCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   planHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  planIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  planTextContainer: {
+    flex: 1,
   },
   planTitle: {
-    fontSize: 16,
-    color: colors.white,
+    fontSize: 15,
     fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
   },
   planSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 16,
   },
   workoutTypesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 8,
   },
   workoutTypeChip: {
-    backgroundColor: 'rgba(255,107,53,0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.5)',
+    borderColor: 'rgba(255, 107, 53, 0.2)',
   },
   workoutTypeText: {
     fontSize: 12,
-    color: colors.white,
-    fontWeight: '500',
+    color: colors.primary,
+    fontWeight: '600',
   },
+
+  // Section
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  addReminderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+  },
+  addReminderButtonText: {
+    color: colors.primary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  addReminderButtonLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+    marginTop: 8,
+  },
+  addReminderButtonLargeText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // Setting Item
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 14,
   },
-  settingInfo: {
-    flexDirection: 'row',
+  settingIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
-    gap: 12,
   },
   settingText: {
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    color: colors.white,
+    fontSize: 15,
     fontWeight: '600',
+    color: colors.text,
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
+    lineHeight: 16,
   },
+
+  // Empty Card
   emptyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   emptyTitle: {
-    fontSize: 18,
-    color: colors.white,
+    fontSize: 16,
     fontWeight: '600',
+    color: colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
-  dashboardButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255,107,53,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.3)',
-  },
-  dashboardButtonText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 14,
-  },
+
+  // Reminders List
   remindersList: {
-    gap: 12,
+    gap: 10,
   },
   reminderCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  reminderHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  reminderIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   reminderInfo: {
     flex: 1,
-    marginRight: 16,
   },
   reminderName: {
-    fontSize: 16,
-    color: colors.white,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 4,
+    color: colors.text,
+    marginBottom: 2,
   },
   reminderDetails: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 2,
   },
   reminderCreated: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
-    opacity: 0.8,
+    opacity: 0.7,
   },
   reminderActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   reminderSwitch: {
     transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
@@ -673,47 +834,65 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
+
+  // Advanced Button
   advancedButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(255, 69, 58, 0.08)',
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(244, 67, 54, 0.2)',
+    borderColor: 'rgba(255, 69, 58, 0.15)',
+    gap: 12,
+  },
+  advancedIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 69, 58, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   advancedButtonText: {
     flex: 1,
-    fontSize: 16,
-    color: '#F44336',
-    fontWeight: '500',
-    marginLeft: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.error,
   },
-  infoSection: {
-    marginBottom: 20,
-  },
+
+  // Info Card
   infoCard: {
-    borderRadius: 16,
-    padding: 20,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  infoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoContent: {
     flex: 1,
   },
   infoTitle: {
-    fontSize: 16,
-    color: colors.white,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 6,
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });

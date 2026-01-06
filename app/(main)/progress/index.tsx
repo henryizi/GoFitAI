@@ -1,52 +1,32 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, FlatList, Alert, ImageBackground, Animated, Image } from 'react-native';
-import { Button, Text, ActivityIndicator, Avatar, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, FlatList, Alert, Animated, Image } from 'react-native';
+import { Text, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ProgressService } from '../../../src/services/progressService';
-import { supabase } from '../../../src/services/supabase/client';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import WeightProgressChart from '../../../src/components/progress/WeightProgressChart';
-import TodayCard from '../../../src/components/progress/TodayCard';
 import BeforeAfterComparison from '../../../src/components/progress/BeforeAfterComparison';
-import { BlurView } from 'expo-blur';
 import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
 import { kgToLbs } from '../../../src/utils/unitConversions';
+import { TutorialWrapper } from '../../../src/components/tutorial/TutorialWrapper';
+import { useTutorial } from '../../../src/contexts/TutorialContext';
 
-// Modern, premium colors with enhanced palette
+// Clean color palette
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
-  primaryLight: '#FF8F65',
   accent: '#FF8F65',
   secondary: '#34C759',
-  background: '#121212',
-  surface: '#1C1C1E',
-  surfaceLight: '#2C2C2E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
   textTertiary: 'rgba(235, 235, 245, 0.3)',
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.8)',
-  cardLight: 'rgba(44, 44, 46, 0.9)',
-  border: 'rgba(84, 84, 88, 0.6)',
-  borderLight: 'rgba(84, 84, 88, 0.3)',
   white: '#FFFFFF',
-  dark: '#121212',
   glass: 'rgba(255, 255, 255, 0.1)',
   glassStrong: 'rgba(255, 255, 255, 0.15)',
-  gradient1: '#FF6B35',
-  gradient2: '#FF8F65',
-  gradient3: '#FFB88C',
-  blue: '#007AFF',
-  purple: '#AF52DE',
-  pink: '#FF2D92',
-  cyan: '#5AC8FA',
 };
 
 // Date helpers (treat YYYY-MM-DD as local, not UTC)
@@ -103,31 +83,73 @@ const { width, height } = Dimensions.get('window');
 
 export default function ProgressScreen() {
   const { user, profile } = useAuth();
+  const { state: tutorialState } = useTutorial();
   const params = useLocalSearchParams<{ saved?: string }>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(0);
   const [entries, setEntries] = useState<DailyMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentDate] = useState(new Date());
-  const [scrollY] = useState(new Animated.Value(0));
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarText, setSnackbarText] = useState('');
-  
-  // Tab animation values
-  const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
-  const tabScaleAnims = useRef(TABS.map(() => new Animated.Value(1))).current;
 
-  // Format the current date
-  const formattedDate = currentDate.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  // AI Coach greeting based on progress
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const entriesCount = entries.length;
+    const latestWeight = entries.length > 0 ? entries[entries.length - 1]?.weight_kg : null;
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    if (entriesCount === 0) {
+      message = "Start tracking your body progress to see your transformation unfold.";
+    } else if (entriesCount < 5) {
+      message = "Great start! Keep logging regularly for better insights.";
+    } else if (entriesCount < 14) {
+      message = `You have ${entriesCount} entries. Consistency is building momentum!`;
+    } else {
+      message = "Your dedication shows! Your progress data is building a clear picture.";
+    }
+    
+    return { greeting, message };
+  }, [entries]);
 
   const fetchData = useCallback(async () => {
+    // If tutorial is active, use instant mock data
+    if (tutorialState.isActive) {
+      console.log('[Progress] Tutorial active, using mock data');
+      const mockEntries = Array.from({ length: 14 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (13 - i) * 2); // Every 2 days
+        return {
+          id: `mock-${i}`,
+          user_id: 'mock-user',
+          metric_date: date.toISOString().split('T')[0],
+          weight_kg: 85 - (i * 0.5), // Steady progress
+          trend_weight_kg: 85 - (i * 0.5),
+          sleep_hours: 7.5,
+          stress_level: 3,
+          activity_calories: 500,
+          notes: i % 3 === 0 ? 'Feeling great!' : null,
+          created_at: date.toISOString(),
+          body_fat_percentage: 20 - (i * 0.2)
+        };
+      });
+      setEntries(mockEntries);
+      setIsLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (!user) return;
     
     setIsLoading(true);
@@ -150,51 +172,11 @@ export default function ProgressScreen() {
     if (params?.saved === 'weight') {
       setSnackbarText('Weight saved');
       setSnackbarVisible(true);
-      // Refresh data to show the newly logged weight
       fetchData();
     }
   }, [params?.saved, fetchData]);
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  // Animate tab indicator when activeTab changes
-  useEffect(() => {
-    Animated.spring(tabIndicatorAnim, {
-      toValue: activeTab,
-      useNativeDriver: false,
-      tension: 120,
-      friction: 8,
-    }).start();
-  }, [activeTab]);
-
   const handleTabPress = (index: number) => {
-    // Scale animation on press
-    Animated.sequence([
-      Animated.timing(tabScaleAnims[index], {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(tabScaleAnims[index], {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
     setActiveTab(index);
   };
 
@@ -210,228 +192,133 @@ export default function ProgressScreen() {
   );
   
   const renderTabContent = () => {
-    if (isLoading && !refreshing) {
-      return (
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingCard}>
-            <LinearGradient
-              colors={[colors.glass, colors.glassStrong]}
-              style={styles.loadingCardGradient}
-            >
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading Progress...</Text>
-              <Text style={styles.loadingSubText}>Analyzing your transformation journey</Text>
-            </LinearGradient>
-          </View>
-        </View>
-      );
-    }
-
     switch (activeTab) {
       case 0:
-        return <DashboardTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
+        return <DashboardTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} />;
       case 1:
-        return <HistoryTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} />;
+        return <HistoryTab entries={entries} onRefresh={onRefresh} refreshing={refreshing} />;
       case 2:
-        return <PhotosTab onRefresh={onRefresh} refreshing={refreshing} scrollY={scrollY} entries={entries} />;
+        return <PhotosTab onRefresh={onRefresh} refreshing={refreshing} entries={entries} />;
       default:
         return null;
     }
   };
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, -10],
-    extrapolate: 'clamp',
-  });
+  if (isLoading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingAvatarContainer}>
+            <Icon name="scale-bathroom" size={32} color={colors.primary} />
+          </View>
+          <Text style={styles.loadingText}>Analyzing your progress...</Text>
+        </View>
+      </View>
+    );
+  }
   
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Enhanced dynamic background with parallax effect */}
-      <ImageBackground
-        source={{ 
-          uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop' 
-        }}
-        style={styles.backgroundImage}
+
+      <ScrollView
+        contentContainerStyle={[styles.mainContent, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0.7)', 
-            'rgba(18,18,18,0.85)', 
-            'rgba(18,18,18,0.95)', 
-            '#121212'
-          ]}
-          style={styles.overlay}
-        />
-      </ImageBackground>
-
-      {/* Animated header with enhanced blur effect */}
-      <Animated.View style={[
-        styles.animatedHeader, 
-        { 
-          opacity: headerOpacity,
-          transform: [{ translateY: headerTranslateY }]
-        }
-      ]}>
-        <View style={styles.solidHeader}>
-          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-            <View style={styles.headerLine} />
-            <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
-            <View style={styles.headerLine} />
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
+          </View>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
           </View>
         </View>
-      </Animated.View>
 
-      {/* Enhanced main header */}
-      <Animated.View style={[
-        styles.header, 
-        { 
-          paddingTop: insets.top + 16,
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
-      ]}>
-        <View style={styles.headerLine} />
-        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
-        <View style={styles.headerLine} />
-      </Animated.View>
-
-      {/* Enhanced title section with better animations */}
-      <Animated.View style={[
-        styles.titleSection,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
-      ]}>
-        <View style={styles.titleGlow}>
-          <View style={styles.titleDateContainer}>
-            <Icon name="calendar-today" size={16} color={colors.primary} />
-            <Text style={styles.titleDate}>{formattedDate.toUpperCase()}</Text>
-          </View>
-          <Text style={styles.titleMain}>BODY PROGRESS</Text>
-          <Text style={styles.titleDescription}>
-            Track your transformation and see your journey unfold
-          </Text>
-        </View>
-      </Animated.View>
-      
-      {/* Ultra-Modern Tab Container with Advanced Animations */}
-      <Animated.View style={[
-        styles.tabContainerWrapper,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }
-      ]}>
-        <View style={styles.tabBackdrop}>
-          <BlurView intensity={80} tint="dark" style={styles.tabBlurView}>
-            <LinearGradient
-              colors={[
-                'rgba(255, 107, 53, 0.1)',
-                'rgba(255, 107, 53, 0.05)',
-                'rgba(0, 0, 0, 0.3)'
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.tabGradientOverlay}
+        {/* Quick Actions Grid */}
+        <View style={styles.quickActionsGrid}>
+          <TutorialWrapper tutorialId="log-weight-button">
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/progress/log-progress')}
+              activeOpacity={0.8}
             >
-              <View style={styles.tabContainer}>
-                {/* Animated Background Indicator */}
-                <Animated.View
-                  style={[
-                    styles.tabIndicatorBackground,
-                    {
-                      transform: [{
-                        translateX: tabIndicatorAnim.interpolate({
-                          inputRange: [0, 1, 2],
-                          outputRange: [0, (width - 52) / 3, ((width - 52) / 3) * 2],
-                        })
-                      }]
-                    }
-                  ]}
-                >
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryDark]}
-                    style={styles.activeTabBackground}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  />
-                </Animated.View>
-
-                {/* Tab Buttons */}
-                {TABS.map((tab, index) => {
-                  const isActive = activeTab === index;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[styles.tab, isActive && styles.activeTab]}
-                      onPress={() => handleTabPress(index)}
-                      activeOpacity={0.8}
-                    >
-                        {/* Tab Icon */}
-                        <View style={[styles.tabIconContainer, isActive && styles.activeTabIconContainer]}>
-                          <Icon 
-                            name={
-                              index === 0 ? 'view-dashboard' : 
-                              index === 1 ? 'history' : 
-                              'camera-outline'
-                            }
-                            size={isActive ? 20 : 18}
-                            color={isActive ? colors.white : colors.textSecondary}
-                          />
-                        </View>
-                        
-                        {/* Tab Text */}
-                        <Text style={[
-                          styles.tabText,
-                          isActive && styles.activeTabText
-                        ]}>
-                          {tab}
-                        </Text>
-
-                        {/* Active Tab Glow Effect */}
-                        {isActive && (
-                          <View style={styles.tabGlowEffect} />
-                        )}
-                      </TouchableOpacity>
-                  );
-                })}
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(255, 107, 53, 0.12)' }]}>
+                <Icon name="plus-circle" size={22} color={colors.primary} />
               </View>
-              
-              {/* Bottom Accent Line */}
-              <View style={styles.tabAccentLine}>
-                <LinearGradient
-                  colors={[
-                    'transparent',
-                    colors.primary + '40',
-                    colors.primary + '80',
-                    colors.primary + '40',
-                    'transparent'
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.tabAccentGradient}
-                />
-              </View>
-            </LinearGradient>
-          </BlurView>
+              <Text style={styles.quickActionLabel}>Log Weight</Text>
+            </TouchableOpacity>
+          </TutorialWrapper>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => router.push('/(main)/progress/log-photo')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.12)' }]}>
+              <Icon name="camera" size={22} color="#6366F1" />
+            </View>
+            <Text style={styles.quickActionLabel}>Log Photo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => setActiveTab(1)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+              <Icon name="history" size={22} color="#22C55E" />
+            </View>
+            <Text style={styles.quickActionLabel}>History</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => setActiveTab(2)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+              <Icon name="compare" size={22} color="#EF4444" />
+            </View>
+            <Text style={styles.quickActionLabel}>Photo</Text>
+          </TouchableOpacity>
         </View>
-      </Animated.View>
 
-      {/* Tab content container */}
-      <View style={styles.content}>
-        {renderTabContent()}
-      </View>
+        {/* Tab Selector */}
+        <View style={styles.tabSelector}>
+          {TABS.map((tab, index) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabButton, activeTab === index && styles.tabButtonActive]}
+              onPress={() => handleTabPress(index)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabButtonText, activeTab === index && styles.tabButtonTextActive]}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Tab Content */}
+        <View style={styles.content}>
+          {renderTabContent()}
+        </View>
+      </ScrollView>
 
       <Snackbar
         visible={snackbarVisible}
@@ -447,106 +334,17 @@ export default function ProgressScreen() {
             router.replace('/(main)/progress');
           },
         }}
-        style={{ backgroundColor: colors.surfaceLight, borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, margin: 16 }}
+        style={{ backgroundColor: '#1C1C1E', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, margin: 16 }}
       >
         {snackbarText}
       </Snackbar>
-
-      {/* Floating action button removed as requested */}
     </View>
   );
 }
 
-const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
-  const { user, profile } = useAuth();
+const DashboardTab = ({ entries, onRefresh, refreshing }: { entries: DailyMetric[], onRefresh: () => void, refreshing: boolean }) => {
+  const { profile } = useAuth();
   const latestEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const [motivation, setMotivation] = useState<any | null>(null);
-
-  const weightToday = React.useMemo(() => {
-    if (!entries || entries.length === 0) return null;
-    
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Find today's entry
-    const todayEntry = entries.find(entry => entry.metric_date === today);
-    
-    console.log('[DashboardTab] Weight calculation:', {
-      today,
-      entriesCount: entries.length,
-      todayEntry,
-      weightToday: todayEntry?.weight_kg
-    });
-    
-    return todayEntry?.weight_kg || null;
-  }, [entries]);
-  
-  const streakDays = React.useMemo(() => {
-    if (!entries || entries.length === 0) return 0;
-    
-    // Sort entries by date (newest first)
-    const sortedEntries = [...entries].sort((a, b) => 
-      new Date(b.metric_date).getTime() - new Date(a.metric_date).getTime()
-    );
-    
-    // Filter entries that have weight logged
-    const weightEntries = sortedEntries.filter(entry => entry.weight_kg != null);
-    
-    console.log('[DashboardTab] Streak calculation:', {
-      totalEntries: entries.length,
-      weightEntries: weightEntries.length,
-      weightEntriesDates: weightEntries.map(e => e.metric_date)
-    });
-    
-    if (weightEntries.length === 0) return 0;
-    
-    // Calculate streak
-    let streak = 0;
-    const today = new Date();
-    
-    for (let i = 0; i < 30; i++) { // Check up to 30 days back
-      const checkDate = new Date(today);
-      checkDate.setDate(today.getDate() - i);
-      const dateKey = checkDate.toISOString().split('T')[0];
-      
-      const hasEntry = weightEntries.some(entry => entry.metric_date === dateKey);
-      if (hasEntry) {
-        streak++;
-      } else {
-        break; // Streak broken
-      }
-    }
-    
-    console.log('[DashboardTab] Calculated streak:', streak);
-    return streak;
-  }, [entries]);
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        if (!user) return;
-        const [m] = await Promise.allSettled([
-          ProgressService.generateMotivationalMessage(user.id, 'streak_7'),
-        ]);
-        if (!active) return;
-        if (m.status === 'fulfilled' && m.value?.success) setMotivation(m.value.message || null);
-      } catch {}
-    })();
-    return () => { active = false; };
-  }, [user?.id]);
-
-  // Habit score removed per request
 
   const unit = profile?.weight_unit_preference || 'kg';
   const latestWeight = latestEntry?.weight_kg;
@@ -555,116 +353,80 @@ const DashboardTab = ({ entries, onRefresh, refreshing, scrollY }) => {
       ? kgToLbs(latestWeight)
       : latestWeight;
 
+  // Calculate weight change
+  const weightChange = useMemo(() => {
+    if (entries.length < 2) return null;
+    const first = entries[0]?.weight_kg;
+    const last = entries[entries.length - 1]?.weight_kg;
+    if (first == null || last == null) return null;
+    const change = last - first;
+    return unit === 'lbs' ? kgToLbs(change) : change;
+  }, [entries, unit]);
+
+  // Calculate days tracking
+  const daysTracking = useMemo(() => {
+    if (entries.length === 0) return 0;
+    return Math.floor((Date.now() - new Date(entries[0].metric_date).getTime()) / (1000 * 60 * 60 * 24));
+  }, [entries]);
+
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-      onScroll={Animated.event(
-        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-        { useNativeDriver: false }
-      )}
-      scrollEventThrottle={16}
-      refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
-          onRefresh={onRefresh} 
-          colors={[colors.primary]} 
-          tintColor={colors.primary}
-          progressBackgroundColor="rgba(255,255,255,0.1)"
-        />
-      }
-    >
-      <TodayCard
-        weightToday={weightToday}
-        streakDays={streakDays}
-        onLogProgress={() => router.push('/(main)/progress/log-progress')}
-      />
-
-      {/* Enhanced hero stats card with better design */}
-      <Animated.View style={[styles.heroCard, { opacity: fadeAnim }]}>
-        <LinearGradient
-          colors={[
-            'rgba(255,107,53,0.2)',
-            'rgba(255,107,53,0.1)',
-            'rgba(255,255,255,0.08)'
-          ]}
-          style={styles.heroCardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.heroCardContent}>
-            <View style={styles.heroCardHeader}>
-              <View style={styles.heroIconContainer}>
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.heroIcon}
-                >
-                  <Icon name="chart-line" size={24} color={colors.white} />
-                </LinearGradient>
-              </View>
-              <View style={styles.heroTextContainer}>
-                <Text style={styles.heroCardTitle}>YOUR PROGRESS</Text>
-                <Text style={styles.heroCardSubtitle}>Transformation in progress</Text>
-              </View>
-              <TouchableOpacity style={styles.heroMoreButton}>
-                <Icon name="chevron-right" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.heroStatsRow}>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatNumber}>{entries.length}</Text>
-                <Text style={styles.heroStatLabel}>ENTRIES</Text>
-              </View>
-              <View style={styles.heroStatDivider} />
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatNumber}>
-                  {entries.length > 0 ? Math.floor((Date.now() - new Date(entries[0].metric_date).getTime()) / (1000 * 60 * 60 * 24)) : 0}
-                </Text>
-                <Text style={styles.heroStatLabel}>DAYS</Text>
-              </View>
-              <View style={styles.heroStatDivider} />
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatNumber}>
-                  {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'}
-                </Text>
-                <Text style={styles.heroStatLabel}>{unit.toUpperCase()}</Text>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
-      </Animated.View>
-
-      {/* Trends and forecast */}
-      <View style={styles.sectionHeaderContainer}>
-        <View style={styles.sectionTitle}>
-          <View style={styles.sectionNumber}>
-            <Text style={styles.sectionNumberText}>01</Text>
-          </View>
-          <Text style={styles.sectionTitleText}>WEIGHT TREND</Text>
+    <View style={styles.dashboardContent}>
+      {/* Stats Card */}
+      <View style={styles.statsCard}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>
+            {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'}
+          </Text>
+          <Text style={styles.statLabel}>{unit.toUpperCase()}</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{entries.length}</Text>
+          <Text style={styles.statLabel}>Entries</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, weightChange != null && { color: weightChange < 0 ? '#22C55E' : weightChange > 0 ? '#EF4444' : colors.text }]}>
+            {weightChange != null ? `${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)}` : '--'}
+          </Text>
+          <Text style={styles.statLabel}>Change</Text>
         </View>
       </View>
 
-      {/* Weight Progress Chart */}
-      <WeightProgressChart data={entries} unit={unit} />
-      
-      {/* Motivation */}
-      {motivation?.message && (
-        <View style={{ marginTop: 20 }}>
-          <LinearGradient colors={[colors.primary, colors.primaryDark]} style={{ borderRadius: 16, padding: 16 }}>
-            <Text style={{ color: colors.white, fontWeight: '700' }}>Keep Going</Text>
-            <Text style={{ color: colors.white, marginTop: 6 }}>{motivation.message}</Text>
-          </LinearGradient>
+      {/* AI Insight */}
+      {entries.length > 0 && (
+        <View style={styles.insightCard}>
+          <View style={styles.insightHeader}>
+            <View style={styles.insightIconContainer}>
+              <Icon name="lightbulb-on" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.insightTitle}>AI Insight</Text>
+          </View>
+          <Text style={styles.insightText}>
+            {entries.length < 7
+              ? "Log your weight daily for more accurate trend analysis and predictions."
+              : weightChange != null && weightChange < 0
+                ? `Great progress! You've lost ${Math.abs(weightChange).toFixed(1)} ${unit} over ${daysTracking} days.`
+                : "Maintain consistency with your logging for the best insights."
+            }
+          </Text>
         </View>
       )}
 
-
-    </ScrollView>
+      {/* Weight Chart */}
+      <View style={styles.chartSection}>
+        <Text style={styles.sectionTitle}>Weight Trend</Text>
+        <TutorialWrapper tutorialId="weight-trend-chart">
+          <WeightProgressChart data={entries} unit={unit} />
+        </TutorialWrapper>
+      </View>
+    </View>
   );
 };
 
 
 
-const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
+const HistoryTab = ({ entries, onRefresh, refreshing }: { entries: DailyMetric[], onRefresh: () => void, refreshing: boolean }) => {
   const { profile } = useAuth();
   const unit = profile?.weight_unit_preference || 'kg';
   const sortedEntries = useMemo(() => 
@@ -674,150 +436,114 @@ const HistoryTab = ({ entries, onRefresh, refreshing, scrollY }) => {
 
   if (sortedEntries.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyCard}>
-          <LinearGradient
-            colors={[colors.glassStrong, colors.glass]}
-            style={styles.emptyCardGradient}
-          >
-            <View style={styles.emptyCardContent}>
-              <View style={styles.emptyIconContainer}>
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.emptyIconGradient}
-                >
-                  <Icon name="history" size={32} color={colors.white} />
-                </LinearGradient>
-              </View>
-              <Text style={styles.emptyText}>No History Yet</Text>
-              <Text style={styles.emptySubText}>Your fitness journey starts with the first step</Text>
-              <TouchableOpacity
-                onPress={() => router.push('/(main)/progress/log-progress')}
-                style={styles.createButtonContainer}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.createButton}
-                >
-                  <Icon name="plus" size={16} color={colors.white} style={styles.buttonIcon} />
-                  <Text style={styles.createButtonText}>Log First Entry</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
+      <View style={styles.emptyState}>
+        <View style={styles.emptyIconContainer}>
+          <Icon name="history" size={48} color={colors.primary} />
         </View>
+        <Text style={styles.emptyTitle}>No History Yet</Text>
+        <Text style={styles.emptyDescription}>
+          Start logging your weight to see your progress over time.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push('/(main)/progress/log-progress')}
+          style={styles.emptyActionButton}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            style={styles.emptyActionGradient}
+          >
+            <Icon name="plus" size={18} color={colors.white} />
+            <Text style={styles.emptyActionText}>Log First Entry</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={sortedEntries}
-      keyExtractor={(item) => item.id.toString()}
-      contentContainerStyle={styles.historyList}
-      renderItem={({ item, index }) => <EnhancedHistoryItem item={item} index={index} unit={unit} />}
-      onScroll={Animated.event(
-        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-        { useNativeDriver: false }
+    <View style={styles.historyContent}>
+      {sortedEntries.slice(0, 10).map((item, index) => (
+        <HistoryItem key={item.id} item={item} index={index} unit={unit} />
+      ))}
+      {sortedEntries.length > 10 && (
+        <Text style={styles.moreEntriesText}>
+          + {sortedEntries.length - 10} more entries
+        </Text>
       )}
-      scrollEventThrottle={16}
-      refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
-          onRefresh={onRefresh} 
-          colors={[colors.primary]} 
-          tintColor={colors.primary}
-          progressBackgroundColor="rgba(255,255,255,0.1)"
-        />
-      }
-      showsVerticalScrollIndicator={false}
-    />
+    </View>
   );
 };
 
-const EnhancedHistoryItem = ({ item, index, unit }) => {
+const HistoryItem = ({ item, index, unit }: { item: DailyMetric, index: number, unit: string }) => {
   const displayWeight =
     unit === 'lbs' && typeof item.weight_kg === 'number'
       ? kgToLbs(item.weight_kg)
       : item.weight_kg;
 
+  const hasBodyFat = typeof item.body_fat_percentage === 'number' && item.body_fat_percentage !== null;
+  const hasNotes = item.notes && item.notes.trim().length > 0;
+
   return (
-    <View style={[styles.historyItem, { marginTop: index === 0 ? 0 : 0 }]}>
-    <LinearGradient
-      colors={[colors.glassStrong, colors.glass]}
-      style={styles.historyItemGradient}
-    >
-      <View style={styles.historyHeader}>
-        <View style={styles.historyDateContainer}>
-          <Icon name="calendar" size={16} color={colors.primary} />
-          <Text style={styles.historyDate}>{formatLocalDate(item.metric_date)}</Text>
-        </View>
-        <View style={styles.historyBadge}>
-          <Text style={styles.historyBadgeText}>#{index + 1}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.historyMetrics}>
-        <View style={styles.historyMetricItemSingle}>
-          <View style={styles.weightDisplayContainer}>
-            <Text style={styles.historyMetricValueLarge}>
-              {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : 'N/A'}
-            </Text>
-            <Text style={styles.historyMetricUnitLarge}>{unit}</Text>
-          </View>
-          <Text style={styles.historyMetricLabelSingle}>BODY WEIGHT</Text>
-          {typeof item.body_fat_percentage === 'number' && (
-            <View style={{ marginTop: 10, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.white }}>
-                {item.body_fat_percentage.toFixed(1)}%
-              </Text>
-              <Text style={{ fontSize: 12, color: colors.textTertiary, marginTop: 4, letterSpacing: 1, fontWeight: '600' }}>
-                BODY FAT
+    <View style={styles.historyItem}>
+      <View style={styles.historyItemLeft}>
+        <Text style={styles.historyDate}>{formatLocalDate(item.metric_date)}</Text>
+        {hasBodyFat && (
+          <View style={styles.historyMetricsRow}>
+            <View style={styles.historyMetricBadge}>
+              <Icon name="percent" size={12} color={colors.primary} />
+              <Text style={styles.historyMetricText}>
+                Body Fat: {item.body_fat_percentage.toFixed(1)}%
               </Text>
             </View>
-          )}
-        </View>
+          </View>
+        )}
+        {hasNotes && (
+          <Text style={styles.historyNotes} numberOfLines={2}>
+            {item.notes}
+          </Text>
+        )}
       </View>
-      
-      {item.notes && (
-        <View style={styles.historyNotes}>
-          <Icon name="note-text-outline" size={14} color={colors.textSecondary} />
-          <Text style={styles.historyNotesText}>{item.notes}</Text>
-        </View>
-      )}
-    </LinearGradient>
-  </View>
+      <View style={styles.historyItemRight}>
+        <Text style={styles.historyWeight}>
+          {typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'}
+        </Text>
+        <Text style={styles.historyUnit}>{unit}</Text>
+      </View>
+    </View>
   );
 };
 
-const PhotosTab = ({ onRefresh, refreshing, scrollY, entries = [] }: { onRefresh: () => void, refreshing: boolean, scrollY: any, entries?: DailyMetric[] }) => {
-  const [viewMode, setViewMode] = useState('comparison'); // 'comparison' or 'grid'
-  const { user, profile } = useAuth();
-  const unit = profile?.weight_unit_preference || 'kg';
+const PhotosTab = ({ onRefresh, refreshing, entries = [] }: { onRefresh: () => void, refreshing: boolean, entries?: DailyMetric[] }) => {
+  const { user } = useAuth();
+  const { state: tutorialState } = useTutorial();
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPhotos = useCallback(async () => {
-    if (!user?.id) return;
+    if (tutorialState.isActive) {
+      setPhotos([]); 
+      setLoading(false);
+      return;
+    }
+
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     try {
       const fetchedPhotos = await ProgressService.getProgressPhotos(user.id);
-      
-      // Merge weight data from entries if available
       const enrichedPhotos = fetchedPhotos.map(photo => {
         const dateEntry = entries.find(e => e.metric_date === photo.date);
-        return {
-          ...photo,
-          weight_kg: dateEntry?.weight_kg || null
-        };
+        return { ...photo, weight_kg: dateEntry?.weight_kg || null };
       });
-      
       setPhotos(enrichedPhotos);
     } catch (error) {
       console.error('Error fetching photos:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, entries]);
+  }, [user?.id, entries, tutorialState.isActive]);
 
   useEffect(() => {
     fetchPhotos();
@@ -825,280 +551,52 @@ const PhotosTab = ({ onRefresh, refreshing, scrollY, entries = [] }: { onRefresh
 
   if (loading && !refreshing && photos.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.loadingMini}>
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }
 
-  const renderViewModeToggle = () => {
+  if (!photos || photos.length < 2) {
     return (
-      <View style={styles.viewModeToggle}>
+      <View style={styles.emptyState}>
+        <View style={styles.emptyIconContainer}>
+          <Icon name="camera" size={48} color={colors.primary} />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {photos.length === 0 ? 'No Photos Yet' : 'Add More Photos'}
+        </Text>
+        <Text style={styles.emptyDescription}>
+          {photos.length === 0 
+            ? 'Capture your transformation journey visually.' 
+            : 'Upload at least 2 photos to compare your progress.'}
+        </Text>
         <TouchableOpacity
-          style={[styles.viewModeButton, viewMode === 'comparison' && styles.viewModeButtonActive]}
-          onPress={() => setViewMode('comparison')}
+          onPress={() => router.push('/(main)/progress/log-photo')}
+          style={styles.emptyActionButton}
+          activeOpacity={0.9}
         >
           <LinearGradient
-            colors={viewMode === 'comparison' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
-            style={styles.viewModeButtonGradient}
+            colors={[colors.primary, colors.primaryDark]}
+            style={styles.emptyActionGradient}
           >
-            <Icon name="compare" size={16} color={viewMode === 'comparison' ? colors.white : colors.primary} />
-            <Text style={[styles.viewModeButtonText, viewMode === 'comparison' && styles.viewModeButtonTextActive]}>
-              Before/After
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.viewModeButton, viewMode === 'grid' && styles.viewModeButtonActive]}
-          onPress={() => setViewMode('grid')}
-        >
-          <LinearGradient
-            colors={viewMode === 'grid' ? [colors.primary, colors.primaryDark] : [colors.glass, colors.glass]}
-            style={styles.viewModeButtonGradient}
-          >
-            <Icon name="grid" size={16} color={viewMode === 'grid' ? colors.white : colors.primary} />
-            <Text style={[styles.viewModeButtonText, viewMode === 'grid' && styles.viewModeButtonTextActive]}>
-              Photo Grid
-            </Text>
+            <Icon name="camera-plus" size={18} color={colors.white} />
+            <Text style={styles.emptyActionText}>Add Photo</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
     );
-  };
-
-  if (!photos || photos.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyCard}>
-          <LinearGradient
-            colors={[colors.glassStrong, colors.glass]}
-            style={styles.emptyCardGradient}
-          >
-            <View style={styles.emptyCardContent}>
-              <View style={styles.emptyIconContainer}>
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.emptyIconGradient}
-                >
-                  <Icon name="camera" size={32} color={colors.white} />
-                </LinearGradient>
-              </View>
-              <Text style={styles.emptyText}>No Photos Yet</Text>
-              <Text style={styles.emptySubText}>Capture your transformation journey visually</Text>
-              <TouchableOpacity
-                onPress={() => router.push({ pathname: '/(main)/progress/photo-upload' })}
-                style={styles.createButtonContainer}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.createButton}
-                >
-                  <Icon name="camera-plus" size={16} color={colors.white} style={styles.buttonIcon} />
-                  <Text style={styles.createButtonText}>Add First Photo</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-      </View>
-    );
   }
 
-  if (photos.length === 1) {
-    return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyCard}>
-          <LinearGradient
-            colors={[colors.glassStrong, colors.glass]}
-            style={styles.emptyCardGradient}
-          >
-            <View style={styles.emptyCardContent}>
-              <View style={styles.emptyIconContainer}>
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.emptyIconGradient}
-                >
-                  <Icon name="camera-plus" size={32} color={colors.white} />
-                </LinearGradient>
-              </View>
-              <Text style={styles.emptyText}>One Photo Uploaded</Text>
-              <Text style={styles.emptySubText}>Upload at least 2 photos to compare your progress</Text>
-              <TouchableOpacity
-                onPress={() => router.push({ pathname: '/(main)/progress/photo-upload' })}
-                style={styles.createButtonContainer}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.createButton}
-                >
-                  <Icon name="camera-plus" size={16} color={colors.white} style={styles.buttonIcon} />
-                  <Text style={styles.createButtonText}>Add Another Photo</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-      </View>
-    );
-  }
-
-  if (viewMode === 'comparison') {
-    return (
-      <View style={styles.content}>
-        {/* Before/After Comparison Component - now handles its own scrolling */}
-        <BeforeAfterComparison 
-          userId={user?.id || ''} 
-          onPhotoUpload={() => router.push('/(main)/progress/photo-upload')}
-          showScrollView={true}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={[colors.primary]} 
-              tintColor={colors.primary}
-              progressBackgroundColor="rgba(255,255,255,0.1)"
-            />
-          }
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
-          scrollEventThrottle={16}
-          headerComponent={
-            <>
-              {renderViewModeToggle()}
-              
-              <View style={styles.comparisonContainer}>
-                <View style={styles.comparisonHeaderRow}>
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryDark]}
-                    style={styles.comparisonIconContainer}
-                  >
-                    <Icon name="compare" size={24} color="#FFFFFF" />
-                  </LinearGradient>
-                  <View style={styles.comparisonTextContainer}>
-                    <Text style={styles.comparisonTitle}>Progress Comparison</Text>
-                    <Text style={styles.comparisonSubtitle}>
-                      Track your transformation journey
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </>
-          }
-        />
-      </View>
-    );
-  }
-  
   return (
-    <ScrollView
-      style={styles.content}
-      contentContainerStyle={styles.scrollContent}
-      onScroll={Animated.event(
-        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-        { useNativeDriver: false }
-      )}
-      scrollEventThrottle={16}
-      refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
-          onRefresh={onRefresh} 
-          colors={[colors.primary]} 
-          tintColor={colors.primary}
-          progressBackgroundColor="rgba(255,255,255,0.1)"
-        />
-      }
-    >
-      {renderViewModeToggle()}
-      
-      {/* Privacy Notice */}
+    <View style={styles.photosContent}>
+      <BeforeAfterComparison 
+        userId={user?.id || ''} 
+        onPhotoUpload={() => router.push('/(main)/progress/log-photo')}
+        showScrollView={false}
+      />
       <ProgressPhotoPrivacyNotice variant="compact" />
-      
-      <View style={styles.photosHeader}>
-        <Text style={styles.photosTitle}>Your Progress Photos</Text>
-        <TouchableOpacity 
-          style={styles.uploadButton}
-          onPress={() => router.push('/(main)/progress/photo-upload')}
-        >
-          <Icon name="camera-plus" size={16} color={colors.primary} />
-          <Text style={styles.uploadButtonText}>Upload Photos</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.photosContainer}>
-        {photos.map((entry, index) => {
-          const displayWeight =
-            unit === 'lbs' && typeof entry.weight_kg === 'number'
-              ? kgToLbs(entry.weight_kg)
-              : entry.weight_kg;
-
-          return (
-            <View key={entry.id} style={styles.photoEntryCard}>
-              <LinearGradient
-                colors={[colors.glassStrong, colors.glass]}
-                style={styles.photoEntryGradient}
-              >
-                <View style={styles.photoEntryHeader}>
-                  <Text style={styles.photoEntryDate}>
-                    {new Date(entry.date).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </Text>
-                  {entry.weight_kg && (
-                    <View style={styles.weightBadge}>
-                      <Text style={styles.weightText}>{typeof displayWeight === 'number' ? displayWeight.toFixed(1) : '--'} {unit}</Text>
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.photosGrid}>
-                  {entry.front_photo && (
-                    <View style={styles.photoContainer}>
-                      <Image 
-                        source={{ uri: entry.front_photo.storage_path }}
-                        style={styles.photoImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.photoLabel}>
-                        <Text style={styles.photoLabelText}>Front</Text>
-                      </View>
-                    </View>
-                  )}
-                  
-                  {entry.back_photo && (
-                    <View style={styles.photoContainer}>
-                      <Image 
-                        source={{ uri: entry.back_photo.storage_path }}
-                        style={styles.photoImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.photoLabel}>
-                        <Text style={styles.photoLabelText}>Back</Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-                
-                <TouchableOpacity
-                  onPress={() => router.push({ 
-                    pathname: '/(main)/progress/photo-upload',
-                    params: { date: entry.date }
-                  })}
-                  style={styles.editButton}
-                >
-                  <Icon name="pencil" size={16} color={colors.primary} />
-                  <Text style={styles.editButtonText}>Edit</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            </View>
-          );
-        })}
-      </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -1106,856 +604,338 @@ const PhotosTab = ({ onRefresh, refreshing, scrollY, entries = [] }: { onRefresh
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+    backgroundColor: '#000000',
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: colors.dark,
-  },
-  solidHeader: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: colors.dark,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  mainContent: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    zIndex: 10,
-  },
-  headerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  appName: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginHorizontal: 12,
-  },
-  titleSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  titleGlow: {
-    alignItems: 'flex-start',
-  },
-  titleDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  titleDate: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginLeft: 8,
-  },
-  titleMain: {
-    color: colors.white,
-    fontSize: 42,
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginVertical: 8,
-    textShadowColor: 'rgba(255,255,255,0.1)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-  },
-  titleDescription: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '500',
-  },
-  // Ultra-Modern Tab Styles
-  tabContainerWrapper: {
-    marginHorizontal: 20,
-    marginBottom: 28,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  tabBackdrop: {
-    borderRadius: 24,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  tabBlurView: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  tabGradientOverlay: {
-    borderRadius: 24,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    position: 'relative',
-  },
-  
-  // Animated Background Indicator
-  tabIndicatorBackground: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    width: (width - 52) / 3, // Exact width of each tab
-    bottom: 6,
-    borderRadius: 20,
-    zIndex: 1,
-  },
-  activeTabBackground: {
-    flex: 1,
-    borderRadius: 20,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-  },
-  
-  // Tab Wrapper & Button (removed - simplified structure)
-  tab: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 20,
-    position: 'relative',
-    zIndex: 2,
-    minHeight: 48,
-  },
-  activeTab: {
-    // Active state handled by background indicator
-  },
-  
-  // Tab Icon Styles
-  tabIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  activeTabIconContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: colors.white,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  
-  // Tab Text Styles
-  tabText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  activeTabText: {
-    color: colors.white,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  
-  // Glow Effect
-  tabGlowEffect: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 22,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.primary + '40',
-    shadowColor: colors.primary,
-    shadowOpacity: 0.6,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-  },
-  
-  // Bottom Accent Line
-  tabAccentLine: {
-    height: 2,
-    marginHorizontal: 16,
-    marginBottom: 4,
-    borderRadius: 1,
-    overflow: 'hidden',
-  },
-  tabAccentGradient: {
-    flex: 1,
-    borderRadius: 1,
-  },
-
-  // Remove old styles that are no longer needed
-  tabBlur: {
-    // Removed - replaced with tabBlurView
-  },
-  tabGradientBorder: {
-    // Removed - replaced with tabGradientOverlay
-  },
-  activeTabIndicator: {
-    // Removed - replaced with tabIndicatorBackground
-  },
-  content: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
-  loadingCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    width: '100%',
-    maxWidth: 300,
-  },
-  loadingCardGradient: {
-    padding: 40,
-    alignItems: 'center',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  loadingSubText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 120,
-  },
-  heroCard: {
-    marginBottom: 32,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  heroCardGradient: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.2)',
-    padding: 24,
-  },
-  heroCardContent: {
-    alignItems: 'center',
-  },
-  heroCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    width: '100%',
-  },
-  heroIconContainer: {
-    marginRight: 12,
-  },
-  heroIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  loadingAvatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  heroTextContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  heroCardTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.white,
-    letterSpacing: 2,
-  },
-  heroCardSubtitle: {
-    fontSize: 14,
+  loadingText: {
+    fontSize: 15,
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  heroMoreButton: {
-    padding: 8,
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    width: '100%',
-  },
-  heroStat: {
+  loadingMini: {
+    padding: 40,
     alignItems: 'center',
-  },
-  heroStatNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  heroStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  heroStatDivider: {
-    width: 1,
-    height: '80%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sectionNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  sectionNumberText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  sectionTitleText: {
-    color: colors.white,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  sectionAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sectionActionText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  chartCard: {
-    marginBottom: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  chartCardGradient: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: 24,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  chartTitle: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  chartBadge: {
-    backgroundColor: 'rgba(255,107,53,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginLeft: 10,
-  },
-  chartBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
   },
 
-  emptyContainer: {
-    flex: 1,
-    padding: 24,
-    paddingTop: 60,
-  },
-  photosContainer: {
-    padding: 24,
-  },
-  photoEntryCard: {
-    marginBottom: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  photoEntryGradient: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: 24,
-  },
-  photoEntryHeader: {
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingTop: 8,
   },
-  photoEntryDate: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  weightBadge: {
-    backgroundColor: `${colors.primary}20`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  weightText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  photosGrid: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-    justifyContent: 'center',
-  },
-  photoContainer: {
-    flex: 1,
+  coachAvatarContainer: {
     position: 'relative',
+    marginRight: 14,
   },
-  photoImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 16,
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
   },
-  photoLabel: {
+  coachOnlineIndicator: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
-  photoLabelText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.white,
+  coachTextContainer: {
+    flex: 1,
   },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: `${colors.primary}20`,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  emptyCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  emptyCardGradient: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  emptyCardContent: {
-    alignItems: 'center',
-    padding: 48,
-  },
-  emptyIconContainer: {
-    marginBottom: 24,
-  },
-  emptyIconGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
+  coachGreeting: {
     fontSize: 22,
     fontWeight: '700',
     color: colors.white,
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 4,
   },
-  emptySubText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 32,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  createButtonContainer: {
-    borderRadius: 25,
-    overflow: 'hidden',
-  },
-  createButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 25,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  createButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  historyList: {
-    padding: 24,
-    paddingBottom: 120,
-  },
-  historyItem: {
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  historyItemGradient: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    padding: 24,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  historyDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  historyDate: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.white,
-    marginLeft: 8,
-  },
-  historyBadge: {
-    backgroundColor: 'rgba(255,107,53,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  historyBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  historyMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  historyMetricItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  historyMetricSeparator: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: 16,
-  },
-  historyMetricValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  historyMetricUnit: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  historyMetricLabel: {
-    fontSize: 10,
-    color: colors.textTertiary,
-    marginTop: 4,
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  historyMetricItemSingle: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weightDisplayContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-  },
-  historyMetricValueLarge: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  historyMetricUnitLarge: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: 4,
-  },
-  historyMetricLabelSingle: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 8,
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  historyNotes: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  historyNotesText: {
+  coachMessage: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginLeft: 8,
-    flex: 1,
     lineHeight: 20,
   },
-  floatingActionButton: {
-    position: 'absolute',
-    bottom: 174,
-    right: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+
+  // Quick Actions Grid
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  fabShadow: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,107,53,0.3)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  quickActionCard: {
+    width: (width - 40 - 24) / 4, // 40px padding, 24px for 3 gaps of 8px
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  fabPulse: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,107,53,0.1)',
-    top: -8,
-    left: -8,
-    zIndex: -1,
-  },
-  fabRing: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,107,53,0.05)',
-    top: -10,
-    left: -10,
-    zIndex: -2,
-  },
-  comingSoonContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  comingSoonCard: {
-    padding: 48,
-    borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  comingSoonText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.white,
-    marginTop: 16,
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  comingSoonSubText: {
-    fontSize: 14,
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.textSecondary,
-    marginTop: 8,
+    letterSpacing: 0.3,
   },
-  photosHeader: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    marginBottom: 20,
-    gap: 16,
+
+  // Tab Selector
+  tabSelector: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
   },
-  photosTitle: {
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  tabButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  tabButtonTextActive: {
+    color: colors.white,
+  },
+
+  content: {
+    flex: 1,
+  },
+  // Dashboard Tab Styles
+  dashboardContent: {
+    flex: 1,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.white,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
-    alignSelf: 'flex-start',
-  },
-  uploadButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // View mode toggle styles
-  viewModeToggle: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-    gap: 12,
-  },
-  viewModeButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    minWidth: 120,
-  },
-  viewModeButtonActive: {
-    elevation: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  viewModeButtonGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  viewModeButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  viewModeButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  // Comparison container styles
-  comparisonContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-    marginTop: 8,
-  },
-  comparisonHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  comparisonIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  comparisonTextContainer: {
-    flex: 1,
-  },
-  comparisonTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
     marginBottom: 4,
-    letterSpacing: 0.5,
   },
-  comparisonSubtitle: {
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  statDivider: {
+    width: 1,
+    height: '80%',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignSelf: 'center',
+  },
+
+  // AI Insight Card
+  insightCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  insightIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  insightText: {
     fontSize: 13,
     color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Chart Section
+  chartSection: {
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 16,
+  },
+
+  // History Tab Styles
+  historyContent: {
+    flex: 1,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  historyItemLeft: {
+    flex: 1,
+  },
+  historyDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: 2,
+  },
+  historyNotes: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  historyMetricsRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 8,
+  },
+  historyMetricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  historyMetricText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  historyItemRight: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  historyWeight: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  historyUnit: {
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 18,
+    color: colors.textSecondary,
+    marginLeft: 4,
+  },
+  moreEntriesText: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  emptyActionButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  emptyActionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  emptyActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.white,
+  },
+
+  // Photos Tab Styles
+  photosContent: {
+    flex: 1,
   },
 });

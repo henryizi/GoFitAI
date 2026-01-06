@@ -125,7 +125,21 @@ export default function MathematicalPlanCreateScreen() {
         }
       );
 
+      if (!newPlan || !newPlan.id) {
+        throw new Error('Plan was not created successfully');
+      }
+
       console.log('[NUTRITION] ✅ Mathematical plan created successfully:', newPlan.id);
+      console.log('[NUTRITION] Plan details:', {
+        id: newPlan.id,
+        plan_name: newPlan.plan_name,
+        status: newPlan.status,
+        goal_type: newPlan.goal_type,
+        plan_type: (newPlan as any).plan_type || 'mathematical'
+      });
+
+      // Add a delay to ensure database commit and refresh cache
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       Alert.alert(
         'Plan Created',
@@ -133,7 +147,14 @@ export default function MathematicalPlanCreateScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.replace(`/(main)/nutrition/plan?planId=${newPlan.id}`),
+            onPress: () => {
+              // Navigate to nutrition index first to trigger refresh, then to plan detail
+              router.replace('/(main)/nutrition');
+              // Small delay then navigate to plan
+              setTimeout(() => {
+                router.push(`/(main)/nutrition/plan?planId=${newPlan.id}`);
+              }, 100);
+            },
           },
         ]
       );

@@ -198,23 +198,50 @@ export class GeminiService {
   
   private static getBaseUrls(): string[] {
     const railwayUrl = 'https://gofitai-production.up.railway.app';
-    const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
-    const localhostUrl = 'http://localhost:4000';
-    const localIpUrl = 'http://192.168.0.174:4000'; // Local network IP from server startup
+    const extras = Constants.expoConfig?.extra || {};
+    const envUrl = extras?.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL;
+
+    // Optional local overrides (only used in development when enabled)
+    const configuredLocalUrl = extras?.AI_LOCAL_API_URL || process.env.AI_LOCAL_API_URL;
+    const legacyLanUrl = extras?.AI_LAN_API_URL || process.env.AI_LAN_API_URL;
+    const localhostUrl = configuredLocalUrl || legacyLanUrl || 'http://localhost:4000';
+
+    const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
+    const localEnabledEnv =
+      extras?.AI_ENABLE_LOCAL === true ||
+      extras?.AI_ENABLE_LOCAL === 'true' ||
+      process.env.AI_ENABLE_LOCAL === 'true';
+    const enableLocalBases = isDev || localEnabledEnv;
 
     console.log('[GEMINI SERVICE] Available URLs:');
     console.log('[GEMINI SERVICE] Railway URL (PRIMARY):', railwayUrl);
     console.log('[GEMINI SERVICE] Environment URL:', envUrl);
-    console.log('[GEMINI SERVICE] Local IP URL:', localIpUrl);
+    console.log('[GEMINI SERVICE] Local override URL:', configuredLocalUrl || legacyLanUrl);
     console.log('[GEMINI SERVICE] Localhost URL:', localhostUrl);
+    console.log('[GEMINI SERVICE] Local bases enabled:', enableLocalBases);
 
-    // Priority order: Railway production first for stability
-    const urls = [
-      railwayUrl,   // Railway production (PRIMARY)
-      envUrl,       // Environment override (if provided)
-      localIpUrl,   // Local network IP (for development)
-      localhostUrl, // Localhost fallback (for simulator)
-    ].filter(Boolean) as string[];
+    const urls: string[] = [];
+
+    // Add Railway URL first (always primary)
+    if (railwayUrl) urls.push(railwayUrl);
+    
+    // Add environment URL only if it's different from Railway URL
+    if (envUrl && envUrl !== railwayUrl && !urls.includes(envUrl)) {
+      urls.push(envUrl);
+    }
+
+    if (enableLocalBases) {
+      const localCandidates = [configuredLocalUrl, legacyLanUrl, localhostUrl]
+        .filter(Boolean)
+        .map(String);
+      localCandidates.forEach((candidate) => {
+        if (candidate && !urls.includes(candidate)) {
+          urls.push(candidate);
+        }
+      });
+    } else {
+      console.log('[GEMINI SERVICE] Skipping local API bases (set AI_ENABLE_LOCAL=true to re-enable).');
+    }
 
     console.log('[GEMINI SERVICE] Using URLs in priority order:', urls);
     return urls;
@@ -258,10 +285,13 @@ export class GeminiService {
         // Create timeout promise - optimized for meal generation
         // Use shorter timeout for local servers, longer for remote
         const isLocal = base.includes('localhost') || base.includes('192.168.') || base.includes('127.0.0.1');
-        const timeoutMs = isLocal ? 15000 : 45000; // 15s for local, 45s for remote
+        const timeoutMs = isLocal ? 3000 : 45000; // 3s for local (faster fail), 45s for remote
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`[GEMINI SERVICE] Request timed out after ${timeoutMs}ms for ${base}, trying next...`);
+          // Only log timeout for remote servers to reduce noise from localhost failures
+          if (!isLocal) {
+            console.log(`[GEMINI SERVICE] Request timed out after ${timeoutMs}ms for ${base}, trying next...`);
+          }
           controller.abort();
         }, timeoutMs);
         
@@ -362,8 +392,25 @@ export class GeminiService {
       try {
         console.log(`[GEMINI SERVICE] Trying base: ${base}`);
         
+        // Skip localhost silently if local bases aren't enabled
+        const isLocalhost = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('192.168') || base.includes('10.0');
+        if (isLocalhost) {
+          const extras = Constants.expoConfig?.extra || {};
+          const enableLocalBases = extras?.AI_ENABLE_LOCAL === true || extras?.AI_ENABLE_LOCAL === 'true';
+          if (!enableLocalBases) {
+            continue; // Skip localhost if not enabled
+          }
+        }
+        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+        const timeoutMs = isLocalhost ? 3000 : 45000; // Faster timeout for localhost
+        const timeoutId = setTimeout(() => {
+          // Only log timeout for remote servers
+          if (!isLocalhost) {
+            console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          }
+          controller.abort();
+        }, timeoutMs);
         
         const response = await fetch(`${base}/api/generate-ai-nutrition-targets`, {
           method: 'POST',
@@ -432,8 +479,25 @@ export class GeminiService {
       try {
         console.log(`[GEMINI SERVICE] Trying base: ${base}`);
         
+        // Skip localhost silently if local bases aren't enabled
+        const isLocalhost = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('192.168') || base.includes('10.0');
+        if (isLocalhost) {
+          const extras = Constants.expoConfig?.extra || {};
+          const enableLocalBases = extras?.AI_ENABLE_LOCAL === true || extras?.AI_ENABLE_LOCAL === 'true';
+          if (!enableLocalBases) {
+            continue; // Skip localhost if not enabled
+          }
+        }
+        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+        const timeoutMs = isLocalhost ? 3000 : 45000; // Faster timeout for localhost
+        const timeoutId = setTimeout(() => {
+          // Only log timeout for remote servers
+          if (!isLocalhost) {
+            console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          }
+          controller.abort();
+        }, timeoutMs);
 
         // Construct the prompt context
         const insight = {
@@ -596,11 +660,15 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
     carbsGrams: number,
     fatGrams: number,
     dietaryPreferences: string[] = [],
-    cuisinePreference?: string
+    cuisinePreference?: string,
+    regenerationToken?: string
   ): Promise<{
     success: boolean;
     mealPlan?: DailyMealPlan;
     fallback?: boolean;
+    method?: string;
+    aiProvider?: string;
+    usedAi?: boolean;
     error?: string;
   }> {
     console.log('[GEMINI SERVICE] Generating daily meal plan via server API');
@@ -615,15 +683,29 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
       try {
         console.log(`[GEMINI SERVICE] Trying base: ${base}`);
         
+        // Skip localhost silently if local bases aren't enabled
+        const isLocalhost = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('192.168') || base.includes('10.0');
+        if (isLocalhost) {
+          const extras = Constants.expoConfig?.extra || {};
+          const enableLocalBases = extras?.AI_ENABLE_LOCAL === true || extras?.AI_ENABLE_LOCAL === 'true';
+          if (!enableLocalBases) {
+            continue; // Skip localhost if not enabled
+          }
+        }
+        
         // Create timeout promise - longer timeout for complete meal plan generation
-        const timeoutMs = 60000; // 60 seconds timeout for full meal plan generation
+        // Increased to 90 seconds to account for complex AI meal plan generation
+        const timeoutMs = isLocalhost ? 3000 : 90000; // 3s for localhost, 90s for remote
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          // Only log timeout for remote servers
+          if (!isLocalhost) {
+            console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
+          }
           controller.abort();
         }, timeoutMs);
         
-        const response = await fetch(`${base}/api/generate-daily-meal-plan`, {
+        const response = await fetch(`${base}/api/generate-daily-meal-plan-ai`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -635,12 +717,19 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
             carbsGrams,
             fatGrams,
             dietaryPreferences,
-            cuisinePreference
+            cuisinePreference,
+            regenerationToken
           }),
           signal: controller.signal
         });
 
         clearTimeout(timeoutId);
+
+        // Check if request was aborted immediately after fetch
+        if (controller.signal.aborted) {
+          // Don't create Error objects for aborts - just skip to next base
+          continue;
+        }
 
         if (!response.ok) {
           // Handle 404 specifically - might be missing endpoint
@@ -651,29 +740,96 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        // Parse response with error handling for incomplete responses
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError: any) {
+          // Check if request was aborted during parsing - if so, skip to next base
+          if (controller.signal.aborted) {
+            // Don't create Error object - just skip to next iteration
+            continue;
+          }
+          // If JSON parsing fails due to abort, skip to next base
+          if (parseError.name === 'AbortError' || parseError.message?.includes('aborted') || parseError.message?.includes('incomplete')) {
+            continue;
+          }
+          throw parseError;
+        }
+        
+        // Check again if request was aborted after parsing - if so, skip to next base
+        if (controller.signal.aborted) {
+          continue;
+        }
         
         console.log('[GEMINI SERVICE] Received daily meal plan response from server');
         
+        // Validate data structure before accessing properties
+        if (!data || typeof data !== 'object') {
+          // Check abort before throwing - if aborted, skip to next base
+          if (controller.signal.aborted) {
+            continue;
+          }
+          throw new Error('Invalid response format from server');
+        }
+        
         if (data.success && data.meal_plan) {
-          // Transform the response to match expected format
+          // Check abort before validation - if aborted, skip to next base
+          if (controller.signal.aborted) {
+            continue;
+          }
+          
+          // Validate meal_plan is an array
+          if (!Array.isArray(data.meal_plan)) {
+            // Check abort before throwing validation error - if aborted, skip to next base
+            if (controller.signal.aborted) {
+              continue;
+            }
+            console.error('[GEMINI SERVICE] meal_plan is not an array:', typeof data.meal_plan, data.meal_plan);
+            throw new Error('Invalid meal plan format: expected array');
+          }
+          
+          // Transform the response to match expected format with error handling
+          let totalNutrition;
+          try {
+            // Process meals synchronously to avoid abort signal interference
+            totalNutrition = { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 };
+            
+            for (const meal of data.meal_plan) {
+              // Check abort signal before each iteration
+              if (controller.signal.aborted) {
+                console.warn('[GEMINI SERVICE] Request aborted during meal processing, using partial totals');
+                break;
+              }
+              
+              // Skip invalid meal entries
+              if (!meal || typeof meal !== 'object') {
+                console.warn('[GEMINI SERVICE] Skipping invalid meal entry:', meal);
+                continue;
+              }
+              
+              // Safely extract macros with fallbacks
+              const macros = meal.macros || {};
+              const calories = Number(macros.calories) || 0;
+              const protein = Number(macros.protein_grams ?? macros.protein ?? 0) || 0;
+              const carbs = Number(macros.carbs_grams ?? macros.carbs ?? 0) || 0;
+              const fat = Number(macros.fat_grams ?? macros.fat ?? 0) || 0;
+              
+              // Add to totals
+              totalNutrition.calories += calories;
+              totalNutrition.protein_grams += protein;
+              totalNutrition.carbs_grams += carbs;
+              totalNutrition.fat_grams += fat;
+            }
+          } catch (reduceError: any) {
+            console.error('[GEMINI SERVICE] Error during meal plan reduction:', reduceError);
+            // If processing fails, use default values
+            totalNutrition = { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 };
+          }
+          
           const transformedMealPlan = {
             meals: data.meal_plan,
-            total_nutrition: data.meal_plan.reduce((total: any, meal: any) => {
-              // Handle both AI format (protein_grams) and mathematical format (protein)
-              const macros = meal.macros || {};
-              const calories = macros.calories || 0;
-              const protein = macros.protein_grams || macros.protein || 0;
-              const carbs = macros.carbs_grams || macros.carbs || 0;
-              const fat = macros.fat_grams || macros.fat || 0;
-              
-              return {
-                calories: (total.calories || 0) + calories,
-                protein_grams: (total.protein_grams || 0) + protein,
-                carbs_grams: (total.carbs_grams || 0) + carbs,
-                fat_grams: (total.fat_grams || 0) + fat
-              };
-            }, { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }),
+            total_nutrition: totalNutrition,
             cuisine_variety: ['Mixed'],
             cooking_tips: ['Follow the recipe instructions', 'Adjust portions as needed']
           };
@@ -681,40 +837,91 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           return {
             success: true,
             mealPlan: transformedMealPlan,
-            fallback: data.used_ai === false
+            fallback: data.used_ai === false || data.method === 'mathematical_fallback',
+            method: data.method || 'unknown',
+            aiProvider: data.aiProvider || 'unknown',
+            usedAi: data.used_ai !== undefined ? data.used_ai : false
           };
         } else {
           throw new Error(data.error || 'Failed to generate daily meal plan');
         }
         
       } catch (error: any) {
+        // Check for abort errors FIRST (before any logging or lastError assignment)
+        // Check both name and message to catch all abort scenarios
+        const errorMessage = error?.message || '';
+        const errorName = error?.name || '';
+        const errorString = String(error || '');
+        
+        const isAbortError = 
+          errorName === 'AbortError' || 
+          errorMessage === 'Aborted' ||
+          errorMessage.toLowerCase().includes('aborted') ||
+          errorMessage.toLowerCase().includes('abort') ||
+          errorString.toLowerCase().includes('aborted') ||
+          errorString.toLowerCase().includes('abort') ||
+          (error?.silent === true && errorName === 'AbortError');
+        
+        if (isAbortError) {
+          // Log timeout with details for debugging
+          console.log(`[GEMINI SERVICE] ⏱️ Request timed out for ${base} (90s timeout reached)`);
+          console.log(`[GEMINI SERVICE] This usually means the server is taking too long to respond`);
+          lastError = error; // Keep last error for final message
+          continue;
+        }
+        
+        // Check for network errors (also expected, log as info)
+        if (errorMessage.includes('Network request failed') || 
+            errorMessage.includes('fetch') ||
+            errorMessage.includes('Failed to fetch')) {
+          console.log(`[GEMINI SERVICE] 🌐 Network error for ${base}:`, errorMessage);
+          console.log(`[GEMINI SERVICE] This usually means the server is unreachable or offline`);
+          lastError = error; // Keep last error for final message
+          continue;
+        }
+        
+        // Log unexpected errors with full details for debugging
         lastError = error;
-        console.error(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
-        
-        // If it's an abort error (timeout), try next base
-        if (error.name === 'AbortError') {
-          console.log(`[GEMINI SERVICE] Request timed out for ${base}, trying next...`);
-          continue;
-        }
-        
-        // If it's a network error, try next base
-        if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
-          console.log(`[GEMINI SERVICE] Network error for ${base}, trying next...`);
-          continue;
-        }
+        console.error(`[GEMINI SERVICE] ❌ Failed with base ${base}:`, {
+          error: errorMessage,
+          name: errorName,
+          status: error?.status,
+          code: error?.code,
+          stack: error?.stack?.substring(0, 200) // First 200 chars of stack
+        });
         
         // For other errors, still try next base
         continue;
       }
     }
 
-    // All bases failed, return fallback
-    console.error('[GEMINI SERVICE] All bases failed, returning fallback');
+    // All bases failed, return fallback with detailed error info
+    console.log('[GEMINI SERVICE] ⚠️ All bases failed, using mathematical fallback');
     console.log('[GEMINI SERVICE] 🔄 Using mathematical fallback for daily meal plan generation');
+    
+    // Log detailed error information for debugging
+    if (lastError) {
+      const errorDetails = lastError as Error;
+      console.log('[GEMINI SERVICE] 📋 Last error details:', {
+        message: errorDetails.message,
+        name: errorDetails.name,
+        cause: (errorDetails as any).cause
+      });
+      console.log('[GEMINI SERVICE] 💡 Possible causes:');
+      console.log('[GEMINI SERVICE]   1. Server is down or unreachable');
+      console.log('[GEMINI SERVICE]   2. Network timeout (server taking >90s to respond)');
+      console.log('[GEMINI SERVICE]   3. Missing GEMINI_API_KEY on server');
+      console.log('[GEMINI SERVICE]   4. Server endpoint /api/generate-daily-meal-plan-ai not working');
+      console.log('[GEMINI SERVICE]   5. Railway deployment issue');
+    }
+    
     return {
       success: false,
       error: (lastError as Error)?.message || 'Failed to generate daily meal plan with Gemini AI',
-      fallback: true
+      fallback: true,
+      method: 'mathematical_fallback',
+      aiProvider: 'fallback',
+      usedAi: false
     };
   }
 
@@ -994,23 +1201,45 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+          // Try to get error details from response
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData);
+          } catch (e) {
+            errorDetails = await response.text().catch(() => 'Unable to read error response');
+          }
+          
+          console.error(`[GEMINI SERVICE] ❌ Server error from ${base}/api/generate-workout-plan:`, {
+            status: response.status,
+            statusText: response.statusText,
+            errorDetails: errorDetails.substring(0, 500)
+          });
+          
           // Handle 404 specifically - might be missing endpoint
           if (response.status === 404) {
             console.warn(`[GEMINI SERVICE] 404 from ${base}, trying next...`);
             continue;
           }
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+          
+          // For 500 errors, try next base
+          if (response.status >= 500) {
+            console.warn(`[GEMINI SERVICE] Server error (${response.status}) from ${base}, trying next...`);
+            continue;
+          }
+          
+          throw new Error(`Server error: ${response.status} ${response.statusText} - ${errorDetails.substring(0, 200)}`);
         }
 
         const data = await response.json();
 
-        console.log('[GEMINI SERVICE] Received workout plan response from server:', {
+        // Log the server response
+        console.log('[GEMINI SERVICE] 🔍 Received workout plan response from server:', {
           success: data.success,
           hasWorkoutPlan: !!data.workoutPlan,
           planName: data.workoutPlan?.name || data.workoutPlan?.plan_name,
           provider: data.provider,
-          usedAI: data.used_ai,
-          systemInfo: data.system_info
+          usedAI: data.used_ai
         });
 
         if (data.success && data.workoutPlan) {
@@ -1023,7 +1252,8 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
             hasWeeklyScheduleCamel: !!serverPlan.weeklySchedule,
             weeklyScheduleType: Array.isArray(serverPlan.weekly_schedule) ? 'array' : typeof serverPlan.weekly_schedule,
             weeklyScheduleLength: serverPlan.weekly_schedule?.length || serverPlan.weeklySchedule?.length || 0,
-            firstDay: serverPlan.weekly_schedule?.[0] || serverPlan.weeklySchedule?.[0]
+            firstDay: serverPlan.weekly_schedule?.[0] || serverPlan.weeklySchedule?.[0],
+            serverPlanKeys: Object.keys(serverPlan || {}).slice(0, 25)
           });
           
           const appPlan: AppWorkoutPlan = {
@@ -1038,6 +1268,7 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
             primary_goal: serverPlan.primary_goal,
             workout_frequency: serverPlan.workout_frequency,
             source: data.used_ai ? 'ai_generated' : 'enhanced_rule_based',
+            // AI reasoning removed from app plan by design
             // Add production metadata for user messaging
             system_metadata: {
               ai_available: data.used_ai,
@@ -1049,51 +1280,23 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
           
           console.log('[GEMINI SERVICE] ✅ Successfully transformed server plan:', {
             name: appPlan.name,
-            weeklyScheduleLength: appPlan.weeklySchedule?.length || 0,
-            weeklyScheduleIsArray: Array.isArray(appPlan.weeklySchedule),
-            firstDayExercises: appPlan.weeklySchedule?.[0] ? 
-              (appPlan.weeklySchedule[0].exercises?.length || 0) + 
-              (appPlan.weeklySchedule[0].warm_up?.length || 0) + 
-              (appPlan.weeklySchedule[0].main_workout?.length || 0) + 
-              (appPlan.weeklySchedule[0].cool_down?.length || 0) : 0,
-            firstDayStructure: appPlan.weeklySchedule?.[0] ? {
-              day: appPlan.weeklySchedule[0].day,
-              focus: appPlan.weeklySchedule[0].focus,
-              hasExercises: !!appPlan.weeklySchedule[0].exercises,
-              exercisesLength: appPlan.weeklySchedule[0].exercises?.length || 0,
-              exerciseNames: appPlan.weeklySchedule[0].exercises?.slice(0, 3)?.map(ex => ex.name) || []
-            } : null,
-            firstWorkoutDay: appPlan.weeklySchedule?.find(d => 
+            weeklyScheduleLength: appPlan.weeklySchedule?.length || 0
+          });
+          
+          // Log weekly schedule summary
+          console.log('[GEMINI SERVICE] Weekly schedule summary:', {
+            totalDays: appPlan.weeklySchedule?.length || 0,
+            workoutDays: appPlan.weeklySchedule?.filter(d => 
               (d.exercises && d.exercises.length > 0) || 
               (d.warm_up && d.warm_up.length > 0) || 
               (d.main_workout && d.main_workout.length > 0) || 
               (d.cool_down && d.cool_down.length > 0)
-            )
-          });
-          
-          // Log full weekly schedule details for debugging
-          console.log('[GEMINI SERVICE] Full weekly schedule details:');
-          console.log('[GEMINI SERVICE] 🔍 RAW SERVER PLAN WEEKLY_SCHEDULE:', JSON.stringify(serverPlan.weekly_schedule, null, 2));
-          console.log('[GEMINI SERVICE] 🔍 APP PLAN WEEKLY_SCHEDULE LENGTH:', appPlan.weeklySchedule?.length);
-          appPlan.weeklySchedule?.forEach((day, idx) => {
-            console.log(`  Day ${idx + 1}:`, {
-              day: day.day,
-              day_name: day.day_name,
-              focus: day.focus,
-              type: day.type || day.workout_type,
-              exercisesCount: day.exercises?.length || 0,
-              warmUpCount: day.warm_up?.length || 0,
-              mainWorkoutCount: day.main_workout?.length || 0,
-              coolDownCount: day.cool_down?.length || 0,
-              firstExercise: day.exercises?.[0] || null
-            });
+            ).length || 0
           });
           
           // CRITICAL CHECK: Ensure weeklySchedule is not empty
           if (!appPlan.weeklySchedule || appPlan.weeklySchedule.length === 0) {
-            console.error('[GEMINI SERVICE] ❌ WARNING: weeklySchedule is empty or undefined!');
-            console.error('[GEMINI SERVICE] Server plan keys:', Object.keys(serverPlan));
-            console.error('[GEMINI SERVICE] Full server plan:', JSON.stringify(serverPlan, null, 2));
+            console.warn('[GEMINI SERVICE] ⚠️ weeklySchedule is empty or undefined');
           }
           
           return appPlan;
@@ -1103,12 +1306,16 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
 
       } catch (error: any) {
         lastError = error;
-        console.error(`[GEMINI SERVICE] Failed with base ${base}:`, error.message);
-        console.error(`[GEMINI SERVICE] Error name: ${error.name}, Error code: ${error.code || 'undefined'}`);
+        console.error(`[GEMINI SERVICE] ❌ Failed with base ${base}/api/generate-workout-plan:`, {
+          message: error.message,
+          name: error.name,
+          code: error.code || 'undefined',
+          stack: error.stack?.substring(0, 300)
+        });
 
         // If it's an abort error (timeout), try next base
         if (error.name === 'AbortError' || error.message.includes('Aborted')) {
-          console.log(`[GEMINI SERVICE] ⏱️ Request aborted/timed out for ${base}, trying next base...`);
+          console.warn(`[GEMINI SERVICE] ⏱️ Request aborted/timed out for ${base}, trying next base...`);
           continue;
         }
 
@@ -1117,7 +1324,7 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
             error.message.includes('fetch') ||
             error.message.includes('TypeError') ||
             error.code === 'NETWORK_ERROR') {
-          console.log(`[GEMINI SERVICE] 🌐 Network error for ${base}, trying next base...`);
+          console.warn(`[GEMINI SERVICE] 🌐 Network error for ${base}, trying next base...`);
           continue;
         }
 
@@ -1125,19 +1332,24 @@ Make this a delicious and nutritious ${mealType.toLowerCase()} recipe!`;
         if (error.message.includes('ECONNREFUSED') || 
             error.message.includes('ETIMEDOUT') ||
             error.message.includes('Connection refused')) {
-          console.log(`[GEMINI SERVICE] 🔌 Connection error for ${base}, trying next base...`);
+          console.warn(`[GEMINI SERVICE] 🔌 Connection error for ${base}, trying next base...`);
           continue;
         }
 
         // For other errors, still try next base
-        console.log(`[GEMINI SERVICE] 🔄 Unknown error for ${base}, trying next base...`);
+        console.warn(`[GEMINI SERVICE] 🔄 Unknown error for ${base}, trying next base...`);
         continue;
       }
     }
 
     // All bases failed - return offline fallback workout plan
-    console.error('[GEMINI SERVICE] All bases failed for workout plan generation');
-    console.log('[GEMINI SERVICE] 🔄 Using offline fallback workout plan generation');
+    console.error('[GEMINI SERVICE] ❌ All bases failed for workout plan generation');
+    console.error('[GEMINI SERVICE] Last error:', lastError ? {
+      message: (lastError as Error).message,
+      name: (lastError as Error).name,
+      stack: (lastError as Error).stack?.substring(0, 500)
+    } : 'No error captured');
+    console.warn('[GEMINI SERVICE] 🔄 Using offline fallback workout plan generation');
     
     try {
       const fallbackPlan = this.generateOfflineFallbackWorkoutPlan(input);

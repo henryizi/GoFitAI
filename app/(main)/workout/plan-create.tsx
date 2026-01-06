@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   View, 
   StyleSheet, 
   Alert, 
   ScrollView, 
   TouchableOpacity, 
-  Platform, 
   Image, 
-  ImageBackground, 
   Dimensions, 
-  ActivityIndicator 
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { StatusBar } from 'expo-status-bar';
@@ -28,25 +27,21 @@ import { environment } from '../../../src/config/environment';
 
 
 // Local dependencies
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// Modern, premium colors
+// Clean Design System
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
   accent: '#FF8F65',
-  background: '#121212',
-  surface: '#1C1C1E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
   textTertiary: 'rgba(235, 235, 245, 0.3)',
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.8)',
-  border: 'rgba(84, 84, 88, 0.6)',
   white: '#FFFFFF',
-  dark: '#121212',
+  purple: '#AF52DE',
 };
 
 // Keep existing mock data, services, etc.
@@ -195,7 +190,48 @@ export default function PlanCreateScreen() {
   const [selectedBodybuilder, setSelectedBodybuilder] = useState('');
   const [apiKeyAvailable] = useState<boolean | null>(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    if (!selectedPlanType) {
+      message = "Let's create your perfect workout plan. Choose your preferred approach below.";
+    } else if (selectedPlanType === 'bodybuilder' && !selectedBodybuilder) {
+      message = "Select a legendary bodybuilder to train like a champion.";
+    } else if (selectedPlanType === 'bodybuilder' && selectedBodybuilder) {
+      const bb = famousBodybuilders.find(b => b.id === selectedBodybuilder);
+      message = `Great choice! ${bb?.name}'s training style will push your limits.`;
+    } else if (selectedPlanType === 'build-your-own') {
+      message = "Build your custom plan with our exercise library.";
+    } else {
+      message = "Ready to generate your personalized AI workout plan.";
+    }
+    
+    return { greeting, message };
+  }, [selectedPlanType, selectedBodybuilder]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Reset selections
+    setSelectedPlanType('');
+    setSelectedBodybuilder('');
+    setError(null);
+    setTimeout(() => setRefreshing(false), 500);
+  }, []);
   
   // Create a default profile for guest mode
   const effectiveProfile = useMemo(() => {
@@ -662,49 +698,83 @@ export default function PlanCreateScreen() {
     <>
       <StatusBar style="light" />
       <View style={styles.container}>
-        {/* Full-screen background */}
-        <ImageBackground
-          source={{ 
-            uri: 'https://images.unsplash.com/photo-1521805103424-d8f8430e8933?q=80&w=2070&auto=format&fit=crop' 
-          }}
-          style={[styles.backgroundImage, { marginTop: -insets.top }]}
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         >
-          <LinearGradient
-            colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
-            style={[styles.overlay, { paddingTop: insets.top }]}
-          />
-        </ImageBackground>
-
-        {/* App header */}
-        <View style={[styles.header, { marginTop: insets.top }]}>
-          <View style={styles.headerLine} />
-          <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
-          <View style={styles.headerLine} />
-        </View>
-
-        {/* Content */}
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + tabBarHeight }]}>
-          {/* Title section */}
-          <View style={styles.titleSection}>
-            <Text style={styles.titlePreheading}>PERSONALIZED</Text>
-            <Text style={styles.titleMain}>WORKOUT PLAN</Text>
-            <Text style={styles.titleDescription}>
-              AI-powered training designed specifically for your body and goals
-            </Text>
-          </View>
-          
-          {apiKeyAvailable === false && (
-            <View style={styles.alert}>
-              <View style={styles.alertIconContainer}>
-                <Icon name="alert-outline" size={18} color={colors.white} />
-              </View>
-              <Text style={styles.alertText}>API key missing - some features limited</Text>
+          {/* AI Coach Header */}
+          <View style={styles.coachHeader}>
+            <View style={styles.coachAvatarContainer}>
+              <Image
+                source={require('../../../assets/mascot.png')}
+                style={styles.coachAvatar}
+              />
+              <View style={styles.coachOnlineIndicator} />
             </View>
-          )}
+            <View style={styles.coachTextContainer}>
+              <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+              <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+            </View>
+          </View>
+
+          {/* Quick Actions Grid */}
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.back()}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(255, 69, 58, 0.12)' }]}>
+                <Icon name="arrow-left" size={22} color="#FF453A" />
+              </View>
+              <Text style={styles.quickActionLabel}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/plans')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                <Icon name="dumbbell" size={22} color="#22C55E" />
+              </View>
+              <Text style={styles.quickActionLabel}>Plans</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/history')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.12)' }]}>
+                <Icon name="history" size={22} color="#6366F1" />
+              </View>
+              <Text style={styles.quickActionLabel}>History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/progression-insights')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(255, 107, 53, 0.12)' }]}>
+                <Icon name="chart-line" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Progress</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Plan Type Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>01 <Text style={styles.sectionTitleText}>SELECT PLAN TYPE</Text></Text>
+            <Text style={styles.sectionTitle}>Select Plan Type</Text>
             
             {planTypes.map((planType) => (
               <TouchableOpacity
@@ -725,38 +795,34 @@ export default function PlanCreateScreen() {
                     }
                   }
                 }}
+                activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={selectedPlanType === planType.id ? 
-                    ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] : 
-                    ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                  style={styles.optionCardGradient}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={[
-                      styles.optionIconContainer,
-                      selectedPlanType === planType.id && styles.optionIconContainerSelected
-                    ]}>
-                      <Icon 
-                        name={planType.icon} 
-                        size={24} 
-                        color={selectedPlanType === planType.id ? colors.primary : colors.white} 
-                      />
-                    </View>
-                    <View style={styles.optionTextContainer}>
-                      <Text style={styles.optionTitle}>{planType.name}</Text>
-                      <Text style={styles.optionDescription}>{planType.description}</Text>
-                    </View>
-                    <View style={[
-                      styles.checkmark,
-                      selectedPlanType === planType.id ? styles.checkmarkSelected : {}
-                    ]}>
-                      {selectedPlanType === planType.id && (
-                        <Icon name="check" size={16} color={colors.white} />
-                      )}
-                    </View>
+                <View style={styles.optionContent}>
+                  <View style={[
+                    styles.optionIconContainer,
+                    selectedPlanType === planType.id && styles.optionIconContainerSelected
+                  ]}>
+                    <Icon 
+                      name={planType.icon} 
+                      size={24} 
+                      color={selectedPlanType === planType.id ? colors.primary : colors.white} 
+                    />
                   </View>
-                </LinearGradient>
+                  <View style={styles.optionTextContainer}>
+                    <Text style={[
+                      styles.optionTitle,
+                      selectedPlanType === planType.id && styles.optionTitleSelected
+                    ]}>
+                      {planType.name}
+                    </Text>
+                    <Text style={styles.optionDescription}>{planType.description}</Text>
+                  </View>
+                  {selectedPlanType === planType.id && (
+                    <View style={styles.checkmarkSelected}>
+                      <Icon name="check" size={16} color={colors.white} />
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -764,7 +830,7 @@ export default function PlanCreateScreen() {
           {/* Bodybuilder Selection */}
           {selectedPlanType === 'bodybuilder' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>CHOOSE TRAINING STYLE</Text></Text>
+              <Text style={styles.sectionTitle}>Choose Training Style</Text>
               
               <View style={styles.bodybuilderGrid}>
                 {famousBodybuilders.map((bodybuilder) => (
@@ -775,50 +841,48 @@ export default function PlanCreateScreen() {
                       selectedBodybuilder === bodybuilder.id && styles.bodybuilderTileSelected
                     ]}
                     onPress={() => setSelectedBodybuilder(bodybuilder.id)}
+                    activeOpacity={0.8}
                   >
-                    <LinearGradient
-                      colors={selectedBodybuilder === bodybuilder.id 
-                        ? ['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)'] 
-                        : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-                      }
-                      style={styles.bodybuilderCardGradient}
-                    >
-                      <View style={styles.bodybuilderContent}>
-                        <View style={styles.bodybuilderHeader}>
+                    <View style={styles.bodybuilderContent}>
+                      <View style={styles.bodybuilderHeader}>
+                        <View style={[
+                          styles.bodybuilderIconContainer,
+                          selectedBodybuilder === bodybuilder.id && styles.bodybuilderIconContainerSelected
+                        ]}>
                           <Icon 
                             name={bodybuilder.icon} 
-                            size={24} 
+                            size={20} 
                             color={selectedBodybuilder === bodybuilder.id ? colors.primary : colors.textSecondary} 
                           />
-                          {selectedBodybuilder === bodybuilder.id && (
-                            <View style={styles.bodybuilderSelectedIndicator}>
-                              <Icon name="check" size={16} color={colors.white} />
-                            </View>
-                          )}
                         </View>
-                        
-                        <View style={styles.bodybuilderTextContainer}>
-                          <Text style={[
-                            styles.bodybuilderName,
-                            selectedBodybuilder === bodybuilder.id && styles.bodybuilderNameSelected
-                          ]}>
-                            {bodybuilder.name}
-                          </Text>
-                          <Text style={[
-                            styles.bodybuilderStyle,
-                            selectedBodybuilder === bodybuilder.id && styles.bodybuilderStyleSelected
-                          ]}>
-                            {bodybuilder.style}
-                          </Text>
-                          <Text style={[
-                            styles.bodybuilderDescription,
-                            selectedBodybuilder === bodybuilder.id && styles.bodybuilderDescriptionSelected
-                          ]}>
-                            {bodybuilder.description}
-                          </Text>
-                        </View>
+                        {selectedBodybuilder === bodybuilder.id && (
+                          <View style={styles.bodybuilderSelectedIndicator}>
+                            <Icon name="check" size={14} color={colors.white} />
+                          </View>
+                        )}
                       </View>
-                    </LinearGradient>
+                      
+                      <View style={styles.bodybuilderTextContainer}>
+                        <Text style={[
+                          styles.bodybuilderName,
+                          selectedBodybuilder === bodybuilder.id && styles.bodybuilderNameSelected
+                        ]}>
+                          {bodybuilder.name}
+                        </Text>
+                        <Text style={[
+                          styles.bodybuilderStyle,
+                          selectedBodybuilder === bodybuilder.id && styles.bodybuilderStyleSelected
+                        ]}>
+                          {bodybuilder.style}
+                        </Text>
+                        <Text style={[
+                          styles.bodybuilderDescription,
+                          selectedBodybuilder === bodybuilder.id && styles.bodybuilderDescriptionSelected
+                        ]}>
+                          {bodybuilder.description}
+                        </Text>
+                      </View>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -828,97 +892,98 @@ export default function PlanCreateScreen() {
           {/* Profile Summary */}
           {selectedPlanType === 'custom' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>YOUR PROFILE</Text></Text>
+              <Text style={styles.sectionTitle}>Your Profile</Text>
               
               <View style={styles.profileCard}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                  style={styles.profileCardGradient}
-                >
-                  {effectiveProfile && effectiveProfile.height_cm && effectiveProfile.weight_kg && effectiveProfile.training_level ? (
-                    <>
-                      <View style={styles.profileMetrics}>
-                        <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>{effectiveProfile?.training_level || '--'}</Text>
-                          <Text style={styles.metricLabel}>LEVEL</Text>
-                        </View>
-                        <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>{effectiveProfile?.height_cm ? formatHeightWithUnit(effectiveProfile.height_cm, effectiveProfile?.height_unit_preference) : '--'}</Text>
-                          <Text style={styles.metricLabel}>HEIGHT</Text>
-                        </View>
-                        <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>{effectiveProfile?.weight_kg ? formatWeightWithUnit(effectiveProfile.weight_kg, effectiveProfile?.weight_unit_preference) : '--'}</Text>
-                          <Text style={styles.metricLabel}>WEIGHT</Text>
-                        </View>
-                        <View style={styles.profileMetric}>
-                          <Text style={styles.metricValue}>
-                            {effectiveProfile?.workout_frequency ?
-                              effectiveProfile.workout_frequency.replace('_', '-') + 'x/week' :
-                              '--'
-                            }
-                          </Text>
-                          <Text style={styles.metricLabel}>WORKOUT FREQ</Text>
-                        </View>
+                {effectiveProfile && effectiveProfile.height_cm && effectiveProfile.weight_kg && effectiveProfile.training_level ? (
+                  <>
+                    <View style={styles.profileMetrics}>
+                      <View style={styles.profileMetric}>
+                        <Text style={styles.metricValue}>{effectiveProfile?.training_level || '--'}</Text>
+                        <Text style={styles.metricLabel}>Level</Text>
                       </View>
+                      <View style={styles.profileMetric}>
+                        <Text style={styles.metricValue}>{effectiveProfile?.height_cm ? formatHeightWithUnit(effectiveProfile.height_cm, effectiveProfile?.height_unit_preference) : '--'}</Text>
+                        <Text style={styles.metricLabel}>Height</Text>
+                      </View>
+                      <View style={styles.profileMetric}>
+                        <Text style={styles.metricValue}>{effectiveProfile?.weight_kg ? formatWeightWithUnit(effectiveProfile.weight_kg, effectiveProfile?.weight_unit_preference) : '--'}</Text>
+                        <Text style={styles.metricLabel}>Weight</Text>
+                      </View>
+                      <View style={styles.profileMetric}>
+                        <Text style={styles.metricValue}>
+                          {effectiveProfile?.workout_frequency ?
+                            effectiveProfile.workout_frequency.replace('_', '-') + 'x/week' :
+                            '--'
+                          }
+                        </Text>
+                        <Text style={styles.metricLabel}>Frequency</Text>
+                      </View>
+                    </View>
 
-                      {/* Primary goal centered below weight & workout frequency */}
-                      <View style={styles.profileMetrics}>
-                        <View style={[styles.profileMetric, styles.profileMetricFull]}>
-                          <Text style={styles.metricValue} numberOfLines={1}>
-                            {resolvedPrimaryGoal ? resolvedPrimaryGoal.replace(/_/g, '\u00A0') : '--'}
-                          </Text>
-                          <Text style={styles.metricLabel}>PRIMARY GOAL</Text>
-                        </View>
+                    {/* Primary goal centered below */}
+                    <View style={styles.profileMetrics}>
+                      <View style={[styles.profileMetric, styles.profileMetricFull]}>
+                        <Text style={styles.metricValue} numberOfLines={1}>
+                          {resolvedPrimaryGoal ? resolvedPrimaryGoal.replace(/_/g, '\u00A0') : '--'}
+                        </Text>
+                        <Text style={styles.metricLabel}>Primary Goal</Text>
                       </View>
-                    </>
-                  ) : (
-                    <View style={styles.incompleteProfileContainer}>
-                      <Icon name="alert-circle-outline" size={36} color={colors.warning} style={styles.incompleteProfileIcon} />
-                      <Text style={styles.incompleteProfileTitle}>Incomplete Profile</Text>
-                      <Text style={styles.incompleteProfileText}>
-                        Your profile is missing required information. Please complete your profile data first.
-                      </Text>
-                      {user?.id === 'guest' ? (
-                        <View style={styles.guestButtonsContainer}>
-                          <TouchableOpacity 
-                            style={styles.completeProfileButton}
-                            onPress={() => router.push('/(main)/profile/edit')}
-                          >
-                            <Text style={styles.completeProfileButtonText}>Complete Profile</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[styles.completeProfileButton, { backgroundColor: colors.accent, marginTop: 12 }]}
-                            onPress={forceGeneratePlan}
-                          >
-                            <Text style={styles.completeProfileButtonText}>Generate Demo Plan</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.incompleteProfileContainer}>
+                    <Icon name="alert-circle-outline" size={36} color={colors.warning} style={styles.incompleteProfileIcon} />
+                    <Text style={styles.incompleteProfileTitle}>Incomplete Profile</Text>
+                    <Text style={styles.incompleteProfileText}>
+                      Your profile is missing required information. Please complete your profile data first.
+                    </Text>
+                    {user?.id === 'guest' ? (
+                      <View style={styles.guestButtonsContainer}>
                         <TouchableOpacity 
                           style={styles.completeProfileButton}
                           onPress={() => router.push('/(main)/profile/edit')}
                         >
                           <Text style={styles.completeProfileButtonText}>Complete Profile</Text>
                         </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </LinearGradient>
+                        <TouchableOpacity 
+                          style={[styles.completeProfileButton, { backgroundColor: colors.accent, marginTop: 12 }]}
+                          onPress={forceGeneratePlan}
+                        >
+                          <Text style={styles.completeProfileButtonText}>Generate Demo Plan</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity 
+                        style={styles.completeProfileButton}
+                        onPress={() => router.push('/(main)/profile/edit')}
+                      >
+                        <Text style={styles.completeProfileButtonText}>Complete Profile</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
           )}
 
-          {/* Error message */}
+          {/* Status/Error message */}
+          {error && (
+            <View style={styles.errorCard}>
+              <Icon name="alert-circle" size={20} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {(isSubmitting || statusMessage) && (
             <View style={styles.statusCard}>
-              <ActivityIndicator color={colors.white} size="small" />
+              <ActivityIndicator color={colors.primary} size="small" />
               <Text style={styles.statusText}>{statusMessage || 'Working...'}</Text>
             </View>
           )}
         </ScrollView>
 
         {/* Action Button */}
-        {console.log('[DEBUG] selectedPlanType:', selectedPlanType, 'shouldShow:', selectedPlanType && selectedPlanType !== 'ai-custom')}
         {selectedPlanType && selectedPlanType !== 'ai-custom' && (
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tabBarHeight) }]}>
             <TouchableOpacity
@@ -928,6 +993,7 @@ export default function PlanCreateScreen() {
               ]}
               onPress={showConfirmation}
               disabled={(selectedPlanType === 'bodybuilder' && !selectedBodybuilder) || isSubmitting}
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={
@@ -968,198 +1034,170 @@ export default function PlanCreateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+    backgroundColor: '#000000',
   },
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  statusText: {
-    color: colors.white,
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  content: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    zIndex: 10,
   },
-  headerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  appName: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginHorizontal: 12,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-  },
-  titleSection: {
-    alignItems: 'flex-start',
-    marginTop: 12,
-    marginBottom: 40,
-  },
-  titlePreheading: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 4,
-  },
-  titleMain: {
-    color: colors.white,
-    fontSize: 38,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginVertical: 8,
-  },
-  titleDescription: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 16,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  alert: {
+  
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,59,48,0.2)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 32,
+    marginBottom: 24,
+    paddingTop: 8,
   },
-  alertIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.error,
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
+    flex: 1,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Quick Actions Grid
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  quickActionCard: {
+    width: (width - 40 - 24) / 4,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  alertText: {
-    color: colors.white,
-    fontSize: 14,
-    flex: 1,
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+
+  // Section
   section: {
-    marginBottom: 40,
+    marginBottom: 24,
   },
   sectionTitle: {
-    marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    color: colors.primary,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
-  },
-  sectionTitleText: {
     color: colors.white,
-    marginLeft: 8,
-    letterSpacing: 1,
+    marginBottom: 14,
+    letterSpacing: 0.3,
   },
+  // Option Cards
   optionCard: {
-    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    overflow: 'hidden',
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   optionCardSelected: {
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  optionCardGradient: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
   },
   optionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
   },
   optionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   optionIconContainerSelected: {
-    backgroundColor: 'rgba(255,107,53,0.2)',
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
   },
   optionTextContainer: {
     flex: 1,
   },
   optionTitle: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
-  optionDescription: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    lineHeight: 20,
+  optionTitleSelected: {
+    color: colors.primary,
   },
-  checkmark: {
+  optionDescription: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  checkmarkSelected: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkmarkSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
+  // Bodybuilder Selection
   bodybuilderGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
   bodybuilderTile: {
-    width: (width - 56) / 2,
-    height: 160,
-    marginBottom: 16,
+    width: (width - 40 - 12) / 2,
+    minHeight: 140,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   bodybuilderTileSelected: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  bodybuilderCardGradient: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 16,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
   },
   bodybuilderContent: {
     flex: 1,
@@ -1168,13 +1206,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  bodybuilderIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bodybuilderIconContainerSelected: {
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
   },
   bodybuilderSelectedIndicator: {
     backgroundColor: colors.primary,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1183,7 +1232,7 @@ const styles = StyleSheet.create({
   },
   bodybuilderName: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     marginBottom: 4,
   },
@@ -1195,7 +1244,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   bodybuilderStyleSelected: {
     color: colors.accent,
@@ -1203,21 +1252,18 @@ const styles = StyleSheet.create({
   bodybuilderDescription: {
     color: colors.textTertiary,
     fontSize: 11,
-    lineHeight: 14,
-    flex: 1,
+    lineHeight: 15,
   },
   bodybuilderDescriptionSelected: {
     color: colors.textSecondary,
   },
+  // Profile Card
   profileCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    overflow: 'hidden',
-  },
-  profileCardGradient: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   profileMetrics: {
     flexDirection: 'row',
@@ -1226,7 +1272,7 @@ const styles = StyleSheet.create({
   },
   profileMetric: {
     alignItems: 'center',
-    width: '45%', // Allow for 2 metrics per row with some spacing
+    width: '45%',
     marginBottom: 16,
   },
   profileMetricFull: {
@@ -1234,153 +1280,106 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     color: colors.white,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     marginBottom: 4,
   },
   metricLabel: {
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginVertical: 20,
+
+  // Status/Error Cards
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
   },
-  
+  statusText: {
+    color: colors.white,
+    fontSize: 14,
+    marginLeft: 10,
+    flex: 1,
+  },
   errorCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,59,48,0.15)',
+    backgroundColor: 'rgba(255, 69, 58, 0.08)',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  errorIconContainer: {
-    marginRight: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 58, 0.15)',
+    gap: 10,
   },
   errorText: {
     color: colors.error,
     fontSize: 14,
     flex: 1,
   },
-  errorActions: {
-    flexDirection: 'row',
-    marginTop: 12,
-  },
-  retryButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  retryButtonText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  buttonSection: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  button: {
-    width: '100%',
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  buttonDisabled: {
-    shadowOpacity: 0.2,
-  },
-  buttonGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    borderRadius: 30,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginHorizontal: 8,
-  },
-  disclaimerSection: {
-    marginBottom: 16,
-  },
-  disclaimer: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 20,
-  },
+  // Incomplete Profile
   incompleteProfileContainer: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 24,
   },
   incompleteProfileIcon: {
-    marginBottom: 15,
+    marginBottom: 12,
   },
   incompleteProfileTitle: {
     color: colors.white,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   incompleteProfileText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    lineHeight: 20,
   },
   completeProfileButton: {
     backgroundColor: colors.primary,
-    borderRadius: 25,
+    borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 28,
   },
   completeProfileButtonText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   guestButtonsContainer: {
     width: '100%',
     alignItems: 'center',
   },
+
+  // Footer
   footer: {
-    backgroundColor: colors.dark,
-    paddingHorizontal: 24,
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   actionButton: {
     width: '100%',
-    borderRadius: 25,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 12,
+    elevation: 8,
   },
   actionButtonDisabled: {
     shadowOpacity: 0.1,
@@ -1391,11 +1390,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
+    gap: 8,
   },
   actionButtonText: {
     color: colors.white,
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 }); 

@@ -431,9 +431,15 @@ export default function WorkoutHistoryDetailScreen() {
                 </View>
               </View>
               <View style={styles.shareExercisesList}>
-                {details.exercises.slice(0, 4).map((ex) => (
-                  <View key={ex.exercise_set_id} style={styles.shareExerciseRow}>
-                    <Text style={styles.shareExerciseName} numberOfLines={1}>{ex.exercise_name}</Text>
+                {details.exercises.map((ex, index) => (
+                  <View 
+                    key={ex.exercise_set_id} 
+                    style={[
+                      styles.shareExerciseRow,
+                      index === details.exercises.length - 1 && styles.shareExerciseRowLast
+                    ]}
+                  >
+                    <Text style={styles.shareExerciseName} numberOfLines={2} ellipsizeMode="tail">{ex.exercise_name}</Text>
                     <View style={styles.shareExerciseChips}>
                       <View style={styles.shareChip}>
                         <Icon name="repeat" size={26} color={colors.text} style={styles.shareChipIcon} />
@@ -468,14 +474,8 @@ export default function WorkoutHistoryDetailScreen() {
               </View>
               <Image
                 source={require('../../../../assets/branding/gofitai-watermark.png')}
-                style={[
-                  styles.shareWatermark,
-                  {
-                    position: 'absolute',
-                    bottom: 24,
-                    right: 24,
-                  }
-                ] as any}
+                style={styles.shareWatermark}
+                pointerEvents="none"
                 resizeMode="contain"
               />
             </LinearGradient>
@@ -553,6 +553,27 @@ export default function WorkoutHistoryDetailScreen() {
                   </Text>
                   <Text style={styles.statLabel}>Volume</Text>
                 </View>
+                
+                <View style={styles.statDivider} />
+                
+                <View style={styles.statItem}>
+                  <View style={styles.statIconContainer}>
+                    <LinearGradient 
+                      colors={['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)']} 
+                      style={styles.statIconGradient}
+                    >
+                      <Icon name="timer-outline" size={20} color={colors.primary} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.statValue}>
+                    {details?.duration_minutes != null && details.duration_minutes >= 0
+                      ? details.duration_minutes >= 60
+                        ? `${Math.floor(details.duration_minutes / 60)}h ${details.duration_minutes % 60}m`
+                        : `${details.duration_minutes}m`
+                      : '—'}
+                  </Text>
+                  <Text style={styles.statLabel}>Duration</Text>
+                </View>
               </View>
             </LinearGradient>
           </BlurView>
@@ -594,9 +615,11 @@ export default function WorkoutHistoryDetailScreen() {
                   
                   <View style={styles.exerciseHeaderContent}>
                     <Text style={styles.exerciseName}>{ex.exercise_name}</Text>
-                    <Text style={styles.exerciseTarget}>
-                      Target: {ex.target_sets} sets × {ex.target_reps} reps
-          </Text>
+                    {details?.plan_id != null && (
+                      <Text style={styles.exerciseTarget}>
+                        Target: {ex.target_sets} sets × {ex.target_reps} reps
+                      </Text>
+                    )}
                   </View>
                 </View>
 
@@ -1185,14 +1208,14 @@ const styles = StyleSheet.create({
   },
   shareCardContainer: {
     width: 1080,
-    height: 1350,
+    minHeight: 1350,
   },
   shareCardContent: {
-    flex: 1,
     backgroundColor: '#0E0E10',
     padding: 64,
     borderRadius: 48,
     overflow: 'hidden',
+    position: 'relative',
   },
   shareAccentOrbOne: {
     position: 'absolute',
@@ -1281,10 +1304,13 @@ const styles = StyleSheet.create({
   shareExerciseRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  shareExerciseRowLast: {
+    borderBottomWidth: 0,
   },
   shareExerciseName: {
     color: '#FFFFFF',
@@ -1296,6 +1322,7 @@ const styles = StyleSheet.create({
   shareExerciseChips: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   shareChip: {
     flexDirection: 'row',
@@ -1324,8 +1351,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,59,48,0.35)',
   },
   shareWatermark: {
-    width: 160,
-    height: 160,
-    opacity: 0.9,
-  } as any,
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    opacity: 0.45,
+    top: 64,
+    right: 48,
+  },
 }); 

@@ -55,6 +55,11 @@ interface StoredWorkoutPlan {
   estimated_time_per_session?: string;
   primary_goal?: string;
   workout_frequency?: string;
+  ai_reasoning?: {
+    split_reasoning?: string;
+    exercise_selection_reasoning?: string;
+  };
+  source?: string;
 }
 
 // Main WorkoutService class that combines functionality
@@ -158,16 +163,36 @@ export class WorkoutService {
         }
       }
       
-      // Fallback to local memory - filter by user ID
-      const activePlans = this.getActivePlans(userId);
-      if (activePlans.length === 0) {
-        console.log(`[WorkoutService] No active plans found for user ${userId}`);
-        return null;
+      // Look for stored active plan ID (handles locally created plans)
+      const storedActivePlanId = await WorkoutLocalStore.getActivePlanId(userId);
+      if (storedActivePlanId) {
+        const localPlans = await WorkoutLocalStore.getPlans(userId);
+        const storedPlan = localPlans.find(p => p.id === storedActivePlanId);
+        if (storedPlan) {
+          console.log(`[WorkoutService] Restored active plan ${storedActivePlanId} from local storage`);
+          return storedPlan as StoredWorkoutPlan;
+        }
       }
 
-      // Return the first active plan for this user
-      console.log(`[WorkoutService] Found active plan in local memory for user ${userId}:`, activePlans[0].id);
+      // Fallback to any locally marked active plan
+      const localPlans = await WorkoutLocalStore.getPlans(userId);
+      if (localPlans && localPlans.length > 0) {
+        const localActive = localPlans.find(p => p.is_active || p.status === 'active');
+        if (localActive) {
+          console.log(`[WorkoutService] Found active plan in local storage for user ${userId}:`, localActive.id);
+          return localActive as StoredWorkoutPlan;
+        }
+      }
+
+      // Fallback to in-memory cache
+      const activePlans = this.getActivePlans(userId);
+      if (activePlans.length > 0) {
+        console.log(`[WorkoutService] Found active plan in memory for user ${userId}:`, activePlans[0].id);
       return activePlans[0];
+      }
+
+      console.log(`[WorkoutService] No active plans found for user ${userId}`);
+      return null;
     } catch (error) {
       console.error('[WorkoutService] Error getting active plan:', error);
       return null;
@@ -243,7 +268,7 @@ export class WorkoutService {
 
           if (activateError) {
             console.error('[WorkoutService] Error activating plan in Supabase:', activateError);
-          } else {
+        } else {
             console.log('[WorkoutService] Successfully updated active plan in Supabase');
           }
         } catch (dbError) {
@@ -282,6 +307,7 @@ export class WorkoutService {
 
       // Save the updated plans locally
       await WorkoutLocalStore.savePlans(userId, userPlans);
+      await WorkoutLocalStore.setActivePlanId(userId, planId);
 
       console.log(`[WorkoutService] Successfully set plan ${planId} as active`);
       return true;
@@ -369,13 +395,14 @@ export class WorkoutService {
       });
 
       // Generate the workout plan using GeminiService (with static bodybuilder data)
+      console.log('[WorkoutService] 🚀 Calling GeminiService.generateWorkoutPlan...');
       const plan = await GeminiService.generateWorkoutPlan(geminiInput);
 
       if (!plan) {
         throw new Error('Failed to generate workout plan');
       }
 
-      console.log('[WorkoutService] Generated plan successfully:', plan.name);
+      console.log('[WorkoutService] ✅ Generated plan successfully:', plan.name);
       console.log('[WorkoutService] 🔍 Plan structure check:', {
         hasWeeklySchedule: !!plan.weeklySchedule,
         hasWeeklyScheduleSnake: !!plan.weekly_schedule,
@@ -383,6 +410,31 @@ export class WorkoutService {
         weeklyScheduleType: Array.isArray(plan.weeklySchedule) ? 'array' : typeof plan.weeklySchedule,
         firstDayHasExercises: plan.weeklySchedule?.[0]?.exercises?.length || plan.weekly_schedule?.[0]?.exercises?.length || 0
       });
+      console.log('[WorkoutService] 🔍 AI Reasoning check (CRITICAL):', {
+        hasAiReasoning: !!(plan as any).ai_reasoning,
+        splitReasoning: !!(plan as any).ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!(plan as any).ai_reasoning?.exercise_selection_reasoning,
+        splitReasoningPreview: (plan as any).ai_reasoning?.split_reasoning?.substring(0, 100) || 'N/A',
+        exerciseReasoningPreview: (plan as any).ai_reasoning?.exercise_selection_reasoning?.substring(0, 100) || 'N/A',
+        fullReasoning: (plan as any).ai_reasoning,
+        reasoningType: typeof (plan as any).ai_reasoning,
+        reasoningIsEmpty: (plan as any).ai_reasoning && 
+          (!(plan as any).ai_reasoning.split_reasoning || !(plan as any).ai_reasoning.split_reasoning.trim()) &&
+          (!(plan as any).ai_reasoning.exercise_selection_reasoning || !(plan as any).ai_reasoning.exercise_selection_reasoning.trim()),
+        allPlanKeys: Object.keys(plan || {}).slice(0, 20)
+      });
+      
+      // CRITICAL: If reasoning is missing, log a warning
+      // Check if ai_reasoning exists but is undefined, null, or empty
+      const hasAiReasoning = (plan as any).ai_reasoning !== undefined && 
+                             (plan as any).ai_reasoning !== null &&
+                             typeof (plan as any).ai_reasoning === 'object' &&
+                             ((plan as any).ai_reasoning.split_reasoning || (plan as any).ai_reasoning.exercise_selection_reasoning);
+      
+      if (!hasAiReasoning) {
+        // AI reasoning is optional for plans — warn and continue without it.
+        console.warn('[WorkoutService] ⚠️ Plan has no AI reasoning; continuing without ai_reasoning field.');
+      }
 
       // Generate a unique plan ID (always use as stored ID to ensure valid UUID)
       const planId = uuidv4();
@@ -405,7 +457,17 @@ export class WorkoutService {
         mesocycle_length_weeks: plan.mesocycle_length || plan.mesocycle_length_weeks,
         estimated_time_per_session: plan.estimated_time_per_session,
         primary_goal: plan.primary_goal,
-        workout_frequency: plan.workout_frequency
+        workout_frequency: plan.workout_frequency,
+        // Preserve AI reasoning if available (will be validated and saved separately)
+        // Only include if it has actual content
+        ai_reasoning: (() => {
+          const reasoning = (plan as any).ai_reasoning;
+          if (!reasoning || reasoning === null || reasoning === undefined) return null;
+          if (typeof reasoning === 'object' && Object.keys(reasoning).length === 0) return null;
+          const hasContent = (reasoning.split_reasoning && reasoning.split_reasoning.trim()) || 
+                           (reasoning.exercise_selection_reasoning && reasoning.exercise_selection_reasoning.trim());
+          return hasContent ? reasoning : null;
+        })()
       };
       
       console.log('[WorkoutService] 🔍 Stored plan structure check:', {
@@ -415,6 +477,11 @@ export class WorkoutService {
         firstDayInStored: storedPlan.weeklySchedule?.[0] || storedPlan.weekly_schedule?.[0],
         firstDayExercises: storedPlan.weeklySchedule?.[0]?.exercises || storedPlan.weekly_schedule?.[0]?.exercises,
         fullFirstDay: JSON.stringify(storedPlan.weeklySchedule?.[0] || storedPlan.weekly_schedule?.[0])
+      });
+      console.log('[WorkoutService] 🔍 Stored plan AI Reasoning check:', {
+        hasAiReasoning: !!storedPlan.ai_reasoning,
+        splitReasoning: !!storedPlan.ai_reasoning?.split_reasoning,
+        exerciseReasoning: !!storedPlan.ai_reasoning?.exercise_selection_reasoning
       });
       console.log('[WorkoutService] 🔍 FULL STORED PLAN WEEKLY_SCHEDULE:', JSON.stringify(storedPlan.weeklySchedule || storedPlan.weekly_schedule, null, 2));
 
@@ -434,7 +501,7 @@ export class WorkoutService {
         }
         
         // Insert new plan into database
-        const dbPlan = {
+        const dbPlan: any = {
           id: storedPlan.id,
           user_id: params.userId,
           name: storedPlan.name,
@@ -458,6 +525,37 @@ export class WorkoutService {
             calves: 'MV', abs: 'MV' 
           }
         };
+        
+        // Preserve AI reasoning if available (as JSONB)
+        // Always set ai_reasoning, even if null, to ensure the column is updated
+        const aiReasoningToSave = (plan as any)?.ai_reasoning || storedPlan.ai_reasoning;
+        
+        // Check if reasoning has actual content (not just empty strings)
+        const hasValidReasoning = aiReasoningToSave && (
+          (aiReasoningToSave.split_reasoning && aiReasoningToSave.split_reasoning.trim() && !aiReasoningToSave.split_reasoning.includes('YOUR ACTUAL REASONING')) ||
+          (aiReasoningToSave.exercise_selection_reasoning && aiReasoningToSave.exercise_selection_reasoning.trim() && !aiReasoningToSave.exercise_selection_reasoning.includes('YOUR ACTUAL REASONING'))
+        );
+        
+        if (hasValidReasoning) {
+          dbPlan.ai_reasoning = aiReasoningToSave;
+          console.log('[WorkoutService] ✅ Saving VALID AI reasoning to database:', {
+            hasSplitReasoning: !!dbPlan.ai_reasoning?.split_reasoning,
+            hasExerciseReasoning: !!dbPlan.ai_reasoning?.exercise_selection_reasoning,
+            splitReasoningPreview: dbPlan.ai_reasoning?.split_reasoning?.substring(0, 50) || 'N/A',
+            exerciseReasoningPreview: dbPlan.ai_reasoning?.exercise_selection_reasoning?.substring(0, 50) || 'N/A'
+          });
+        } else {
+          // Set to null explicitly if no valid reasoning
+          dbPlan.ai_reasoning = null;
+          console.log('[WorkoutService] ⚠️ No valid AI reasoning to save. Setting ai_reasoning to null.', {
+            hasAiReasoning: !!aiReasoningToSave,
+            aiReasoningValue: aiReasoningToSave,
+            splitReasoning: aiReasoningToSave?.split_reasoning,
+            exerciseReasoning: aiReasoningToSave?.exercise_selection_reasoning,
+            planHasAiReasoning: !!(plan as any)?.ai_reasoning,
+            storedPlanHasAiReasoning: !!storedPlan.ai_reasoning
+          });
+        }
         
         const { data: savedPlan, error: insertError } = await supabase
           .from('workout_plans')
@@ -484,8 +582,8 @@ export class WorkoutService {
                console.log('[WorkoutService] ✅ Successfully saved workout plan to database (without is_active):', retrySavedPlan.id);
             }
           } else {
-            console.error('[WorkoutService] Error saving plan to database:', insertError.message);
-            console.warn('[WorkoutService] Continuing with local-only storage...');
+          console.error('[WorkoutService] Error saving plan to database:', insertError.message);
+          console.warn('[WorkoutService] Continuing with local-only storage...');
           }
         } else {
           console.log('[WorkoutService] ✅ Successfully saved workout plan to database:', savedPlan.id);
@@ -641,14 +739,43 @@ export class WorkoutService {
     try {
       // First try to get from Supabase database
       if (supabase) {
+        // Explicitly select all columns including JSONB fields
         const { data: plan, error } = await supabase
           .from('workout_plans')
-          .select('*')
+          .select('*, weekly_schedule, ai_reasoning')
           .eq('id', planId)
           .single();
         
+        if (error) {
+          console.error('[WorkoutService] Error fetching plan:', error);
+          // If error is about missing column, log it
+          if (error.message?.includes('ai_reasoning') || error.message?.includes('column')) {
+            console.warn('[WorkoutService] ⚠️ Database column error - ai_reasoning column may not exist. Run the migration: supabase/migrations/20250101000000_add_ai_reasoning_column.sql');
+          }
+        }
+        
         if (!error && plan) {
           console.log('[WorkoutService] Found plan in database:', planId);
+          console.log('[WorkoutService] Plan columns check:', {
+            hasWeeklySchedule: !!(plan as any)?.weekly_schedule,
+            hasAiReasoning: !!(plan as any)?.ai_reasoning,
+            aiReasoningType: typeof (plan as any)?.ai_reasoning,
+            aiReasoningValue: (plan as any)?.ai_reasoning,
+            allPlanKeys: Object.keys(plan || {})
+          });
+          console.log('[WorkoutService] Plan has AI reasoning:', {
+            hasAiReasoning: !!(plan as any)?.ai_reasoning,
+            splitReasoning: !!(plan as any)?.ai_reasoning?.split_reasoning,
+            exerciseReasoning: !!(plan as any)?.ai_reasoning?.exercise_selection_reasoning,
+            aiReasoningType: typeof (plan as any)?.ai_reasoning,
+            planKeys: Object.keys(plan || {}).slice(0, 15)
+          });
+          
+          // If ai_reasoning is null or missing, it means this plan was generated before the feature was added
+          if (!(plan as any)?.ai_reasoning) {
+            console.log('[WorkoutService] ⚠️ Plan does not have ai_reasoning - this plan was generated before the reasoning feature was added. Generate a new plan to see reasoning.');
+          }
+          
           return plan as StoredWorkoutPlan;
         }
       }
@@ -675,8 +802,9 @@ export class WorkoutService {
       // Log the plan ID for debugging
       console.log('[WorkoutService] getSessionsForPlan called with planId:', planId);
       
-      // First attempt: try to fetch with estimated_calories
-      let { data: sessions, error } = await supabase
+      // OPTIMIZATION: Don't include estimated_calories to avoid retries
+      // This column may not exist in all database schemas
+      const { data: sessionsData, error } = await supabase
         .from('workout_sessions')
         .select(`
           id,
@@ -686,7 +814,6 @@ export class WorkoutService {
           week_number,
           status,
           completed_at,
-          estimated_calories,
           training_splits:split_id (
             id,
             name,
@@ -697,41 +824,10 @@ export class WorkoutService {
         .eq('plan_id', planId)
         .order('day_number', { ascending: true });
       
-      // If error is due to missing estimated_calories column, retry without it
-      if (error && error.message && error.message.includes('estimated_calories')) {
-        console.log('[WorkoutService] estimated_calories column not found, retrying without it');
-        
-        const { data: sessionsRetry, error: errorRetry } = await supabase
-          .from('workout_sessions')
-          .select(`
-            id,
-            plan_id,
-            split_id,
-            day_number,
-            week_number,
-            status,
-            completed_at,
-            training_splits:split_id (
-              id,
-              name,
-              focus_areas,
-              order_in_week
-            )
-          `)
-          .eq('plan_id', planId)
-          .order('day_number', { ascending: true });
-        
-        if (errorRetry) {
-          console.error('[WorkoutService] Error fetching sessions (retry):', errorRetry);
-          return [];
-        }
-        
-        sessions = sessionsRetry;
-      } else if (error) {
+      if (error) {
         // Check if error is related to invalid UUID format
         if (error.message && error.message.includes('invalid input syntax for type uuid')) {
           console.error('[WorkoutService] UUID validation error - invalid format in database. Plan ID:', planId);
-          console.error('[WorkoutService] Error details:', error);
           return [];
         }
         console.error('[WorkoutService] Error fetching sessions:', error);
@@ -739,6 +835,7 @@ export class WorkoutService {
       }
       
       // Validate that split_ids in returned data are valid UUIDs
+      let sessions = sessionsData || [];
       if (sessions && Array.isArray(sessions)) {
         sessions = sessions.filter(session => {
           if (!isValidUUID(session.split_id)) {
@@ -920,6 +1017,17 @@ export class WorkoutService {
       }
 
       // If not found, create a new custom exercise
+      // Import muscle group inference utility
+      const { inferMuscleGroupsFromName, getDefaultMuscleGroupsByCategory } = await import('../../utils/muscleGroupInference');
+      
+      // Infer muscle groups from exercise name
+      let inferredMuscleGroups = inferMuscleGroupsFromName(exerciseName);
+      
+      // If no muscle groups inferred, use default based on category
+      if (inferredMuscleGroups.length === 0) {
+        inferredMuscleGroups = getDefaultMuscleGroupsByCategory('compound');
+      }
+      
       const { data: newExercise, error: createError } = await supabase
         .from('exercises')
         .insert({
@@ -927,7 +1035,7 @@ export class WorkoutService {
           is_custom: true,
           plan_id: planId || null,
           category: 'compound',
-          muscle_groups: [],
+          muscle_groups: inferredMuscleGroups,
           difficulty: 'intermediate',
           equipment_needed: [],
           description: `Custom exercise: ${exerciseName}`,

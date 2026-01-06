@@ -40,7 +40,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  8,
  false),
 
-('Pull-ups', 'compound', ARRAY['back', 'biceps'], 'advanced',
+('Pull Up', 'compound', ARRAY['back', 'biceps'], 'advanced',
  ARRAY['pull-up bar'],
  'Premier upper body pulling exercise for back width and strength.',
  ARRAY[
@@ -94,6 +94,21 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  6,
  false),
 
+('Cable Pullover', 'isolation', ARRAY['chest', 'lats'], 'intermediate',
+ ARRAY['cable machine'],
+ 'Cable-based pullover exercise targeting chest and lats with constant tension throughout the movement.',
+ ARRAY[
+   'Set cable at highest position',
+   'Use rope attachment or straight bar',
+   'Keep slight bend in elbows',
+   'Pull cable down and across body',
+   'Feel stretch in chest and lats',
+   'Control the return to starting position',
+   'Maintain core engagement throughout'
+ ],
+ 7,
+ false),
+
 -- Back
 ('Lat Pulldown', 'isolation', ARRAY['back'], 'beginner',
  ARRAY['cable machine'],
@@ -109,7 +124,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  false),
 
 -- Shoulders
-('Lateral Raises', 'isolation', ARRAY['shoulders'], 'beginner',
+('Lateral Raise', 'isolation', ARRAY['shoulders'], 'beginner',
  ARRAY['dumbbells'],
  'Key exercise for lateral deltoid development.',
  ARRAY[
@@ -228,7 +243,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
 -- Cardio Exercises
 INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_needed, description, form_tips, rpe_recommendation, is_custom) VALUES
 -- Bodyweight Cardio
-('Burpees', 'cardio', ARRAY['full body', 'cardiovascular'], 'intermediate',
+('Burpee', 'cardio', ARRAY['full body', 'cardiovascular'], 'intermediate',
  ARRAY[],
  'Full-body explosive movement combining squat, plank, push-up, and jump.',
  ARRAY[
@@ -241,7 +256,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  8,
  false),
 
-('Mountain Climbers', 'cardio', ARRAY['core', 'shoulders', 'cardiovascular'], 'beginner',
+('Mountain Climber', 'cardio', ARRAY['core', 'shoulders', 'cardiovascular'], 'beginner',
  ARRAY[],
  'High-intensity bodyweight exercise targeting core and cardiovascular system.',
  ARRAY[
@@ -254,7 +269,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  7,
  false),
 
-('Box Jumps', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+('Box Jump', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
  ARRAY['box', 'platform'],
  'Explosive plyometric exercise for power and cardio conditioning.',
  ARRAY[
@@ -307,7 +322,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  false),
 
 -- Jump Training
-('Jump Squats', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
+('Jump Squat', 'cardio', ARRAY['legs', 'glutes', 'cardiovascular'], 'intermediate',
  ARRAY[],
  'Explosive squat variation for power and conditioning.',
  ARRAY[
@@ -400,7 +415,7 @@ INSERT INTO exercises (name, category, muscle_groups, difficulty, equipment_need
  8,
  false),
 
-('Kettlebell Swings', 'cardio', ARRAY['glutes', 'core', 'cardiovascular'], 'intermediate',
+('Kettlebell Swing', 'cardio', ARRAY['glutes', 'core', 'cardiovascular'], 'intermediate',
  ARRAY['kettlebell'],
  'Ballistic hip-hinge movement for power and conditioning.',
  ARRAY[

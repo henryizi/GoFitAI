@@ -423,26 +423,6 @@ function transformAIWorkoutResponse(rawPlan, params) {
   const estimatedTime = avgExercises <= 5 ? '45-60 min' :
                        avgExercises <= 7 ? '60-75 min' : '75-90 min';
 
-  // Generate intelligent reasoning based on the actual workout plan
-  console.log('[AI WORKOUT] 🎯 Generating intelligent reasoning based on created plan');
-
-  const intelligentReasoning = generateIntelligentReasoning(rawPlan, {
-    trainingLevel,
-    primaryGoal,
-    workoutFrequency: freq.min,
-    freqDisplay: freq.display,
-    fullName,
-    age,
-    gender
-  });
-
-  console.log('[AI WORKOUT] ✅ Intelligent reasoning generated:', {
-    splitReasoningLength: intelligentReasoning.split_reasoning.length,
-    exerciseReasoningLength: intelligentReasoning.exercise_selection_reasoning.length,
-    splitReasoningPreview: intelligentReasoning.split_reasoning.substring(0, 100) + '...',
-    exerciseReasoningPreview: intelligentReasoning.exercise_selection_reasoning.substring(0, 100) + '...'
-  });
-
   // Transform to app format
   const transformedPlan = {
     name: rawPlan.plan_name || `${fullName}'s ${primaryGoal.replace(/_/g, ' ')} Plan`,
@@ -456,8 +436,8 @@ function transformAIWorkoutResponse(rawPlan, params) {
     status: 'active',
     is_active: true,
     source: 'ai_generated',
-    // CRITICAL: ALWAYS include ai_reasoning field with intelligent reasoning
-    ai_reasoning: intelligentReasoning,
+    // Remove AI reasoning field (server will not include generated reasoning)
+    ai_reasoning: null,
     weeklySchedule: rawPlan.weekly_schedule.map(day => {
       // Handle both new format (exercises array) and old format (warm_up, main_workout, cool_down)
       let exercises = [];

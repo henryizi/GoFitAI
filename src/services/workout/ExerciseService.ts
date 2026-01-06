@@ -11,14 +11,30 @@ interface ExerciseFilters {
 }
 
 export class ExerciseService {
+  // Cache for exercises to avoid repeated database calls
+  private static exercisesCache: Exercise[] | null = null;
+  private static cacheTimestamp: number = 0;
+  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   /**
    * Get all exercises with optional filtering
+   * Optimized to only fetch necessary fields and use caching
    */
-  static async getExercises(filters?: ExerciseFilters): Promise<Exercise[]> {
+  static async getExercises(filters?: ExerciseFilters, useCache: boolean = true): Promise<Exercise[]> {
     try {
+      // Return cached data if available and fresh
+      if (useCache && this.exercisesCache && (Date.now() - this.cacheTimestamp) < this.CACHE_DURATION) {
+        // Apply filters to cached data if needed
+        if (filters) {
+          return this.applyFiltersToCached(this.exercisesCache, filters);
+        }
+        return this.exercisesCache;
+      }
+
+      // Only select fields needed for the picker/list view
       let query = supabase
         .from('exercises')
-        .select('*');
+        .select('id, name, category, muscle_groups, equipment_needed, difficulty, is_custom');
 
       if (filters) {
         if (filters.category) {
@@ -38,11 +54,54 @@ export class ExerciseService {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data || [];
+      
+      const exercises = data || [];
+      
+      // Cache the results if no filters applied (full list)
+      if (useCache && !filters) {
+        this.exercisesCache = exercises as Exercise[];
+        this.cacheTimestamp = Date.now();
+      }
+      
+      return exercises as Exercise[];
     } catch (error) {
       console.error('Error fetching exercises:', error);
       return [];
     }
+  }
+
+  /**
+   * Apply filters to cached exercise data
+   */
+  private static applyFiltersToCached(exercises: Exercise[], filters: ExerciseFilters): Exercise[] {
+    let filtered = [...exercises];
+
+    if (filters.category) {
+      filtered = filtered.filter(ex => ex.category === filters.category);
+    }
+    if (filters.difficulty) {
+      filtered = filtered.filter(ex => ex.difficulty === filters.difficulty);
+    }
+    if (filters.muscleGroups && filters.muscleGroups.length > 0) {
+      filtered = filtered.filter(ex => 
+        ex.muscle_groups && filters.muscleGroups!.some(mg => ex.muscle_groups?.includes(mg))
+      );
+    }
+    if (filters.equipment && filters.equipment.length > 0) {
+      filtered = filtered.filter(ex => 
+        ex.equipment_needed && filters.equipment!.some(eq => ex.equipment_needed?.includes(eq))
+      );
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Clear the exercises cache (useful when exercises are updated)
+   */
+  static clearCache(): void {
+    this.exercisesCache = null;
+    this.cacheTimestamp = 0;
   }
 
   /**

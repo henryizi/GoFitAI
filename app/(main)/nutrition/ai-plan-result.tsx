@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { AInutritionPlan } from '../../../src/services/nutrition/AInutritionService';
 import { supabase } from '../../../src/services/supabase/client';
@@ -58,6 +59,19 @@ const AIPlanResultScreen = () => {
     try {
       setLoading(true);
       
+      // Handle guest plan
+      if (planId === 'temp-guest-plan') {
+        console.log('[AI PLAN RESULT] Loading temporary guest plan from storage');
+        const tempPlanStr = await AsyncStorage.getItem('temp_guest_nutrition_plan');
+        if (tempPlanStr) {
+          setAiPlan(JSON.parse(tempPlanStr));
+          setLoading(false);
+          return;
+        } else {
+          throw new Error('Temporary plan not found');
+        }
+      }
+
       // Load AI plan from database
       const { data, error } = await supabase
         .from('nutrition_plans')
@@ -113,7 +127,11 @@ const AIPlanResultScreen = () => {
   const handleAcceptPlan = () => {
     if (aiPlan) {
       // Navigate to the nutrition plan screen with this AI plan
-      router.replace(`/(main)/nutrition/plan?planId=${aiPlan.id}`);
+      // Use push with refresh param to trigger refresh on nutrition index
+      router.push({
+        pathname: '/(main)/nutrition/plan',
+        params: { planId: aiPlan.id, refresh: 'true' }
+      });
     }
   };
 

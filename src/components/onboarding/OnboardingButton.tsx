@@ -1,6 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 
 interface OnboardingButtonProps {
   title: string;
@@ -27,19 +26,13 @@ export const OnboardingButton: React.FC<OnboardingButtonProps> = ({
       ]}
       disabled={disabled}
       activeOpacity={0.8}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <LinearGradient
-        colors={
-          disabled 
-            ? ['#2A2A2A', '#3A3A3A'] 
-            : variant === 'primary'
-              ? ['#FF6B35', '#FF8E53', '#FFA726'] 
-              : ['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.1)']
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.buttonGradient}
-      >
+      <View style={[
+        styles.buttonGradient,
+        disabled && styles.buttonGradientDisabled,
+        variant === 'primary' ? styles.buttonGradientPrimary : styles.buttonGradientSecondary
+      ]}>
         <Text style={[
           styles.buttonText, 
           disabled && styles.buttonTextDisabled,
@@ -47,48 +40,57 @@ export const OnboardingButton: React.FC<OnboardingButtonProps> = ({
         ]}>
           {title}
         </Text>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 28,
-    elevation: 15,
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     overflow: 'hidden',
   },
   buttonDisabled: {
-    elevation: 5,
+    elevation: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.05,
   },
   buttonGradient: {
-    paddingVertical: 18,
-    minHeight: 56,
+    paddingVertical: 16,
+    minHeight: 52,
+    minWidth: 44, // iOS minimum touch target
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 28,
+    borderRadius: 12,
+  },
+  buttonGradientPrimary: {
+    backgroundColor: '#000000',
+  },
+  buttonGradientSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#000000',
+  },
+  buttonGradientDisabled: {
+    backgroundColor: '#E5E5E5',
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   buttonTextDisabled: {
-    color: '#999',
-    textShadowColor: 'transparent',
+    color: '#999999',
   },
   buttonTextSecondary: {
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    color: '#000000',
   },
 });

@@ -32,6 +32,9 @@ export default function OnboardingLayout() {
       <Stack.Screen name="primary-goal" />
       <Stack.Screen name="fitness-strategy" />
       <Stack.Screen name="level" />
+      <Stack.Screen name="analyzing" />
+      <Stack.Screen name="analysis-results" />
+      <Stack.Screen name="lifestyle-convincer" />
     </Stack>
   );
 } 

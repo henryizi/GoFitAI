@@ -19,6 +19,7 @@ export default function WorkoutLayout() {
       <Stack.Screen name="history" />
       <Stack.Screen name="history-session/[sessionId]" />
       <Stack.Screen name="progression-insights" />
+      {/* Celebration removed from workout stack - it's now handled at main level */}
     </Stack>
   );
 }

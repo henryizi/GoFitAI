@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, router, Redirect, usePathname } from 'expo-router';
-import { StyleSheet, View, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Platform, ActivityIndicator, Dimensions } from 'react-native';
 import { MaterialCommunityIcons as Icon, Ionicons } from '@expo/vector-icons';
 import { Text } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -8,7 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import { useAuth } from '../../src/hooks/useAuth';
-import { hasSkippedPaywall } from '../../src/utils/paywallSkip';
+import { TutorialWrapper } from '../../src/components/tutorial/TutorialWrapper';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const colors = {
   primary: '#FF6B35',
@@ -17,10 +19,11 @@ const colors = {
   accent: '#FF8F65',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
-  background: 'rgba(18, 18, 20, 0.95)',
-  backgroundLight: 'rgba(28, 28, 30, 0.8)',
+  textMuted: 'rgba(235, 235, 245, 0.4)',
+  background: '#000000',
+  tabBarBg: 'rgba(0, 0, 0, 0.95)',
   border: 'rgba(255, 255, 255, 0.08)',
-  shadow: 'rgba(0, 0, 0, 0.3)',
+  shadow: 'rgba(0, 0, 0, 0.5)',
   darkGray: '#1C1C1E',
   black: '#000000',
   white: '#FFFFFF',
@@ -35,51 +38,26 @@ export default function MainLayout() {
   const { isPremium, isLoading } = useSubscription();
   const { user } = useAuth();
   const pathname = usePathname();
-  const [hasSkipped, setHasSkipped] = useState<boolean | null>(null);
-
   // Development bypass: allow access in development mode
   const isDevelopment = __DEV__;
   const bypassPaywall = isDevelopment; // Only bypass in development mode
 
-  // Check if user has skipped paywall
-  useEffect(() => {
-    if (user?.id) {
-      hasSkippedPaywall(user.id).then(setHasSkipped).catch(() => setHasSkipped(false));
-    } else {
-      setHasSkipped(false);
-    }
-  }, [user?.id]);
+  // Don't block UI for subscription loading - show app immediately
+  // Subscription status will update in background
+  // if (isLoading) {
+  //   return (
+  //     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black }}>
+  //       <ActivityIndicator size="large" color={colors.primary} />
+  //       <Text style={{ color: colors.text, marginTop: 16 }}>正在验证订阅状态...</Text>
+  //     </View>
+  //   );
+  // }
 
-  // 如果订阅状态正在加载，显示加载界面
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.text, marginTop: 16 }}>正在验证订阅状态...</Text>
-      </View>
-    );
-  }
-
-  // 如果用户没有付费，检查是否跳过了付费墙 (除非在开发模式)
+  // If user is not premium, redirect to paywall (no free tier - paid users only)
   if (!isPremium && !bypassPaywall) {
-    // If still checking skip status, wait
-    if (hasSkipped === null) {
-      return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.black }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      );
-    }
-    
-    // If user hasn't skipped, redirect to paywall
-    if (hasSkipped === false) {
-      console.log('🎯 Main Layout: Redirecting to paywall - user not premium and hasn\'t skipped');
-      console.log('🎯 Current pathname:', pathname);
-      return <Redirect href="/(paywall)" />;
-    }
-    
-    // User has skipped, allow access
-    console.log('🎯 Main Layout: User not premium but has skipped paywall - allowing access');
+    console.log('🎯 Main Layout: Redirecting to paywall - user not premium (paid users only)');
+    console.log('🎯 Current pathname:', pathname);
+    return <Redirect href="/(paywall)" />;
   }
 
   // Development bypass message
@@ -87,12 +65,21 @@ export default function MainLayout() {
     console.log('🚀 MAIN LAYOUT: Development mode bypass - user can access full app without premium');
   }
   
+  const TAB_BAR_HEIGHT = 70;
+  
   return (
     <Tabs
-      key="main-tabs-v4"
+      key="main-tabs-v5"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 7.5,
+          fontWeight: '600',
+          marginTop: -2,
+        },
         tabBarStyle: {
           position: 'absolute',
           bottom: 0,
@@ -101,96 +88,94 @@ export default function MainLayout() {
           elevation: 0,
           backgroundColor: 'transparent',
           borderTopWidth: 0,
-          height: 60 + insets.bottom,
-          paddingLeft: 20,
-          paddingRight: 0,
+          height: TAB_BAR_HEIGHT + insets.bottom,
           paddingBottom: insets.bottom,
-          justifyContent: 'flex-start',
-          flexDirection: 'row',
-          alignItems: 'center',
-          flex: 0,
+          paddingTop: 8,
+          paddingLeft: 80,
+          paddingRight: 80,
         },
         tabBarItemStyle: {
-          flex: 0,
-          width: 'auto',
-          alignSelf: 'flex-start',
-          marginRight: 30,
+          flex: 1,
+          paddingTop: 4,
         },
         tabBarBackground: () => (
           <View style={styles.tabBarContainer}>
-            <BlurView intensity={100} tint="dark" style={styles.blurView}>
-              <LinearGradient
-                colors={[colors.background, colors.backgroundLight]}
-                style={styles.tabBarGradient}
-              />
-              <View style={styles.tabBarBorder} />
+            <BlurView intensity={80} tint="dark" style={styles.blurView}>
+              <View style={styles.tabBarGradient} />
             </BlurView>
+            <View style={styles.tabBarTopBorder} />
           </View>
         ),
       }}
     >
       <Tabs.Screen name="index" options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="workout-celebration" options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="meals-celebration" options={{ tabBarButton: () => null }} />
+      <Tabs.Screen name="weight-celebration" options={{ tabBarButton: () => null }} />
       
       <Tabs.Screen
         name="workout"
         options={{
+          tabBarLabel: 'Workout',
           tabBarIcon: ({ focused }) => (
-            <View style={[styles.tabItem, focused && styles.tabItemActive]}>
-              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
-                <Icon 
-                  name="dumbbell" 
-                  color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22}
-                  style={{ textAlign: 'center', alignSelf: 'center' }}
-                />
-              </View>
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Icon 
+                name="dumbbell" 
+                color={focused ? colors.primary : colors.textMuted} 
+                size={28}
+              />
             </View>
           ),
         }}
-        listeners={{}}
       />
+      
       <Tabs.Screen
         name="nutrition"
         options={{
+          tabBarLabel: 'Nutrition',
+          tabBarItemStyle: {
+            flex: 1,
+            paddingTop: 4,
+            marginLeft: 40,
+            marginRight: 70,
+          },
           tabBarIcon: ({ focused }) => (
-            <View style={[styles.tabItem, focused && styles.tabItemActive]}>
-              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+            <TutorialWrapper tutorialId="nutrition-tab-button">
+              <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
                 <Icon 
                   name="food-apple-outline" 
-                  color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22}
-                  style={{ textAlign: 'center', alignSelf: 'center' }}
+                  color={focused ? colors.primary : colors.textMuted} 
+                  size={28}
                 />
               </View>
-            </View>
+            </TutorialWrapper>
           ),
         }}
-        listeners={{}}
       />
+      
       <Tabs.Screen
         name="dashboard"
         options={{
+          tabBarLabel: '',
           tabBarIcon: ({ focused }) => (
-            <View style={styles.centerTabContainer}>
-              <View style={styles.centerTabShadow} />
+            <View style={styles.centerTabWrapper}>
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
-                style={styles.centerTab}
+                style={styles.centerTabButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Icon name="home" color={colors.white} size={28} style={{ textAlign: 'center', alignSelf: 'center' }} />
-                <View style={styles.centerTabRing} />
+                <Icon name="home" color={colors.white} size={26} />
               </LinearGradient>
-              {focused && <View style={styles.centerTabGlow} />}
+              {focused && (
+                <View style={styles.centerTabGlow} />
+              )}
             </View>
           ),
         }}
         listeners={{
-          tabPress: (e) => {
-            // Prevent default tab navigation
+          tabPress: (e: any) => {
             e.preventDefault();
-            // Custom navigation to dashboard
             router.push('/(main)/dashboard');
           },
         }}
@@ -199,39 +184,53 @@ export default function MainLayout() {
       <Tabs.Screen
         name="progress"
         options={{
+          tabBarLabel: 'Progress',
+          tabBarItemStyle: {
+            flex: 1,
+            paddingTop: 4,
+            marginLeft: 70,
+            marginRight: 0,
+          },
           tabBarIcon: ({ focused }) => (
-            <View style={[styles.tabItem, focused && styles.tabItemActive]}>
-              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
-                <Icon 
-                  name="chart-line" 
-                  color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22}
-                  style={{ textAlign: 'center', alignSelf: 'center' }}
-                />
-              </View>
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Icon 
+                name="chart-line" 
+                color={focused ? colors.primary : colors.textMuted} 
+                size={28}
+              />
             </View>
           ),
         }}
-        listeners={{}}
       />
 
       <Tabs.Screen
         name="settings"
         options={{
+          tabBarLabel: 'Settings',
+          tabBarItemStyle: {
+            flex: 1,
+            paddingTop: 4,
+            marginLeft: 40,
+            marginRight: 0,
+          },
           tabBarIcon: ({ focused }) => (
-            <View style={[styles.tabItem, focused && styles.tabItemActive]}>
-              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
-                <Icon 
-                  name="cog-outline" 
-                  color={focused ? colors.white : colors.textSecondary} 
-                  size={focused ? 24 : 22}
-                  style={{ textAlign: 'center', alignSelf: 'center' }}
-                />
-              </View>
+            <View style={[styles.tabIconContainer, focused && styles.tabIconContainerActive]}>
+              <Icon 
+                name="cog-outline" 
+                color={focused ? colors.primary : colors.textMuted} 
+                size={28}
+              />
             </View>
           ),
         }}
-        listeners={{}}
+        listeners={{
+          tabPress: (e: any) => {
+            // Prevent default behavior
+            e.preventDefault();
+            // Force navigation to the settings index page
+            router.push('/(main)/settings');
+          },
+        }}
       />
 
     </Tabs>
@@ -241,131 +240,64 @@ export default function MainLayout() {
 const styles = StyleSheet.create({
   // Tab bar container and background
   tabBarContainer: {
-    flex: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-  blurView: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
+  blurView: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.tabBarBg,
+  },
   tabBarGradient: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
-  tabBarBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1,
-    borderColor: colors.border,
+  tabBarTopBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: colors.border,
   },
 
-  // Regular tab items
-  tabItem: {
+  // Tab icon container
+  tabIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    marginTop: 5,
-    marginHorizontal: 4,
-  },
-  tabItemActive: {
-    transform: [{ scale: 1.05 }],
-  },
-  iconWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'transparent',
+    width: 44,
+    height: 32,
     position: 'relative',
-    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
   },
-  iconWrapperActive: {
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 26,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    opacity: 0.6,
-  },
-  focusDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    marginTop: 4,
+  tabIconContainerActive: {
+    // Active state styling handled by color
   },
 
-  // Center tab (dashboard)
-  centerTabContainer: {
+  // Center tab (dashboard) - floating button style
+  centerTabWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 54,
-    height: 54,
+    marginTop: -20,
     position: 'relative',
-    marginTop: 5,
-    marginHorizontal: 4,
-    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
   },
-  centerTabShadow: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.shadow,
-    opacity: 0.3,
-    top: 7,
-    left: 7,
-  },
-  centerTab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  centerTabButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    position: 'relative',
-    transform: [{ rotate: '0deg' }], // Explicitly set no rotation to prevent tilting
+    borderColor: 'rgba(0, 0, 0, 0.3)',
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 16,
+        elevation: 8,
       },
     }),
-  },
-  centerTabRing: {
-    position: 'absolute',
-    top: -6,
-    left: -6,
-    right: -6,
-    bottom: -6,
-    borderRadius: 34,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.2)',
   },
   centerTabGlow: {
     position: 'absolute',
@@ -374,8 +306,8 @@ const styles = StyleSheet.create({
     right: -4,
     bottom: -4,
     borderRadius: 32,
-    backgroundColor: colors.primary,
-    opacity: 0.1,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
   },
 });
 

@@ -7,28 +7,35 @@ import {
   Alert, 
   ScrollView, 
   TouchableOpacity, 
-  Animated, 
   Vibration,
   Dimensions,
-  ImageBackground
+  Image,
+  Animated,
 } from 'react-native';
 import { Text, TextInput, HelperText, ActivityIndicator } from 'react-native-paper';
-import { Calendar, DateData } from 'react-native-calendars';
-import { colors } from '../../../src/styles/colors';
+import { DateData } from 'react-native-calendars';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ProgressService } from '../../../src/services/progressService';
 import { formatWeight, getWeightDisplayUnit, kgToLbs, lbsToKg } from '../../../src/utils/unitConversions';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import ProgressPhotoPrivacyNotice from '../../../src/components/legal/ProgressPhotoPrivacyNotice';
-import { usePhotoUpload } from '../../../src/hooks/usePhotoUpload';
-import { BlurView } from 'expo-blur';
 import { supabase } from '../../../src/services/supabase/client';
 import { Database } from '../../../src/types/database';
-import { SafeImage } from '../../../src/components/ui/SafeImage';
+
+// Clean Design System
+const colors = {
+  primary: '#FF6B35',
+  primaryDark: '#E55A2B',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(235, 235, 245, 0.6)',
+  success: '#34C759',
+  warning: '#FF9500',
+  error: '#FF453A',
+};
 
 const { width } = Dimensions.get('window');
 
@@ -54,43 +61,37 @@ export default function LogProgressScreen() {
   const [notes, setNotes] = useState<string>('');
   const [unit, setUnit] = useState<'kg' | 'lbs'>(profile?.weight_unit_preference || 'kg');
   const [bodyFat, setBodyFat] = useState<string>('');
-  
-  // Photo state
-  const [frontPhotoUri, setFrontPhotoUri] = useState<string | null>(null);
-  const [backPhotoUri, setBackPhotoUri] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [progressEntries, setProgressEntries] = useState<any[]>([]);
   
   // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [activeSection, setActiveSection] = useState<'weight' | 'photos'>('weight');
   const [hasExistingWeightEntries, setHasExistingWeightEntries] = useState<boolean | null>(null);
   const [showUnitSelectionDialog, setShowUnitSelectionDialog] = useState(false);
   const [isFirstWeightEntry, setIsFirstWeightEntry] = useState(false);
-  
-  // Animations
+
+  // Animation refs for success feedback
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const sectionSlideAnim = useRef(new Animated.Value(0)).current;
 
-  // Photo upload hook
-  const { 
-    pickImage, 
-    uploadPhoto, 
-    isLoading: photoUploading,
-    error: photoError 
-  } = usePhotoUpload();
-
-  useEffect(() => {
-    // Entrance animation
-    Animated.spring(slideAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    message = "Track your weight to monitor your progress over time.";
+    
+    return { greeting, message };
   }, []);
 
   // Update unit when profile changes
@@ -127,34 +128,6 @@ export default function LogProgressScreen() {
       });
     }
   }, [user]);
-
-  // Fetch progress entries for calendar
-  useEffect(() => {
-    if (user) {
-      ProgressService.getProgressPhotos(user.id).then((entries: any) => {
-        setProgressEntries(entries);
-      });
-    }
-  }, [user]);
-
-  // Clear photo URIs when changing dates
-  useEffect(() => {
-    setFrontPhotoUri(null);
-    setBackPhotoUri(null);
-  }, [selectedDate]);
-
-  // Calendar marked dates
-  const markedDates = useMemo(() => {
-    const marks: { [date: string]: any } = {};
-    progressEntries.forEach(entry => {
-      marks[entry.date] = { marked: true, dotColor: colors.primary };
-    });
-    marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: colors.primary, activeOpacity: 0 };
-    return marks;
-  }, [progressEntries, selectedDate]);
-
-  // Current entry for selected date
-  const currentEntry = useMemo(() => progressEntries.find(e => e.date === selectedDate), [progressEntries, selectedDate]);
 
   const handleWeightChange = (value: string) => {
     const withDot = value.replace(/,/g, '.');
@@ -330,133 +303,6 @@ export default function LogProgressScreen() {
     setSelectedDate(day.dateString);
   };
 
-  const handlePickImage = async (type: 'front' | 'back') => {
-    const existingPhoto = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
-    if (existingPhoto) {
-      Alert.alert(
-        'Replace Photo?',
-        'Uploading a new photo will replace the existing one. Are you sure?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Replace', onPress: () => pickImageForType(type) },
-        ]
-      );
-    } else {
-      pickImageForType(type);
-    }
-  };
-
-  const pickImageForType = async (type: 'front' | 'back') => {
-    try {
-      const imageUri = await pickImage('library');
-      if (imageUri) {
-        if (type === 'front') {
-          setFrontPhotoUri(imageUri);
-        } else {
-          setBackPhotoUri(imageUri);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
-
-  const handleTakePhoto = async (type: 'front' | 'back') => {
-    const existingPhoto = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
-    if (existingPhoto) {
-      Alert.alert(
-        'Replace Photo?',
-        'Taking a new photo will replace the existing one. Are you sure?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Replace', onPress: () => takePhotoForType(type) },
-        ]
-      );
-    } else {
-      takePhotoForType(type);
-    }
-  };
-
-  const takePhotoForType = async (type: 'front' | 'back') => {
-    try {
-      const imageUri = await pickImage('camera');
-      if (imageUri) {
-        if (type === 'front') {
-          setFrontPhotoUri(imageUri);
-        } else {
-          setBackPhotoUri(imageUri);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
-    }
-  };
-
-  const showPhotoOptions = (type: 'front' | 'back') => {
-    Alert.alert(
-      'Select Photo',
-      'Choose how you want to add your photo',
-      [
-        { text: 'Camera', onPress: () => handleTakePhoto(type) },
-        { text: 'Photo Library', onPress: () => handlePickImage(type) },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
-  const renderPhotoSelector = (type: 'front' | 'back') => {
-    const newUri = type === 'front' ? frontPhotoUri : backPhotoUri;
-    const photo = type === 'front' ? currentEntry?.front_photo : currentEntry?.back_photo;
-    
-    // If we have a new photo URI, show that
-    if (newUri) {
-      return (
-        <View style={styles.calendarPhotoContainer}>
-          <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
-          <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage 
-              sourceUrl={newUri} 
-              style={styles.calendarPreviewImage}
-              quality={1.0}
-              maxWidth={2400}
-              maxHeight={3200}
-            />
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    // If we have a saved photo, use the local URI directly (no longer stored in Supabase)
-    if (photo && photo.storage_path) {
-      return (
-        <View style={styles.calendarPhotoContainer}>
-          <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
-          <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => handlePickImage(type)}>
-            <SafeImage 
-              sourceUrl={photo.storage_path} 
-              style={styles.calendarPreviewImage}
-              quality={1.0}
-              maxWidth={2400}
-              maxHeight={3200}
-            />
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    // No photo available
-    return (
-      <View style={styles.calendarPhotoContainer}>
-        <Text style={styles.calendarPhotoLabel}>{type === 'front' ? 'Front Photo' : 'Back Photo'}</Text>
-        <TouchableOpacity style={styles.calendarPhotoPlaceholder} onPress={() => showPhotoOptions(type)}>
-          <View style={styles.photoPlaceholderContent}>
-            <Icon name={type === 'front' ? 'human-handsup' : 'human-handsdown'} size={40} color={colors.primary} />
-            <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   const handleSave = async () => {
     if (!user) {
@@ -477,17 +323,6 @@ export default function LogProgressScreen() {
           notes: notes || null,
           body_fat_percentage: bodyFat && !isBodyFatInvalid ? bodyFatNum : null,
         });
-      }
-
-      // Create or update progress entry with photos
-      if (frontPhotoUri || backPhotoUri) {
-        await ProgressService.createOrUpdateProgressEntry(
-          user.id,
-          selectedDate,
-          weight && !isWeightInvalid ? (unit === 'lbs' ? convertWeight(weightNum, 'lbs', 'kg') : weightNum) : null,
-          frontPhotoUri || undefined,
-          backPhotoUri || undefined
-        );
       }
 
       // Optionally update profile body fat percentage
@@ -524,8 +359,6 @@ export default function LogProgressScreen() {
 
   // Separate validation for each section
   const canSaveWeight = weight && !isWeightInvalid;
-  const canSavePhotos = frontPhotoUri || backPhotoUri;
-  const canSave = canSaveWeight || canSavePhotos;
 
   // Separate save handlers for each section
   const handleSaveWeight = async () => {
@@ -586,91 +419,10 @@ export default function LogProgressScreen() {
     }
   };
 
-  const handleSavePhotos = async () => {
-    if (!user) {
-      Alert.alert('Not logged in', 'Please log in first.');
-      return;
-    }
-
-    if (!canSavePhotos) {
-      Alert.alert('No photos', 'Please select at least one photo to save.');
-      return;
-    }
-
-    setIsSaving(true);
-    
-    try {
-      await ProgressService.createOrUpdateProgressEntry(
-        user.id,
-        selectedDate,
-        null, // No weight in photos-only save
-        frontPhotoUri || undefined,
-        backPhotoUri || undefined
-      );
-
-      // Refresh progress entries to show updated data
-      if (user) {
-        const updatedEntries = await ProgressService.getProgressPhotos(user.id);
-        setProgressEntries(updatedEntries);
-      }
-
-      // Clear temporary photo URIs since they're now saved
-      setFrontPhotoUri(null);
-      setBackPhotoUri(null);
-
-      showSuccessAlert();
-    } catch (error) {
-      console.error('Error saving photos:', error);
-      Alert.alert('Error', 'Failed to save photos. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Background */}
-      <ImageBackground
-        source={{ 
-          uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop' 
-        }}
-        style={styles.backgroundImage}
-      >
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0.7)', 
-            'rgba(18,18,18,0.85)', 
-            'rgba(18,18,18,0.95)', 
-            '#121212'
-          ]}
-          style={styles.overlay}
-        />
-      </ImageBackground>
-
-      {/* Header */}
-      <Animated.View style={[
-        styles.header,
-        { 
-          paddingTop: insets.top + 16,
-          opacity: slideAnim,
-          transform: [{ translateY: slideAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-50, 0]
-          })}]
-        }
-      ]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Icon name="chevron-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Log Progress</Text>
-        <View style={{ width: 40 }} />
-      </Animated.View>
 
       <KeyboardAvoidingView 
         style={styles.content}
@@ -680,49 +432,33 @@ export default function LogProgressScreen() {
         <ScrollView 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
-          contentInset={{ bottom: insets.bottom }}
-          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}
         >
-          {/* Section Tabs */}
-          <View style={styles.tabContainer}>
+          {/* AI Coach Header */}
+          <View style={styles.coachHeader}>
             <TouchableOpacity 
-              style={[styles.tab, activeSection === 'weight' && styles.activeTab]}
-              onPress={() => setActiveSection('weight')}
-              activeOpacity={0.7}
+              style={styles.backButton} 
+              onPress={() => router.back()}
+              activeOpacity={0.8}
             >
-              <Icon 
-                name="scale-bathroom" 
-                size={20} 
-                color={activeSection === 'weight' ? colors.primary : colors.textSecondary} 
-              />
-              <Text style={[styles.tabText, activeSection === 'weight' && styles.activeTabText]}>
-                Weight
-              </Text>
+              <Icon name="arrow-left" size={22} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tab, activeSection === 'photos' && styles.activeTab]}
-              onPress={() => setActiveSection('photos')}
-              activeOpacity={0.7}
-            >
-              <Icon 
-                name="camera" 
-                size={20} 
-                color={activeSection === 'photos' ? colors.primary : colors.textSecondary} 
+            <View style={styles.coachAvatarContainer}>
+              <Image
+                source={require('../../../assets/mascot.png')}
+                style={styles.coachAvatar}
               />
-              <Text style={[styles.tabText, activeSection === 'photos' && styles.activeTabText]}>
-                Photos
-              </Text>
-            </TouchableOpacity>
+              <View style={styles.coachOnlineIndicator} />
+            </View>
+            <View style={styles.coachTextContainer}>
+              <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+              <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+            </View>
           </View>
 
           {/* Weight Section */}
-          {activeSection === 'weight' && (
-            <Animated.View style={[styles.section, { opacity: slideAnim }]}>
-              <View style={styles.sectionHeader}>
-                <Icon name="scale-bathroom" size={24} color={colors.primary} />
-                <Text style={styles.sectionTitle}>Log Weight</Text>
-              </View>
+          <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Log Weight</Text>
 
               <View style={styles.weightContainer}>
                 <View style={styles.weightDisplay}>
@@ -828,83 +564,7 @@ export default function LogProgressScreen() {
                   )}
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
-          )}
-
-          {/* Photos Section */}
-          {activeSection === 'photos' && (
-            <Animated.View style={[styles.section, { opacity: slideAnim }]}>
-              <View style={styles.sectionHeader}>
-                <Icon name="camera" size={24} color={colors.primary} />
-                <Text style={styles.sectionTitle}>Body Photos</Text>
-              </View>
-
-              <View style={styles.photosContainer}>
-                {/* Privacy Notice */}
-                <ProgressPhotoPrivacyNotice variant="compact" />
-
-                {/* Calendar */}
-                <Calendar
-                  onDayPress={handleDayPress}
-                  markedDates={markedDates}
-                  markingType={'custom'}
-                  theme={{
-                    calendarBackground: 'transparent',
-                    dayTextColor: colors.text,
-                    monthTextColor: colors.text,
-                    selectedDayBackgroundColor: colors.primary,
-                    todayTextColor: colors.primary,
-                    arrowColor: colors.primary,
-                    textDayFontSize: 16,
-                    textMonthFontSize: 18,
-                    textDayHeaderFontSize: 14,
-                    textSectionTitleColor: colors.text,
-                    selectedDayTextColor: colors.text,
-                    todayBackgroundColor: 'transparent',
-                    dotColor: colors.primary,
-                    selectedDotColor: colors.text,
-                    disabledArrowColor: colors.textSecondary,
-                    indicatorColor: colors.primary,
-                    textDayFontWeight: '400',
-                    textMonthFontWeight: '600',
-                    textDayHeaderFontWeight: '500',
-                  }}
-                  style={styles.calendar}
-                />
-
-                {/* Photo Grid for Selected Date */}
-                <View style={styles.calendarPhotoGrid}>
-                  {renderPhotoSelector('front')}
-                  {renderPhotoSelector('back')}
-                </View>
-              </View>
-
-              {/* Photos Save Button */}
-              <TouchableOpacity 
-                style={[
-                  styles.sectionSaveButton,
-                  !canSavePhotos && styles.saveButtonDisabled
-                ]}
-                onPress={handleSavePhotos}
-                disabled={!canSavePhotos || isSaving}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={canSavePhotos ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
-                  style={styles.saveButtonGradient}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator color={colors.text} size="small" />
-                  ) : (
-                    <>
-                      <Icon name="check" size={20} color={colors.text} />
-                      <Text style={styles.saveButtonText}>Save Photos</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
+            </View>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -912,51 +572,52 @@ export default function LogProgressScreen() {
       {/* Unit Selection Dialog */}
       {showUnitSelectionDialog && (
         <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowUnitSelectionDialog(false)}
+          />
           <View style={styles.unitSelectionModal}>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.1)']}
-              style={styles.modalGradient}
-            >
-              <Text style={styles.modalTitle}>Choose Your Weight Unit</Text>
-              <Text style={styles.modalSubtitle}>
-                This will be your default unit for all future weight logging
-              </Text>
-              
-              <View style={styles.unitOptions}>
-                <TouchableOpacity 
-                  style={styles.unitOption}
-                  onPress={() => selectUnit('kg')}
-                >
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryDark]}
-                    style={styles.unitOptionGradient}
-                  >
-                    <Text style={styles.unitOptionText}>Kilograms (kg)</Text>
-                    <Text style={styles.unitOptionSubtext}>Metric system</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.unitOption}
-                  onPress={() => selectUnit('lbs')}
-                >
-                  <LinearGradient
-                    colors={[colors.secondary, colors.secondaryDark]}
-                    style={styles.unitOptionGradient}
-                  >
-                    <Text style={styles.unitOptionText}>Pounds (lbs)</Text>
-                    <Text style={styles.unitOptionSubtext}>Imperial system</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
+            <Text style={styles.modalTitle}>Choose Your Weight Unit</Text>
+            <Text style={styles.modalSubtitle}>
+              This will be your default unit for all future weight logging
+            </Text>
+            
+            <View style={styles.unitOptions}>
+              <TouchableOpacity 
+                style={[styles.unitOption, unit === 'kg' && styles.unitOptionActive]}
+                onPress={() => selectUnit('kg')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.unitOptionText, unit === 'kg' && styles.unitOptionTextActive]}>
+                  Kilograms (kg)
+                </Text>
+                <Text style={[styles.unitOptionSubtext, unit === 'kg' && styles.unitOptionSubtextActive]}>
+                  Metric system
+                </Text>
+              </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.modalCancelButton}
-                onPress={() => setShowUnitSelectionDialog(false)}
+                style={[styles.unitOption, unit === 'lbs' && styles.unitOptionActive]}
+                onPress={() => selectUnit('lbs')}
+                activeOpacity={0.8}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={[styles.unitOptionText, unit === 'lbs' && styles.unitOptionTextActive]}>
+                  Pounds (lbs)
+                </Text>
+                <Text style={[styles.unitOptionSubtext, unit === 'lbs' && styles.unitOptionSubtextActive]}>
+                  Imperial system
+                </Text>
               </TouchableOpacity>
-            </LinearGradient>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.modalCancelButton}
+              onPress={() => setShowUnitSelectionDialog(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -979,95 +640,116 @@ export default function LogProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
   },
+
+  // AI Coach Header
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingTop: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
+    flex: 1,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Tab Container
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
     padding: 4,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 10,
+    gap: 8,
   },
   activeTab: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
   },
   tabText: {
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
   },
   activeTabText: {
     color: colors.primary,
   },
+
+  // Section
   section: {
     marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
-    marginLeft: 12,
+    color: colors.text,
+    marginBottom: 14,
+    letterSpacing: 0.3,
   },
   weightContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   weightDisplay: {
     alignItems: 'center',
@@ -1125,17 +807,17 @@ const styles = StyleSheet.create({
   adjustButton: {
     width: 50,
     height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   weightInput: {
     flex: 1,
     marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1143,26 +825,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   notesInput: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     color: colors.text,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     minHeight: 80,
     textAlignVertical: 'top',
   },
   photosContainer: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   photoSection: {
     marginBottom: 24,
@@ -1244,21 +926,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bodyFatInput: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     color: colors.text,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   calendar: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     paddingVertical: 10,
   },
   calendarPhotoGrid: {
@@ -1281,11 +963,11 @@ const styles = StyleSheet.create({
     width: 140,
     height: 200,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary + '30',
+    borderColor: 'rgba(255, 107, 53, 0.2)',
     borderStyle: 'dashed',
     overflow: 'hidden',
   },
@@ -1310,27 +992,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
   unitSelectionModal: {
     width: width * 0.85,
+    maxWidth: 400,
+    backgroundColor: '#000000',
     borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  modalGradient: {
     padding: 24,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 8,
@@ -1338,7 +1018,7 @@ const styles = StyleSheet.create({
   },
   modalSubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
@@ -1349,12 +1029,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   unitOption: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  unitOptionGradient: {
-    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  unitOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   unitOptionText: {
     fontSize: 16,
@@ -1362,17 +1046,24 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  unitOptionTextActive: {
+    color: colors.white,
+  },
   unitOptionSubtext: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
+  },
+  unitOptionSubtextActive: {
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   modalCancelButton: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 24,
+    alignItems: 'center',
   },
   modalCancelText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 15,
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
     fontWeight: '600',
   },
 });

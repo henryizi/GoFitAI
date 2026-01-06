@@ -6,7 +6,7 @@ export default function ProgressLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="log-progress" />
-      <Stack.Screen name="photo-upload" />
+      <Stack.Screen name="log-photo" />
     </Stack>
   );
 } 

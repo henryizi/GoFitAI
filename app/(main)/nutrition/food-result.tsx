@@ -1,26 +1,44 @@
+/**
+ * FOOD RESULT PAGE
+ * Display AI food analysis results
+ */
+
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Dimensions, Image, TouchableOpacity, Platform, Alert, Text, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Image,
+  TouchableOpacity,
+  Alert,
+  Text,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { NutritionService } from '../../../src/services/nutrition/NutritionService';
 
+const { width: screenWidth } = Dimensions.get('window');
 
-const { width } = Dimensions.get('window');
-
+// Clean color palette
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
-  accent: '#FF8F65',
-  background: '#121212',
-  surface: '#1C1C1E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
-  border: 'rgba(84, 84, 88, 0.4)',
-  card: 'rgba(28, 28, 30, 0.9)',
+  textTertiary: 'rgba(235, 235, 245, 0.3)',
+  success: '#22C55E',
+  warning: '#FF9500',
+  error: '#EF4444',
+  white: '#FFFFFF',
+  protein: '#3B82F6',
+  carbs: '#F59E0B',
+  fat: '#EC4899',
 };
 
 export default function FoodResultScreen() {
@@ -35,60 +53,39 @@ export default function FoodResultScreen() {
 
   const [servings, setServings] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState(1);
 
-  // Extract nutrition data from the correct API response structure
-  // Handle both wrapped (data.nutrition) and direct (nutrition) response formats
+  useEffect(() => {
+    if (imageUri) {
+      Image.getSize(imageUri, (w, h) => {
+        if (w && h) setAspectRatio(w / h);
+      }, () => {});
+    }
+  }, [imageUri]);
+
+  // Extract nutrition data
   const nutritionData = parsed?.data?.nutrition || parsed?.data?.totalNutrition || parsed?.totalNutrition || parsed?.nutrition || parsed || {};
   const foodItems = parsed?.data?.foodItems || parsed?.foodItems || [];
   
-  // Use AI-generated meal name from backend or fall back to generated meal name from food items
-  // Support both local server format (data.foodName) and Railway format (data.nutrition.food_name)
   const mealName = parsed?.data?.foodName || parsed?.foodName || 
                    parsed?.data?.dishName || parsed?.dishName || 
                    parsed?.data?.food_name || parsed?.food_name || 
                    parsed?.mealName || parsed?.meal_name ||
-                   nutritionData?.food_name; // ✅ Add Railway server support
+                   nutritionData?.food_name;
 
-  // ✅ ENHANCED FALLBACK: Generate comprehensive meal name from all food items if needed
   const generateMealNameFromItems = (items: any[]) => {
     if (!items || items.length === 0) return 'Detected Food';
     if (items.length === 1) return items[0].name || 'Detected Food';
     if (items.length === 2) return `${items[0].name} with ${items[1].name}`;
-    if (items.length === 3) return `${items[0].name}, ${items[1].name} & ${items[2].name}`;
-    // For 4+ items, list all items with commas and "&" before the last one
-    if (items.length >= 4) {
-      const allButLast = items.slice(0, -1).map(item => item.name).join(', ');
-      const lastItem = items[items.length - 1].name;
-      return `${allButLast} & ${lastItem}`;
-    }
-    return items[0].name || 'Detected Food';
+    return items.map(i => i.name).slice(0, 3).join(', ');
   };
 
-  // ✅ SMART DISH NAME HANDLING: Respect AI-recognized dish names
-  // Only generate combined name if AI didn't provide a meaningful dish name
-  const isGenericName = !mealName || mealName === 'Food Item' || mealName === 'Unknown Food' || mealName === 'Detected Food';
-  const shouldGenerateCombinedName = isGenericName && foodItems?.length > 0;
-  
-  const foodName = shouldGenerateCombinedName 
+  const isGenericName = !mealName || mealName === 'Food Item' || mealName === 'Unknown Food';
+  const foodName = (isGenericName && foodItems?.length > 0)
     ? generateMealNameFromItems(foodItems) 
     : (mealName || 'Detected Food');
 
-  // Debug logging to track meal name resolution (can be removed in production)
-  console.log('[FOOD RESULT] Meal name resolution:');
-  console.log('  - mealName from API:', mealName);
-  console.log('  - foodItems count:', foodItems?.length || 0);
-  console.log('  - final foodName:', foodName);
-  console.log('  - shouldGenerateCombinedName:', shouldGenerateCombinedName);
-  console.log('  - isGenericName:', isGenericName);
-  
-  // Create display name for bubble - use the comprehensive meal name
-  // This ensures the bubble shows our AI-generated comprehensive meal name 
-  // that includes all detected food items, not just USDA verified ones
-  const bubbleDisplayName = foodName;
-  
-  // Check if any food items are USDA verified
   const hasUSDAData = foodItems?.some((item: any) => item.usdaVerified);
-  const usdaVerifiedCount = foodItems?.filter((item: any) => item.usdaVerified).length || 0;
 
   const proteinG = Number(nutritionData?.protein || 0);
   const carbsG = Number(nutritionData?.carbs || nutritionData?.carbohydrates || 0);
@@ -96,6 +93,7 @@ export default function FoodResultScreen() {
   const calsFromMacros = proteinG * 4 + carbsG * 4 + fatG * 9;
   const totalCalories = Number(nutritionData?.calories || calsFromMacros || 0);
   const safeTotal = Math.max(totalCalories, 1);
+  
   const pctProtein = Math.min(100, Math.round(((proteinG * 4) / safeTotal) * 100));
   const pctCarbs = Math.min(100, Math.round(((carbsG * 4) / safeTotal) * 100));
   const pctFat = Math.min(100, Math.round(((fatG * 9) / safeTotal) * 100));
@@ -106,39 +104,28 @@ export default function FoodResultScreen() {
   const dispCarbs = Math.round(carbsG * mult);
   const dispFat = Math.round(fatG * mult);
 
-  // Debug logging to track values (can be removed in production)
-  console.log('[FOOD RESULT] Base nutrition - Calories:', totalCalories, 'Protein:', proteinG, 'Carbs:', carbsG, 'Fat:', fatG);
-  console.log('[FOOD RESULT] Display with', mult + 'x multiplier - Calories:', dispCalories, 'Protein:', dispProtein, 'Carbs:', dispCarbs, 'Fat:', dispFat);
-
+  // Health score
   const proteinShare = Math.min((proteinG * 4) / safeTotal, 0.4) / 0.4;
   const fatShare = (fatG * 9) / safeTotal;
   const fatPenalty = Math.max(0, fatShare - 0.45) / 0.35;
   const score = Math.max(0, Math.min(10, Math.round((proteinShare * 7 + (1 - fatPenalty) * 3))));
-  const scorePct = (score / 10) * 100;
 
   const handleLog = async () => {
     if (!user || !parsed) return;
     setLoading(true);
     try {
-      // IMPORTANT: Log the BASE nutrition values (not multiplied by servings)
-      // because the AI already estimated nutrition for the visible food portion.
-      // The servings multiplier is only for display/preview purposes.
       const entry = {
         food_name: String(foodName || 'Food'),
-        calories: Math.round(totalCalories), // Use base calories, not dispCalories
-        protein_grams: Math.round(proteinG), // Use base protein, not dispProtein
-        carbs_grams: Math.round(carbsG),     // Use base carbs, not dispCarbs
-        fat_grams: Math.round(fatG),         // Use base fat, not dispFat
+        calories: Math.round(totalCalories),
+        protein_grams: Math.round(proteinG),
+        carbs_grams: Math.round(carbsG),
+        fat_grams: Math.round(fatG),
       };
       
-      console.log('[FOOD RESULT] Logging base nutrition values (ignoring portion multiplier):', entry);
       await NutritionService.logFoodEntry(user.id, entry);
-      Alert.alert('Food Logged', `${entry.food_name} has been added to today's nutrition progress.`, [{ 
+      Alert.alert('Food Logged', `${entry.food_name} has been added.`, [{ 
         text: 'OK', 
-        onPress: () => {
-          // Navigate back to the nutrition tab instead of just going back
-          router.replace('/(main)/nutrition');
-        } 
+        onPress: () => router.replace('/(main)/nutrition')
       }]);
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to log food.');
@@ -148,150 +135,154 @@ export default function FoodResultScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <Icon name="arrow-left" size={22} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Food Analysis</Text>
-        <View style={styles.headerBtn} />
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-      <View style={styles.heroImageWrap}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.heroImage} />
-        ) : (
-          <View style={[styles.heroImage, { backgroundColor: '#000' }]} />
-        )}
-        {bubbleDisplayName && bubbleDisplayName !== 'Detected Food' ? (
-          <View style={[styles.bubbleTag, styles.foodNameBubble]}>
-            <Text style={styles.bubbleText} numberOfLines={3} ellipsizeMode="tail">{String(bubbleDisplayName)}</Text>
-          </View>
-        ) : null}
-        {hasUSDAData ? (
-          <View style={[styles.usdaBadge, styles.usdaBadgePosition]}>
-            <Icon name="shield-check" size={14} color="#4CAF50" style={{ marginRight: 4 }} />
-            <Text style={styles.usdaBadgeText}>{usdaVerifiedCount} USDA Verified</Text>
-          </View>
-        ) : null}
-        <View style={[styles.bubbleTag, styles.caloriesBubble]}>
-          <Text style={styles.bubbleText}>{dispCalories} kcal</Text>
+      <ScrollView
+        contentContainerStyle={[styles.mainContent, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Icon name="arrow-left" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Analysis Result</Text>
+          <View style={{ width: 40 }} />
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <LinearGradient colors={["#1f1f22", "#141416"]} style={styles.cardGradient}>
-          <BlurView intensity={20} tint={Platform.OS === 'ios' ? 'dark' : 'default'} style={styles.blurOverlay} />
-
-          <View style={styles.topRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.foodTitle} numberOfLines={3} ellipsizeMode="tail">{foodName}</Text>
-              <Text style={styles.subtitle}>Analyzed nutrition</Text>
+        {/* Image Preview */}
+        {imageUri && (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: imageUri }} style={[styles.imagePreview, { aspectRatio }]} />
+            <View style={styles.caloriesBadge}>
+              <Text style={styles.caloriesBadgeText}>{dispCalories} kcal</Text>
             </View>
-            <View style={styles.calorieBadge}>
-              <Text style={styles.calorieValue}>{dispCalories}</Text>
-              <Text style={styles.calorieLabel}>kcal</Text>
-            </View>
+            {hasUSDAData && (
+              <View style={styles.usdaBadge}>
+                <Icon name="shield-check" size={12} color={colors.success} />
+                <Text style={styles.usdaBadgeText}>USDA Verified</Text>
+              </View>
+            )}
           </View>
+        )}
 
-          <View style={styles.servingsRow}>
-            <Text style={styles.servingsLabel}>Portion multiplier</Text>
-            <View style={styles.stepper}>
-              <TouchableOpacity disabled={servings <= 1} onPress={() => setServings(Math.max(1, servings - 1))} style={[styles.stepperBtn, servings <= 1 && { opacity: 0.4 }]}>
-                <Icon name="minus" size={18} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={styles.stepperValue}>{servings}</Text>
-              <TouchableOpacity onPress={() => setServings(servings + 1)} style={styles.stepperBtn}>
-                <Icon name="plus" size={18} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <Text style={styles.portionHint}>
-            {servings === 1 ? 'Nutrition for the food shown in your photo' : `Preview: if you ate ${servings}x this portion`}
-          </Text>
+        {/* Food Name */}
+        <Text style={styles.foodName}>{foodName}</Text>
+        <Text style={styles.subtitle}>AI-analyzed nutrition</Text>
 
-          <View style={styles.macrosRow}>
-            <View style={[styles.macroChip, { backgroundColor: 'rgba(59, 130, 246, 0.12)', borderColor: 'rgba(59,130,246,0.35)' }]}>
-              <View style={[styles.macroDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.macroLabel}>Protein</Text>
-              <Text style={styles.macroValue}>{dispProtein} g</Text>
-            </View>
-            <View style={[styles.macroChip, { backgroundColor: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245,158,11,0.35)' }]}>
-              <View style={[styles.macroDot, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.macroLabel}>Carbs</Text>
-              <Text style={styles.macroValue}>{dispCarbs} g</Text>
-            </View>
-            <View style={[styles.macroChip, { backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: 'rgba(236,72,153,0.35)' }]}>
-              <View style={[styles.macroDot, { backgroundColor: '#EC4899' }]} />
-              <Text style={styles.macroLabel}>Fat</Text>
-              <Text style={styles.macroValue}>{dispFat} g</Text>
-            </View>
+        {/* Portion Selector */}
+        <View style={styles.portionRow}>
+          <Text style={styles.portionLabel}>Portion</Text>
+          <View style={styles.stepper}>
+            <TouchableOpacity 
+              disabled={servings <= 1} 
+              onPress={() => setServings(Math.max(1, servings - 1))} 
+              style={[styles.stepperButton, servings <= 1 && styles.stepperButtonDisabled]}
+            >
+              <Icon name="minus" size={18} color={servings <= 1 ? colors.textTertiary : colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.stepperValue}>{servings}x</Text>
+            <TouchableOpacity 
+              onPress={() => setServings(servings + 1)} 
+              style={styles.stepperButton}
+            >
+              <Icon name="plus" size={18} color={colors.white} />
+            </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.stackBar}>
-            <View style={[styles.stackBarFill, { backgroundColor: '#3B82F6', width: `${pctProtein}%` }]} />
-            <View style={[styles.stackBarFill, { backgroundColor: '#F59E0B', width: `${pctCarbs}%` }]} />
-            <View style={[styles.stackBarFill, { backgroundColor: '#EC4899', width: `${pctFat}%` }]} />
+        {/* Macros Card */}
+        <View style={styles.macrosCard}>
+          <View style={styles.macroItem}>
+            <View style={[styles.macroDot, { backgroundColor: colors.protein }]} />
+            <Text style={styles.macroLabel}>Protein</Text>
+            <Text style={[styles.macroValue, { color: colors.protein }]}>{dispProtein}g</Text>
           </View>
-          <View style={styles.stackLegend}>
-            <Text style={styles.legendText}>{pctProtein}% protein</Text>
-            <Text style={styles.legendText}>{pctCarbs}% carbs</Text>
-            <Text style={styles.legendText}>{pctFat}% fat</Text>
+          <View style={styles.macroDivider} />
+          <View style={styles.macroItem}>
+            <View style={[styles.macroDot, { backgroundColor: colors.carbs }]} />
+            <Text style={styles.macroLabel}>Carbs</Text>
+            <Text style={[styles.macroValue, { color: colors.carbs }]}>{dispCarbs}g</Text>
           </View>
+          <View style={styles.macroDivider} />
+          <View style={styles.macroItem}>
+            <View style={[styles.macroDot, { backgroundColor: colors.fat }]} />
+            <Text style={styles.macroLabel}>Fat</Text>
+            <Text style={[styles.macroValue, { color: colors.fat }]}>{dispFat}g</Text>
+          </View>
+        </View>
 
-          <View style={styles.healthRow}>
-            <View style={styles.healthLabelWrap}>
-              <Icon name="heart-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.healthLabel}>Health score</Text>
-            </View>
+        {/* Macro Distribution Bar */}
+        <View style={styles.macroBar}>
+          <View style={[styles.macroBarFill, { backgroundColor: colors.protein, width: `${pctProtein}%` }]} />
+          <View style={[styles.macroBarFill, { backgroundColor: colors.carbs, width: `${pctCarbs}%` }]} />
+          <View style={[styles.macroBarFill, { backgroundColor: colors.fat, width: `${pctFat}%` }]} />
+        </View>
+        <View style={styles.macroBarLegend}>
+          <Text style={styles.legendText}>{pctProtein}% protein</Text>
+          <Text style={styles.legendText}>{pctCarbs}% carbs</Text>
+          <Text style={styles.legendText}>{pctFat}% fat</Text>
+        </View>
+
+        {/* Health Score */}
+        <View style={styles.healthCard}>
+          <View style={styles.healthHeader}>
+            <Icon name="heart-outline" size={18} color={colors.textSecondary} />
+            <Text style={styles.healthLabel}>Health Score</Text>
             <Text style={styles.healthScore}>{score}/10</Text>
           </View>
-          <View style={styles.healthBar}><View style={[styles.healthFill, { width: `${scorePct}%` }]} /></View>
-
-          {parsed?.notice ? (
-            <View style={styles.noticeBox}>
-              <Icon name="alert-circle-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.noticeText}>{parsed.notice}</Text>
-            </View>
-          ) : null}
-          
-          {hasUSDAData ? (
-            <View style={styles.usdaNoticeBox}>
-              <Icon name="shield-check" size={18} color="#4CAF50" />
-              <Text style={styles.usdaNoticeText}>
-                {usdaVerifiedCount} of {foodItems.length} food items verified with USDA FoodData Central.
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={styles.actionsRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.fixBtn} disabled={loading}>
-              <Text style={styles.fixBtnText}>Fix Results</Text>
-            </TouchableOpacity>
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity
-              onPress={handleLog}
-              disabled={loading}
-              style={[styles.logFoodButton, loading && styles.logFoodButtonDisabled]}
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                style={styles.logFoodButtonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.text} size="small" />
-                ) : (
-                  <>
-                    <Icon name="plus" size={18} color={colors.text} style={{ marginRight: 8 }} />
-                    <Text style={styles.logFoodButtonText}>LOG FOOD</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+          <View style={styles.healthBar}>
+            <View style={[styles.healthBarFill, { width: `${score * 10}%` }]} />
           </View>
-        </LinearGradient>
-      </View>
+        </View>
+
+        {/* Food Items (if available) */}
+        {foodItems.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Detected Items</Text>
+            {foodItems.map((item: any, index: number) => (
+              <View key={index} style={styles.foodItemCard}>
+                <Text style={styles.foodItemName}>{item.name}</Text>
+                <View style={styles.foodItemMacros}>
+                  <Text style={styles.foodItemMacro}>{item.calories || 0} cal</Text>
+                  <Text style={[styles.foodItemMacro, { color: colors.protein }]}>{item.protein || 0}g P</Text>
+                  <Text style={[styles.foodItemMacro, { color: colors.carbs }]}>{item.carbs || 0}g C</Text>
+                  <Text style={[styles.foodItemMacro, { color: colors.fat }]}>{item.fat || 0}g F</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.fixButton}>
+            <Text style={styles.fixButtonText}>Edit</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={handleLog}
+            disabled={loading}
+            style={styles.logButton}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              style={styles.logButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <>
+                  <Icon name="plus" size={18} color={colors.white} />
+                  <Text style={styles.logButtonText}>Log Food</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -299,244 +290,287 @@ export default function FoodResultScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  heroImageWrap: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  heroImage: {
-    width: width - 32,
-    height: (width - 32) * 0.6,
-    borderRadius: 16,
-  },
-  bubbleTag: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  bubbleText: {
-    color: '#111',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16,
-  },
-  foodNameBubble: {
-    left: 16,
-    top: 16,
-    maxWidth: width - 130, // Ensure proper spacing from calories bubble
-    flexShrink: 1, // Allow shrinking to fit content
-    minHeight: 32, // 确保至少有两行空间
-  },
-  caloriesBubble: {
-    right: 16,
-    top: 16, // Align with food name bubble for better layout
-    minWidth: 80, // Ensure consistent width for calories
-    alignItems: 'center',
-  },
-  card: {
-    paddingHorizontal: 16,
-  },
-  cardGradient: {
-    borderRadius: 16,
-    padding: 16,
-    overflow: 'hidden',
-  },
-  blurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 16,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  foodTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 28,
-    minHeight: 56, // 确保至少有两行空间
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  calorieBadge: {
-    width: 84,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  calorieValue: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  calorieLabel: { color: colors.textSecondary, fontSize: 12 },
-  servingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  servingsLabel: { color: colors.textSecondary, fontSize: 13 },
-  portionHint: { 
-    color: colors.textSecondary, 
-    fontSize: 11, 
-    textAlign: 'center', 
-    marginTop: 6,
-    fontStyle: 'italic',
-    opacity: 0.8
-  },
-  stepper: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden',
-  },
-  stepperBtn: { paddingVertical: 6, paddingHorizontal: 10 },
-  stepperValue: { color: colors.text, fontSize: 14, fontWeight: '700', paddingHorizontal: 8 },
-  macrosRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
-  },
-  macroChip: {
-    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12,
-    minWidth: (width - 88) / 3 - 6, justifyContent: 'space-between',
-  },
-  macroDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  macroLabel: { color: colors.textSecondary, fontSize: 12, flex: 1 },
-  macroValue: { color: colors.text, fontSize: 14, fontWeight: '700', marginLeft: 8 },
-  stackBar: { height: 12, width: '100%', borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.06)', flexDirection: 'row' },
-  stackBarFill: { height: '100%' },
-  stackLegend: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  legendText: { color: colors.textSecondary, fontSize: 12 },
-  healthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  healthLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  healthLabel: { color: colors.textSecondary, marginLeft: 6, fontSize: 13 },
-  healthScore: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  healthBar: { marginTop: 6, width: '100%', height: 8, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
-  healthFill: { height: '100%', backgroundColor: '#34D399' },
-  noticeBox: {
-    marginTop: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(28,28,30,0.6)',
-    paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  noticeText: { color: colors.textSecondary, fontSize: 12, flex: 1 },
-  actionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  fixBtn: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 12, paddingHorizontal: 16 },
-  fixBtnText: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  logBtn: { 
-    borderRadius: 24, 
-    height: 56, 
-    overflow: 'hidden', 
-    flex: 0.6,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logBtnGradient: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    paddingVertical: 12,
+  mainContent: {
     paddingHorizontal: 20,
   },
-  logBtnText: { 
-    color: colors.text, 
-    fontSize: 16, 
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  logFoodButton: {
-    borderRadius: 28,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-    overflow: 'hidden',
-  },
-  logFoodButtonGradient: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+
+  // Header
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
-    minWidth: 140,
+    alignItems: 'center',
   },
-  logFoodButtonText: {
-    fontSize: 14,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
-    letterSpacing: 0.8,
+    color: colors.white,
   },
-  logFoodButtonDisabled: {
-    opacity: 0.6,
+
+  // Image
+  imageContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  imagePreview: {
+    width: '100%',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  caloriesBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  caloriesBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111',
   },
   usdaBadge: {
     position: 'absolute',
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-    borderColor: '#4CAF50',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    bottom: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
   },
   usdaBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#4CAF50',
-    letterSpacing: 0.3,
+    color: colors.success,
   },
-  usdaBadgePosition: {
-    left: 16,
-    top: 68, // Moved down slightly to avoid overlap with potentially multi-line food names
-    maxWidth: width - 120, // Same constraint as food name to prevent overlap with calories
+
+  // Food Name
+  foodName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
   },
-  usdaNoticeBox: {
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 24,
+  },
+
+  // Portion
+  portionRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderColor: 'rgba(76, 175, 80, 0.3)',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  usdaNoticeText: {
-    fontSize: 13,
-    color: '#4CAF50',
-    marginLeft: 8,
+  portionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  stepperButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperButtonDisabled: {
+    opacity: 0.4,
+  },
+  stepperValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
+    paddingHorizontal: 8,
+  },
+
+  // Macros Card
+  macrosCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  macroItem: {
     flex: 1,
-    lineHeight: 18,
+    alignItems: 'center',
+  },
+  macroDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  macroLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  macroValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  macroDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  // Macro Bar
+  macroBar: {
+    height: 10,
+    flexDirection: 'row',
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 8,
+  },
+  macroBarFill: {
+    height: '100%',
+  },
+  macroBarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  legendText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+
+  // Health
+  healthCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  healthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  healthLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  healthScore: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  healthBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+  },
+  healthBarFill: {
+    height: '100%',
+    backgroundColor: colors.success,
+    borderRadius: 4,
+  },
+
+  // Section
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 12,
+  },
+
+  // Food Item
+  foodItemCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  foodItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: 8,
+  },
+  foodItemMacros: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  foodItemMacro: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // Actions
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  fixButton: {
+    flex: 0.35,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fixButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  logButton: {
+    flex: 0.65,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  logButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  logButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
   },
 });

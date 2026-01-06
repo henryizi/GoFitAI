@@ -1,62 +1,32 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ImageBackground, Dimensions, Animated, Alert } from 'react-native';
-import { Text, Button, FAB } from 'react-native-paper';
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Alert, Image } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useRouter, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { mockWorkoutPlansStore } from '../../../src/mock-data';
 import { WorkoutLocalStore } from '../../../src/services/workout/WorkoutLocalStore';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
+import { WorkoutHistoryService } from '../../../src/services/workout/WorkoutHistoryService';
 import { track as analyticsTrack } from '../../../src/services/analytics/analytics';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
 import HealthDisclaimer from '../../../src/components/legal/HealthDisclaimer';
+import { TutorialWrapper } from '../../../src/components/tutorial/TutorialWrapper';
 
-// MARK: - Enhanced Design System
+// MARK: - Clean Design System
 const { width } = Dimensions.get('window');
 
-// Modern, premium colors with enhanced palette
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
-  primaryLight: '#FF8F65',
   accent: '#FF8F65',
   secondary: '#34C759',
-  background: '#121212',
-  surface: '#1C1C1E',
-  surfaceLight: '#2C2C2E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
-  textTertiary: 'rgba(235, 235, 245, 0.3)',
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.8)',
-  cardLight: 'rgba(44, 44, 46, 0.9)',
-  border: 'rgba(84, 84, 88, 0.6)',
-  borderLight: 'rgba(84, 84, 88, 0.3)',
   white: '#FFFFFF',
-  dark: '#121212',
-  glass: 'rgba(255, 255, 255, 0.1)',
-  glassStrong: 'rgba(255, 255, 255, 0.15)',
-  blue: '#007AFF',
   purple: '#AF52DE',
-  pink: '#FF2D92',
-  cyan: '#5AC8FA',
-};
-
-const typography = {
-  h4: { fontSize: 32, fontWeight: '800' as const, color: colors.text },
-  h5: { fontSize: 24, fontWeight: '700' as const, color: colors.text },
-  h6: { fontSize: 20, fontWeight: '600' as const, color: colors.text },
-  subtitle1: { fontSize: 16, fontWeight: '600' as const, color: colors.text },
-  body1: { fontSize: 16, color: colors.textSecondary },
-  body2: { fontSize: 14, color: colors.textSecondary },
-  caption: { fontSize: 12, color: colors.textSecondary },
-  button: { fontSize: 14, fontWeight: '700' as const, color: colors.white },
 };
 
 interface Plan {
@@ -82,301 +52,248 @@ interface Plan {
 // MARK: - Screen Component
 const WorkoutPlansScreen = () => {
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [plans, setPlans] = useState<Plan[]>([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [scrollY] = useState(new Animated.Value(0));
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [showAllPlans, setShowAllPlans] = useState(false);
+  const [weeklyStats, setWeeklyStats] = useState({ workouts: 0, totalMinutes: 0, streak: 0 });
 
+  // Cache refs to prevent unnecessary refetches
+  const lastFetchTime = useRef<number>(0);
+  const cachedPlans = useRef<Plan[]>([]);
+  const isFetching = useRef<boolean>(false);
+  const CACHE_DURATION = 5000; // 5 seconds cache
 
+  // Fetch weekly stats (optimized - don't block UI)
+  const fetchWeeklyStats = useCallback(async () => {
+    if (!user?.id) return;
+    // Fetch in background, don't block UI
+    WorkoutHistoryService.getCompletedSessions(user.id)
+      .then(sessions => {
+      // Filter to last 7 days
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const recentSessions = sessions?.filter(s => new Date(s.completed_at) >= oneWeekAgo) || [];
+      const workoutCount = recentSessions.length;
+      const totalMinutes = recentSessions.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+      setWeeklyStats({ workouts: workoutCount, totalMinutes, streak: workoutCount > 0 ? Math.min(workoutCount, 7) : 0 });
+      })
+      .catch(error => {
+      console.error('[WorkoutPlans] Error fetching stats:', error);
+      });
+  }, [user?.id]);
 
   useEffect(() => {
     analyticsTrack('screen_view', { screen: 'workout_plans' });
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    fetchWeeklyStats();
+  }, [fetchWeeklyStats]);
+
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const activePlan = plans.find(p => p.id === activePlanId);
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    if (plans.length === 0) {
+      message = "Let's create your personalized workout plan to start your fitness journey.";
+    } else if (!activePlan) {
+      message = "Select a workout plan to begin tracking your progress.";
+    } else if (weeklyStats.workouts === 0) {
+      message = "Ready to train? Your workout plan is waiting for you.";
+    } else if (weeklyStats.workouts < 3) {
+      message = `Great progress! You've completed ${weeklyStats.workouts} workout${weeklyStats.workouts > 1 ? 's' : ''} this week.`;
+    } else if (weeklyStats.workouts < 5) {
+      message = "You're on fire! Keep up the amazing consistency.";
+    } else {
+      message = "Outstanding dedication! You're crushing your fitness goals.";
+    }
+    
+    return { greeting, message };
+  }, [plans, activePlanId, weeklyStats]);
+
+
 
   // Add a useEffect to refresh when the refresh param changes
   const { refresh } = useLocalSearchParams<{ refresh: string }>();
 
-  // Fix the fetchPlans function to ensure unique IDs
-  const fetchPlans = useCallback(async () => {
-    if (user?.id) {
+  // Optimized fetchPlans function with caching and parallel operations
+  const fetchPlans = useCallback(async (forceRefresh = false) => {
+    if (!user?.id || isFetching.current) return;
+    
+    // Check cache to prevent unnecessary refetches
+    const now = Date.now();
+    if (!forceRefresh && cachedPlans.current.length > 0 && (now - lastFetchTime.current) < CACHE_DURATION) {
+      setPlans(cachedPlans.current);
+      setLoading(false);
+      return;
+    }
+
+    // Show cached data immediately while fetching
+    if (cachedPlans.current.length > 0) {
+      setPlans(cachedPlans.current);
+      setLoading(false);
+    }
+
+    isFetching.current = true;
+    if (cachedPlans.current.length === 0) {
       setLoading(true);
+    }
+    
+    try {
+      // Only fetch essential fields for list view - exclude large JSON fields
+      const essentialFields = 'id, name, description, training_level, mesocycle_length_weeks, is_active, status, image_url, created_at, updated_at, user_id, current_week, deload_week, goal_muscle_gain, goal_fat_loss';
+      
+      // First, quickly load from local storage to show something immediately
+      let localPlans: any[] = [];
       try {
-        console.log('[WorkoutPlans] Fetching plans for user:', user.id);
-        console.log('[WorkoutPlans] User object:', { id: user.id, email: user.email });
-        
-        // Initialize WorkoutService for this specific user
-        await WorkoutService.initializeFromStorage(user.id);
-        
-        // Load from local storage first for immediate display
-        let localPlans: any[] = [];
-        try {
-          const rawPlans: any[] = await WorkoutLocalStore.getPlans(user.id);
-          console.log('[WorkoutPlans] Raw plans from storage:', {
-            type: typeof rawPlans,
-            isArray: Array.isArray(rawPlans),
-            length: rawPlans?.length,
-            sample: rawPlans?.slice?.(0, 2)?.map(p => ({
-              id: p?.id,
-              name: p?.name,
-              type: typeof p,
-              isArray: Array.isArray(p),
-              keys: p ? Object.keys(p).slice(0, 5) : [],
-              isBodybuilder: p?.id?.startsWith?.('bb-') || false
-            }))
-          });
-
-          // Debug: Check for bodybuilder plans specifically
-          const bodybuilderPlans = rawPlans?.filter?.(p => p?.id?.startsWith?.('bb-')) || [];
-          if (bodybuilderPlans.length > 0) {
-            console.log('[WorkoutPlans] Found bodybuilder plans:', bodybuilderPlans.map(p => ({
-              id: p.id,
-              name: p.name,
-              created: p.created_at
-            })));
-          } else {
-            console.log('[WorkoutPlans] No bodybuilder plans found in storage');
-          }
-          
-          // Ensure we have an array
-          if (Array.isArray(rawPlans)) {
-            localPlans = rawPlans;
-          } else if (rawPlans && typeof rawPlans === 'object') {
-            // If it's an object, try to extract array from it
-            const rawPlansObj = rawPlans as any;
-            localPlans = rawPlansObj.plans || rawPlansObj.data || [rawPlans];
-          } else {
-            console.warn('[WorkoutPlans] Invalid plans data from storage:', rawPlans);
-            localPlans = [];
-          }
-        } catch (error) {
-          console.error('[WorkoutPlans] Error loading plans from storage:', error);
-          localPlans = [];
+        const rawPlans = await WorkoutLocalStore.getPlans(user.id);
+        if (Array.isArray(rawPlans)) {
+          localPlans = rawPlans;
+        } else if (rawPlans && typeof rawPlans === 'object') {
+          const rawPlansObj = rawPlans as any;
+          localPlans = rawPlansObj.plans || rawPlansObj.data || [rawPlans];
         }
         
-        // Validate and deduplicate plans
-        const validPlans = removeDuplicatePlans(localPlans);
-        console.log(`[WorkoutPlans] Successfully processed ${validPlans.length} valid plans`);
-
-        // Debug: Check which plans passed validation
-        const bodybuilderValidPlans = validPlans.filter(p => p.id?.startsWith?.('bb-'));
-        if (bodybuilderValidPlans.length > 0) {
-          console.log('[WorkoutPlans] Bodybuilder plans that passed validation:', bodybuilderValidPlans.map(p => ({
-            id: p.id,
-            name: p.name,
-            is_active: p.is_active
-          })));
+        // Show local plans immediately if we have them and no cache
+        if (localPlans.length > 0 && cachedPlans.current.length === 0) {
+          const validLocalPlans = removeDuplicatePlans(localPlans);
+          setPlans(validLocalPlans);
+          setLoading(false);
         }
-
-        setPlans(validPlans);
-
-        // Fetch the active plan to ensure it's correctly set
-        try {
-          const activePlan = await WorkoutService.getActivePlan(user.id);
-          if (activePlan) {
-            console.log('[WorkoutPlans] Found active plan:', { id: activePlan.id, name: activePlan.name, type: typeof activePlan });
-            
-            // Validate the active plan
-            const validatedActivePlan = validatePlan(activePlan);
-            if (validatedActivePlan) {
-              setActivePlanId(validatedActivePlan.id);
-              
-              // Ensure the active plan is marked as active
-              validatedActivePlan.is_active = true;
-              validatedActivePlan.status = 'active';
-              
-              // Update the plans list to include the active plan
-              const updatedPlans = [...validPlans];
-              const existingIndex = updatedPlans.findIndex(p => p.id === validatedActivePlan.id);
-              
-              if (existingIndex !== -1) {
-                // Update existing plan
-                updatedPlans[existingIndex] = validatedActivePlan;
-              } else {
-                // Add new active plan
-                updatedPlans.unshift(validatedActivePlan);
-              }
-              
-              // Mark all other plans as inactive
-              const finalPlans = updatedPlans.map(p => ({
-                ...p,
-                is_active: p.id === validatedActivePlan.id,
-                status: p.id === validatedActivePlan.id ? 'active' : 'archived'
-              }));
-              
-              setPlans(finalPlans);
-            } else {
-              console.warn('[WorkoutPlans] Active plan validation failed');
-            }
-          } else {
-            console.log('[WorkoutPlans] No active plan found');
-            setActivePlanId(null);
-          }
-        } catch (error) {
-          console.error('[WorkoutPlans] Error fetching active plan:', error);
-          setActivePlanId(null);
-        }
+      } catch (localError) {
+        console.error('[WorkoutPlans] Error loading local plans:', localError);
+      }
+      
+      // Now fetch from database and active plan in parallel
+      const [activePlanResult, dbPlansResult] = await Promise.allSettled([
         
-        // Also try to fetch all plans from the service
-        try {
-          if (!supabase) {
-            console.error('[WorkoutPlans] Supabase client not initialized. Check environment variables.');
-            return;
-          }
-          
-          const { data: allPlans } = await supabase
+        // Fetch active plan ID only (optimized query)
+        supabase ? supabase
+          .from('workout_plans')
+          .select('id, is_active, status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+          .then(({ data }) => data?.id || null)
+          .catch(() => {
+            // Fallback to local storage for active plan
+            return WorkoutLocalStore.getActivePlanId(user.id);
+          }) : WorkoutLocalStore.getActivePlanId(user.id),
+        
+        // Fetch from database - only essential fields, no large JSON, limit results
+        supabase ? supabase
             .from('workout_plans')
-            .select('*')
+          .select(essentialFields)
             .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(50) // Limit to prevent fetching too many plans
+          .then(({ data }) => data || [])
+          .catch(() => []) : Promise.resolve([])
+      ]);
 
-          const allPlansTyped = allPlans as any[];
+      // Process local plans (already loaded above)
+      const validLocalPlans = removeDuplicatePlans(localPlans);
+      
+      // Process database plans
+      const dbPlans = dbPlansResult.status === 'fulfilled' ? dbPlansResult.value : [];
+      const validDbPlans = removeDuplicatePlans(dbPlans);
+      
+      // Process active plan ID
+      let currentActivePlanId = activePlanId;
+      if (activePlanResult.status === 'fulfilled' && activePlanResult.value) {
+        currentActivePlanId = activePlanResult.value;
+        setActivePlanId(activePlanResult.value);
+      } else {
+        // Fallback: check local plans for active status
+        const localActive = validLocalPlans.find(p => p.is_active || p.status === 'active');
+        if (localActive) {
+          currentActivePlanId = localActive.id;
+          setActivePlanId(localActive.id);
+        }
+      }
 
-          if (allPlansTyped && allPlansTyped.length > 0) {
-            console.log('[WorkoutPlans] Fetched', allPlansTyped.length, 'plans from database');
-
-            // Fetch weekly schedules for each plan to ensure complete data
-            const enrichedPlans = await Promise.all(
-              allPlansTyped.map(async (plan) => {
-                // If this is a UUID plan, try to fetch its sessions and weekly schedule
-                if (WorkoutService.isValidUUID(plan.id)) {
-                  try {
-                    // First try to get sessions
-                    const sessions = await WorkoutService.getSessionsForPlan(plan.id);
-                    
-                    if (sessions && sessions.length > 0) {
-                      // Fetch exercise sets for each session
-                      const sessionsWithExercises = await Promise.all(
-                        sessions.map(async (session) => {
-                          try {
-                            const sets = await WorkoutService.getExerciseSetsForSession(session.id);
-                            if (sets && sets.length > 0) {
-                              // Map exercise sets to exercises
-                              return {
-                                ...session,
-                                exercises: sets.map((set) => ({
-                                  name: set.exercise?.name || 'Exercise',
-                                  sets: set.target_sets || 3,
-                                  reps: set.target_reps || '8-12',
-                                  restBetweenSets: set.rest_period || '60s'
-                                }))
-                              };
-                            }
-                            return session;
-                          } catch (error) {
-                            console.error(`[WorkoutPlans] Error fetching exercise sets for session ${session.id}:`, error);
-                            return session;
-                          }
-                        })
-                      );
-                      
-                      // Add the sessions to the plan as weekly_schedule
-                      return {
-                        ...plan,
-                        weekly_schedule: sessionsWithExercises,
-                        weeklySchedule: sessionsWithExercises
-                      };
-                    }
-                  } catch (error) {
-                    console.error(`[WorkoutPlans] Error fetching sessions for plan ${plan.id}:`, error);
-                  }
-                }
-                
-                // If we couldn't fetch sessions, or this isn't a UUID plan, return as is
-                return plan;
-              })
-            );
-            
-            const uniqueDbPlans = removeDuplicatePlans(enrichedPlans);
-
-            // Merge local plans (including bodybuilder plans) with database plans
-            const mergedPlans = [...validPlans]; // Start with validated local plans (includes bodybuilder)
-            const dbPlanIds = new Set(uniqueDbPlans.map(p => p.id));
-
-            // Add any database plans that aren't already in the local plans
-            for (const dbPlan of uniqueDbPlans) {
-              if (!mergedPlans.some(p => p.id === dbPlan.id)) {
-                mergedPlans.push(dbPlan);
-              }
-            }
-
-            // Ensure only the active plan is marked as active
-            const finalMergedPlans = mergedPlans.map((plan: any) => ({
-              ...plan,
-              is_active: activePlanId ? plan.id === activePlanId : false,
-              status: activePlanId && plan.id === activePlanId ? 'active' : 'archived'
-            }));
+      // Efficient merge using Map for O(1) lookups
+      const plansMap = new Map<string, Plan>();
+      
+      // Add local plans first (preserves bodybuilder plans)
+      for (const plan of validLocalPlans) {
+        plansMap.set(plan.id, plan);
+      }
+      
+      // Add database plans (only if not already present)
+      for (const plan of validDbPlans) {
+        if (!plansMap.has(plan.id)) {
+          plansMap.set(plan.id, plan);
+        }
+      }
+      
+      // Convert map to array and set active status
+      const mergedPlans = Array.from(plansMap.values()).map((plan: any) => ({
+                ...plan,
+        is_active: currentActivePlanId ? plan.id === currentActivePlanId : !!plan.is_active,
+        status: (currentActivePlanId && plan.id === currentActivePlanId) ? 'active' : 'archived'
+      }));
 
             // Sort: active plans first, then newest created
-            finalMergedPlans.sort((a: any, b: any) => {
+      mergedPlans.sort((a: any, b: any) => {
               if (!!a.is_active !== !!b.is_active) return a.is_active ? -1 : 1;
               const aDate = new Date(a.created_at || a.updated_at || 0).getTime();
               const bDate = new Date(b.created_at || b.updated_at || 0).getTime();
               return bDate - aDate;
             });
 
-            console.log(`[WorkoutPlans] Merged ${validPlans.length} local plans with ${uniqueDbPlans.length} database plans = ${finalMergedPlans.length} total plans`);
-            setPlans(finalMergedPlans as any);
-
-            // Also update local storage with merged plans (preserves bodybuilder plans)
-            await WorkoutLocalStore.savePlans(user.id, finalMergedPlans as any);
-          }
-        } catch (dbError) {
-          console.error('[WorkoutPlans] Error fetching plans from database:', dbError);
-        }
+      // Update state and cache
+      cachedPlans.current = mergedPlans;
+      lastFetchTime.current = Date.now();
+      setPlans(mergedPlans);
+      
+      // Update local storage in background (don't wait for it)
+      if (mergedPlans.length > 0) {
+        WorkoutLocalStore.savePlans(user.id, mergedPlans as any).catch(err => {
+          console.error('[WorkoutPlans] Error saving plans to storage:', err);
+        });
+      }
+      
       } catch (error) {
         console.error('[WorkoutPlans] Failed to fetch workout plans:', error);
-        // Still try to show whatever local has
-        const fallbackLocal = user?.id ? await WorkoutLocalStore.getPlans(user.id) : [];
+      // Fallback to cached plans if available
+      if (cachedPlans.current.length > 0) {
+        setPlans(cachedPlans.current);
+      } else {
+        // Last resort: try to get local plans
+        try {
+          const fallbackLocal = await WorkoutLocalStore.getPlans(user.id);
         const uniqueFallback = removeDuplicatePlans(fallbackLocal as any);
         setPlans(uniqueFallback as any);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+        } catch (fallbackError) {
+          console.error('[WorkoutPlans] Fallback failed:', fallbackError);
+        }
       }
-    }
-  }, [user?.id]);
-
-  // Fetch active plan
-  const fetchActivePlan = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      const activePlan = await WorkoutService.getActivePlan(user.id);
-      
-      if (activePlan) {
-        console.log('[WorkoutPlans] Found active plan:', activePlan.id);
-        setActivePlanId(activePlan.id);
-      } else {
-        console.log('[WorkoutPlans] No active plan found');
-        setActivePlanId(null);
-      }
-    } catch (error) {
-      console.error('[WorkoutPlans] Error fetching active plan:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      isFetching.current = false;
     }
-  };
+  }, [user?.id, activePlanId, removeDuplicatePlans, validatePlan]);
 
   // Helper function to validate and normalize a plan object
-  const validatePlan = (plan: any): Plan | null => {
+  const validatePlan = useCallback((plan: any): Plan | null => {
     try {
       // Check if plan exists and is an object
       if (!plan || typeof plan !== 'object') {
@@ -425,110 +342,105 @@ const WorkoutPlansScreen = () => {
       console.error('[WorkoutPlans] Error validating plan:', error, plan);
       return null;
     }
-  };
+  }, []);
 
-  // Add this helper function to remove duplicate plans
-  const removeDuplicatePlans = (plans: any[]): Plan[] => {
-    if (!Array.isArray(plans)) {
-      console.warn('[WorkoutPlans] Plans is not an array:', typeof plans, plans);
+  // Optimized duplicate removal function - O(n) instead of O(n log n)
+  const removeDuplicatePlans = useCallback((plans: any[]): Plan[] => {
+    if (!Array.isArray(plans) || plans.length === 0) {
       return [];
     }
 
-    // Validate and normalize all plans
+    // Use Map for O(1) lookups - key by ID first, then by name
+    const plansById = new Map<string, Plan>();
+    const plansByName = new Map<string, Plan>();
     const validPlans: Plan[] = [];
+
+    // Single pass: validate and deduplicate
     for (const plan of plans) {
       const validatedPlan = validatePlan(plan);
-      if (validatedPlan) {
-        validPlans.push(validatedPlan);
-      }
-    }
+      if (!validatedPlan) continue;
 
-    console.log(`[WorkoutPlans] Validated ${validPlans.length} out of ${plans.length} plans`);
+      const planId = validatedPlan.id;
+      const planName = (validatedPlan.name || '').trim().toLowerCase();
 
-    if (validPlans.length === 0) {
-      return [];
-    }
-    
-    // Remove duplicates by ID first, then by name
-    const seenIds = new Set<string>();
-    const seenNames = new Set<string>();
-    const uniquePlans: Plan[] = [];
-
-    // Sort by creation date (newest first) to prefer newer duplicates
-    const sortedPlans = [...validPlans].sort((a, b) => {
-      const aDate = new Date(a.created_at || 0).getTime();
-      const bDate = new Date(b.created_at || 0).getTime();
-      return bDate - aDate;
-    });
-
-    for (const plan of sortedPlans) {
-      const planId = plan.id;
-      const planName = (plan.name || '').trim().toLowerCase();
-
-      // Skip if we've seen this ID
-      if (seenIds.has(planId)) {
-        console.log(`[WorkoutPlans] Skipping duplicate ID: ${planId}`);
+      // Check for duplicate ID
+      if (plansById.has(planId)) {
+        // Keep the newer one
+        const existing = plansById.get(planId)!;
+        const existingDate = new Date(existing.created_at || 0).getTime();
+        const newDate = new Date(validatedPlan.created_at || 0).getTime();
+        if (newDate > existingDate) {
+          plansById.set(planId, validatedPlan);
+          if (planName) plansByName.set(planName, validatedPlan);
+        }
         continue;
       }
 
-      // Skip if we've seen this name (unless it's an empty name)
-      if (planName && seenNames.has(planName)) {
-        console.log(`[WorkoutPlans] Skipping duplicate name: ${planName}`);
+      // Check for duplicate name (only if name exists)
+      if (planName && plansByName.has(planName)) {
+        // Keep the newer one
+        const existing = plansByName.get(planName)!;
+        const existingDate = new Date(existing.created_at || 0).getTime();
+        const newDate = new Date(validatedPlan.created_at || 0).getTime();
+        if (newDate > existingDate) {
+          // Remove old entry and add new one
+          plansById.delete(existing.id);
+          plansById.set(planId, validatedPlan);
+          plansByName.set(planName, validatedPlan);
+        }
         continue;
       }
 
-      seenIds.add(planId);
+      // New unique plan
+      plansById.set(planId, validatedPlan);
       if (planName) {
-        seenNames.add(planName);
+        plansByName.set(planName, validatedPlan);
       }
-      uniquePlans.push(plan);
+      validPlans.push(validatedPlan);
     }
 
-    // Sort final result - active plans first, then by creation date (newer first)
-    uniquePlans.sort((a, b) => {
-      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-      
-      const aDate = new Date(a.created_at || 0).getTime();
-      const bDate = new Date(b.created_at || 0).getTime();
-      return bDate - aDate;
-    });
-    
-    console.log(`[WorkoutPlans] Final unique plans: ${uniquePlans.length}`);
-    return uniquePlans;
-  };
+    return validPlans;
+  }, [validatePlan]);
 
   useEffect(() => {
     // Check if the refresh param exists
     if (refresh) {
-      console.log('[WorkoutPlans] Detected refresh param, reloading plans');
-      fetchPlans();
+      fetchPlans(true); // Force refresh when refresh param is present
     }
   }, [refresh, fetchPlans]);
 
+  // Handle back button to go to dashboard
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+      router.replace('/(main)/dashboard' as any);
+    });
+
+    return unsubscribe;
+  }, [navigation, router]);
+
   useFocusEffect(
     useCallback(() => {
-      console.log('[WorkoutPlans] Screen focused, refreshing data');
+      // Only refresh if cache is stale or forced
+      const now = Date.now();
+      const shouldRefresh = (now - lastFetchTime.current) >= CACHE_DURATION;
       
-      // Force a refresh when the screen is focused
-      fetchPlans();
-      
-      // Also set up a timer to refresh again after a short delay
-      // This helps when returning from the preview screen
-      const refreshTimer = setTimeout(() => {
-        console.log('[WorkoutPlans] Delayed refresh to catch any recent changes');
-        fetchPlans();
-      }, 1000);
-      
-      return () => {
-        clearTimeout(refreshTimer);
-      };
+      if (shouldRefresh) {
+        fetchPlans(false);
+      } else if (cachedPlans.current.length === 0) {
+        // If no cache, fetch immediately
+        fetchPlans(false);
+      }
     }, [fetchPlans])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPlans();
-  }, [fetchPlans]);
+    fetchPlans(true); // Force refresh on pull-to-refresh
+    fetchWeeklyStats();
+  }, [fetchPlans, fetchWeeklyStats]);
 
   const onPressPlan = useCallback((plan: Plan) => {
     analyticsTrack('workout_plan_open', { plan_id: plan.id });
@@ -659,293 +571,118 @@ const WorkoutPlansScreen = () => {
     }
   }, [user?.id]);
 
-  const renderPlanCard = ({ item, index }: { item: Plan; index: number }) => {
-    // Create a unique key for each plan item
-    const uniqueKey = `plan-${item.id}-${index}`;
-    
-    const animatedStyle = {
-      opacity: fadeAnim,
-      transform: [
-        { translateY: slideAnim },
-        {
-          scale: fadeAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.9, 1],
-          }),
-        },
-      ] as any,
-    };
-
+  // Loading state
+  if (loading && !refreshing) {
     return (
-      <Animated.View 
-        style={[animatedStyle, { marginBottom: 20 }]}
-        key={uniqueKey}
-      >
-        <TouchableOpacity 
-          onPress={() => onPressPlan(item)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.planCard, item.is_active && styles.activePlanCard]}>
-            <ImageBackground
-              source={{ uri: item.image_url }}
-              style={styles.planCardBackground}
-              imageStyle={styles.planCardImage}
-            >
-              {/* Enhanced gradient overlay */}
-              <LinearGradient
-                colors={[
-                  'rgba(0,0,0,0.3)',
-                  'rgba(0,0,0,0.5)',
-                  'rgba(0,0,0,0.8)'
-                ]}
-                style={styles.cardOverlay}
-              />
-              
-              {/* Active plan badge */}
-              {item.is_active && (
-                <View style={styles.activeChip}>
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryLight]}
-                    style={styles.activeChipGradient}
-                  >
-                    <Icon name="star" color={colors.white} size={14} />
-                    <Text style={styles.activeChipText}>ACTIVE PLAN</Text>
-                  </LinearGradient>
-                </View>
-              )}
-              
-              {/* Delete button - top right */}
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => handleDeletePlan(item)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={[colors.error, 'rgba(255, 69, 58, 0.8)']}
-                  style={styles.deleteButtonGradient}
-                >
-                  <Icon name="delete" color={colors.white} size={16} />
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              {/* Card content */}
-              <View style={styles.cardContent}>
-                <Text style={styles.planTitle}>{item.name}</Text>
-                <View style={styles.planDetails}>
-                  <View style={styles.detailItem}>
-                    <Icon name="trending-up" size={14} color={colors.primary} />
-                    <Text style={styles.detailText}>{item.training_level}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Icon name="calendar-clock" size={14} color={colors.primary} />
-                    <Text style={styles.detailText}>{item.mesocycle_length_weeks} Weeks</Text>
-                  </View>
-                </View>
-                
-                {/* Select Plan Button */}
-                {!item.is_active && (
-                  <TouchableOpacity 
-                    style={styles.selectButton}
-                    onPress={() => handleSelectPlan(item)}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={[colors.primary, colors.primaryDark]}
-                      style={styles.selectButtonGradient}
-                    >
-                      <Icon name="check" color={colors.white} size={16} />
-                      <Text style={styles.selectButtonText}>SELECT PLAN</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              {/* Glow effect for active plan */}
-              {item.is_active && <View style={styles.activeGlow} />}
-            </ImageBackground>
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingAvatarContainer}>
+            <Icon name="dumbbell" size={32} color={colors.primary} />
           </View>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  const ListHeader = () => (
-    <Animated.View style={[
-      styles.header,
-      {
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }]
-      }
-    ]}>
-      {/* Enhanced app header */}
-      <View style={styles.appHeader}>
-        <View style={styles.headerLine} />
-        <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
-        <View style={styles.headerLine} />
-      </View>
-
-      {/* Title section */}
-      <View style={styles.titleSection}>
-        <View style={styles.titleGlow}>
-          <View style={styles.titleDateContainer}>
-            <Icon name="dumbbell" size={18} color={colors.primary} />
-            <Text style={styles.titleDate}>TRAINING PLANS</Text>
-          </View>
-          <Text style={styles.titleMain}>YOUR FITNESS JOURNEY</Text>
-          <Text style={styles.titleDescription}>
-            Powerful, personalized workout plans designed for your transformation
-          </Text>
-          <View style={styles.titleAccent} />
+          <Text style={styles.loadingText}>Preparing your workout plans...</Text>
         </View>
       </View>
+    );
+  }
 
-      {/* Health Disclaimer */}
-      <View style={styles.disclaimerSection}>
-        <HealthDisclaimer variant="compact" />
-      </View>
+  const activePlan = plans.find(p => p.id === activePlanId);
 
-                {/* Track Progress Button - Completely Redesigned */}
-      <View style={styles.trackProgressContainer}>
-        <TouchableOpacity 
-          onPress={() => router.push('/(main)/workout/history')}
-          style={styles.trackProgressButton}
-          activeOpacity={0.8}
-        >
-          {/* Animated Background Layers */}
-          <View style={styles.trackProgressBgLayer1} />
-          <View style={styles.trackProgressBgLayer2} />
-          
-          {/* Main Card */}
-          <LinearGradient
-            colors={[
-              '#FF6B35',
-              '#FF8C42',
-              '#FF6B35'
-            ]}
-            style={styles.trackProgressCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            {/* Top Section with Icon */}
-            <View style={styles.trackProgressHeader}>
-              <View style={styles.trackProgressIconWrapper}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
-                  style={styles.trackProgressIconBg}
-                >
-                  <Icon name="trending-up" size={24} color="#FFFFFF" />
-                </LinearGradient>
-              </View>
-              
-            </View>
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-            {/* Content Section */}
-            <View style={styles.trackProgressContent}>
-              <Text style={styles.trackProgressTitle}>Track Progress</Text>
-              <Text style={styles.trackProgressSubtitle}>
-                Monitor your fitness journey & celebrate milestones
-              </Text>
-            </View>
-
-
-            {/* Decorative Elements */}
-            <View style={styles.decorativeCircle1} />
-            <View style={styles.decorativeCircle2} />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <BlurView intensity={60} style={styles.statsBlur}>
-          <LinearGradient
-            colors={[colors.glassStrong, colors.glass]}
-            style={styles.statsGradient}
-          >
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{plans.length}</Text>
-              <Text style={styles.statLabel}>PLANS</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{plans.filter(p => p.is_active).length}</Text>
-              <Text style={styles.statLabel}>ACTIVE</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>12</Text>
-              <Text style={styles.statLabel}>WEEKS</Text>
-            </View>
-          </LinearGradient>
-        </BlurView>
-      </View>
-
-
-    </Animated.View>
-  );
-
-  const EmptyState = () => (
-    <Animated.View style={[
-      styles.emptyContainer,
-      {
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }]
-      }
-    ]}>
-      <View style={styles.emptyCard}>
-        <ImageBackground
-          source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop' }}
-          style={styles.emptyImageBackground}
-          imageStyle={styles.emptyImageStyle}
-        >
-          <LinearGradient
-            colors={[
-              'rgba(0,0,0,0.6)',
-              'rgba(0,0,0,0.8)',
-              'rgba(0,0,0,0.9)'
-            ]}
-            style={styles.emptyOverlay}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 120 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
-          
-          {/* Enhanced empty state content */}
-          <View style={styles.emptyContent}>
-            <View style={styles.emptyIconContainer}>
-              <LinearGradient
-                colors={[colors.primary, colors.primaryLight]}
-                style={styles.emptyIconGradient}
-              >
-                <Icon name="creation" size={32} color={colors.white} />
-              </LinearGradient>
-            </View>
-            
-            <Text style={styles.emptyTitle}>Your Journey Starts Now</Text>
-            <Text style={styles.emptySubtitle}>
-              Create a powerful, personalized workout plan to begin your transformation.
-            </Text>
-            
+        }
+      >
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
+          </View>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+          </View>
+        </View>
+
+        {/* Weekly Stats Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{weeklyStats.workouts}</Text>
+            <Text style={styles.statLabel}>Workouts</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{weeklyStats.totalMinutes}</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{weeklyStats.streak}</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+          </View>
+        </View>
+
+        {/* Quick Actions Grid */}
+        <View style={styles.quickActionsGrid}>
+          <TutorialWrapper tutorialId="workout-history-button">
             <TouchableOpacity
-              onPress={() => router.push('/(main)/workout/plan-create')}
-              style={styles.createButtonContainer}
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/history')}
+              activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                style={styles.createButton}
-              >
-                <Icon name="plus" size={16} color={colors.white} style={styles.buttonIcon} />
-                <Text style={styles.createButtonText}>Create First Plan</Text>
-              </LinearGradient>
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                <Icon name="history" size={22} color="#22C55E" />
+              </View>
+              <Text style={styles.quickActionLabel}>History</Text>
             </TouchableOpacity>
-            
-            {/* Quick Workout Option */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            
+          </TutorialWrapper>
+
+          <TutorialWrapper tutorialId="workout-overview-button">
             <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/progression-insights')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(255, 107, 53, 0.12)' }]}>
+                <Icon name="chart-line" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Progress</Text>
+            </TouchableOpacity>
+          </TutorialWrapper>
+
+          <TutorialWrapper tutorialId="workout-plan-approaches">
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(main)/workout/plan-create')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.12)' }]}>
+                <Icon name="plus-circle-outline" size={22} color="#6366F1" />
+              </View>
+              <Text style={styles.quickActionLabel}>New Plan</Text>
+            </TouchableOpacity>
+          </TutorialWrapper>
+
+          <TutorialWrapper tutorialId="quick-workout-button">
+            <TouchableOpacity
+              style={styles.quickActionCard}
               onPress={() => {
-                analyticsTrack('quick_workout_tapped', { source: 'empty_state' });
+                analyticsTrack('quick_workout_tapped', { source: 'quick_action' });
                 router.push({
                   pathname: '/(main)/workout/session/[sessionId]-premium',
                   params: {
@@ -955,865 +692,543 @@ const WorkoutPlansScreen = () => {
                   },
                 });
               }}
-              style={styles.quickWorkoutEmptyButton}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(175, 82, 222, 0.12)' }]}>
+                <Icon name="lightning-bolt" size={22} color={colors.purple} />
+              </View>
+              <Text style={styles.quickActionLabel}>Quick Start</Text>
+            </TouchableOpacity>
+          </TutorialWrapper>
+        </View>
+
+        {/* AI Insight Card */}
+        {activePlan && (
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeader}>
+              <View style={styles.insightIconContainer}>
+                <Icon name="lightbulb-on" size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.insightTitle}>AI Coach Tip</Text>
+            </View>
+            <Text style={styles.insightText}>
+              {weeklyStats.workouts < 2
+                ? "Consistency is key! Aim for at least 3 workouts this week to see results."
+                : weeklyStats.workouts < 4
+                  ? "Great progress! Add one more session this week for optimal gains."
+                  : "You're crushing it! Remember to prioritize recovery between sessions."
+              }
+            </Text>
+          </View>
+        )}
+
+        {/* Active Plan Section */}
+        {activePlan && (
+          <View style={styles.activePlanSection}>
+            <Text style={styles.sectionTitle}>Active Plan</Text>
+            <TouchableOpacity
+              style={styles.activePlanCard}
+              onPress={() => onPressPlan(activePlan)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.activePlanHeader}>
+                <View style={styles.activePlanIconContainer}>
+                  <Icon name="star" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.activePlanInfo}>
+                  <Text style={styles.activePlanName}>{activePlan.name}</Text>
+                  <Text style={styles.activePlanMeta}>
+                    {activePlan.training_level || 'General'} • {activePlan.mesocycle_length_weeks || 8} weeks
+                  </Text>
+                </View>
+                <Icon name="chevron-right" size={24} color={colors.textSecondary} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* All Plans Section */}
+        {plans.length > 0 && (
+          <View style={styles.plansSection}>
+            <View style={styles.plansSectionHeader}>
+              <Text style={styles.sectionTitle}>Your Plans</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/(main)/workout/plan-create')}
+                style={styles.addPlanButton}
+              >
+                <Icon name="plus" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {plans
+              .filter(p => !showAllPlans ? !p.is_active : true)
+              .slice(0, showAllPlans ? plans.length : 3)
+              .map((plan) => (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[styles.planListItem, plan.is_active && styles.planListItemActive]}
+                  onPress={() => onPressPlan(plan)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.planListItemLeft}>
+                    <View style={styles.planListIcon}>
+                      <Icon name="clipboard-text-outline" size={16} color={colors.white} />
+                    </View>
+                    <View style={styles.planListInfo}>
+                      <Text style={styles.planListName}>{plan.name}</Text>
+                      <Text style={styles.planListMeta}>
+                        {plan.training_level || 'General'} • {plan.mesocycle_length_weeks || 8} weeks
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.planListActions}>
+                    {!plan.is_active && (
+                      <TouchableOpacity
+                        onPress={() => handleSelectPlan(plan)}
+                        style={styles.setActiveSmallButton}
+                      >
+                        <Text style={styles.setActiveSmallText}>Activate</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => handleDeletePlan(plan)}
+                      style={styles.deleteSmallButton}
+                    >
+                      <Icon name="trash-can-outline" size={16} color="rgba(255, 69, 58, 0.7)" />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+            {plans.filter(p => !p.is_active).length > 3 && (
+              <TouchableOpacity
+                onPress={() => setShowAllPlans(!showAllPlans)}
+                style={styles.showMoreButton}
+              >
+                <Text style={styles.showMoreText}>
+                  {showAllPlans ? 'Show Less' : `Show ${plans.filter(p => !p.is_active).length - 3} More`}
+                </Text>
+                <Icon
+                  name={showAllPlans ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {plans.length === 0 && (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconContainer}>
+              <Icon name="dumbbell" size={48} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>No Workout Plans Yet</Text>
+            <Text style={styles.emptyDescription}>
+              I'll create a personalized workout plan based on your goals and fitness level.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(main)/workout/plan-create')}
+              style={styles.createPlanButton}
+              activeOpacity={0.9}
             >
               <LinearGradient
-                colors={[colors.purple, colors.pink]}
-                style={styles.quickWorkoutEmptyGradient}
+                colors={[colors.primary, colors.primaryDark]}
+                style={styles.createPlanGradient}
               >
-                <Icon name="lightning-bolt" size={16} color={colors.white} style={styles.buttonIcon} />
-                <Text style={styles.quickWorkoutEmptyText}>Start Quick Workout</Text>
+                <Icon name="plus" size={18} color={colors.white} />
+                <Text style={styles.createPlanText}>Create My Plan</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </ImageBackground>
-      </View>
-    </Animated.View>
-  );
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={[colors.background, colors.surface]}
-          style={styles.loadingGradient}
-        >
-          <View style={styles.loadingCard}>
-            <LinearGradient
-              colors={[colors.glass, colors.glassStrong]}
-              style={styles.loadingCardGradient}
-            >
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading Plans...</Text>
-              <Text style={styles.loadingSubText}>Preparing your fitness journey</Text>
-            </LinearGradient>
-          </View>
-        </LinearGradient>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      
-      {/* Enhanced dynamic background */}
-      <ImageBackground
-        source={{ 
-          uri: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2000&auto=format&fit=crop' 
-        }}
-        style={styles.backgroundImage}
-      >
-        <LinearGradient
-          colors={[
-            'rgba(0,0,0,0.7)', 
-            'rgba(18,18,18,0.85)', 
-            'rgba(18,18,18,0.95)', 
-            '#121212'
-          ]}
-          style={styles.overlay}
-        />
-      </ImageBackground>
-
-      {/* Animated header blur */}
-      <Animated.View style={[styles.animatedHeader, { opacity: headerOpacity }]}>
-        <BlurView intensity={100} style={styles.blurHeader}>
-          <View style={[styles.quickHeader, { paddingTop: insets.top + 16 }]}>
-            <View style={styles.headerLine} />
-            <Text style={styles.appName}>GoFit<Text style={{ color: colors.primary }}>AI</Text></Text>
-            <View style={styles.headerLine} />
-          </View>
-        </BlurView>
-      </Animated.View>
-
-      <Animated.FlatList
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
         )}
-        scrollEventThrottle={16}
-        data={plans}
-        renderItem={renderPlanCard}
-        keyExtractor={(item, index) => `plan-${item.id}-${index}`}
-        ListHeaderComponent={plans.length > 0 ? <ListHeader /> : null}
-        ListEmptyComponent={<EmptyState />}
-        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + 16 }]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            colors={[colors.primary]} 
-            tintColor={colors.primary}
-            progressBackgroundColor="rgba(255,255,255,0.1)"
-          />
-        }
-      />
-      
-      {/* Enhanced floating action buttons */}
-      {plans.length > 0 && (
-        <>
-          {/* Progression Insights Button */}
-          <TouchableOpacity 
-            style={styles.progressionInsightsButton}
-            onPress={() => {
-              analyticsTrack('progression_insights_tapped', { source: 'fab_button' });
-              router.push('/(main)/workout/progression-insights');
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[colors.success, '#2BAE4A']}
-              style={styles.progressionInsightsGradient}
-            >
-              <Icon name="chart-line" size={24} color={colors.white} />
-            </LinearGradient>
-          </TouchableOpacity>
 
-          {/* Quick Workout Button */}
-          <TouchableOpacity 
-            style={styles.quickWorkoutButton}
-            onPress={() => {
-              analyticsTrack('quick_workout_tapped', { source: 'fab_button' });
-              router.push({
-                pathname: '/(main)/workout/session/[sessionId]-premium',
-                params: {
-                  sessionId: `quick-${Date.now()}`,
-                  sessionTitle: 'Quick Workout',
-                  fallbackExercises: JSON.stringify([]),
-                },
-              });
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[colors.purple, colors.pink]}
-              style={styles.quickWorkoutGradient}
-            >
-              <Icon name="lightning-bolt" size={24} color={colors.white} />
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          {/* Create Plan Button */}
-          <TouchableOpacity 
-            style={styles.floatingActionButton}
-            onPress={() => router.push('/(main)/workout/plan-create')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.fabShadow} />
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              style={styles.fabGradient}
-            >
-              <Icon name="plus" size={28} color={colors.white} />
-            </LinearGradient>
-            <View style={styles.fabPulse} />
-            <View style={styles.fabRing} />
-          </TouchableOpacity>
-        </>
-      )}
+        {/* Health Disclaimer */}
+        <View style={styles.disclaimerSection}>
+          <HealthDisclaimer variant="compact" />
+        </View>
+      </ScrollView>
     </View>
   );
 };
 
-// MARK: - Enhanced Styles
+// MARK: - Clean Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
-  backgroundImage: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    top: 0,
-    left: 0,
-  },
-  overlay: {
-    flex: 1,
-  },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-  },
-  blurHeader: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  quickHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  content: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  headerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  appNameGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  appName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.white,
-    letterSpacing: 2,
-    marginHorizontal: 12,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  loadingGradient: {
-    flex: 1,
+  loadingAvatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-  },
-  loadingCard: {
-    width: width * 0.8,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  loadingCardGradient: {
-    padding: 40,
-    alignItems: 'center',
+    marginBottom: 16,
   },
   loadingText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 16,
-  },
-  loadingSubText: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
-    marginTop: 8,
-  },
-  listContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 145,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  disclaimerSection: {
-    marginBottom: 20,
-  },
-  appHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    marginBottom: 24,
-  },
-  titleSection: {
-    paddingHorizontal: 0,
-    marginBottom: 24,
-  },
-  titleGlow: {
-    position: 'relative',
-    paddingVertical: 20,
-    alignItems: 'flex-start',
-  },
-  titleDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  titleDate: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginLeft: 8,
-  },
-  titleMain: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 12,
-    textShadowColor: 'rgba(255, 255, 255, 0.1)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  titleDescription: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    lineHeight: 24,
     fontWeight: '500',
   },
-  titleAccent: {
-    position: 'absolute',
-    bottom: -10,
-    left: '50%',
-    transform: [{ translateX: -10 }],
-    width: 20,
-    height: 20,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    zIndex: -1,
-  },
-  statsRow: {
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  statsBlur: {
-    borderRadius: 16,
-  },
-  statsGradient: {
+
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 20,
-    borderRadius: 16,
+    marginBottom: 24,
+    paddingTop: 8,
+  },
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
+    flex: 1,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Stats Card
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     color: colors.white,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
-    fontWeight: '600',
-    letterSpacing: 1,
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 8,
   },
 
-  planCard: {
-    height: 280,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  activePlanCard: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    shadowOpacity: 0.3,
-  },
-  planCardBackground: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  planCardImage: {
-    borderRadius: 20,
-  },
-  cardOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-  },
-  activeChip: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  activeChipGradient: {
+  // Quick Actions Grid
+  quickActionsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  activeChipText: {
-    color: colors.white,
-    fontWeight: '700',
-    marginLeft: 6,
-    fontSize: 11,
-    letterSpacing: 1,
-  },
-  activeGlow: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
-    backgroundColor: colors.primary,
-    opacity: 0.1,
-    borderRadius: 30,
-    zIndex: -1,
-  },
-  cardContent: {
-    padding: 24,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  planTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.white,
-    marginBottom: 12,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  planDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  detailText: {
-    color: colors.white,
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  progressContainer: {
-    marginTop: 8,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  emptyCard: {
-    width: '100%',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  emptyImageBackground: {
-    minHeight: 500,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyImageStyle: {
-    borderRadius: 20,
-  },
-  emptyOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-  },
-  emptyContent: {
-    alignItems: 'center',
-    padding: 32,
-    paddingBottom: 40,
-  },
-  emptyIconContainer: {
+    justifyContent: 'space-between',
     marginBottom: 24,
   },
-  emptyIconGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.white,
-    textAlign: 'center',
-    marginBottom: 16,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-    paddingHorizontal: 20,
-  },
-  createButtonContainer: {
+  quickActionCard: {
+    width: (width - 40 - 24) / 4, // 40px padding, 24px for 3 gaps of 8px
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    overflow: 'hidden',
-  },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
-    letterSpacing: 0.5,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
-    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  dividerText: {
-    fontSize: 12,
+  quickActionLabel: {
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginHorizontal: 16,
+    letterSpacing: 0.3,
   },
-  quickWorkoutEmptyButton: {
-    width: '100%',
+
+  // AI Insight Card
+  insightCard: {
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
     borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: colors.purple,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
   },
-  quickWorkoutEmptyGradient: {
+  insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
+    marginBottom: 10,
+    gap: 10,
   },
-  quickWorkoutEmptyText: {
+  insightIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  insightTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  insightText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 21,
+  },
+
+  // Section Title
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.white,
-    letterSpacing: 0.5,
+    marginBottom: 14,
+    letterSpacing: 0.3,
   },
-  progressionInsightsButton: {
-    position: 'absolute',
-    bottom: 280,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+
+  // Active Plan Section
+  activePlanSection: {
+    marginBottom: 24,
   },
-  progressionInsightsGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+  activePlanCard: {
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
   },
-  quickWorkoutButton: {
-    position: 'absolute',
-    bottom: 200,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.purple,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  quickWorkoutGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  floatingActionButton: {
-    position: 'absolute',
-    bottom: 120,
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabShadow: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
-    opacity: 0.3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  fabGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabPulse: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,107,53,0.2)',
-    top: -10,
-    left: -10,
-    zIndex: -1,
-  },
-  fabRing: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,107,53,0.05)',
-    top: -20,
-    left: -20,
-    zIndex: -2,
-  },
-  deleteButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  deleteButtonGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  activePlanHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  
-  // Completely Redesigned Track Progress Button Styles
-  trackProgressContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 16,
+  activePlanIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  trackProgressButton: {
-    position: 'relative',
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+  activePlanInfo: {
+    flex: 1,
   },
-  trackProgressBgLayer1: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 107, 53, 0.12)',
-    zIndex: -2,
+  activePlanName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
   },
-  trackProgressBgLayer2: {
-    position: 'absolute',
-    top: -8,
-    left: -8,
-    right: -8,
-    bottom: -8,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255, 140, 66, 0.06)',
-    zIndex: -3,
+  activePlanMeta: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
-  trackProgressCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 18,
-    minHeight: 80,
-    position: 'relative',
-    overflow: 'hidden',
+
+  // Plans Section
+  plansSection: {
+    marginBottom: 20,
   },
-  trackProgressHeader: {
+  plansSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
-  trackProgressIconWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  trackProgressIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  addPlanButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  planListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  trackProgressContent: {
+  planListItemActive: {
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
+  },
+  planListItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    marginBottom: 16,
   },
-  trackProgressTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.98)',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  planListIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  trackProgressSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    letterSpacing: 0.2,
-    lineHeight: 18,
-    fontWeight: '500',
-    marginBottom: 16,
+  planListInfo: {
+    flex: 1,
   },
-  progressIndicatorWrapper: {
-    alignItems: 'flex-start',
-  },
-  progressTrack: {
-    width: 120,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    width: '75%',
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.75)',
+  planListName: {
+    fontSize: 15,
     fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    color: colors.white,
+    marginBottom: 2,
   },
-  decorativeCircle1: {
-    position: 'absolute',
-    top: -20,
-    right: -20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    zIndex: -1,
+  planListMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
-  decorativeCircle2: {
-    position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    zIndex: -1,
+  planListActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-
-  // Select Button Styles
-  selectButton: {
-    marginTop: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+  setActiveSmallButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    borderRadius: 8,
   },
-  selectButtonGradient: {
+  setActiveSmallText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  deleteSmallButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  showMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    gap: 6,
+  },
+  showMoreText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // Empty State
+  emptyState: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 24,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
     paddingHorizontal: 16,
   },
-  selectButtonText: {
-    color: colors.white,
-    fontSize: 12,
+  createPlanButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  createPlanGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    gap: 8,
+  },
+  createPlanText: {
+    fontSize: 15,
     fontWeight: '700',
-    marginLeft: 6,
+    color: colors.white,
     letterSpacing: 0.5,
   },
 
+  // Disclaimer
+  disclaimerSection: {
+    marginBottom: 20,
+  },
 });
 
 export default WorkoutPlansScreen;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -16,128 +17,27 @@ import { saveOnboardingData } from '../../src/utils/onboardingSave';
 type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
 
 const LevelScreen = () => {
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [level, setLevel] = useState<TrainingLevel | null>(null);
-  const [isCompleting, setIsCompleting] = useState(false);
 
-  const handleFinish = async () => {
-    if (!user || !level || isCompleting) return;
-
-    setIsCompleting(true);
-    console.log('🚀 Starting onboarding completion...');
-
-    // Start save operation with timeout protection
-    const savePromise = supabase.from('profiles').upsert({ 
-      id: user.id,
-      training_level: level, 
-      onboarding_completed: true 
-    }).select();
-
-    // Create timeout promise (3 seconds max wait)
-    const timeoutPromise = new Promise<{ error: null; data: null; timedOut: true }>((resolve) => 
-      setTimeout(() => resolve({ error: null, data: null, timedOut: true }), 3000)
+  const handleNext = async () => {
+    if (!user || !level) return;
+    
+    // Save data in background (non-blocking)
+    saveOnboardingData(
+      supabase.from('profiles').upsert({ id: user.id, training_level: level, onboarding_completed: false }).select(),
+      `Saving training level: ${level}`,
+      undefined,
+      user.id
     );
-
-    try {
-      console.log('💾 Saving onboarding data...');
-      
-      // Race between save and timeout - don't wait longer than 3 seconds
-      const result = await Promise.race([
-        savePromise.then((result) => ({ ...result, timedOut: false })),
-        timeoutPromise
-      ]) as any;
-      
-      const { error, data, timedOut } = result;
-
-      if (timedOut) {
-        console.log('⏱️ Save timeout - continuing navigation, save will complete in background');
-        // Continue saving in background
-        savePromise.then((result: any) => {
-          if (result.error) {
-            console.error('Background save error:', result.error);
-          } else {
-            console.log('✅ Background save completed:', result.data);
-          }
-        }).catch((err) => {
-          console.error('Background save failed:', err);
-        });
-      } else if (error) {
-        console.error('❌ Error saving onboarding completion:', error);
-        // Don't block - continue saving in background and navigate anyway
-        console.warn('⚠️ Save error, but continuing navigation - save will retry in background');
-        savePromise.catch((err) => {
-          console.error('Background save also failed:', err);
-        });
-      } else if (data) {
-        console.log('✅ Onboarding data saved successfully:', data);
-      }
-      
-      // Refresh profile - wait for it (with timeout) so app state is updated
-      // This ensures the app knows onboarding is complete before navigating
-      console.log('🔄 Refreshing profile to update app state...');
-      try {
-        const refreshPromise = refreshProfile();
-        const refreshTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile refresh timeout')), 16000)
-        );
-        
-        const refreshedProfile = await Promise.race([refreshPromise, refreshTimeout]) as any;
-        if (refreshedProfile) {
-          console.log('✅ Profile refreshed successfully:', refreshedProfile.onboarding_completed ? 'onboarding marked complete' : 'onboarding not yet complete');
-        } else {
-          console.warn('⚠️ Profile refresh returned null - may need retry');
-          // Retry once after short delay
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const retryProfile = await refreshProfile();
-          console.log('🔄 Retry profile refresh:', retryProfile ? 'success' : 'still null');
-        }
-      } catch (refreshError: any) {
-        console.warn('⚠️ Profile refresh failed:', refreshError.message);
-        // Continue anyway - the save already happened, profile will load eventually
-        // Try one more time in background
-        setTimeout(() => {
-          refreshProfile().catch(() => {
-            console.log('Background profile refresh also failed');
-          });
-        }, 1000);
-      }
-      
-      // Analytics in background (non-blocking)
-      setTimeout(() => {
-        try { identify(user.id, { training_level: level, onboarding_completed: true }); } catch {}
-        try { analyticsTrack('onboarding_complete_success', { user_id: user.id, training_level: level }); } catch {}
-      }, 0);
-      
-      console.log('🚀 Completing onboarding, navigating to paywall...');
-      // Navigate immediately - don't wait for anything
-      router.replace('/(paywall)');
-    } catch (error: any) {
-      console.error('❌ Failed to complete onboarding:', error);
-      
-      // Even if there's an error, try to navigate anyway
-      // The save might still succeed in the background
-      console.log('⚠️ Unexpected error, but navigating anyway - save continues in background');
-      savePromise.then((result: any) => {
-        if (result.error) {
-          console.error('Background save error:', result.error);
-        } else {
-          console.log('✅ Background save completed:', result.data);
-        }
-      }).catch((err) => {
-        console.error('Background save failed:', err);
-      });
-      
-      // Refresh profile in background
-      refreshProfile().catch(() => {});
-      
-      // Analytics
-      setTimeout(() => {
-        try { identify(user.id, { training_level: level, onboarding_completed: true }); } catch {}
-        try { analyticsTrack('onboarding_complete_success', { user_id: user.id, training_level: level }); } catch {}
-      }, 0);
-      
-      router.replace('/(paywall)');
-    }
+    
+    // Analytics in background
+    try { identify(user.id, { training_level: level }); } catch {}
+    try { analyticsTrack('onboarding_step_next', { step: 'level' }); } catch {}
+    
+    console.log('🚀 Navigating to exercise-frequency screen...');
+    router.replace('/(onboarding)/exercise-frequency');
   };
 
   const options = [
@@ -160,7 +60,7 @@ const LevelScreen = () => {
 
   const handleBack = () => {
     try { analyticsTrack('onboarding_step_prev', { step: 'level' }); } catch {}
-    router.replace('/(onboarding)/fitness-strategy');
+    router.replace('/(onboarding)/weight-trend');
   };
 
   const handleClose = () => {
@@ -172,16 +72,19 @@ const LevelScreen = () => {
     <OnboardingLayout
       title="What's your training level?"
       subtitle="This helps us tailor the intensity of your workouts"
-      progress={1.0}
-      currentStep={12}
+      progress={0.583}
+      currentStep={7}
       totalSteps={12}
       showBackButton={true}
-      showCloseButton={true}
+      showCloseButton={false}
       onBack={handleBack}
       previousScreen="/(onboarding)/fitness-strategy"
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 7</Text>
+        </View>
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -219,11 +122,11 @@ const LevelScreen = () => {
         </View>
       </View>
       
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(40, insets.bottom + 16) }]}>
         <OnboardingButton
-          title={isCompleting ? "Completing..." : "Complete Setup"}
-          onPress={handleFinish}
-          disabled={!level || isCompleting}
+          title="Continue"
+          onPress={handleNext}
+          disabled={!level}
         />
       </View>
     </OnboardingLayout>
@@ -237,6 +140,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     justifyContent: 'flex-start',
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     width: '100%',
@@ -275,7 +190,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.text,
     marginBottom: 8,
@@ -285,7 +200,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   cardSubtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
     letterSpacing: 0.3,
@@ -315,8 +230,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   footer: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 });
 

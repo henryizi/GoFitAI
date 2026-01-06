@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,21 +7,14 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  ImageBackground,
-  Animated,
   Dimensions,
   Platform,
   Text,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import {
-  Button,
-  Card,
-  Divider,
-  List,
-  useTheme,
-} from 'react-native-paper';
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { Button } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,50 +22,67 @@ import {
   NutritionPlan,
   NutritionService,
 } from '../../../src/services/nutrition/NutritionService';
-import { SAFE_AREA_PADDING_BOTTOM } from '../_layout';
 import { LineChart } from 'react-native-chart-kit';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { useSubscription } from '../../../src/hooks/useSubscription';
-import PaywallPreview from '../../../src/components/nutrition/PaywallPreview';
-import DailyMenuCard from '../../../src/components/nutrition/DailyMenuCard';
 import { mockPlansStore, mockNutritionPlan } from '../../../src/mock-data';
-// import { typography } from '../../../src/styles/fonts';
 
-import { colors as globalColors } from '../../../src/styles/colors';
+const { width } = Dimensions.get('window');
 
-const { width, height } = Dimensions.get('window');
-
-// Enhanced color palette
+// Clean Design System
 const colors = {
-  ...globalColors,
   primary: '#FF6B35',
-  primaryLight: '#FF8A65',
-  secondary: '#4ECDC4', // Teal for status/tags
-  accent: '#FFE66D',
-  gray: '#8E8E93',
-  lightGray: '#F2F2F7',
+  primaryDark: '#E55A2B',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(235, 235, 245, 0.6)',
   success: '#34C759',
   warning: '#FF9500',
-  error: '#FF3B30',
+  error: '#FF453A',
+  secondary: '#4ECDC4',
+  accent: '#FFE66D',
 };
 
 const NutritionPlanScreen = () => {
-  const theme = useTheme();
   const { user, profile } = useAuth();
-  const { isPremium, openPaywall } = useSubscription();
-  const { top, bottom } = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const { planId } = useLocalSearchParams();
   const [plan, setPlan] = useState<NutritionPlan | null>(null);
   const [targets, setTargets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [dailyMenu, setDailyMenu] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [latestTarget, setLatestTarget] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [isSettingActive, setIsSettingActive] = useState(false);
 
-  // Animation values (persist across renders)
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    const strategy = profile?.fitness_strategy || 'maintenance';
+    const strategyLabels: Record<string, string> = {
+      bulk: 'bulking',
+      cut: 'cutting',
+      maintenance: 'maintenance',
+      recomp: 'body recomposition',
+      maingaining: 'maingaining'
+    };
+    
+    message = `Here's your nutrition plan for ${strategyLabels[strategy] || 'your goals'}.`;
+    
+    return { greeting, message };
+  }, [profile?.fitness_strategy]);
 
   // Define all useMemo hooks at the top level
   const chartData = useMemo(() => {
@@ -190,79 +200,43 @@ const NutritionPlanScreen = () => {
     return { calories: 0, protein: 0, carbs: 0, fat: 0 };
   }, [latestTarget, plan]);
 
-  useEffect(() => {
-    // Start entrance animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
   const fetchPlanData = useCallback(async () => {
     if (!planId) {
       setError('No plan ID provided.');
       setIsLoading(false);
+      setRefreshing(false);
       return;
     }
     setIsLoading(true);
     setError(null);
     try {
-      const [fetchedPlan, fetchedTargets] = await Promise.all([
+      const [fetchedPlan, fetchedTargets, fetchedActivePlanId] = await Promise.all([
         NutritionService.getNutritionPlanById(planId as string),
         NutritionService.getHistoricalNutritionTargets(planId as string),
+        user?.id ? NutritionService.getSelectedNutritionPlanId(user.id) : Promise.resolve(null),
       ]);
       setPlan(fetchedPlan);
       setTargets(fetchedTargets);
+      setActivePlanId(fetchedActivePlanId);
       
       // Update latestTarget immediately with the most recent target
       if (fetchedTargets && fetchedTargets.length > 0) {
-        console.log('[NUTRITION] 🔍 All fetched targets (sorted by created_at DESC):', 
-          fetchedTargets.map((t, i) => ({
-            index: i,
-            id: t.id,
-            created_at: t.created_at,
-            calories: t.daily_calories,
-            protein: t.protein_grams
-          }))
-        );
-        
         setLatestTarget(fetchedTargets[0]);
-        console.log('[NUTRITION] ✅ Updated latestTarget with LATEST target:', {
-          id: fetchedTargets[0].id,
-          created_at: fetchedTargets[0].created_at,
-          calories: fetchedTargets[0].daily_calories,
-          protein: fetchedTargets[0].protein_grams,
-          carbs: fetchedTargets[0].carbs_grams,
-          fat: fetchedTargets[0].fat_grams
-        });
-      } else {
-        console.log('[NUTRITION] ❌ No targets found in fetchedTargets');
       }
-      
-      // Debug log to see the actual plan structure
-      console.log('[NUTRITION] Fetched plan details:', JSON.stringify({
-        id: fetchedPlan?.id,
-        goal_type: fetchedPlan?.goal_type,
-        status: fetchedPlan?.status,
-        preferences: fetchedPlan?.preferences,
-        daily_targets: fetchedPlan?.daily_targets
-      }, null, 2));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
       Alert.alert('Error', 'Could not load your nutrition plan data.');
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   }, [planId]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPlanData();
+  }, [fetchPlanData]);
 
   // Removed redundant useEffect - latestTarget is now set directly in fetchPlanData()
   // to avoid race conditions where old cached data overwrites new recalculated values
@@ -315,6 +289,26 @@ const NutritionPlanScreen = () => {
     }
   };
 
+  const handleSetActive = async () => {
+    if (!plan || !user?.id) return;
+    
+    setIsSettingActive(true);
+    try {
+      const success = await NutritionService.setSelectedNutritionPlanForTargets(user.id, plan.id);
+      if (success) {
+        setActivePlanId(plan.id);
+        Alert.alert('Success', 'This plan is now your active nutrition plan.');
+      } else {
+        Alert.alert('Error', 'Failed to set this plan as active.');
+      }
+    } catch (error) {
+      console.error('Error setting plan as active:', error);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setIsSettingActive(false);
+    }
+  };
+
   const loadDailyMenu = async () => {
     if (!user) return;
     try {
@@ -361,26 +355,13 @@ const NutritionPlanScreen = () => {
     return 'None';
   };
 
-  if (isLoading) {
+  if (isLoading && !refreshing) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <ImageBackground
-          source={{ 
-            uri: 'https://images.unsplash.com/photo-1505253758473-96b7015fcd40?q=80&w=2000&auto=format&fit=crop' 
-          }}
-          style={styles.backgroundImage}
-        >
-          <LinearGradient
-            colors={['rgba(18,18,18,0.9)', 'rgba(18,18,18,0.8)', '#121212']}
-            style={styles.overlay}
-          />
-        </ImageBackground>
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading your nutrition plan...</Text>
-          </View>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your nutrition plan...</Text>
         </View>
       </View>
     );
@@ -390,55 +371,36 @@ const NutritionPlanScreen = () => {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <ImageBackground
-          source={{ 
-            uri: 'https://images.unsplash.com/photo-1505253758473-96b7015fcd40?q=80&w=2000&auto=format&fit=crop' 
-          }}
-          style={styles.backgroundImage}
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
         >
-          <LinearGradient
-            colors={['rgba(18,18,18,0.9)', 'rgba(18,18,18,0.8)', '#121212']}
-            style={styles.overlay}
-          />
-        </ImageBackground>
-        
-        <View style={[styles.customHeader, { marginTop: top }]}>
-          <TouchableOpacity onPress={() => router.push('/(main)/nutrition')} style={styles.headerButton}>
-            <Icon name="arrow-left" size={24} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Plan Error</Text>
-          <View style={styles.headerButtonPlaceholder} />
-        </View>
-        
-        <View style={styles.errorContainer}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>
-            {error || "Could not load nutrition plan"}
-          </Text>
-          <Text style={styles.errorMessage}>
-            Please try creating a new plan or check your connection.
-            {planId ? `\n\nPlan ID: ${planId}` : ''}
-          </Text>
-          <Button 
-            mode="contained" 
-            onPress={() => router.push('/(main)/nutrition')}
-            style={styles.errorButton}
-              buttonColor={colors.primary}
-          >
-            Return to Nutrition Hub
-          </Button>
-          <Button 
-            mode="outlined" 
-            onPress={() => router.push('/(main)/nutrition/plan-create')}
-            style={styles.errorButton}
-              textColor={colors.primary}
-          >
-            Create New Plan
-          </Button>
+          <View style={styles.coachHeader}>
+            <TouchableOpacity onPress={() => router.push('/(main)/nutrition')} style={styles.backButton}>
+              <Icon name="arrow-left" size={22} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.coachTextContainer}>
+              <Text style={styles.coachGreeting}>Plan Error</Text>
+              <Text style={styles.coachMessage}>Could not load nutrition plan</Text>
+            </View>
           </View>
-        </View>
-        </View>
+          
+          <View style={styles.errorCard}>
+            <Icon name="alert-circle" size={48} color={colors.error} />
+            <Text style={styles.errorTitle}>
+              {error || "Could not load nutrition plan"}
+            </Text>
+            <Text style={styles.errorMessage}>
+              Please try creating a new plan or check your connection.
+            </Text>
+            <TouchableOpacity 
+              style={styles.errorButton}
+              onPress={() => router.push('/(main)/nutrition')}
+            >
+              <Text style={styles.errorButtonText}>Return to Nutrition</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -496,172 +458,177 @@ const NutritionPlanScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Background */}
-      <ImageBackground
-        source={{ 
-          uri: 'https://images.unsplash.com/photo-1505253758473-96b7015fcd40?q=80&w=2000&auto=format&fit=crop' 
-        }}
-        style={styles.backgroundImage}
-      >
-        <LinearGradient
-          colors={['rgba(18,18,18,0.9)', 'rgba(18,18,18,0.8)', '#121212']}
-          style={styles.overlay}
-        />
-      </ImageBackground>
 
-      {/* Header */}
-      <View style={[styles.customHeader, { marginTop: top }]}>
-        <TouchableOpacity onPress={() => router.push('/(main)/nutrition')} style={styles.headerButton}>
-          <Icon name="arrow-left" size={24} color={colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {plan.plan_name || 'Nutrition Plan'}
-        </Text>
-        <TouchableOpacity 
-          onPress={handleDeletePlan} 
-          disabled={isDeleting} 
-          style={styles.headerButton}
-        >
-          <Icon name="delete-outline" size={24} color={colors.error} />
-        </TouchableOpacity>
-      </View>
-
-      <Animated.ScrollView
-        style={[styles.scrollView, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 60 + insets.bottom + 20 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
-            refreshing={isLoading} 
-            onRefresh={fetchPlanData}
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
-        {/* Plan Overview Card */}
-        <View style={styles.sectionContainer}>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
-            style={styles.card}
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
+          <TouchableOpacity 
+            onPress={() => router.push('/(main)/nutrition')} 
+            style={styles.backButton}
           >
+            <Icon name="arrow-left" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
+          </View>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+          </View>
+          <TouchableOpacity 
+            onPress={handleDeletePlan} 
+            disabled={isDeleting} 
+            style={styles.deleteButton}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <Icon name="delete-outline" size={20} color={colors.error} />
+            )}
+          </TouchableOpacity>
+        </View>
+        {/* Plan Overview Card */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Plan Overview</Text>
-            
-            <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>{getFitnessStrategyEmoji(profile?.fitness_strategy || 'maintenance')}</Text>
-              <View style={styles.overviewContent}>
-                <Text style={styles.overviewLabel}>Fitness Strategy</Text>
-                <Text style={[styles.overviewValue, { color: getFitnessStrategyColor(profile?.fitness_strategy || 'maintenance') }]}>
-                  {getFitnessStrategyDisplayName(profile?.fitness_strategy || 'maintenance')}
-                </Text>
+            {plan.id === activePlanId ? (
+              <View style={styles.activePlanBadge}>
+                <Icon name="check-circle" size={14} color={colors.primary} />
+                <Text style={styles.activePlanBadgeText}>ACTIVE PLAN</Text>
               </View>
-            </View>
-
-            <View style={styles.overviewItem}>
-              <Text style={styles.overviewEmoji}>📈</Text>
-              <View style={styles.overviewContent}>
-                <Text style={styles.overviewLabel}>Status</Text>
-                <Text style={[styles.overviewValue, { color: colors.secondary }]}>
-                  {plan.status?.toUpperCase() || 'ACTIVE'}
-                </Text>
-              </View>
-            </View>
-
-            {plan.preferences?.dietary && plan.preferences.dietary.length > 0 && (
+            ) : (
+              <TouchableOpacity 
+                style={styles.setActiveButtonHeader}
+                onPress={handleSetActive}
+                disabled={isSettingActive}
+              >
+                {isSettingActive ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Icon name="star-outline" size={14} color={colors.primary} />
+                    <Text style={styles.setActiveButtonHeaderText}>SET AS ACTIVE</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={styles.overviewCard}>
+            <View style={styles.overviewRow}>
               <View style={styles.overviewItem}>
-                <Text style={styles.overviewEmoji}>🍎</Text>
+                <Text style={styles.overviewEmoji}>{getFitnessStrategyEmoji(profile?.fitness_strategy || 'maintenance')}</Text>
                 <View style={styles.overviewContent}>
-                  <Text style={styles.overviewLabel}>Dietary Preferences</Text>
-                  <Text style={[styles.overviewValue, { color: colors.accent }]}>
-                    {Array.isArray(plan.preferences.dietary) 
-                      ? plan.preferences.dietary.join(', ') 
-                      : typeof plan.preferences.dietary === 'string' 
-                        ? plan.preferences.dietary
-                        : 'None'}
+                  <Text style={styles.overviewLabel}>Fitness Strategy</Text>
+                  <Text style={[styles.overviewValue, { color: getFitnessStrategyColor(profile?.fitness_strategy || 'maintenance') }]}>
+                    {getFitnessStrategyDisplayName(profile?.fitness_strategy || 'maintenance')}
                   </Text>
                 </View>
               </View>
-            )}
-
-            {plan.preferences?.intolerances && plan.preferences.intolerances.length > 0 && (
+              <View style={styles.overviewDivider} />
               <View style={styles.overviewItem}>
-                <Text style={styles.overviewEmoji}>🚫</Text>
+                <Icon name="chart-line" size={20} color={colors.secondary} />
                 <View style={styles.overviewContent}>
-                  <Text style={styles.overviewLabel}>Intolerances</Text>
-                  <Text style={[styles.overviewValue, { color: colors.warning }]}>
-                    {Array.isArray(plan.preferences.intolerances) 
-                      ? plan.preferences.intolerances.join(', ') 
-                      : typeof plan.preferences.intolerances === 'string'
-                        ? plan.preferences.intolerances
-                        : 'None'}
+                  <Text style={styles.overviewLabel}>Status</Text>
+                  <Text style={[styles.overviewValue, { color: colors.secondary }]}>
+                    {plan.status?.toUpperCase() || 'ACTIVE'}
                   </Text>
                 </View>
               </View>
-            )}
-          </LinearGradient>
+            </View>
+          </View>
         </View>
 
         {/* Current Daily Targets */}
-        <View style={styles.sectionContainer}>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
-            style={styles.card}
-          >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Daily Targets</Text>
+          <Text style={styles.sectionSubtitle}>Per day · Updated just now</Text>
 
-            <Text style={styles.sectionTitle}>Current Daily Targets</Text>
-            <Text style={{ color: 'rgba(235,235,245,0.6)', marginBottom: 8 }}>Per day · Updated just now</Text>
-
-            <View style={styles.macroGrid} key={`macros-${latestTarget?.id || 'default'}-${macros.calories}`}>
-              <View style={[styles.macroCard, { backgroundColor: `${colors.primary}20` }]}>
-                <Text style={styles.macroEmoji}>🔥</Text>
-                <Text style={styles.macroLabel}>Calories</Text>
-                <Text style={styles.macroValue}>
-                  {macros.calories}
-                  <Text style={styles.macroUnit}> kcal</Text>
-                </Text>
-              </View>
-
-              <View style={[styles.macroCard, { backgroundColor: `${colors.success}20` }]}>
-                <Text style={styles.macroEmoji}>🥩</Text>
-                <Text style={styles.macroLabel}>Protein</Text>
-                <Text style={styles.macroValue}>
-                  {macros.protein}
-                  <Text style={styles.macroUnit}>g</Text>
-                </Text>
-              </View>
-
-              <View style={[styles.macroCard, { backgroundColor: `${colors.accent}20` }]}>
-                <Text style={styles.macroEmoji}>🌾</Text>
-                <Text style={styles.macroLabel}>Carbs</Text>
-                <Text style={styles.macroValue}>
-                  {macros.carbs}
-                  <Text style={styles.macroUnit}>g</Text>
-                </Text>
-              </View>
-
-              <View style={[styles.macroCard, { backgroundColor: `${colors.warning}20` }]}>
-                <Text style={styles.macroEmoji}>🧈</Text>
-                <Text style={styles.macroLabel}>Fat</Text>
-                <Text style={styles.macroValue}>
-                  {macros.fat}
-                  <Text style={styles.macroUnit}>g</Text>
-                </Text>
-              </View>
+          <View style={styles.macroGrid} key={`macros-${latestTarget?.id || 'default'}-${macros.calories}`}>
+            <View style={[styles.macroCard, { backgroundColor: 'rgba(255, 107, 53, 0.12)' }]}>
+              <Text style={styles.macroEmoji}>🔥</Text>
+              <Text style={styles.macroLabel}>Calories</Text>
+              <Text style={styles.macroValue}>
+                {Math.round(macros.calories)}
+                <Text style={styles.macroUnit}> kcal</Text>
+              </Text>
             </View>
 
-          </LinearGradient>
+            <View style={[styles.macroCard, { backgroundColor: 'rgba(52, 199, 89, 0.12)' }]}>
+              <Text style={styles.macroEmoji}>🥩</Text>
+              <Text style={styles.macroLabel}>Protein</Text>
+              <Text style={styles.macroValue}>
+                {Math.round(macros.protein)}
+                <Text style={styles.macroUnit}>g</Text>
+              </Text>
+            </View>
+
+            <View style={[styles.macroCard, { backgroundColor: 'rgba(255, 230, 109, 0.12)' }]}>
+              <Text style={styles.macroEmoji}>🌾</Text>
+              <Text style={styles.macroLabel}>Carbs</Text>
+              <Text style={styles.macroValue}>
+                {Math.round(macros.carbs)}
+                <Text style={styles.macroUnit}>g</Text>
+              </Text>
+            </View>
+
+            <View style={[styles.macroCard, { backgroundColor: 'rgba(255, 149, 0, 0.12)' }]}>
+              <Text style={styles.macroEmoji}>🧈</Text>
+              <Text style={styles.macroLabel}>Fat</Text>
+              <Text style={styles.macroValue}>
+                {Math.round(macros.fat)}
+                <Text style={styles.macroUnit}>g</Text>
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Metabolic Breakdown Explanation - Only show for mathematical calculations */}
-        {plan?.metabolic_calculations && plan.metabolic_calculations.calculation_method !== 'Manual Input' && (
-          <View style={styles.sectionContainer}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
-              style={styles.card}
-            >
-              <Text style={styles.sectionTitle}>📊 How Your Targets Were Calculated</Text>
-              <Text style={{ color: 'rgba(235,235,245,0.6)', marginBottom: 16 }}>
-                Based on your profile and {plan.metabolic_calculations.calculation_method}
-              </Text>
+        {/* Metabolic Breakdown Explanation - Show for mathematical plans or any plan with metabolic calculations */}
+        {(() => {
+          const hasMetabolic = !!plan?.metabolic_calculations;
+          const isMathematical = plan?.plan_type === 'mathematical';
+          const hasCalculationMethod = plan?.metabolic_calculations?.calculation_method && 
+                                      plan.metabolic_calculations.calculation_method !== 'Manual Input';
+          const shouldShow = hasMetabolic && (isMathematical || hasCalculationMethod);
+          
+          console.log('[PLAN DETAIL] Checking metabolic_calculations:', {
+            hasMetabolic,
+            isMathematical,
+            hasCalculationMethod,
+            planType: plan?.plan_type,
+            calculationMethod: plan?.metabolic_calculations?.calculation_method,
+            shouldShow,
+            metabolicData: plan?.metabolic_calculations ? {
+              bmr: plan.metabolic_calculations.bmr,
+              tdee: plan.metabolic_calculations.tdee,
+              calculation_method: plan.metabolic_calculations.calculation_method
+            } : null
+          });
+          
+          return shouldShow;
+        })() && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>How Your Targets Were Calculated</Text>
+            <Text style={styles.sectionSubtitle}>
+              Based on your profile and {plan.metabolic_calculations.calculation_method}
+            </Text>
+            
+            <View style={styles.metabolicCard}>
 
               <View style={styles.metabolicBreakdown}>
                 {/* BMR */}
@@ -731,264 +698,309 @@ const NutritionPlanScreen = () => {
                   </Text>
                 </View>
               </View>
-
-            </LinearGradient>
+            </View>
           </View>
         )}
 
         {/* Calorie Trend Chart */}
         {targets.length > 1 && (
-          <View style={styles.sectionContainer}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
-              style={styles.card}
-            >
-              <Text style={styles.sectionTitle}>📊 Calorie Trend</Text>
-              <View style={styles.chartContainer}>
-            <LineChart
-              data={chartData}
-                  width={width - 64}
-              height={220}
-              chartConfig={{
-                    backgroundColor: 'transparent',
-                    backgroundGradientFrom: 'transparent',
-                    backgroundGradientTo: 'transparent',
-                decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
-                    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                    propsForDots: {
-                      r: "6",
-                      strokeWidth: "2",
-                      stroke: colors.primary
-                    }
-              }}
-              bezier
-                  style={styles.chart}
-            />
-              </View>
-            </LinearGradient>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Calorie Trend</Text>
+            <View style={styles.chartCard}>
+              <LineChart
+                data={chartData}
+                width={width - 80}
+                height={200}
+                chartConfig={{
+                  backgroundColor: '#000000',
+                  backgroundGradientFrom: '#000000',
+                  backgroundGradientTo: '#000000',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
+                  labelColor: () => '#FFFFFF',
+                  style: {
+                    borderRadius: 16,
+                  },
+                  propsForDots: {
+                    r: "5",
+                    strokeWidth: "2",
+                    stroke: colors.primary
+                  }
+                }}
+                bezier
+                style={styles.chart}
+              />
+            </View>
           </View>
         )}
-
-
-        {/* Bottom padding for safe area */}
-        <View style={{ height: bottom + 100 }} />
-      </Animated.ScrollView>
-      </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
-  backgroundImage: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+  content: {
+    paddingHorizontal: 20,
   },
-  overlay: {
-    flex: 1,
-  },
-  customHeader: {
+
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    height: 56,
-    backgroundColor: 'transparent',
-    zIndex: 10,
+    marginBottom: 24,
+    paddingTop: 8,
   },
-  headerButton: {
-    padding: 12,
-    width: 48,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  headerButtonPlaceholder: {
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
     width: 48,
+    height: 48,
+    borderRadius: 24,
+    resizeMode: 'contain',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.white,
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
     flex: 1,
-    textAlign: 'center',
   },
-  transparentHeader: {
-    backgroundColor: 'transparent',
-    elevation: 0,
-    shadowOpacity: 0,
+  coachGreeting: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
   },
+  coachMessage: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+
+  // Loading & Error
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  loadingCard: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 32,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
   loadingText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    color: colors.text,
+    marginTop: 16,
   },
   errorCard: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 32,
-    borderRadius: 24,
+    backgroundColor: 'rgba(255, 69, 58, 0.08)',
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
-    width: '100%',
-    maxWidth: 350,
-  },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 58, 0.15)',
   },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 16,
-    color: colors.white,
   },
   errorMessage: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
   },
   errorButton: {
-    marginVertical: 8,
-    width: '100%',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
-  scrollView: {
-    flex: 1,
+  errorButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
   },
-  sectionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  card: {
-    padding: 24,
-    borderRadius: 20,
-    position: 'relative',
+
+  // Section
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.white,
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: 0.3,
   },
-  overviewItem: {
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  activePlanBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+  },
+  activePlanBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  setActiveButtonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  setActiveButtonHeaderText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 14,
+    marginTop: -8,
+  },
+
+  // Overview Card
+  overviewCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  overviewItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   overviewEmoji: {
     fontSize: 24,
-    marginRight: 16,
-    width: 32,
-    textAlign: 'center',
   },
   overviewContent: {
     flex: 1,
   },
   overviewLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     marginBottom: 4,
   },
   overviewValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
   },
+  overviewDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 12,
+  },
+
+  // Macro Grid
   macroGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    gap: 12,
   },
   macroCard: {
-    width: '48%',
-    padding: 20,
+    width: (width - 40 - 12) / 2,
+    padding: 16,
     borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   macroEmoji: {
-    fontSize: 32,
+    fontSize: 28,
     marginBottom: 8,
   },
   macroLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 6,
+    fontWeight: '600',
   },
   macroValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.white,
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
     textAlign: 'center',
   },
   macroUnit: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
+    fontWeight: '500',
   },
-  chartContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  chart: {
+
+  // Metabolic Card
+  metabolicCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  micronutrientItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  micronutrientEmoji: {
-    fontSize: 20,
-    marginRight: 16,
-    width: 24,
-    textAlign: 'center',
-  },
-  micronutrientInfo: {
-    flex: 1,
-  },
-  micronutrientName: {
-    fontSize: 16,
-    color: colors.white,
-    fontWeight: '600',
-  },
-  micronutrientValue: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  
-  // Metabolic breakdown styles
   metabolicBreakdown: {
-    gap: 16,
+    gap: 12,
   },
   metabolicRow: {
     flexDirection: 'row',
@@ -996,13 +1008,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   finalTargetRow: {
     borderBottomWidth: 0,
-    backgroundColor: 'rgba(255,107,53,0.1)',
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     marginTop: 8,
   },
   metabolicLabel: {
@@ -1010,40 +1022,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     gap: 12,
-    marginRight: 16, // Add margin to prevent overlap with value
+    marginRight: 12,
   },
   metabolicEmoji: {
     fontSize: 20,
   },
   metabolicTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.white,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
     marginBottom: 2,
   },
   metabolicSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
-    lineHeight: 16,
-    flexWrap: 'wrap', // Allow text to wrap
-    maxWidth: '90%', // Limit width to prevent overlap
+    lineHeight: 15,
   },
   metabolicValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.white,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
     textAlign: 'right',
-    minWidth: 100, // Ensure minimum width for the value
-    flexShrink: 0, // Prevent shrinking
+    minWidth: 90,
   },
   finalTargetValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '800',
     color: colors.primary,
   },
   metabolicUnit: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // Chart
+  chartCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+  },
+  chart: {
+    borderRadius: 16,
   },
 });
 

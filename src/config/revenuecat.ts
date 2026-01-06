@@ -15,6 +15,7 @@ export const REVENUECAT_CONFIG = {
   products: {
     premium: {
       monthly: 'gofitai_premium_monthly1',
+      yearly: 'gofitai_premium_yearly1',
       lifetime: 'gofitai_premium_lifetime1',
     },
   },

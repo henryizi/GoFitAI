@@ -156,6 +156,45 @@ export default function FoodHistoryScreen() {
     );
   };
 
+  const handleReLogEntry = async (entry: FoodEntry) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const entryDate = entry.date || entry.timestamp.split('T')[0];
+      
+      // Check if it's already today's entry
+      if (entryDate === today) {
+        Alert.alert('Already Logged', 'This food is already logged for today.');
+        return;
+      }
+
+      // Log the food entry to today's date
+      await NutritionService.logFoodEntry(userId, {
+        food_name: entry.food_name,
+        calories: entry.calories,
+        protein_grams: entry.protein_grams,
+        carbs_grams: entry.carbs_grams,
+        fat_grams: entry.fat_grams,
+      });
+
+      Alert.alert(
+        'Food Logged',
+        `"${entry.food_name}" has been added to today's nutrition progress.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reload history to show the new entry
+              loadFoodHistory();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('[FOOD HISTORY] Error re-logging entry:', error);
+      Alert.alert('Error', 'Failed to log food entry. Please try again.');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -184,55 +223,75 @@ export default function FoodHistoryScreen() {
     });
   };
 
-  const renderFoodEntry = (entry: FoodEntry, date: string) => (
-    <View key={entry.id} style={styles.entryCard}>
-      <View style={styles.entryHeader}>
-        <View style={styles.entryInfo}>
-          <Text style={styles.entryName} numberOfLines={1}>
-            {entry.food_name}
-          </Text>
-          <Text style={styles.entryTime}>
-            {formatTime(entry.timestamp)}
-          </Text>
-        </View>
-        <View style={styles.entryActions}>
-          <View style={styles.caloriesBadge}>
-            <Text style={styles.caloriesText}>{entry.calories}</Text>
-            <Text style={styles.caloriesLabel}>kcal</Text>
+  const renderFoodEntry = (entry: FoodEntry, date: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    // Use the date parameter (from DayHistory) or extract from timestamp
+    const entryDate = date || entry.date || (entry.timestamp ? entry.timestamp.split('T')[0] : today);
+    const isToday = entryDate === today;
+
+    return (
+      <View key={entry.id} style={styles.entryCard}>
+        <View style={styles.entryHeader}>
+          <View style={styles.entryInfo}>
+            <Text style={styles.entryName} numberOfLines={1}>
+              {entry.food_name}
+            </Text>
+            <Text style={styles.entryTime}>
+              {formatTime(entry.timestamp)}
+            </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => handleDeleteEntry(date, entry.id, entry.food_name)}
-            style={styles.deleteButton}
-          >
-            <Icon name="delete-outline" size={18} color={colors.error} />
-          </TouchableOpacity>
+          <View style={styles.entryActions}>
+            <View style={styles.caloriesBadge}>
+              <Text style={styles.caloriesText}>{entry.calories}</Text>
+              <Text style={styles.caloriesLabel}>kcal</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (!isToday) {
+                  handleReLogEntry(entry);
+                } else {
+                  Alert.alert('Already Today', 'This food is already logged for today.');
+                }
+              }}
+              style={styles.reLogButton}
+              activeOpacity={0.7}
+            >
+              <Icon name="plus" size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDeleteEntry(date, entry.id, entry.food_name)}
+              style={styles.deleteButton}
+            >
+              <Icon name="delete-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
       
-      {(entry.protein_grams || entry.carbs_grams || entry.fat_grams) && (
-        <View style={styles.macrosRow}>
-          {entry.protein_grams ? (
-            <View style={styles.macroChip}>
-              <Text style={styles.macroValue}>{entry.protein_grams}g</Text>
-              <Text style={styles.macroLabel}>Protein</Text>
-            </View>
-          ) : null}
-          {entry.carbs_grams ? (
-            <View style={styles.macroChip}>
-              <Text style={styles.macroValue}>{entry.carbs_grams}g</Text>
-              <Text style={styles.macroLabel}>Carbs</Text>
-            </View>
-          ) : null}
-          {entry.fat_grams ? (
-            <View style={styles.macroChip}>
-              <Text style={styles.macroValue}>{entry.fat_grams}g</Text>
-              <Text style={styles.macroLabel}>Fat</Text>
-            </View>
-          ) : null}
-        </View>
-      )}
-    </View>
-  );
+        {(entry.protein_grams || entry.carbs_grams || entry.fat_grams) && (
+          <View style={styles.macrosRow}>
+            {entry.protein_grams ? (
+              <View style={styles.macroChip}>
+                <Text style={styles.macroValue}>{entry.protein_grams}g</Text>
+                <Text style={styles.macroLabel}>Protein</Text>
+              </View>
+            ) : null}
+            {entry.carbs_grams ? (
+              <View style={styles.macroChip}>
+                <Text style={styles.macroValue}>{entry.carbs_grams}g</Text>
+                <Text style={styles.macroLabel}>Carbs</Text>
+              </View>
+            ) : null}
+            {entry.fat_grams ? (
+              <View style={styles.macroChip}>
+                <Text style={styles.macroValue}>{entry.fat_grams}g</Text>
+                <Text style={styles.macroLabel}>Fat</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderDayHistory = ({ item }: { item: DayHistory }) => (
     <View style={styles.dayCard}>
@@ -562,6 +621,16 @@ const styles = StyleSheet.create({
   caloriesLabel: {
     fontSize: 10,
     color: colors.primary,
+  },
+  reLogButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 107, 53, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButton: {
     width: 32,

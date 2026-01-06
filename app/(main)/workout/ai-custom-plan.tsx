@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  Image,
+  RefreshControl
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
@@ -17,21 +19,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { WorkoutService } from '../../../src/services/workout/WorkoutService';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// Modern Dark Design System
+// Clean Design System
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
-  background: '#121212',
-  surface: '#1C1C1E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.95)',
-  border: 'rgba(84, 84, 88, 0.6)',
   blue: '#007AFF',
   purple: '#AF52DE',
 };
@@ -48,6 +46,7 @@ export default function AICustomPlanScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [progress, setProgress] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Form state
   const [params, setParams] = useState<PlanParams>({
@@ -55,6 +54,44 @@ export default function AICustomPlanScreen() {
     primaryGoal: (profile?.primary_goal as any) || 'general_fitness',
     workoutFrequency: (profile?.workout_frequency as any) || '4_5'
   });
+
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    const goalLabels: Record<string, string> = {
+      muscle_gain: 'build muscle',
+      fat_loss: 'burn fat',
+      athletic_performance: 'boost performance',
+      general_fitness: 'improve fitness'
+    };
+    
+    message = `Let's create an AI-powered plan to help you ${goalLabels[params.primaryGoal] || 'reach your goals'}.`;
+    
+    return { greeting, message };
+  }, [params.primaryGoal]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    // Reset to defaults
+    setParams({
+      gender: (profile?.gender as 'male' | 'female') || 'male',
+      primaryGoal: (profile?.primary_goal as any) || 'general_fitness',
+      workoutFrequency: (profile?.workout_frequency as any) || '4_5'
+    });
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   const genderOptions = [
     { value: 'male', label: 'Male', icon: 'gender-male' },
@@ -192,70 +229,64 @@ export default function AICustomPlanScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header */}
-      <LinearGradient
-        colors={['#1C1C1E', '#121212']}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
+
+      <ScrollView 
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 60 + insets.bottom + 100 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <View style={styles.headerContent}>
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
           <TouchableOpacity 
             onPress={() => router.back()} 
             style={styles.backButton}
             disabled={isGenerating}
           >
-            <Icon name="arrow-left" size={24} color={colors.text} />
+            <Icon name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>AI Custom Plan</Text>
-            <Text style={styles.headerSubtitle}>Powered by Gemini AI</Text>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
           </View>
-          <View style={{ width: 40 }} />
-        </View>
-      </LinearGradient>
-
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 180 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <LinearGradient
-            colors={[colors.primary + '20', colors.primaryDark + '10']}
-            style={styles.infoGradient}
-          >
-            <Icon name="robot-outline" size={48} color={colors.primary} />
-            <Text style={styles.infoTitle}>Professional AI Workout Generator</Text>
-            <Text style={styles.infoDescription}>
-              Get a personalized workout plan designed by AI, tailored to your goals and preferences. 
-              Our system creates professional-grade programs inspired by elite bodybuilders and athletes.
-            </Text>
-          </LinearGradient>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+          </View>
         </View>
 
         {/* Gender Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Gender</Text>
-          <View style={styles.optionsRow}>
+          <Text style={styles.sectionTitle}>Gender</Text>
+          <View style={styles.genderRow}>
             {genderOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
-                  styles.optionCard,
-                  params.gender === option.value && styles.optionCardSelected
+                  styles.genderCard,
+                  params.gender === option.value && styles.genderCardSelected
                 ]}
                 onPress={() => updateParam('gender', option.value as any)}
                 disabled={isGenerating}
+                activeOpacity={0.8}
               >
                 <Icon 
                   name={option.icon} 
-                  size={32} 
+                  size={28} 
                   color={params.gender === option.value ? colors.primary : colors.textSecondary} 
                 />
                 <Text style={[
-                  styles.optionLabel,
-                  params.gender === option.value && styles.optionLabelSelected
+                  styles.genderLabel,
+                  params.gender === option.value && styles.genderLabelSelected
                 ]}>
                   {option.label}
                 </Text>
@@ -266,7 +297,7 @@ export default function AICustomPlanScreen() {
 
         {/* Primary Goal */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Primary Goal</Text>
+          <Text style={styles.sectionTitle}>Primary Goal</Text>
           {goalOptions.map((option) => (
             <TouchableOpacity
               key={option.value}
@@ -276,11 +307,12 @@ export default function AICustomPlanScreen() {
               ]}
               onPress={() => updateParam('primaryGoal', option.value as any)}
               disabled={isGenerating}
+              activeOpacity={0.8}
             >
-              <View style={[styles.goalIconContainer, { backgroundColor: option.color + '20' }]}>
+              <View style={[styles.goalIconContainer, { backgroundColor: option.color + '15' }]}>
                 <Icon 
                   name={option.icon} 
-                  size={28} 
+                  size={24} 
                   color={option.color} 
                 />
               </View>
@@ -294,7 +326,9 @@ export default function AICustomPlanScreen() {
                 <Text style={styles.goalDescription}>{option.description}</Text>
               </View>
               {params.primaryGoal === option.value && (
-                <Icon name="check-circle" size={24} color={colors.primary} />
+                <View style={styles.checkmarkSelected}>
+                  <Icon name="check" size={16} color={colors.text} />
+                </View>
               )}
             </TouchableOpacity>
           ))}
@@ -302,74 +336,86 @@ export default function AICustomPlanScreen() {
 
         {/* Workout Frequency */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Workout Frequency</Text>
-          {frequencyOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.frequencyCard,
-                params.workoutFrequency === option.value && styles.frequencyCardSelected,
-                option.recommended && styles.frequencyCardRecommended
-              ]}
-              onPress={() => updateParam('workoutFrequency', option.value as any)}
-              disabled={isGenerating}
-            >
-              <Icon 
-                name={option.icon} 
-                size={32} 
-                color={params.workoutFrequency === option.value ? colors.primary : colors.textSecondary} 
-              />
-              <View style={styles.frequencyContent}>
-                <View style={styles.frequencyHeader}>
-                  <Text style={[
-                    styles.frequencyLabel,
-                    params.workoutFrequency === option.value && styles.frequencyLabelSelected
-                  ]}>
-                    {option.label}
-                  </Text>
-                  {option.recommended && (
-                    <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedText}>Recommended</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.frequencyDescription}>{option.description}</Text>
-              </View>
-              {params.workoutFrequency === option.value && (
-                <Icon name="check-circle" size={24} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
+          <Text style={styles.sectionTitle}>Workout Frequency</Text>
+          <View style={styles.frequencyGrid}>
+            {frequencyOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.frequencyCard,
+                  params.workoutFrequency === option.value && styles.frequencyCardSelected
+                ]}
+                onPress={() => updateParam('workoutFrequency', option.value as any)}
+                disabled={isGenerating}
+                activeOpacity={0.8}
+              >
+                <Text style={[
+                  styles.frequencyValue,
+                  params.workoutFrequency === option.value && styles.frequencyValueSelected
+                ]}>
+                  {option.value}
+                </Text>
+                <Text style={[
+                  styles.frequencyLabel,
+                  params.workoutFrequency === option.value && styles.frequencyLabelSelected
+                ]}>
+                  {option.value === '1' ? 'day' : 'days'}
+                </Text>
+                {option.recommended && (
+                  <View style={styles.recommendedBadge}>
+                    <Icon name="star" size={10} color={colors.text} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Summary Card */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Your Plan Summary</Text>
-          <View style={styles.summaryRow}>
-            <Icon name="gender-male-female" size={20} color={colors.textSecondary} />
-            <Text style={styles.summaryText}>Gender: {params.gender}</Text>
+          <View style={styles.summaryHeader}>
+            <Icon name="clipboard-check-outline" size={20} color={colors.primary} />
+            <Text style={styles.summaryTitle}>Plan Summary</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Icon name="target" size={20} color={colors.textSecondary} />
-            <Text style={styles.summaryText}>
-              Goal: {goalOptions.find(g => g.value === params.primaryGoal)?.label}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Icon name="calendar-week" size={20} color={colors.textSecondary} />
-            <Text style={styles.summaryText}>
-              Frequency: {frequencyOptions.find(f => f.value === params.workoutFrequency)?.label}
-            </Text>
+          <View style={styles.summaryContent}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Gender</Text>
+              <Text style={styles.summaryValue}>{params.gender === 'male' ? 'Male' : 'Female'}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Goal</Text>
+              <Text style={styles.summaryValue}>{goalOptions.find(g => g.value === params.primaryGoal)?.label}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Frequency</Text>
+              <Text style={styles.summaryValue}>{params.workoutFrequency} days/week</Text>
+            </View>
           </View>
         </View>
+
+        {/* Progress Status */}
+        {isGenerating && (
+          <View style={styles.statusCard}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <View style={styles.statusContent}>
+              <Text style={styles.statusText}>{statusMessage}</Text>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+              </View>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Generate Button */}
-      <View style={[styles.footer, { bottom: 60, paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footer, { paddingBottom: 60 + insets.bottom + 16 }]}>
         <TouchableOpacity
           style={[styles.generateButton, !canGenerate && styles.generateButtonDisabled]}
           onPress={handleGeneratePlan}
           disabled={!canGenerate}
+          activeOpacity={0.8}
         >
           <LinearGradient
             colors={canGenerate ? [colors.primary, colors.primaryDark] : ['#666', '#555']}
@@ -380,26 +426,16 @@ export default function AICustomPlanScreen() {
             {isGenerating ? (
               <>
                 <ActivityIndicator size="small" color={colors.text} />
-                <Text style={styles.generateButtonText}>{statusMessage}</Text>
+                <Text style={styles.generateButtonText}>Generating...</Text>
               </>
             ) : (
               <>
-                <Icon name="robot-excited" size={24} color={colors.text} />
+                <Icon name="robot-excited" size={22} color={colors.text} />
                 <Text style={styles.generateButtonText}>Generate AI Workout Plan</Text>
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
-
-        {/* Progress Bar */}
-        {isGenerating && (
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{progress}%</Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -408,261 +444,316 @@ export default function AICustomPlanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
-  header: {
+  content: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  headerContent: {
+
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 24,
+    paddingTop: 8,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  headerTitleContainer: {
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
     flex: 1,
-    alignItems: 'center',
   },
-  headerTitle: {
+  coachGreeting: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 2,
   },
-  headerSubtitle: {
-    fontSize: 12,
+  coachMessage: {
+    fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 2,
+    lineHeight: 18,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  infoCard: {
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  infoGradient: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  infoDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+
+  // Section
   section: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 14,
+    letterSpacing: 0.3,
   },
-  optionsRow: {
+
+  // Gender Selection
+  genderRow: {
     flexDirection: 'row',
     gap: 12,
   },
-  optionCard: {
+  genderCard: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  optionCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
+  genderCardSelected: {
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
   },
-  optionLabel: {
+  genderLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginTop: 8,
+    marginTop: 10,
   },
-  optionLabelSelected: {
+  genderLabelSelected: {
     color: colors.text,
   },
+
+  // Goal Cards
   goalCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   goalCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
   },
   goalIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   goalContent: {
     flex: 1,
   },
   goalLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   goalLabelSelected: {
-    color: colors.text,
+    color: colors.primary,
   },
   goalDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
   },
-  frequencyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+  checkmarkSelected: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Frequency Grid
+  frequencyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  frequencyCard: {
+    width: (width - 40 - 30) / 4,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    position: 'relative',
   },
   frequencyCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    backgroundColor: 'rgba(255, 107, 53, 0.06)',
   },
-  frequencyCardRecommended: {
-    borderColor: colors.success + '40',
+  frequencyValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.textSecondary,
   },
-  frequencyContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  frequencyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
+  frequencyValueSelected: {
+    color: colors.primary,
   },
   frequencyLabel: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   frequencyLabelSelected: {
     color: colors.text,
   },
   recommendedBadge: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  recommendedText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  frequencyDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  summaryText: {
-    fontSize: 15,
-    color: colors.text,
-    marginLeft: 12,
-  },
-  footer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  generateButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  generateButtonDisabled: {
-    opacity: 0.6,
-  },
-  generateGradient: {
-    flexDirection: 'row',
+    top: 6,
+    right: 6,
+    backgroundColor: colors.success,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 12,
   },
-  generateButtonText: {
-    fontSize: 16,
+
+  // Summary Card
+  summaryCard: {
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 10,
+  },
+  summaryTitle: {
+    fontSize: 14,
     fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  summaryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
   },
-  progressContainer: {
-    marginTop: 12,
+  summaryDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 8,
+  },
+
+  // Status Card
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
+    gap: 14,
+  },
+  statusContent: {
+    flex: 1,
+  },
+  statusText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
   },
   progressBar: {
     height: 4,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.primary,
+    borderRadius: 2,
   },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
+
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: '#000000',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  generateButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  generateButtonDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0.1,
+  },
+  generateGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 10,
+  },
+  generateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: 0.5,
   },
 });
 

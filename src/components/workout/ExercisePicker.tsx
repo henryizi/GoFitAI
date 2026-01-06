@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   Modal,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   TextInput,
   Dimensions,
 } from 'react-native';
@@ -13,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from 'expo-blur';
 import { colors } from '../../styles/colors';
 import { ExerciseService } from '../../services/workout/ExerciseService';
+import { RecentExercisesService, RecentExercise } from '../../services/workout/RecentExercisesService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,10 +31,14 @@ type ExercisePickerProps = {
   onClose: () => void;
   onSelectExercise: (exercise: Exercise, sets?: number) => void;
   excludeExerciseIds?: string[]; // Already added exercises
+  userId?: string | null;
+  preloadedExercises?: Exercise[]; // Preloaded exercises for instant display
+  preloadedRecentExercises?: RecentExercise[]; // Preloaded recent exercises for instant display
 };
 
 const MUSCLE_GROUPS = [
   { label: 'All', value: 'all', icon: 'weight-lifter' },
+  { label: 'Recently Logged', value: 'recent', icon: 'clock-outline' },
   { label: 'Chest', value: 'chest', icon: 'human' },
   { label: 'Back', value: 'back', icon: 'human-handsup' },
   { label: 'Shoulders', value: 'shoulders', icon: 'hand-back-left' },
@@ -47,20 +53,41 @@ export default function ExercisePicker({
   onClose,
   onSelectExercise,
   excludeExerciseIds = [],
+  userId,
+  preloadedExercises,
+  preloadedRecentExercises,
 }: ExercisePickerProps) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Initialize with preloaded exercises immediately
+  const [exercises, setExercises] = useState<Exercise[]>(preloadedExercises || []);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('all');
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [numberOfSets, setNumberOfSets] = useState('3');
+  const [recentExercises, setRecentExercises] = useState<RecentExercise[]>(preloadedRecentExercises || []);
 
-  // Load exercises from the database
+  // Update exercises and recent exercises when preloaded props change (immediate sync)
+  useEffect(() => {
+    if (preloadedExercises && preloadedExercises.length > 0) {
+      setExercises(preloadedExercises);
+      setLoading(false); // Ensure no loading state if preloaded
+    }
+    if (preloadedRecentExercises && preloadedRecentExercises.length > 0) {
+      setRecentExercises(preloadedRecentExercises);
+    }
+  }, [preloadedExercises, preloadedRecentExercises]);
+
+  // Load exercises from the database with caching (only if not preloaded)
   useEffect(() => {
     const loadExercises = async () => {
+      // If we already have exercises (preloaded or cached), no need to show loading or refetch
+      if (exercises.length > 0 || (preloadedExercises && preloadedExercises.length > 0)) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const exerciseList = await ExerciseService.getExercises();
+        // Use cached version if available (faster)
+        const exerciseList = await ExerciseService.getExercises(undefined, true);
         setExercises(exerciseList as Exercise[]);
       } catch (error) {
         console.error('Error loading exercises:', error);
@@ -69,10 +96,29 @@ export default function ExercisePicker({
       }
     };
 
-    if (visible) {
+    // Only load if visible and we don't have preloaded exercises
+    if (visible && (!preloadedExercises || preloadedExercises.length === 0) && exercises.length === 0) {
       loadExercises();
+    } else if (preloadedExercises && preloadedExercises.length > 0) {
+      // If preloaded, ensure no loading state
+      setLoading(false);
     }
-  }, [visible]);
+  }, [visible, exercises.length, preloadedExercises]);
+
+  // Load recently logged exercises (only if not preloaded, non-blocking)
+  useEffect(() => {
+    const loadRecent = async () => {
+      // Skip if we already have preloaded recent exercises
+      if (preloadedRecentExercises && preloadedRecentExercises.length > 0) return;
+      if (!visible || !userId) return;
+      // Load in background, don't block UI
+      RecentExercisesService.getRecentExercises(userId)
+        .then(recents => setRecentExercises(recents))
+        .catch(err => console.warn('[ExercisePicker] Error loading recent exercises:', err));
+    };
+
+    loadRecent();
+  }, [visible, userId, preloadedRecentExercises]);
 
   // Helper function to normalize muscle group names for better filtering
   const normalizeMuscleGroup = (muscleGroup: string): string => {
@@ -148,87 +194,116 @@ export default function ExercisePicker({
     // Filter by muscle group with improved matching
     if (selectedMuscleGroup !== 'all') {
       const beforeFilterCount = filtered.length;
-      filtered = filtered.filter(ex => {
-        const muscleGroups = ex.muscle_groups || [];
-        
-        // Skip exercises with placeholder or empty muscle groups
-        if (muscleGroups.length === 0 || 
-            muscleGroups.some(mg => mg.toLowerCase().includes('new') || mg.trim() === '')) {
-          return false;
-        }
-
-        const matches = muscleGroups.some(mg => {
-          const normalizedMuscleGroup = normalizeMuscleGroup(mg);
-          const selectedCategory = selectedMuscleGroup.toLowerCase();
-          
-          // Use normalized muscle group for proper matching
-          return normalizedMuscleGroup === selectedCategory;
-        });
-
-        // Debug logging for arms and shoulder exercises
-        if (selectedMuscleGroup === 'arms' && (
-            ex.name.toLowerCase().includes('curl') || 
-            ex.name.toLowerCase().includes('bicep') || 
-            ex.name.toLowerCase().includes('tricep')
-        )) {
-          console.log(`[EXERCISE FILTER] ${ex.name}:`, {
-            muscleGroups,
-            normalizedGroups: muscleGroups.map(mg => normalizeMuscleGroup(mg)),
-            matches
-          });
-        }
-        
-        if (selectedMuscleGroup === 'shoulders' && ex.name.toLowerCase().includes('shoulder')) {
-          console.log(`[EXERCISE FILTER] ${ex.name}:`, {
-            muscleGroups,
-            normalizedGroups: muscleGroups.map(mg => normalizeMuscleGroup(mg)),
-            matches
-          });
-        }
-
-        return matches;
-      });
       
-      // Log filtering results
-      console.log(`[EXERCISE FILTER] ${selectedMuscleGroup}: ${beforeFilterCount} -> ${filtered.length} exercises`);
+      // Special handling for "Recently Logged" filter
+      if (selectedMuscleGroup === 'recent') {
+        const recentExerciseIds = new Set(recentExercises.map(ex => ex.id));
+        filtered = filtered.filter(ex => recentExerciseIds.has(ex.id));
+      } else {
+        // Regular muscle group filtering
+        filtered = filtered.filter(ex => {
+          const muscleGroups = ex.muscle_groups || [];
+          
+          // Skip exercises with placeholder or empty muscle groups
+          if (muscleGroups.length === 0 || 
+              muscleGroups.some(mg => mg.toLowerCase().includes('new') || mg.trim() === '')) {
+            return false;
+          }
+
+          const matches = muscleGroups.some(mg => {
+            const normalizedMuscleGroup = normalizeMuscleGroup(mg);
+            const selectedCategory = selectedMuscleGroup.toLowerCase();
+            
+            // Use normalized muscle group for proper matching
+            return normalizedMuscleGroup === selectedCategory;
+          });
+
+          return matches;
+        });
+      }
     }
 
     return filtered;
-  }, [exercises, searchQuery, selectedMuscleGroup, excludeExerciseIds]);
+  }, [exercises, searchQuery, selectedMuscleGroup, excludeExerciseIds, recentExercises]);
 
-  const handleSelectExercise = (exercise: Exercise) => {
-    setSelectedExercise(exercise);
-    setNumberOfSets('3'); // Reset to default
-  };
+  // When user taps an exercise, immediately add it with a single starting set.
+  // The logging screen will let them add as many additional sets as they want.
+  const handleSelectExercise = useCallback((exercise: Exercise) => {
+    onSelectExercise(exercise, 1);
+    // Reset filters and close picker
+    setSearchQuery('');
+    setSelectedMuscleGroup('all');
+    onClose();
+  }, [onSelectExercise, onClose]);
 
-  const handleConfirmExercise = () => {
-    if (selectedExercise) {
-      const sets = parseInt(numberOfSets, 10);
-      if (sets > 0 && sets <= 50) { // Reasonable maximum
-        onSelectExercise(selectedExercise, sets);
-        // Reset state
-        setSelectedExercise(null);
-        setSearchQuery('');
-        setSelectedMuscleGroup('all');
-        setNumberOfSets('3');
-      }
-    }
-  };
+  // Memoized exercise card component for better performance
+  const ExerciseCard = memo(({ exercise, onSelect }: { exercise: Exercise; onSelect: (exercise: Exercise) => void }) => (
+    <TouchableOpacity
+      style={styles.exerciseCard}
+      onPress={() => onSelect(exercise)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.exerciseInfo}>
+        <Text style={styles.exerciseName}>{exercise.name}</Text>
+        
+        <View style={styles.exerciseDetails}>
+          {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
+            <View style={styles.muscleGroupBadges}>
+              {exercise.muscle_groups.slice(0, 2).map((muscle, idx) => (
+                <View key={idx} style={styles.muscleBadge}>
+                  <Text style={styles.muscleBadgeText}>{muscle}</Text>
+                </View>
+              ))}
+              {exercise.muscle_groups.length > 2 && (
+                <View style={styles.muscleBadge}>
+                  <Text style={styles.muscleBadgeText}>
+                    +{exercise.muscle_groups.length - 2}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+          
+          {exercise.equipment_needed && exercise.equipment_needed.length > 0 && (
+            <View style={styles.equipmentContainer}>
+              <Icon name="dumbbell" size={14} color={colors.textSecondary} />
+              <Text style={styles.equipmentText}>
+                {exercise.equipment_needed.slice(0, 2).join(', ')}
+                {exercise.equipment_needed.length > 2 && ' +'}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
 
-  const handleCancelSetPicker = () => {
-    setSelectedExercise(null);
-    setNumberOfSets('3');
-  };
+      <View style={styles.addButton}>
+        <Icon name="plus-circle" size={32} color={colors.primary} />
+      </View>
+    </TouchableOpacity>
+  ));
+
+  const renderExercise = useCallback(({ item }: { item: Exercise }) => (
+    <ExerciseCard exercise={item} onSelect={handleSelectExercise} />
+  ), [handleSelectExercise]);
+
+  const keyExtractor = useCallback((item: Exercise) => item.id, []);
+
+  if (!visible) return null;
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
+      visible={true}
+      animationType="none"
       transparent={true}
       onRequestClose={onClose}
+      hardwareAccelerated={true}
     >
       <View style={styles.modalOverlay}>
-        <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+        <TouchableOpacity 
+          style={StyleSheet.absoluteFill} 
+          activeOpacity={1}
+          onPress={onClose}
+        />
         
         <View style={styles.modalContainer}>
           {/* Header */}
@@ -289,7 +364,7 @@ export default function ExercisePicker({
           </View>
 
           {/* Exercise List */}
-          {loading ? (
+          {loading && (!preloadedExercises || preloadedExercises.length === 0) && exercises.length === 0 ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Loading exercises...</Text>
@@ -303,96 +378,29 @@ export default function ExercisePicker({
               </Text>
             </View>
           ) : (
-            <ScrollView style={styles.exerciseList} showsVerticalScrollIndicator={false}>
-              {filteredExercises.map((exercise) => (
-                <TouchableOpacity
-                  key={exercise.id}
-                  style={styles.exerciseCard}
-                  onPress={() => handleSelectExercise(exercise)}
-                >
-                  <View style={styles.exerciseInfo}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    
-                    <View style={styles.exerciseDetails}>
-                      {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
-                        <View style={styles.muscleGroupBadges}>
-                          {exercise.muscle_groups.slice(0, 2).map((muscle, idx) => (
-                            <View key={idx} style={styles.muscleBadge}>
-                              <Text style={styles.muscleBadgeText}>{muscle}</Text>
-                            </View>
-                          ))}
-                          {exercise.muscle_groups.length > 2 && (
-                            <View style={styles.muscleBadge}>
-                              <Text style={styles.muscleBadgeText}>
-                                +{exercise.muscle_groups.length - 2}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
-                      
-                      {exercise.equipment && (
-                        <View style={styles.equipmentContainer}>
-                          <Icon name="dumbbell" size={14} color={colors.textSecondary} />
-                          <Text style={styles.equipmentText}>{exercise.equipment}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.addButton}>
-                    <Icon name="plus-circle" size={32} color={colors.primary} />
-                  </View>
-                </TouchableOpacity>
-              ))}
-              
-              {/* Bottom padding for scrolling */}
-              <View style={{ height: 20 }} />
-            </ScrollView>
+            <FlatList
+              data={filteredExercises}
+              renderItem={renderExercise}
+              keyExtractor={keyExtractor}
+              style={styles.exerciseList}
+              contentContainerStyle={styles.exerciseListContent}
+              showsVerticalScrollIndicator={false}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={50}
+              initialNumToRender={15}
+              windowSize={10}
+              getItemLayout={(_, index) => ({
+                length: 80, // Approximate height of exercise card
+                offset: 80 * index,
+                index,
+              })}
+            />
           )}
         </View>
       </View>
 
-      {/* Set Picker Modal */}
-      {selectedExercise && (
-        <View style={styles.setPickerOverlay}>
-          <View style={styles.setPickerCard}>
-            <Text style={styles.setPickerTitle}>How many sets?</Text>
-            <Text style={styles.setPickerExerciseName}>{selectedExercise.name}</Text>
-            
-            <View style={styles.setInputContainer}>
-              <TextInput
-                style={styles.setInput}
-                value={numberOfSets}
-                onChangeText={setNumberOfSets}
-                keyboardType="number-pad"
-                maxLength={2}
-                placeholder="3"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <Text style={styles.setInputLabel}>sets</Text>
-            </View>
-            
-            <Text style={styles.setInputHint}>Enter 1-50 sets</Text>
-
-            <View style={styles.setPickerActions}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={handleCancelSetPicker}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.confirmButton}
-                onPress={handleConfirmExercise}
-              >
-                <Text style={styles.confirmButtonText}>Add Exercise</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
+      {/* No set-count modal – user will decide sets directly on the logging screen */}
     </Modal>
   );
 }
@@ -401,6 +409,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
     backgroundColor: colors.cardBackground,
@@ -476,7 +485,38 @@ const styles = StyleSheet.create({
   },
   exerciseList: {
     flex: 1,
+  },
+  exerciseListContent: {
     paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  recentSection: {
+    marginBottom: 12,
+  },
+  recentTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  recentList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginRight: 8,
+  },
+  recentChipText: {
+    marginLeft: 6,
+    fontSize: 13,
+    color: colors.text,
+    maxWidth: 140,
   },
   exerciseCard: {
     flexDirection: 'row',

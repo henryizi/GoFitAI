@@ -112,6 +112,39 @@ export class SocialAuthService {
 
       console.log('🍎 Apple Sign-In successful, updating profile...');
       
+      // Save Apple-provided name to profile (if provided)
+      // Apple only provides this on first sign-in, so we need to save it
+      if (credential.fullName && (credential.fullName.givenName || credential.fullName.familyName)) {
+        const fullName = [credential.fullName.givenName, credential.fullName.familyName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        
+        if (fullName && data.user?.id) {
+          console.log('🍎 Saving Apple-provided name to profile:', fullName);
+          try {
+            // Update or create profile with Apple-provided name
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({ 
+                id: data.user.id,
+                full_name: fullName,
+                // Don't override onboarding_completed if it already exists
+              }, {
+                onConflict: 'id'
+              });
+            
+            if (profileError) {
+              console.warn('⚠️ Failed to save Apple-provided name:', profileError);
+            } else {
+              console.log('✅ Apple-provided name saved successfully');
+            }
+          } catch (error) {
+            console.warn('⚠️ Exception saving Apple-provided name:', error);
+          }
+        }
+      }
+      
       // Log identity details to check for account linking
       if (data.user) {
         console.log('🔍 Apple Sign-In user details:', { 

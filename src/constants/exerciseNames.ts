@@ -154,21 +154,21 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     equipment: "Dumbbell"
   },
   {
-    name: "Dumbbell Flyes",
+    name: "Dumbbell Fly",
     category: "Push",
     muscleGroups: ["Chest"],
     difficulty: "Intermediate",
     equipment: "Dumbbell"
   },
   {
-    name: "Incline Dumbbell Flyes",
+    name: "Incline Dumbbell Fly",
     category: "Push",
     muscleGroups: ["Upper Chest"],
     difficulty: "Intermediate",
     equipment: "Dumbbell"
   },
   {
-    name: "Decline Dumbbell Flyes",
+    name: "Decline Dumbbell Fly",
     category: "Push",
     muscleGroups: ["Lower Chest"],
     difficulty: "Intermediate",
@@ -703,13 +703,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Beginner",
     equipment: "Dumbbell"
   },
-  {
-    name: "Walking Lunge",
-    category: "Legs",
-    muscleGroups: ["Quadriceps", "Glutes", "Core"],
-    difficulty: "Intermediate",
-    equipment: "Dumbbell"
-  },
+  // Note: Walking Lunge is already defined above in Bodyweight Legs section
   {
     name: "Dumbbell Step Up",
     category: "Legs",
@@ -966,13 +960,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
   },
 
   // Cardio/Conditioning
-  {
-    name: "Kettlebell Swing",
-    category: "Cardio",
-    muscleGroups: ["Full Body", "Posterior Chain"],
-    difficulty: "Intermediate",
-    equipment: "Kettlebell"
-  },
+  // Note: Kettlebell Swing is already defined above in Legs section
   {
     name: "Dumbbell Clean and Press",
     category: "Cardio",
@@ -981,7 +969,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     equipment: "Dumbbell"
   },
   {
-    name: "Weighted Step-Up",
+    name: "Weighted Step Up",
     category: "Cardio",
     muscleGroups: ["Legs", "Core"],
     difficulty: "Intermediate",
@@ -1008,13 +996,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Beginner",
     equipment: "Bodyweight"
   },
-  {
-    name: "Mountain Climber",
-    category: "Cardio",
-    muscleGroups: ["Core", "Shoulders", "Cardiovascular"],
-    difficulty: "Intermediate",
-    equipment: "Bodyweight"
-  },
+  // Note: Mountain Climber is already defined above in Core section
   {
     name: "Box Jump",
     category: "Cardio",
@@ -1213,7 +1195,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     equipment: "Other"
   },
   {
-    name: "Step-Ups",
+    name: "Step Ups",
     category: "Cardio",
     muscleGroups: ["Legs", "Cardiovascular"],
     difficulty: "Beginner",
@@ -1233,13 +1215,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Intermediate",
     equipment: "Bodyweight"
   },
-  {
-    name: "Squat Jumps",
-    category: "Cardio",
-    muscleGroups: ["Legs", "Cardiovascular"],
-    difficulty: "Intermediate",
-    equipment: "Bodyweight"
-  },
+  // Note: Jump Squat is already defined above in Legs section
   {
     name: "Lateral Shuffles",
     category: "Cardio",
@@ -1428,57 +1404,24 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
   },
 
   // Additional Chest Exercises (to balance with other muscle groups)
+  // Note: Decline Push Up, Wide Grip Push Up, Diamond Push Up, and Archer Push Up 
+  // are already defined above in the Push exercises section
   {
-    name: "Decline Push-up",
-    category: "Chest",
-    muscleGroups: ["Chest", "Triceps"],
-    difficulty: "Intermediate",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Wide Grip Push-up",
-    category: "Chest",
-    muscleGroups: ["Chest", "Triceps"],
-    difficulty: "Beginner",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Diamond Push-up",
-    category: "Chest",
-    muscleGroups: ["Chest", "Triceps"],
-    difficulty: "Intermediate",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Archer Push-up",
+    name: "Clap Push Up",
     category: "Chest",
     muscleGroups: ["Chest", "Triceps"],
     difficulty: "Advanced",
     equipment: "Bodyweight"
   },
   {
-    name: "Single Arm Push-up",
-    category: "Chest",
-    muscleGroups: ["Chest", "Triceps", "Core"],
-    difficulty: "Advanced",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Clap Push-up",
-    category: "Chest",
-    muscleGroups: ["Chest", "Triceps"],
-    difficulty: "Advanced",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Hindu Push-up",
+    name: "Hindu Push Up",
     category: "Chest",
     muscleGroups: ["Chest", "Shoulders", "Triceps"],
     difficulty: "Intermediate",
     equipment: "Bodyweight"
   },
   {
-    name: "Dive Bomber Push-up",
+    name: "Dive Bomber Push Up",
     category: "Chest",
     muscleGroups: ["Chest", "Shoulders", "Triceps"],
     difficulty: "Intermediate",
@@ -1542,20 +1485,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Beginner",
     equipment: "Bodyweight"
   },
-  {
-    name: "Seated Calf Raise",
-    category: "Legs",
-    muscleGroups: ["Calves"],
-    difficulty: "Beginner",
-    equipment: "Bodyweight"
-  },
-  {
-    name: "Single Leg Calf Raise",
-    category: "Legs",
-    muscleGroups: ["Calves"],
-    difficulty: "Intermediate",
-    equipment: "Bodyweight"
-  },
+  // Note: Seated Calf Raise and Single Leg Calf Raise are already defined above
   {
     name: "Weighted Standing Calf Raise",
     category: "Legs",
@@ -1605,13 +1535,7 @@ export const SUPPORTED_EXERCISES: ExerciseInfo[] = [
     difficulty: "Intermediate",
     equipment: "Bodyweight"
   },
-  {
-    name: "Jump Rope",
-    category: "Legs",
-    muscleGroups: ["Calves", "Core"],
-    difficulty: "Beginner",
-    equipment: "Jump Rope"
-  },
+  // Note: Jump Rope is already defined above in Cardio section
   {
     name: "Box Jump Calf Focus",
     category: "Legs",
@@ -2058,20 +1982,7 @@ const MACHINE_EXERCISES: ExerciseInfo[] = [
   },
 
   // Leg Machines - Calves
-  {
-    name: "Standing Calf Raise Machine",
-    category: "Legs",
-    muscleGroups: ["Calves"],
-    difficulty: "Beginner",
-    equipment: "Machine"
-  },
-  {
-    name: "Seated Calf Raise Machine",
-    category: "Legs",
-    muscleGroups: ["Calves"],
-    difficulty: "Beginner",
-    equipment: "Machine"
-  },
+  // Note: Standing Calf Raise Machine and Seated Calf Raise Machine are already defined above
   {
     name: "Leg Press Calf Raise Machine",
     category: "Legs",

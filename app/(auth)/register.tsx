@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Alert, Image } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Alert, Image, Linking, TouchableOpacity } from 'react-native';
 import { Text, TextInput, Card, IconButton } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,32 +22,101 @@ const RegisterScreen = () => {
   const router = useRouter();
 
   const handleRegister = async () => {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+    
     if (password !== confirmPassword) {
       setError("Passwords don't match");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return;
-    }
+    
     setIsLoading(true);
     setError(null);
-    const { error } = await signUp(email, password);
-    setIsLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      // Show email verification reminder with GoFitAI branding
-      Alert.alert(
-        "Welcome to GoFitAI! 🏋️‍♂️",
-        `Thanks for joining GoFitAI - your AI fitness coach!\n\nWe've sent a verification link to ${email}. Please check your email and click the link to activate your account.\n\nOnce verified, you'll have access to:\n• AI-powered workout plans\n• Smart nutrition guidance\n• Progress tracking\n• Personalized coaching`,
-        [
-          {
-            text: "Check My Email",
-            onPress: () => router.replace('/login')
-          }
-        ]
-      );
+    
+    try {
+      const { data, error } = await signUp(email.trim(), password);
+      
+      if (error) {
+        // Handle email sending errors - account might still be created
+        let errorMessage = error.message;
+        
+        // Check if account was created despite email error
+        if (data?.user && error.message?.toLowerCase().includes('email')) {
+          // Account created but email failed - this is recoverable
+          setIsLoading(false);
+          Alert.alert(
+            "Account Created! 📧",
+            `Your GoFitAI account has been created successfully!\n\nHowever, we couldn't send the verification email right now. Don't worry - you can:\n\n1. Try signing in with your email and password\n2. Request a new verification email from the login screen\n3. Check your spam folder\n\nYour account is ready to use!`,
+            [
+              {
+                text: "Sign In",
+                onPress: () => router.replace('/login')
+              },
+              {
+                text: "OK",
+                style: 'cancel'
+              }
+            ]
+          );
+          return;
+        }
+        
+        // Handle common Supabase errors
+        if (error.message?.includes('User already registered') || error.message?.includes('already registered')) {
+          errorMessage = "An account with this email already exists. Please sign in instead.";
+        } else if (error.message?.includes('Invalid email')) {
+          errorMessage = "Please enter a valid email address.";
+        } else if (error.message?.includes('Password')) {
+          errorMessage = "Password must be at least 6 characters long.";
+        } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        } else if (error.message?.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (error.message?.toLowerCase().includes('email') || error.message?.toLowerCase().includes('confirmation')) {
+          // Email-related errors - be more helpful
+          errorMessage = "Account created, but email verification couldn't be sent. You can sign in and request a new verification email.";
+        } else if (!error.message || error.message === '') {
+          errorMessage = "Unable to create account. Please try again.";
+        }
+        
+        setError(errorMessage);
+        setIsLoading(false);
+      } else if (data?.user) {
+        // Success - show email verification message
+        setIsLoading(false);
+        Alert.alert(
+          "Welcome to GoFitAI! 🏋️‍♂️",
+          `Thanks for joining GoFitAI - your AI fitness coach!\n\nWe've sent a verification link to ${email}. Please check your email and click the link to activate your account.\n\nOnce verified, you'll have access to:\n• AI-powered workout plans\n• Smart nutrition guidance\n• Progress tracking\n• Personalized coaching`,
+          [
+            {
+              text: "Check My Email",
+              onPress: () => router.replace('/login')
+            }
+          ]
+        );
+      } else {
+        // No error but no user data - unexpected case
+        setIsLoading(false);
+        setError("Account creation completed, but we couldn't verify it. Please check your email for verification link.");
+      }
+    } catch (error: any) {
+      // Catch any unexpected errors
+      setIsLoading(false);
+      console.error('Account creation error:', error);
+      setError(error?.message || "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -68,7 +137,7 @@ const RegisterScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
+    <LinearGradient
         colors={['#0F0F11', '#18181B', '#000000']}
         style={styles.backgroundGradient}
         start={{ x: 0.5, y: 0 }}
@@ -235,18 +304,18 @@ const RegisterScreen = () => {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Button
-                      variant="primary"
-                      onPress={handleRegister}
-                      disabled={isLoading || !email || !password || !confirmPassword}
-                      loading={isLoading}
-                      fullWidth
-                      size="large"
-                      style={styles.signUpButton}
+                <Button
+                  variant="primary"
+                  onPress={handleRegister}
+                  disabled={isLoading || !email || !password || !confirmPassword}
+                  loading={isLoading}
+                  fullWidth
+                  size="large"
+                  style={styles.signUpButton}
                       labelStyle={styles.signUpButtonLabel}
-                    >
-                      {isLoading ? 'Creating Account...' : 'Create Account'}
-                    </Button>
+                >
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                </Button>
                   </LinearGradient>
                 </View>
 
@@ -282,11 +351,25 @@ const RegisterScreen = () => {
           {/* Footer Section */}
           <View style={styles.footerSection}>
             <Text style={styles.footerText}>
-              By creating an account, you agree to our Terms of Service, Privacy Policy, and Health Disclaimer
+              By creating an account, you agree to our{' '}
+              <Text 
+                style={styles.footerLink}
+                onPress={() => Linking.openURL('https://henryizi.github.io/gofitai-privacy/terms-of-service.html')}
+              >
+                Terms of Service
+              </Text>
+              {', '}
+              <Text 
+                style={styles.footerLink}
+                onPress={() => Linking.openURL('https://henryizi.github.io/gofitai-privacy/')}
+              >
+                Privacy Policy
+              </Text>
+              , and Health Disclaimer
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
     </View>
   );
 }
@@ -472,6 +555,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  footerLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });
 

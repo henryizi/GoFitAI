@@ -459,9 +459,49 @@ class GeminiTextService {
       let workoutData;
       try {
         console.log('[GEMINI TEXT] Raw response preview:', text.substring(0, 500));
+        
+        // CRITICAL: Check if reasoning fields exist in raw text before parsing
+        const hasSplitReasoningInText = text.includes('"split_reasoning"') || text.includes("'split_reasoning'");
+        const hasExerciseReasoningInText = text.includes('"exercise_selection_reasoning"') || text.includes("'exercise_selection_reasoning'");
+        console.log('[GEMINI TEXT] 🔍 Raw text reasoning check:', {
+          hasSplitReasoningInText,
+          hasExerciseReasoningInText,
+          textLength: text.length,
+          textContainsSplitReasoning: hasSplitReasoningInText,
+          textContainsExerciseReasoning: hasExerciseReasoningInText
+        });
+        
+        // Try to extract reasoning from raw text if present
+        if (hasSplitReasoningInText || hasExerciseReasoningInText) {
+          const splitMatch = text.match(/"split_reasoning"\s*:\s*"([^"]+)"/);
+          const exerciseMatch = text.match(/"exercise_selection_reasoning"\s*:\s*"([^"]+)"/);
+          console.log('[GEMINI TEXT] 🔍 Extracted reasoning from raw text:', {
+            splitMatch: splitMatch ? splitMatch[1].substring(0, 100) : 'N/A',
+            exerciseMatch: exerciseMatch ? exerciseMatch[1].substring(0, 100) : 'N/A'
+          });
+        }
+        
         workoutData = this.parseJsonWithFallbacks(text, 'workout');
         console.log('[GEMINI TEXT] Successfully parsed workout data');
         console.log('[GEMINI TEXT] Plan name:', workoutData.plan_name);
+        console.log('[GEMINI TEXT] 🔍 Parsed workout data AI reasoning check:', {
+          hasSplitReasoning: !!workoutData.split_reasoning,
+          hasExerciseReasoning: !!workoutData.exercise_selection_reasoning,
+          splitReasoningPreview: workoutData.split_reasoning?.substring(0, 100) || 'N/A',
+          exerciseReasoningPreview: workoutData.exercise_selection_reasoning?.substring(0, 100) || 'N/A',
+          allKeys: workoutData ? Object.keys(workoutData) : [],
+          // CRITICAL: Check if reasoning was lost during parsing
+          reasoningLostDuringParse: (hasSplitReasoningInText && !workoutData.split_reasoning) || 
+                                   (hasExerciseReasoningInText && !workoutData.exercise_selection_reasoning)
+        });
+        
+        // CRITICAL: If reasoning was in text but not in parsed data, log error
+        if ((hasSplitReasoningInText && !workoutData.split_reasoning) || 
+            (hasExerciseReasoningInText && !workoutData.exercise_selection_reasoning)) {
+          console.error('[GEMINI TEXT] ❌ REASONING WAS LOST DURING JSON PARSING!');
+          console.error('[GEMINI TEXT] Raw text had reasoning but parsed data does not.');
+          console.error('[GEMINI TEXT] This suggests a JSON parsing issue.');
+        }
       } catch (parseError) {
         console.error('[GEMINI TEXT] All JSON parsing strategies failed:', parseError.message);
         console.log('[GEMINI TEXT] Raw response for debugging:', text.substring(0, 1000));
@@ -473,6 +513,23 @@ class GeminiTextService {
       const validatedPlan = this.validateWorkoutPlan(workoutData);
       console.log('[GEMINI TEXT] ✅ Validated plan with name:', validatedPlan.plan_name);
       
+      // Attempt to generate structured reasoning for the validated plan (two-step flow)
+      try {
+        console.log('[GEMINI TEXT] 🔍 Attempting to generate structured reasoning for plan');
+        const reasoning = await this.generatePlanReasoning(validatedPlan);
+        if (reasoning && (reasoning.split_reasoning || reasoning.exercise_selection_reasoning)) {
+          validatedPlan.ai_reasoning = {
+            split_reasoning: (reasoning.split_reasoning || '').trim(),
+            exercise_selection_reasoning: (reasoning.exercise_selection_reasoning || '').trim()
+          };
+          console.log('[GEMINI TEXT] ✅ Attached AI reasoning to validated plan');
+        } else {
+          console.log('[GEMINI TEXT] ⚠️ No structured reasoning returned by model');
+        }
+      } catch (reasonError) {
+        console.error('[GEMINI TEXT] ❌ generatePlanReasoning failed:', reasonError.message);
+      }
+
       return {
         ...validatedPlan,
         source: 'gemini_text',
@@ -485,6 +542,37 @@ class GeminiTextService {
           console.log('[GEMINI TEXT] Error constructor:', error.constructor.name);
           
           lastError = error;
+          
+          // Check if it's a 429 quota exceeded error
+          const is429 = error.message && (
+            error.message.includes('429') || 
+            error.message.includes('quota') ||
+            error.message.includes('exceeded') ||
+            error.message.includes('Too Many Requests')
+          );
+          
+          // If 429 and we have multiple keys, rotate to next key
+          if (is429 && this.apiKeyManager.keys.length > 1 && attempt < maxRetries) {
+            console.log('[GEMINI TEXT] ⚠️ Quota exceeded (429), rotating to next API key...');
+            try {
+              this.rotateToNextKey();
+              // Recreate the model with new key
+              workoutModel = this.genAI.getGenerativeModel({
+                model: this.modelName,
+                generationConfig: {
+                  temperature: 0.5,
+                  topP: 0.9,
+                  maxOutputTokens: 12000,
+                  candidateCount: 1
+                }
+              });
+              console.log('[GEMINI TEXT] ✅ Rotated to next API key, retrying...');
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+              continue; // Retry with new key
+            } catch (rotateError) {
+              console.error(`[GEMINI TEXT] Failed to rotate API key:`, rotateError.message);
+            }
+          }
           
           if (attempt < maxRetries) {
             console.log('[GEMINI TEXT] ⚠️ Retryable error (attempt ' + attempt + '), retrying in 500ms...');
@@ -504,6 +592,27 @@ class GeminiTextService {
       } catch (error) {
         lastModelError = error;
         console.error(`[GEMINI TEXT] Workout plan generation failed with ${this.modelName}:`, error.message);
+        
+        // Check if it's a 429 quota exceeded error
+        const is429 = error.message && (
+          error.message.includes('429') || 
+          error.message.includes('quota') ||
+          error.message.includes('exceeded') ||
+          error.message.includes('Too Many Requests')
+        );
+        
+        // If 429 quota error, try rotating to next API key
+        if (is429 && this.apiKeyManager.keys.length > 1) {
+          console.log(`[GEMINI TEXT] ⚠️ Quota exceeded for current key, rotating to next API key...`);
+          try {
+            this.rotateToNextKey();
+            console.log(`[GEMINI TEXT] ✅ Rotated to next API key, retrying...`);
+            continue; // Retry with new key
+          } catch (rotateError) {
+            console.error(`[GEMINI TEXT] Failed to rotate API key:`, rotateError.message);
+            // Continue to model fallback if key rotation fails
+          }
+        }
         
         // Check if it's a 503 overload error
         const is503 = error.message && (
@@ -641,6 +750,8 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
    * Generates content with retry logic for 503 Service Unavailable errors
    */
   async generateContentWithRetry(content, maxRetries = 3) {
+    // For 503 errors, use fewer retries to fail faster
+    // 503 errors often lead to empty responses anyway, so retrying many times wastes time
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[GEMINI TEXT] Attempt ${attempt}/${maxRetries}`);
@@ -703,12 +814,163 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         
         // Validate the response
         if (!result || !result.response) {
-          console.error('[GEMINI TEXT] Invalid response structure:', { result: !!result, response: !!result?.response });
+          console.error('[GEMINI TEXT] Invalid response structure:', { 
+            result: !!result, 
+            response: !!result?.response,
+            resultType: typeof result,
+            resultKeys: result ? Object.keys(result) : []
+          });
           throw new Error('Invalid response structure from Gemini');
         }
         
-        const response = await result.response;
-        const text = response.text();
+        // Check if result.response is a promise or direct object
+        let response;
+        if (result.response && typeof result.response.then === 'function') {
+          console.log('[GEMINI TEXT] Response is a promise, awaiting...');
+          response = await result.response;
+        } else {
+          response = result.response;
+        }
+        
+        console.log('[GEMINI TEXT] Response obtained, type:', typeof response);
+        console.log('[GEMINI TEXT] Response keys:', response ? Object.keys(response) : 'null');
+        
+        // Check response metadata for blocking/safety issues BEFORE calling text()
+        // Use try-catch to safely access properties that might not exist
+        let candidates = [];
+        let promptFeedback = {};
+        let responseMetadata = {};
+        
+        try {
+          candidates = response.candidates || [];
+          promptFeedback = response.promptFeedback || {};
+          
+          responseMetadata = {
+            candidatesCount: candidates.length,
+            finishReason: candidates[0]?.finishReason,
+            safetyRatings: candidates[0]?.safetyRatings,
+            promptBlocked: promptFeedback.blockReason,
+            promptSafetyRatings: promptFeedback.safetyRatings,
+            hasCandidates: candidates.length > 0,
+            responseType: typeof response,
+            responseKeys: response ? Object.keys(response) : []
+          };
+          
+          // Also try to inspect the candidate content if it exists
+          if (candidates[0]?.content) {
+            responseMetadata.candidateContentType = typeof candidates[0].content;
+            responseMetadata.candidateContentKeys = Object.keys(candidates[0].content || {});
+            if (candidates[0].content.parts) {
+              responseMetadata.candidatePartsCount = candidates[0].content.parts.length;
+              responseMetadata.candidatePartsPreview = candidates[0].content.parts
+                .map((p) => ({ type: p.text ? 'text' : 'other', length: p.text?.length || 0 }))
+                .slice(0, 3);
+            }
+          }
+        } catch (metadataError) {
+          console.error('[GEMINI TEXT] Error accessing response metadata:', metadataError.message);
+          responseMetadata = { error: metadataError.message };
+        }
+        
+        console.log('[GEMINI TEXT] Response metadata:', JSON.stringify(responseMetadata, null, 2));
+        
+        // Check if there are no candidates at all
+        if (candidates.length === 0) {
+          console.error('[GEMINI TEXT] ❌ No candidates in response:', {
+            promptBlocked: promptFeedback.blockReason,
+            promptSafetyRatings: promptFeedback.safetyRatings,
+            responseStructure: JSON.stringify(response, null, 2).substring(0, 500)
+          });
+          throw new Error(`Gemini returned no candidates - prompt may be blocked: ${promptFeedback.blockReason || 'unknown reason'}`);
+        }
+        
+        // Check if response was blocked
+        if (candidates[0]?.finishReason === 'SAFETY' || candidates[0]?.finishReason === 'RECITATION') {
+          const safetyRatings = candidates[0]?.safetyRatings || [];
+          const blockedCategories = safetyRatings
+            .filter((r) => r.probability === 'HIGH' || r.probability === 'MEDIUM')
+            .map((r) => r.category);
+          
+          console.error('[GEMINI TEXT] ❌ Response blocked by safety filters:', {
+            finishReason: candidates[0]?.finishReason,
+            blockedCategories: blockedCategories,
+            allSafetyRatings: safetyRatings
+          });
+          
+          throw new Error(`Gemini response blocked by safety filters: ${blockedCategories.join(', ')}`);
+        }
+        
+        // Check if prompt was blocked
+        if (promptFeedback.blockReason) {
+          console.error('[GEMINI TEXT] ❌ Prompt blocked:', {
+            blockReason: promptFeedback.blockReason,
+            safetyRatings: promptFeedback.safetyRatings
+          });
+          
+          throw new Error(`Gemini prompt blocked: ${promptFeedback.blockReason}`);
+        }
+        
+        // Check candidate content structure before calling text()
+        if (candidates[0]?.content) {
+          console.log('[GEMINI TEXT] Candidate content structure:', {
+            hasParts: !!candidates[0].content.parts,
+            partsCount: candidates[0].content.parts?.length || 0,
+            partsTypes: candidates[0].content.parts?.map((p) => ({
+              hasText: !!p.text,
+              textLength: p.text?.length || 0,
+              role: p.role
+            })) || []
+          });
+        }
+        
+        // Try to get text, with error handling
+        let text;
+        try {
+          // Check if text() is a function or if we need to extract from candidates directly
+          if (typeof response.text === 'function') {
+            text = response.text();
+          } else if (candidates[0]?.content?.parts) {
+            // Try to extract text from parts directly
+            const textParts = candidates[0].content.parts
+              .filter((p) => p.text)
+              .map((p) => p.text);
+            text = textParts.join('');
+            console.log('[GEMINI TEXT] Extracted text from candidate parts, length:', text.length);
+          } else {
+            text = '';
+            console.warn('[GEMINI TEXT] No text() method and no candidate parts found');
+          }
+        } catch (textError) {
+          console.error('[GEMINI TEXT] ❌ Error calling response.text():', {
+            error: textError.message,
+            errorStack: textError.stack?.substring(0, 200),
+            finishReason: candidates[0]?.finishReason,
+            candidatesLength: candidates.length,
+            candidateContent: candidates[0]?.content,
+            candidateContentKeys: candidates[0]?.content ? Object.keys(candidates[0].content) : []
+          });
+          
+          // Try to extract from candidates directly as fallback
+          if (candidates[0]?.content?.parts) {
+            try {
+              const textParts = candidates[0].content.parts
+                .filter((p) => p.text)
+                .map((p) => p.text);
+              text = textParts.join('');
+              console.log('[GEMINI TEXT] Fallback: Extracted text from candidate parts, length:', text.length);
+            } catch (fallbackError) {
+              console.error('[GEMINI TEXT] Fallback extraction also failed:', fallbackError.message);
+              throw new Error(`Failed to extract text from Gemini response: ${textError.message}`);
+            }
+          } else {
+            // If finish reason is MAX_TOKENS or OTHER, that explains empty text
+            if (candidates[0]?.finishReason === 'MAX_TOKENS') {
+              throw new Error('Gemini response truncated due to token limit');
+            }
+            
+            throw new Error(`Failed to extract text from Gemini response: ${textError.message}`);
+          }
+        }
         
         // Enhanced response validation with detailed logging
         console.log(`[GEMINI TEXT] Response validation:`, {
@@ -716,24 +978,68 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           textType: typeof text,
           textLength: text ? text.length : 0,
           textTrimmedLength: text ? text.trim().length : 0,
-          textPreview: text ? text.substring(0, 100) + '...' : 'N/A'
+          textPreview: text ? text.substring(0, 100) + '...' : 'N/A',
+          finishReason: candidates[0]?.finishReason
         });
         
         // Validate response content
         if (!text || text.trim().length === 0) {
-          console.error('[GEMINI TEXT] Empty response detected:', {
+          const emptyResponseInfo = {
             text: text,
             textLength: text ? text.length : 0,
-            trimmedLength: text ? text.trim().length : 0
+            trimmedLength: text ? text.trim().length : 0,
+            finishReason: candidates[0]?.finishReason,
+            safetyRatings: candidates[0]?.safetyRatings,
+            candidates: candidates.length,
+            candidateContent: candidates[0]?.content,
+            hasParts: !!candidates[0]?.content?.parts,
+            partsCount: candidates[0]?.content?.parts?.length || 0
+          };
+          
+          console.error('[GEMINI TEXT] Empty response detected:', emptyResponseInfo);
+          
+          // Check if there's a finish reason that explains the empty response
+          if (candidates[0]?.finishReason && candidates[0]?.finishReason !== 'STOP') {
+            const reason = candidates[0].finishReason;
+            console.error(`[GEMINI TEXT] Empty response due to finish reason: ${reason}`);
+            throw new Error(`Gemini response empty - finish reason: ${reason}`);
+          }
+          
+          // If we have candidates but no text, this might be a 503 recovery issue
+          // Log this as a special case
+          if (candidates.length > 0 && !candidates[0]?.content?.parts?.some((p) => p.text)) {
+            console.error('[GEMINI TEXT] ⚠️ Candidates exist but contain no text - likely 503 recovery issue');
+            console.error('[GEMINI TEXT] This often happens when Gemini API is overloaded and returns empty responses after retries');
+            console.error('[GEMINI TEXT] Full candidate structure:', JSON.stringify(candidates[0], null, 2).substring(0, 1000));
+          }
+          
+          // Enhanced logging for empty response diagnosis
+          console.error('[GEMINI TEXT] 🔍 Empty response diagnosis:', {
+            hasCandidates: candidates.length > 0,
+            candidateCount: candidates.length,
+            finishReason: candidates[0]?.finishReason,
+            safetyRatings: candidates[0]?.safetyRatings,
+            promptBlocked: promptFeedback.blockReason,
+            promptSafetyRatings: promptFeedback.safetyRatings,
+            hasContent: !!candidates[0]?.content,
+            hasParts: !!candidates[0]?.content?.parts,
+            partsCount: candidates[0]?.content?.parts?.length || 0,
+            partsPreview: candidates[0]?.content?.parts?.map((p) => ({
+              type: typeof p,
+              hasText: !!p.text,
+              textLength: p.text?.length || 0,
+              keys: Object.keys(p || {})
+            })) || []
           });
           
-          // For empty responses, only retry on the first attempt
-          // This prevents infinite retry loops for prompts that consistently return empty responses
-          if (attempt === 1) {
-            throw new Error('Empty response from Gemini - retryable');
-          } else {
-            throw new Error('Empty response from Gemini - non-retryable');
-          }
+          // For empty responses, fail fast - don't retry
+          // Empty responses often indicate:
+          // 1. Safety/content blocking
+          // 2. 503 recovery issues (API overloaded)
+          // 3. Prompt too complex or malformed
+          // Retrying usually doesn't help and wastes time
+          console.error('[GEMINI TEXT] ⚠️ Empty response detected - failing fast to allow fallback');
+          throw new Error('Empty response from Gemini - non-retryable (likely safety block or 503 recovery)');
         }
         
         // Check for truncated responses (common with Gemini)
@@ -778,7 +1084,24 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                               error.message.includes('timeout') ||
                               error.message.includes('Gemini request timeout');
         
-        const isRetryable = isServiceUnavailable || 
+        // Empty responses are NOT retryable - they usually indicate safety blocks or 503 recovery issues
+        // Check for all variations of empty response errors (case-insensitive)
+        const errorMsgLower = error.message.toLowerCase();
+        const isEmptyResponse = errorMsgLower.includes('empty response') || 
+                               errorMsgLower.includes('response is empty') ||
+                               errorMsgLower.includes('empty response received') ||
+                               (errorMsgLower.includes('response') && errorMsgLower.includes('empty'));
+        
+        if (isEmptyResponse) {
+          console.error('[GEMINI TEXT] ❌ Empty response detected - marking as NON-RETRYABLE');
+          console.error('[GEMINI TEXT] Error message:', error.message);
+          console.error('[GEMINI TEXT] Failing immediately to allow fallback to mathematical meal plan');
+          // Throw immediately - don't retry empty responses
+          throw new Error('Empty response from Gemini - non-retryable (likely safety block or 503 recovery)');
+        }
+        
+        const isRetryable = !isEmptyResponse && (
+                           isServiceUnavailable || 
                            isTimeoutError ||
                            error.message.includes('network') ||
                            error.message.includes('fetch failed') ||
@@ -787,8 +1110,7 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
                            error.message.includes('ETIMEDOUT') ||
                            error.message.includes('ECONNRESET') ||
                            error.message.includes('socket hang up') ||
-                           error.message.includes('Empty response from Gemini - retryable') ||
-                           error.message.includes('Invalid response structure');
+                           error.message.includes('Invalid response structure'));
         
         const isNetworkError = error.message.includes('fetch failed') || 
                              error.message.includes('ENOTFOUND') ||
@@ -805,14 +1127,24 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
           throw error;
         }
         
-        if (isRetryable && attempt < maxRetries) {
+        // For 503 errors, limit retries to 2 attempts max (fail faster when overloaded)
+        // 503 errors often lead to empty responses anyway, so retrying many times wastes time
+        const maxRetriesFor503 = 2;
+        const shouldRetry = isRetryable && 
+                           (attempt < maxRetries) && 
+                           (!isServiceUnavailable || attempt < maxRetriesFor503);
+        
+        if (shouldRetry) {
           // IMPROVED: Optimized exponential backoff with different strategies for timeout vs other errors
           let baseDelay;
           let maxDelay;
           
           if (isServiceUnavailable) {
-            baseDelay = 15000; // 15s base for 503 Service Unavailable
-            maxDelay = 45000;  // Max 45s for overloaded service
+            // Reduced delays for 503 errors - fail faster when overloaded
+            // When Gemini is overloaded, retrying with long delays often just wastes time
+            baseDelay = 5000;  // 5s base for 503 Service Unavailable (reduced from 15s)
+            maxDelay = 15000;  // Max 15s for overloaded service (reduced from 45s)
+            console.log(`[GEMINI TEXT] ⚠️ Gemini API is overloaded (503). Limiting to ${maxRetriesFor503} retries with shorter delays.`);
           } else if (isTimeoutError) {
             // IMPROVED: Timeout errors get shorter backoff - API might just be slow
             // Use very short delays to retry quickly instead of waiting
@@ -840,6 +1172,12 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
         }
         
         // If it's not a retryable error, or we've exhausted retries, throw the error
+        // For 503 errors that exceeded max retries, provide a helpful message
+        if (isServiceUnavailable && attempt >= maxRetriesFor503) {
+          console.error(`[GEMINI TEXT] ❌ Gemini API overloaded (503) - exhausted ${maxRetriesFor503} retries. Failing fast to use fallback.`);
+          throw new Error('Gemini API is overloaded (503) - service temporarily unavailable. Using fallback meal plan.');
+        }
+        
         throw error;
       }
     }
@@ -900,8 +1238,18 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
       nutrition_tips: plan.nutrition_tips || [],
       safety_guidelines: plan.safety_guidelines || [],
       equipment_needed: plan.equipment_needed || [],
-      estimated_results: plan.estimated_results || plan.estimatedTimePerSession || "Results vary by individual commitment and consistency"
+      estimated_results: plan.estimated_results || plan.estimatedTimePerSession || "Results vary by individual commitment and consistency",
+      // Preserve AI reasoning fields if they exist
+      split_reasoning: plan.split_reasoning || undefined,
+      exercise_selection_reasoning: plan.exercise_selection_reasoning || undefined
     };
+    
+    console.log('[GEMINI TEXT] 🔍 Preserving AI reasoning in validated plan:', {
+      hasSplitReasoning: !!validated.split_reasoning,
+      hasExerciseReasoning: !!validated.exercise_selection_reasoning,
+      splitReasoningPreview: validated.split_reasoning?.substring(0, 100) || 'N/A',
+      exerciseReasoningPreview: validated.exercise_selection_reasoning?.substring(0, 100) || 'N/A'
+    });
 
     // Ensure weekly schedule has proper structure - PRESERVE ORIGINAL EXERCISES
     // Safety check: ensure weekly_schedule is an array before mapping
@@ -1697,6 +2045,63 @@ IMPORTANT: Return complete, valid JSON with no syntax errors. Use the example st
     }
     
     throw new Error(`Failed to parse JSON for ${context} after all fallback strategies`);
+  }
+
+  /**
+   * Generate structured reasoning (split_reasoning and exercise_selection_reasoning)
+   * for an existing validated plan object.
+   * @param {Object} planObj - Validated plan object (should include weekly_schedule and meta)
+   * @returns {Promise<Object|null>} - { split_reasoning, exercise_selection_reasoning } or null
+   */
+  async generatePlanReasoning(planObj = {}) {
+    if (!planObj || !planObj.weekly_schedule) {
+      throw new Error('Invalid plan object provided for reasoning generation');
+    }
+
+    const prompt = [
+      `You are an expert fitness coach. Given the EXACT workout plan JSON below, respond with JSON ONLY.`,
+      `Output MUST be a JSON object with exactly two string fields: "split_reasoning" and "exercise_selection_reasoning".`,
+      `Each field should be 2-3 concise sentences explaining WHY the split was chosen and WHY the exercises were selected for this user.`,
+      `Do NOT include any other text, explanation, or markdown.`,
+      'EXACT PLAN:',
+      '```json',
+      JSON.stringify(planObj, null, 2),
+      '```',
+      'Return only valid JSON.'
+    ].join('\n\n');
+
+    try {
+      console.log('[GEMINI TEXT] ✍️ Generating plan reasoning (deterministic settings)');
+      const reasoningModel = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.9,
+          maxOutputTokens: 800,
+          candidateCount: 1
+        }
+      });
+
+      const result = await reasoningModel.generateContent(prompt);
+      const response = await result.response;
+      const text = await response.text();
+
+      console.log('[GEMINI TEXT] Raw reasoning preview:', text?.substring(0, 1000) || 'EMPTY');
+
+      const parsed = this.parseJsonWithFallbacks(text, 'plan_reasoning');
+      if (parsed && (parsed.split_reasoning || parsed.exercise_selection_reasoning)) {
+        return {
+          split_reasoning: String(parsed.split_reasoning || '').trim(),
+          exercise_selection_reasoning: String(parsed.exercise_selection_reasoning || '').trim()
+        };
+      } else {
+        console.warn('[GEMINI TEXT] Reasoning parse returned no valid fields');
+        return null;
+      }
+    } catch (error) {
+      console.error('[GEMINI TEXT] Failed to generate plan reasoning:', error.message);
+      return null;
+    }
   }
 }
 

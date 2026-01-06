@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,33 +40,43 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
       {/* Header with dark background */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            {showBackButton && (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => {
-                  console.log('Back button pressed');
-                  if (onBack) {
-                    onBack();
-                  } else if (previousScreen) {
-                    router.replace(previousScreen);
-                  } else {
-                    router.back();
-                  }
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="chevron-back" size={24} color={colors.text} />
-              </TouchableOpacity>
-            )}
-            
-            <View style={styles.logoContainer}>
-              <Image 
-                source={require('../../../assets/custom-logo.jpg')} 
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
+          <View style={[styles.headerTop, !showBackButton && styles.headerTopNoBack]}>
+            <View style={styles.leftSection}>
+              {showBackButton ? (
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => {
+                    console.log('Back button pressed');
+                    if (onBack) {
+                      onBack();
+                    } else if (previousScreen) {
+                      router.replace(previousScreen);
+                    } else {
+                      router.back();
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="chevron-back" size={24} color={colors.text} />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.backButtonPlaceholder} />
+              )}
+              
+              {/* Progress Bar */}
+              {showBackButton && (
+                <View style={styles.progressBarWrapper}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${Math.min(100, Math.max(0, progress * 100))}%` }
+                      ]} 
+                    />
+                  </View>
+                </View>
+              )}
             </View>
             
             {showCloseButton && (
@@ -90,95 +100,6 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
             {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
           </View>
 
-          {/* Enhanced Progress Section */}
-          <View style={styles.progressContainer}>
-            {/* Progress Header with Icons */}
-            <View style={styles.progressHeader}>
-              <View style={styles.progressLabelContainer}>
-                <Ionicons name="fitness" size={16} color="#FFD700" />
-                <Text style={styles.progressLabel}>Your Journey</Text>
-              </View>
-              <View style={styles.progressStatsContainer}>
-                <Text style={styles.progressStep}>
-                  Step {currentStep} of {totalSteps}
-                </Text>
-                <Text style={styles.progressPercentage}>
-                  {Math.round((progress || 0) * 100)}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Step Indicators */}
-            <View style={styles.stepIndicatorsContainer}>
-              {Array.from({ length: Math.min(totalSteps, 8) }, (_, i) => (
-                <View key={i} style={styles.stepIndicatorWrapper}>
-                  <View style={[
-                    styles.stepIndicator,
-                    i < currentStep ? styles.stepCompleted : 
-                    i === currentStep - 1 ? styles.stepCurrent : styles.stepPending
-                  ]}>
-                    {i < currentStep - 1 ? (
-                      <Ionicons name="checkmark" size={8} color="#FF6B35" />
-                    ) : i === currentStep - 1 ? (
-                      <View style={styles.currentStepPulse} />
-                    ) : null}
-                  </View>
-                  {i < Math.min(totalSteps, 8) - 1 && (
-                    <View style={[
-                      styles.stepConnector,
-                      i < currentStep - 1 && styles.stepConnectorCompleted
-                    ]} />
-                  )}
-                </View>
-              ))}
-            </View>
-
-            {/* Main Progress Bar */}
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBackground}>
-                <LinearGradient
-                  colors={['#FFD700', '#FFA500', '#FF6B35']}
-                  style={[
-                    styles.progressFill, 
-                    { width: `${Math.min((progress || 0) * 100, 100)}%` }
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-                <View style={styles.progressGlow} />
-              </View>
-              
-              {/* Progress Milestones */}
-              <View style={styles.progressMilestones}>
-                {[25, 50, 75].map((milestone) => (
-                  <View 
-                    key={milestone}
-                    style={[
-                      styles.progressMilestone,
-                      { left: `${milestone}%` },
-                      (progress || 0) * 100 >= milestone && styles.progressMilestoneReached
-                    ]}
-                  >
-                    <Ionicons 
-                      name="star" 
-                      size={10} 
-                      color={(progress || 0) * 100 >= milestone ? "#FFD700" : "rgba(255, 255, 255, 0.3)"} 
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Progress Motivational Text */}
-            <View style={styles.motivationContainer}>
-              <Text style={styles.motivationText}>
-                {(progress || 0) < 0.3 ? "🚀 Getting started..." :
-                 (progress || 0) < 0.6 ? "💪 Making progress!" :
-                 (progress || 0) < 0.9 ? "🔥 Almost there!" :
-                 "🎉 Nearly complete!"}
-              </Text>
-            </View>
-          </View>
         </View>
       </View>
 
@@ -192,7 +113,9 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
-          bounces={false}
+          bounces={true}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
         >
           {children}
         </ScrollView>
@@ -218,7 +141,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
+    minHeight: 40,
+  },
+  headerTopNoBack: {
+    justifyContent: 'flex-end',
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
   },
   backButton: {
     width: 40,
@@ -228,6 +161,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  backButtonPlaceholder: {
+    width: 40,
+    height: 40,
+  },
+  progressBarWrapper: {
+    flex: 1,
+    maxWidth: 280,
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  progressBarBackground: {
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FF6B35',
+    borderRadius: 1.5,
+  },
   closeButton: {
     width: 40,
     height: 40,
@@ -236,19 +190,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: theme.spacing.lg,
-  },
-  logoImage: {
-    width: 80,
-    height: 80,
-  },
   titleContainer: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
   },
   title: {
     fontSize: 24,
@@ -285,9 +231,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressContainer: {
-    paddingTop: theme.spacing.sm,
+    paddingTop: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.xs,
   },
   progressHeader: {
     flexDirection: 'row',

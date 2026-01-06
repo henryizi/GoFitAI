@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput, Animated, BackHandler } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 // import { BlurView } from 'expo-blur';
 import { colors } from '../../src/styles/colors';
@@ -15,10 +16,28 @@ import { OnboardingButton } from '../../src/components/onboarding/OnboardingButt
 import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
 const NameScreen = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const focusAnim = new Animated.Value(0);
+
+  // Pre-fill name if user already has one from social auth, but allow editing
+  useEffect(() => {
+    // Pre-fill name from profile if available
+    if (profile?.full_name && profile.full_name.trim() !== '' && profile.full_name.trim() !== 'User' && !name) {
+      console.log('✅ Pre-filling name from profile:', profile.full_name);
+      setName(profile.full_name);
+      return;
+    }
+    
+    // Also check user metadata as fallback (in case profile hasn't loaded yet)
+    if (user?.user_metadata?.full_name && user.user_metadata.full_name.trim() !== '' && user.user_metadata.full_name.trim() !== 'User' && !name) {
+      console.log('✅ Pre-filling name from metadata:', user.user_metadata.full_name);
+      setName(user.user_metadata.full_name);
+      return;
+    }
+  }, [profile?.full_name, user?.user_metadata?.full_name]);
 
   const handleNext = async () => {
     const preferredName = name.trim();
@@ -97,7 +116,7 @@ const NameScreen = () => {
     <OnboardingLayout
       title="What should we call you?"
       subtitle="Tell us your preferred name"
-      progress={0.09}
+      progress={0.083}
       currentStep={1}
       totalSteps={12}
       showBackButton={false}
@@ -105,6 +124,10 @@ const NameScreen = () => {
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 1</Text>
+        </View>
+        
         <View style={styles.welcomeSection}>
           <Text style={styles.welcomeTitle}>Welcome to GoFitAI</Text>
           <Text style={styles.welcomeSubtext}>Your AI-powered fitness journey starts now</Text>
@@ -135,7 +158,7 @@ const NameScreen = () => {
           </View>
         </View>
       </View>
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(34, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -153,6 +176,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 60,
     justifyContent: 'center',
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   welcomeSection: {
     alignItems: 'center',
@@ -203,7 +238,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   footer: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
 });
 

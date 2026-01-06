@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -9,14 +10,14 @@ import { supabase } from '../../src/services/supabase/client';
 import { identify, track as analyticsTrack } from '../../src/services/analytics/analytics';
 import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayout';
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
-// import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
-type Gender = 'male' | 'female';
+type Gender = 'male' | 'female' | 'other';
 
 const GenderScreen = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [gender, setGender] = useState<Gender | null>(null);
 
   const handleNext = async () => {
@@ -55,20 +56,25 @@ const GenderScreen = () => {
     {
       value: 'male' as Gender,
       title: 'Male',
-      subtitle: 'I identify as male',
+      icon: 'gender-male' as const,
     },
     {
       value: 'female' as Gender,
       title: 'Female',
-      subtitle: 'I identify as female',
+      icon: 'gender-female' as const,
+    },
+    {
+      value: 'other' as Gender,
+      title: 'Other',
+      icon: 'account' as const,
     },
   ];
 
   return (
     <OnboardingLayout
-      title="What's your gender?"
-      subtitle="This helps us tailor your workout and nutrition plans"
-      progress={0.18}
+      title="Select Your Gender"
+      subtitle="This will be used to configure your individual plan"
+      progress={0.166}
       currentStep={2}
       totalSteps={12}
       showBackButton={true}
@@ -78,39 +84,43 @@ const GenderScreen = () => {
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 2</Text>
+        </View>
+        
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
               key={option.value}
               style={[styles.optionCard, gender === option.value && styles.selectedCard]}
               onPress={() => setGender(option.value)}
+              activeOpacity={0.7}
             >
               <LinearGradient
                 colors={gender === option.value 
                   ? ['rgba(255, 107, 53, 0.3)', 'rgba(255, 142, 83, 0.2)']
-                  : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']
+                  : ['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.05)']
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.cardGradient}
               >
-                <View style={styles.textContainer}>
-                  <Text style={[styles.cardTitle, gender === option.value && styles.selectedText]}>
-                    {option.title}
-                  </Text>
-                  <Text style={[styles.cardSubtitle, gender === option.value && styles.selectedText]}>
-                    {option.subtitle}
-                  </Text>
+                <View style={styles.iconContainer}>
+                  <MaterialCommunityIcons 
+                    name={option.icon} 
+                    size={24} 
+                    color={gender === option.value ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)'} 
+                  />
                 </View>
-                <View style={[styles.radioButton, gender === option.value && styles.radioButtonSelected]}>
-                  {gender === option.value && <View style={styles.radioButtonInner} />}
-                </View>
+                <Text style={[styles.cardTitle, gender === option.value && styles.selectedText]}>
+                  {option.title}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
       </View>
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(40, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -124,30 +134,35 @@ const GenderScreen = () => {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 20,
-    justifyContent: 'flex-start',
+    paddingTop: 8,
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     width: '100%',
-    gap: 16,
+    gap: 12,
+    marginTop: 8,
   },
   optionCard: {
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    minHeight: 100,
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    minHeight: 64,
   },
   selectedCard: {
     borderColor: '#FF6B35',
+    borderWidth: 2,
     elevation: 12,
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 6 },
@@ -157,53 +172,34 @@ const styles = StyleSheet.create({
   cardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
-    borderRadius: 18,
-    minHeight: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    minHeight: 64,
   },
-  textContainer: {
-    flex: 1,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   cardTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  cardSubtitle: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    letterSpacing: 0.3,
+    fontSize: 17,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+    letterSpacing: 0.2,
+    flex: 1,
   },
   selectedText: {
     color: '#FFFFFF',
+    fontWeight: '700',
     textShadowColor: 'rgba(255, 107, 53, 0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioButtonSelected: {
-    borderColor: '#FFFFFF',
-  },
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-  },
   footer: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 });
 

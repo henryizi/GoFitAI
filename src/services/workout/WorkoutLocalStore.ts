@@ -13,6 +13,7 @@ interface StoredWorkoutPlan {
 }
 
 const keyFor = (userId: string) => `workoutPlans:${userId}`;
+const activeKeyFor = (userId: string) => `activeWorkoutPlan:${userId}`;
 
 export class WorkoutLocalStore {
   static async getPlans(userId: string): Promise<StoredWorkoutPlan[]> {
@@ -28,6 +29,18 @@ export class WorkoutLocalStore {
 
   static async savePlans(userId: string, plans: StoredWorkoutPlan[]): Promise<void> {
     await AsyncStorage.setItem(keyFor(userId), JSON.stringify(plans));
+  }
+
+  static async setActivePlanId(userId: string, planId: string): Promise<void> {
+    await AsyncStorage.setItem(activeKeyFor(userId), planId);
+  }
+
+  static async getActivePlanId(userId: string): Promise<string | null> {
+    return await AsyncStorage.getItem(activeKeyFor(userId));
+  }
+
+  static async clearActivePlanId(userId: string): Promise<void> {
+    await AsyncStorage.removeItem(activeKeyFor(userId));
   }
 
   // Temporary compatibility method for cached mobile app code

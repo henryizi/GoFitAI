@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Dimensions, FlatList, Platform } from 'react-native';
 import { PanGestureHandler, GestureHandlerRootView, State, NativeViewGestureHandler } from 'react-native-gesture-handler';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
@@ -12,20 +13,23 @@ import { OnboardingLayout } from '../../src/components/onboarding/OnboardingLayo
 import { OnboardingButton } from '../../src/components/onboarding/OnboardingButton';
 import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
-const { height: screenHeight } = Dimensions.get('window');
-const ITEM_HEIGHT = 60;
+const { height: screenHeight, width } = Dimensions.get('window');
+const isTablet = Platform.OS === 'ios' && (width >= 768 || screenHeight >= 768);
+const ITEM_HEIGHT = isTablet ? 70 : 60;
 const WEIGHT_MIN_KG = 40;
 const WEIGHT_MAX_KG = 120;
 const WEIGHT_DATA_KG = Array.from({ length: WEIGHT_MAX_KG - WEIGHT_MIN_KG + 1 }, (_, i) => WEIGHT_MIN_KG + i);
 const WEIGHT_DATA_LBS = WEIGHT_DATA_KG.map(kg => Math.round(kg * 2.20462));
 
-// Calculate picker height and center offset to show ~5 items (2 above, 1 center, 2 below)
-const PICKER_HEIGHT = ITEM_HEIGHT * 5;
+// Calculate picker height and center offset - make it very compact to fit button
+// Show 3 items on both iPad and phone to ensure button is always visible
+const PICKER_HEIGHT = ITEM_HEIGHT * 3;
 const CENTER_OFFSET = PICKER_HEIGHT / 2 - ITEM_HEIGHT / 2;
 
 const WeightScreen = () => {
   const [weightKg, setWeightKg] = useState(70); // Set to 154lbs (70kg) as default
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [selectedIndex, setSelectedIndex] = useState(() => {
     // Default to 70kg (154lbs)
@@ -201,7 +205,7 @@ const WeightScreen = () => {
       <OnboardingLayout
       title="Your Current Weight"
       subtitle="We use your weight to tailor your fitness and nutrition plan"
-      progress={0.45}
+      progress={0.416}
       currentStep={5}
       totalSteps={12}
       showBackButton={true}
@@ -211,26 +215,41 @@ const WeightScreen = () => {
       onClose={handleClose}
       disableScroll={true}
     >
-      <View style={styles.content}>
-        
-        <View style={styles.unitSelector}>
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.questionLabel}>
+            <Text style={styles.questionLabelText}>Question 5</Text>
+          </View>
+          <View style={styles.unitSelector}>
           <LinearGradient
-            colors={['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.1)']}
+            colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.08)']}
             style={styles.unitSelectorGradient}
           >
-              <TouchableOpacity style={[styles.unitButton, unit === 'kg' && styles.unitButtonSelected]} onPress={() => setUnit('kg')}>
+              <TouchableOpacity 
+                style={[styles.unitButton, unit === 'kg' && styles.unitButtonSelected]} 
+                onPress={() => setUnit('kg')}
+                activeOpacity={0.7}
+                hitSlop={{ top: isTablet ? 15 : 10, bottom: isTablet ? 15 : 10, left: isTablet ? 15 : 10, right: isTablet ? 15 : 10 }}
+                delayPressIn={0}
+              >
                 {unit === 'kg' && (
                   <LinearGradient
-                    colors={['#FF6B35', '#FF8E53']}
+                    colors={['#FF6B35', '#FF6B35']}
                     style={styles.unitButtonGradient}
                   />
                 )}
                 <Text style={[styles.unitText, unit === 'kg' && styles.unitTextSelected]}>kg</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.unitButton, unit === 'lbs' && styles.unitButtonSelected]} onPress={() => setUnit('lbs')}>
+              <TouchableOpacity 
+                style={[styles.unitButton, unit === 'lbs' && styles.unitButtonSelected]} 
+                onPress={() => setUnit('lbs')}
+                activeOpacity={0.7}
+                hitSlop={{ top: isTablet ? 15 : 10, bottom: isTablet ? 15 : 10, left: isTablet ? 15 : 10, right: isTablet ? 15 : 10 }}
+                delayPressIn={0}
+              >
                 {unit === 'lbs' && (
                   <LinearGradient
-                    colors={['#FF6B35', '#FF8E53']}
+                    colors={['#FF6B35', '#FF6B35']}
                     style={styles.unitButtonGradient}
                   />
                 )}
@@ -249,10 +268,15 @@ const WeightScreen = () => {
             snapToInterval={ITEM_HEIGHT}
             decelerationRate="fast"
             scrollEnabled={true}
-            removeClippedSubviews={true}
+            removeClippedSubviews={false}
             maxToRenderPerBatch={10}
             updateCellsBatchingPeriod={16}
             windowSize={21}
+            bounces={true}
+            nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            alwaysBounceVertical={true}
+            scrollEventThrottle={16}
             getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: idx * ITEM_HEIGHT, index: idx })}
             onMomentumScrollEnd={e => { if (!isGesturing.current) { const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT); const clampedIdx = Math.max(0, Math.min(idx, weightData.length - 1)); handleValueChange(clampedIdx); } }}
             onScrollEndDrag={e => { if (!isGesturing.current) { const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT); const clampedIdx = Math.max(0, Math.min(idx, weightData.length - 1)); handleValueChange(clampedIdx); } }}
@@ -260,21 +284,15 @@ const WeightScreen = () => {
               const isSelected = index === selectedIndex;
               return (
                 <View style={[styles.itemContainer, isSelected && styles.itemContainerSelected]}>
-                  {isSelected && (
-                    <LinearGradient
-                      colors={['rgba(255, 107, 53, 0.4)', 'rgba(255, 142, 83, 0.3)']}
-                      style={styles.itemGradient}
-                    >
-                      <Text style={[styles.itemText, styles.itemTextSelected]}>{item}</Text>
-                    </LinearGradient>
-                  )}
-                  {!isSelected && (
-                    <Text style={styles.itemText}>{item}</Text>
-                  )}
+                  <Text style={[styles.itemText, isSelected && styles.itemTextSelected]}>{item}</Text>
                 </View>
               );
             }}
-            contentContainerStyle={{ paddingTop: CENTER_OFFSET, paddingBottom: CENTER_OFFSET }}
+            contentContainerStyle={{
+              paddingTop: CENTER_OFFSET,
+              paddingBottom: CENTER_OFFSET,
+              minHeight: PICKER_HEIGHT + CENTER_OFFSET * 2
+            }}
           />
         </NativeViewGestureHandler>
         <PanGestureHandler 
@@ -286,55 +304,80 @@ const WeightScreen = () => {
           failOffsetX={[-30, 30]}
         >
           <View style={[styles.selectionOverlay, { top: CENTER_OFFSET }]}>
-            <LinearGradient
-              colors={['transparent', 'rgba(255, 107, 53, 0.3)', 'rgba(255, 107, 53, 0.3)', 'transparent']}
-              style={styles.selectionGradient}
-            />
+            <View style={styles.selectionIndicator} />
           </View>
         </PanGestureHandler>
-      </View>
-      <View style={styles.footer}>
-        <OnboardingButton
-          title="Continue"
-          onPress={handleNext}
-        />
+        </View>
+        <View style={[styles.footer, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
+          <OnboardingButton
+            title="Continue"
+            onPress={handleNext}
+          />
+        </View>
       </View>
     </OnboardingLayout>
     </GestureHandlerRootView>
   );
 };
 const styles = StyleSheet.create({
-  content: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 40 },
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
+    minHeight: 0,
+    paddingBottom: 0,
+  },
+  content: {
+    alignItems: 'center',
+    paddingHorizontal: isTablet ? 40 : 40,
+    paddingTop: isTablet ? 4 : 8,
+    paddingBottom: isTablet ? 4 : 8,
+    flexShrink: 0,
+    flexGrow: 0,
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
+  },
   unitSelector: {
-    borderRadius: 28,
+    borderRadius: 18,
     overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    alignSelf: 'center',
+    width: isTablet ? 260 : 220,
+    zIndex: 10,
+    marginBottom: isTablet ? 4 : 8,
   },
   unitSelectorBlur: {
     overflow: 'hidden',
   },
   unitSelectorGradient: {
     flexDirection: 'row',
-    padding: 4,
-    borderRadius: 28,
+    padding: 3,
+    borderRadius: 18,
+    width: '100%',
   },
   unitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 24,
+    flex: 1,
+    paddingVertical: isTablet ? 12 : 11,
+    paddingHorizontal: 0,
+    borderRadius: 14,
     position: 'relative',
     overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   unitButtonSelected: {
-    elevation: 5,
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    // keep it clean: no heavy shadow, just the orange fill
   },
   unitButtonGradient: {
     position: 'absolute',
@@ -342,27 +385,37 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 24,
+    borderRadius: 14,
   },
   unitText: {
-    fontSize: 17,
-    color: colors.textSecondary,
+    fontSize: isTablet ? 18 : 16,
+    color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '700',
-    letterSpacing: 0.5,
-    zIndex: 1,
+    letterSpacing: 0,
+    zIndex: 2,
+    position: 'relative',
   },
   unitTextSelected: {
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontWeight: '800',
+    zIndex: 2,
+    position: 'relative',
   },
-  rulerArea: { height: PICKER_HEIGHT, width: '100%' },
+  rulerArea: {
+    height: PICKER_HEIGHT,
+    width: '100%',
+    flexShrink: 0,
+    flexGrow: 0,
+    minHeight: PICKER_HEIGHT,
+    maxHeight: PICKER_HEIGHT,
+    marginBottom: isTablet ? 4 : 8,
+  },
   itemContainer: {
     height: ITEM_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: isTablet ? 30 : 20,
+    minHeight: ITEM_HEIGHT,
   },
   itemContainerSelected: {},
   itemBlur: {
@@ -381,42 +434,41 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   itemText: {
-    fontSize: 26,
-    color: colors.textSecondary,
+    fontSize: isTablet ? 30 : 26,
+    color: 'rgba(255, 255, 255, 0.4)',
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   itemTextSelected: {
-    fontSize: 32,
+    fontSize: isTablet ? 30 : 26,
     color: '#FFFFFF',
     fontWeight: '900',
-    textShadowColor: 'rgba(255, 107, 53, 0.8)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-    letterSpacing: 1,
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+    letterSpacing: 0.5,
   },
   selectionOverlay: {
     position: 'absolute',
     left: 20,
     right: 20,
     height: ITEM_HEIGHT,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 10,
+    borderRadius: 12,
+    overflow: 'visible',
     zIndex: 10,
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
   },
-  selectionGradient: {
+  selectionIndicator: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
-    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  footer: { padding: 24 },
+  footer: {
+    paddingHorizontal: 24,
+    paddingTop: isTablet ? 12 : 16,
+    flexShrink: 0,
+  },
 });
 
 export default WeightScreen; 

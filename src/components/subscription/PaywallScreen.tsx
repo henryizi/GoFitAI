@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, ScrollView, Dimensions, Platform, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView, Dimensions, Platform, TouchableOpacity, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 import { RevenueCatService } from '../../services/subscription/RevenueCatService';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../services/supabase/client';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +33,7 @@ const THEME = {
 
 interface PaywallScreenProps {
   onClose: () => void;
+  onBack?: () => void;
   source?: string;
   offeringId?: string;
 }
@@ -63,34 +66,167 @@ const FEATURES = [
   { icon: 'trending-up-outline', title: 'Advanced Stats', desc: 'Visualize your progress' },
 ];
 
-export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, offeringId }) => {
+import { useSubscription } from '../../hooks/useSubscription';
+
+// TEMPORARY: Enable mock mode for App Store review screenshots
+// Set to false to use real RevenueCat products
+const ENABLE_MOCK_FOR_SCREENSHOTS = false; // Set to false to use real products from RevenueCat
+
+export const PaywallScreen: React.FC<PaywallScreenProps> = ({ 
+  onClose, 
+  onBack,
+  source, 
+  offeringId
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [offerings, setOfferings] = useState<any>(null);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const isDevelopment = __DEV__;
   const { user } = useAuth();
+  const { refreshSubscription } = useSubscription();
+
+  // Mock packages for screenshots
+  const getMockPackages = () => {
+    return [
+      {
+        identifier: 'mock_yearly',
+        packageType: 'ANNUAL',
+        product: {
+          identifier: 'gofitai_premium_yearly1',
+          priceString: '$79.99',
+          price: 79.99,
+          currencyCode: 'USD',
+        },
+      },
+      {
+        identifier: 'mock_monthly',
+        packageType: 'MONTHLY',
+        product: {
+          identifier: 'gofitai_premium_monthly1',
+          priceString: '$9.99',
+          price: 9.99,
+          currencyCode: 'USD',
+          introPrice: {
+            price: 0,
+            priceString: 'Free for 7 days',
+            period: 'P1W',
+          },
+        },
+      },
+      {
+        identifier: 'mock_lifetime',
+        packageType: 'LIFETIME',
+        product: {
+          identifier: 'gofitai_premium_lifetime1',
+          priceString: '$149.99',
+          price: 149.99,
+          currencyCode: 'USD',
+        },
+      },
+    ];
+  };
 
   useEffect(() => {
     loadOfferings();
   }, []);
 
-  const loadOfferings = async () => {
+
+  const loadOfferings = async (forceRefresh: boolean = false) => {
     try {
-      const availableOfferings = await RevenueCatService.getOfferings();
+      const availableOfferings = await RevenueCatService.getOfferings(forceRefresh);
       setOfferings(availableOfferings);
       
-      if (availableOfferings && availableOfferings[0]?.availablePackages) {
-        const monthlyPkg = availableOfferings[0].availablePackages.find((pkg: any) => 
-          pkg.packageType === 'MONTHLY' || pkg.identifier.includes('monthly')
+      console.log('[Paywall] Loaded offerings:', availableOfferings?.length || 0);
+      
+      if (availableOfferings && availableOfferings.length > 0) {
+        // Collect all packages from all offerings (in case packages are in different offerings)
+        const allPackages: any[] = [];
+        availableOfferings.forEach((offering: any) => {
+          if (offering.availablePackages && offering.availablePackages.length > 0) {
+            allPackages.push(...offering.availablePackages);
+            console.log(`[Paywall] Offering "${offering.identifier}" has ${offering.availablePackages.length} packages`);
+          }
+        });
+        
+        // Remove duplicates by identifier (in case same package appears in multiple offerings)
+        const uniquePackages = Array.from(
+          new Map(allPackages.map((pkg: any) => [pkg.identifier, pkg])).values()
         );
-        if (monthlyPkg) {
-          setSelectedPackage(monthlyPkg);
-        } else {
-            setSelectedPackage(availableOfferings[0].availablePackages[0]);
+        
+        console.log('[Paywall] Total unique packages found:', uniquePackages.length);
+        console.log('[Paywall] All packages details:', uniquePackages.map((p: any) => ({
+          identifier: p.identifier,
+          type: p.packageType,
+          productId: p.product?.identifier,
+          price: p.product?.priceString,
+          priceValue: p.product?.price,
+          currencyCode: p.product?.currencyCode,
+          title: p.product?.title
+        })));
+        
+        // Check which package types are present
+        const packageTypes = uniquePackages.map((p: any) => p.packageType);
+        console.log('[Paywall] Package types found:', packageTypes);
+        
+        if (uniquePackages.length === 0) {
+          console.warn('[Paywall] ⚠️ No packages found in any offering');
+          return;
+        }
+        
+        // Sort packages by priority: MONTHLY > ANNUAL > LIFETIME > others
+        // This ensures consistent ordering regardless of how RevenueCat returns them
+        const sortedPackages = [...uniquePackages].sort((a: any, b: any) => {
+          const priority = (pkg: any) => {
+            if (pkg.packageType === 'MONTHLY') return 1;
+            if (pkg.packageType === 'ANNUAL') return 2;
+            if (pkg.packageType === 'LIFETIME') return 3;
+            return 4;
+          };
+          return priority(a) - priority(b);
+        });
+        
+        // Use the first offering structure but with all unique packages
+        const primaryOffering = availableOfferings[0];
+        setOfferings([{
+          ...primaryOffering,
+          availablePackages: sortedPackages
+        }]);
+        
+        // Default to first package (monthly plan)
+        setSelectedPackage(sortedPackages[0]);
+        
+        // Warn if expected packages are missing
+        if (!packageTypes.includes('ANNUAL')) {
+          console.warn('[Paywall] ⚠️ ANNUAL package not found!');
+          console.warn('[Paywall] ⚠️ Make sure $rc_annual package is added to your offering in RevenueCat Dashboard');
+        }
+      } else {
+        console.warn('[Paywall] No offerings found');
+        
+        // TEMPORARY: Use mock packages for screenshots if enabled
+        if (ENABLE_MOCK_FOR_SCREENSHOTS) {
+          console.log('[Paywall] 📸 Using mock packages for screenshots');
+          const mockPackages = getMockPackages();
+          setOfferings([{
+            identifier: 'default',
+            availablePackages: mockPackages,
+          }]);
+          setSelectedPackage(mockPackages[0]); // Default to yearly
         }
       }
     } catch (error) {
-      console.error('Failed to load offerings:', error);
+      console.error('[Paywall] Failed to load offerings:', error);
+      
+      // TEMPORARY: Use mock packages for screenshots if enabled
+      if (ENABLE_MOCK_FOR_SCREENSHOTS) {
+        console.log('[Paywall] 📸 Using mock packages for screenshots (error fallback)');
+        const mockPackages = getMockPackages();
+        setOfferings([{
+          identifier: 'default',
+          availablePackages: mockPackages,
+        }]);
+        setSelectedPackage(mockPackages[0]); // Default to yearly
+      }
     }
   };
 
@@ -102,12 +238,126 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
         return;
       }
 
-      const result = await RevenueCatService.purchasePackage(selectedPackage);
-      if (result.success) {
+      // TEMPORARY: Block purchases in mock mode (for screenshots only)
+      if (ENABLE_MOCK_FOR_SCREENSHOTS && selectedPackage.identifier?.startsWith('mock_')) {
+        Alert.alert('Screenshot Mode', 'This is a mock package for screenshots. Real purchases are disabled in this mode.');
+        setIsLoading(false);
+        return;
+      }
+
+      // CRITICAL: Ensure user ID is set in RevenueCat before purchase
+      // This prevents purchases from being associated with anonymous ID
+      if (user?.id) {
+        console.log('[Paywall] Ensuring user ID is set in RevenueCat before purchase:', user.id);
+        try {
+          await RevenueCatService.setUserId(user.id);
+          // Wait a moment for RevenueCat to sync
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (userIdError) {
+          console.warn('[Paywall] Failed to set user ID before purchase:', userIdError);
+          console.warn('[Paywall] Purchase may be associated with anonymous ID');
+        }
+      } else {
+        console.warn('[Paywall] ⚠️ No user ID available - purchase may be anonymous!');
+      }
+      
+      // Purchase package
+      console.log('[Paywall] Starting purchase for package:', selectedPackage.identifier);
+      console.log('[Paywall] Package details:', {
+        identifier: selectedPackage.identifier,
+        packageType: (selectedPackage as any).packageType,
+        productId: selectedPackage.product?.identifier,
+        productTitle: selectedPackage.product?.title,
+        productPrice: selectedPackage.product?.priceString,
+        hasProduct: !!selectedPackage.product,
+        userId: user?.id
+      });
+      
+      // Validate package before purchase
+      if (!selectedPackage || !selectedPackage.product || !selectedPackage.product.identifier) {
+        console.error('[Paywall] ❌ Invalid package object:', selectedPackage);
+        Alert.alert('Error', 'Invalid package. Please try again.');
+        return;
+      }
+      
+      console.log('[Paywall] Package validated, calling RevenueCatService.purchasePackage()...');
+      const result = await RevenueCatService.purchasePackage(
+        selectedPackage
+      );
+      console.log('[Paywall] Purchase result received:', {
+        success: result.success,
+        hasError: !!result.error,
+        hasCustomerInfo: !!result.customerInfo
+      });
+      
+      if (result.success && result.customerInfo) {
+        console.log('[Paywall] Purchase successful, verifying entitlements...');
+        
+        // Verify purchase actually completed by checking customerInfo
+        const hasActiveEntitlement = result.customerInfo.entitlements?.active?.['premium'] !== undefined;
+        const isLifetime = (selectedPackage as any).packageType === 'LIFETIME';
+        const hasNonSubscriptionTransaction = isLifetime && 
+          (result.customerInfo.nonSubscriptionTransactions?.length || 0) > 0;
+        
+        console.log('[Paywall] Purchase verification:', {
+          hasActiveEntitlement,
+          hasNonSubscriptionTransaction,
+          isLifetime,
+          activeEntitlements: Object.keys(result.customerInfo.entitlements?.active || {}),
+          nonSubscriptionTransactions: result.customerInfo.nonSubscriptionTransactions?.length || 0
+        });
+        
+        if (!hasActiveEntitlement && !hasNonSubscriptionTransaction) {
+          console.error('[Paywall] ❌ Purchase returned success but no entitlements found!');
+          Alert.alert(
+            'Purchase Verification Failed',
+            'The purchase completed but could not be verified. Please try restoring purchases or contact support.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // Wait a moment for RevenueCat to sync
+        console.log('[Paywall] Waiting for RevenueCat to sync...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Refresh subscription status before navigating away
+        console.log('[Paywall] Refreshing subscription status...');
+        await refreshSubscription();
+        
+        // Wait a bit more to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Set tutorial_completed to false for new premium users
+        // This ensures they see the mandatory tutorial
+        if (user?.id) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({ tutorial_completed: false })
+              .eq('id', user.id);
+            console.log('[Paywall] Set tutorial_completed to false for new premium user');
+          } catch (error) {
+            console.warn('[Paywall] Failed to update tutorial_completed:', error);
+            // Don't block purchase success if this fails
+          }
+        }
+        
+        // Refresh subscription one more time to ensure state is fully updated
+        await refreshSubscription();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log('[Paywall] Purchase complete, navigating to app...');
         Alert.alert('Success!', 'Welcome to GoFitAI Premium!', [
-          { text: 'Continue', onPress: onClose }
+          { text: 'Continue', onPress: () => {
+            // Navigate to root - let app/index.tsx routing logic handle redirect to tutorial
+            // This ensures tutorial_completed check happens and user sees tutorial
+            console.log('[Paywall] Navigating to root...');
+            router.replace('/');
+          }}
         ]);
       } else if (result.error !== 'Purchase was cancelled by user') {
+        console.error('[Paywall] Purchase failed:', result.error);
         Alert.alert('Purchase Failed', result.error || 'Unknown error occurred');
       }
     } catch (error: any) {
@@ -119,6 +369,7 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
       setIsLoading(false);
     }
   };
+
 
   const handleRestore = async () => {
     try {
@@ -138,24 +389,32 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
     }
   }
 
-  const handleSkip = async () => {
-    if (isDevelopment) {
-      Alert.alert('Development Mode', 'Skip paywall for testing?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Skip', onPress: onClose }
-      ]);
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
     } else {
       onClose();
     }
   };
 
-  const monthlyPackage = offerings?.[0]?.availablePackages?.find((pkg: any) => 
-    pkg.packageType === 'MONTHLY' || pkg.identifier.includes('monthly')
-  );
-
-  const lifetimePackage = offerings?.[0]?.availablePackages?.find((pkg: any) => 
-    pkg.packageType === 'LIFETIME' || pkg.identifier.includes('lifetime')
-  );
+  // Get all packages from RevenueCat and sort them by priority
+  const allPackages = offerings?.[0]?.availablePackages || [];
+  
+  // Sort packages by priority: MONTHLY > ANNUAL > LIFETIME > others
+  const sortedPackages = [...allPackages].sort((a: any, b: any) => {
+    const priority = (pkg: any) => {
+      if (pkg.packageType === 'MONTHLY') return 1;
+      if (pkg.packageType === 'ANNUAL') return 2;
+      if (pkg.packageType === 'LIFETIME') return 3;
+      return 4;
+    };
+    return priority(a) - priority(b);
+  });
+  
+  // Find specific packages by type for display logic
+  const yearlyPackage = sortedPackages.find((pkg: any) => pkg.packageType === 'ANNUAL');
+  const monthlyPackage = sortedPackages.find((pkg: any) => pkg.packageType === 'MONTHLY');
+  const lifetimePackage = sortedPackages.find((pkg: any) => pkg.packageType === 'LIFETIME');
   
   const renderPlan = (pkg: any, isBestValue: boolean = false) => {
     if (!pkg) return null;
@@ -184,28 +443,42 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
         
         <View style={styles.planContent}>
             <View style={styles.planHeader}>
-                <View>
+                <View style={styles.planHeaderLeft}>
                     <Text style={styles.planTitle}>
-                        {pkg.packageType === 'LIFETIME' ? 'Lifetime Access' : 'Monthly Plan'}
+                        {pkg.packageType === 'LIFETIME' ? 'Lifetime Access' : 
+                         pkg.packageType === 'ANNUAL' ? 'Yearly Plan' : 
+                         'Monthly Plan'}
                     </Text>
-                    {hasTrial && <Text style={styles.trialText}>7-Day Free Trial</Text>}
                 </View>
                 <View style={[styles.radioButton, isSelected && styles.radioButtonActive]}>
                     {isSelected && <View style={styles.radioButtonSelected} />}
                 </View>
             </View>
 
+            {/* BILLED AMOUNT - Most Prominent */}
             <View style={styles.priceWrapper}>
                 <Text style={styles.priceLarge}>{pkg.product.priceString}</Text>
                 <Text style={styles.priceSubtitle}>
-                    {pkg.packageType === 'LIFETIME' ? 'One-time payment' : '/month'}
+                    {pkg.packageType === 'LIFETIME' ? 'One-time payment' : 
+                     pkg.packageType === 'ANNUAL' ? '/year' : 
+                     '/month'}
                 </Text>
             </View>
+            
+            {/* FREE TRIAL - Subordinate Position (smaller, less prominent) */}
+            {hasTrial && pkg.packageType === 'MONTHLY' && (
+                <View style={styles.trialWrapper}>
+                    <Text style={styles.trialText}>7-day free trial, then {pkg.product.priceString}/month</Text>
+                </View>
+            )}
             
             {pkg.packageType === 'LIFETIME' && (
                 <Text style={styles.planDescription}>Pay once, own it forever. No recurring fees.</Text>
             )}
-             {pkg.packageType === 'MONTHLY' && (
+            {pkg.packageType === 'ANNUAL' && (
+                <Text style={styles.planDescription}>Best value - save more with yearly billing.</Text>
+            )}
+            {pkg.packageType === 'MONTHLY' && !hasTrial && (
                 <Text style={styles.planDescription}>Cancel anytime. Flexible billing.</Text>
             )}
         </View>
@@ -226,12 +499,10 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
       >
         {/* Header Actions */}
         <View style={styles.header}>
-            <TouchableOpacity onPress={handleRestore}>
-                <Text style={styles.restoreText}>Restore</Text>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSkip} style={styles.closeButton}>
-                <Ionicons name="close" size={28} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
         </View>
 
         {/* Hero */}
@@ -252,6 +523,12 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
             <Text style={styles.heroTitle}>Unlock GoFitAI Premium</Text>
             <Text style={styles.heroSubtitle}>Accelerate your progress with advanced AI coaching.</Text>
         </MotiView>
+
+        {/* Trust Indicator */}
+        <View style={styles.trustIndicator}>
+            <Ionicons name="people" size={16} color={THEME.colors.textSecondary} />
+            <Text style={styles.trustText}>Trusted by 1M+ users</Text>
+        </View>
 
         {/* Features Grid */}
         <View style={styles.featuresContainer}>
@@ -282,8 +559,25 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
             style={styles.plansContainer}
         >
             <Text style={styles.sectionTitle}>Choose Your Plan</Text>
-            {renderPlan(lifetimePackage, true)}
-            {renderPlan(monthlyPackage, false)}
+            {/* Display all packages from RevenueCat in sorted order */}
+            {sortedPackages.length > 0 ? (
+              sortedPackages.map((pkg: any, index: number) => {
+                // Mark yearly/annual as best value
+                const isBestValue = pkg.packageType === 'ANNUAL';
+                return (
+                  <View key={pkg.identifier || index}>
+                    {renderPlan(pkg, isBestValue)}
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>No subscription plans available</Text>
+                <Text style={styles.errorSubtext}>
+                  Make sure packages are set up in RevenueCat Dashboard and linked to your offering.
+                </Text>
+              </View>
+            )}
         </MotiView>
 
         {/* Testimonials */}
@@ -325,17 +619,28 @@ export const PaywallScreen: React.FC<PaywallScreenProps> = ({ onClose, source, o
             >
                 <Text style={styles.ctaText}>
                     {isLoading ? 'Processing...' : 
-                     selectedPackage?.product?.introPrice ? 'Start Free Trial' : 
-                     selectedPackage ? 'Continue' : 'Select a Plan'}
+                     selectedPackage ? 
+                       `Subscribe for ${selectedPackage.product.priceString}${selectedPackage.packageType === 'LIFETIME' ? '' : selectedPackage.packageType === 'ANNUAL' ? '/year' : '/month'}`
+                     : 
+                     'Select a Plan'}
                 </Text>
-                {!isLoading && selectedPackage?.product?.introPrice && (
-                    <Text style={styles.ctaSubtext}>7 days free, then {selectedPackage.product.priceString}/mo</Text>
+                {!isLoading && selectedPackage?.product?.introPrice && selectedPackage.packageType === 'MONTHLY' && (
+                    <Text style={styles.ctaSubtext}>7-day free trial, then {selectedPackage.product.priceString}/month</Text>
                 )}
             </LinearGradient>
         </TouchableOpacity>
         <Text style={styles.disclaimer}>
             Recurring billing. Cancel anytime.
         </Text>
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://henryizi.github.io/gofitai-privacy/terms-of-service.html')}>
+            <Text style={styles.legalLinkText}>Terms of Service</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalSeparator}>•</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://henryizi.github.io/gofitai-privacy/')}>
+            <Text style={styles.legalLinkText}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
       </BlurView>
     </View>
   );
@@ -356,6 +661,11 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 24,
     marginBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
   },
   closeButton: {
     padding: 8,
@@ -401,6 +711,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: '80%',
+  },
+  trustIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    gap: 6,
+  },
+  trustText: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   featuresContainer: {
     paddingHorizontal: 20,
@@ -480,18 +803,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  planHeaderLeft: {
+    flex: 1,
   },
   planTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: THEME.colors.text,
-    marginBottom: 4,
+  },
+  trialWrapper: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+    alignSelf: 'flex-start',
   },
   trialText: {
     color: THEME.colors.success,
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '500',
+    fontSize: 11,
+    letterSpacing: 0.3,
   },
   radioButton: {
     width: 24,
@@ -517,14 +854,39 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   priceLarge: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: THEME.colors.text,
     marginRight: 6,
+    letterSpacing: -0.5,
   },
   priceSubtitle: {
     color: THEME.colors.textSecondary,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  discountBadge: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.colors.accent,
+    alignSelf: 'flex-start',
+  },
+  discountBadgeText: {
+    color: THEME.colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  priceSubtitleOriginal: {
+    color: THEME.colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '500',
   },
   planDescription: {
     color: THEME.colors.textSecondary,
@@ -606,13 +968,51 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   ctaSubtext: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
     marginTop: 4,
+    fontWeight: '400',
   },
   disclaimer: {
     color: THEME.colors.textSecondary,
     fontSize: 11,
+    textAlign: 'center',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  legalLinkText: {
+    fontSize: 11,
+    color: THEME.colors.textSecondary,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    fontSize: 11,
+    color: THEME.colors.textSecondary,
+  },
+  errorContainer: {
+    backgroundColor: THEME.colors.cardBg,
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: THEME.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    color: THEME.colors.textSecondary,
+    fontSize: 13,
     textAlign: 'center',
   },
 });

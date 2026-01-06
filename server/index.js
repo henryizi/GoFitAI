@@ -1767,11 +1767,19 @@ if (!process.env.GEMINI_MODEL) {
 // Initialize Gemini Text service
 if (GEMINI_API_KEY) {
   console.log('[AI SERVICE] Initializing Gemini Text Service with API key rotation');
+  console.log('[AI SERVICE] GEMINI_API_KEY present:', !!GEMINI_API_KEY, 'Length:', GEMINI_API_KEY?.length || 0);
   try {
     const APIKeyManager = require('./services/apiKeyManager');
+    console.log('[AI SERVICE] APIKeyManager loaded:', !!APIKeyManager);
+    console.log('[AI SERVICE] APIKeyManager keys count:', APIKeyManager?.keys?.length || 0);
     geminiTextService = new GeminiTextService(APIKeyManager);
+    console.log('[AI SERVICE] ✅ Gemini Text Service initialized successfully');
   } catch (error) {
-    console.error('[AI SERVICE] Failed to initialize Gemini Text Service:', error.message);
+    console.error('[AI SERVICE] ❌ Failed to initialize Gemini Text Service:', {
+      message: error?.message,
+      stack: error?.stack?.substring(0, 500),
+      name: error?.name
+    });
     geminiTextService = null;
   }
 
@@ -2335,7 +2343,13 @@ app.post('/api/generate-workout-plan', async (req, res) => {
 
     // Check if Gemini service is available
     if (!geminiTextService) {
-      console.log('[WORKOUT] Gemini Text Service not available, using rule-based fallback');
+      console.error('[WORKOUT] ❌ Gemini Text Service not available, using rule-based fallback');
+      console.error('[WORKOUT] Service status check:', {
+        geminiTextServiceIsNull: geminiTextService === null,
+        geminiTextServiceIsUndefined: geminiTextService === undefined,
+        GEMINI_API_KEY_Present: !!GEMINI_API_KEY,
+        GEMINI_API_KEY_Length: GEMINI_API_KEY?.length || 0
+      });
       const fallbackPlan = generateRuleBasedWorkoutPlan(profileData);
       return res.json({
         success: true,
@@ -2476,7 +2490,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       // Explicitly preserve ai_reasoning after applyWeeklyDistribution
       if (planForDistribution.ai_reasoning && !finalPlan.ai_reasoning) {
         console.log('[WORKOUT] ⚠️ AI reasoning was lost in applyWeeklyDistribution, restoring it...');
-        finalPlan.ai_reasoning = planForDistribution.ai_reasoning;
+    // Remove preservation of ai_reasoning — do not include AI reasoning in final plan
       }
       
       console.log('[WORKOUT] 🔍 After applyWeeklyDistribution - total days:', finalPlan.weekly_schedule?.length || 0);
@@ -2492,20 +2506,7 @@ app.post('/api/generate-workout-plan', async (req, res) => {
       }
 
       // Convert back to app format
-      // CRITICAL: Explicitly preserve ai_reasoning from transformedPlan or finalPlan
-      // Priority: finalPlan (after applyWeeklyDistribution) > transformedPlan (before distribution)
-      const reasoningToInclude = finalPlan.ai_reasoning || transformedPlan.ai_reasoning || null;
-      
-      console.log('[WORKOUT] 🔍 Reasoning to include in appFormatPlan:', {
-        hasReasoning: !!reasoningToInclude,
-        fromFinalPlan: !!finalPlan.ai_reasoning,
-        fromTransformedPlan: !!transformedPlan.ai_reasoning,
-        reasoningValue: reasoningToInclude,
-        finalPlanKeys: Object.keys(finalPlan || {}).slice(0, 15),
-        transformedPlanKeys: Object.keys(transformedPlan || {}).slice(0, 15)
-      });
-      
-      // Create appFormatPlan - ALWAYS include ai_reasoning field (even if null) for debugging
+      // Convert back to app format
       const appFormatPlan = {
         name: finalPlan.name || transformedPlan.name,
         training_level: finalPlan.training_level || transformedPlan.training_level,
@@ -2520,50 +2521,11 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         is_active: finalPlan.is_active !== undefined ? finalPlan.is_active : transformedPlan.is_active,
         source: finalPlan.source || transformedPlan.source,
         weeklySchedule: finalPlan.weekly_schedule, // Use the 7-day schedule from applyWeeklyDistribution
-        // CRITICAL: ALWAYS include ai_reasoning field (even if null) so we can debug
-        ai_reasoning: reasoningToInclude
+        // AI reasoning removed per request - do not include ai_reasoning field
       };
-      
-      console.log('[WORKOUT] AI Reasoning in final plan:', {
-        hasAiReasoning: !!appFormatPlan.ai_reasoning,
-        splitReasoning: !!appFormatPlan.ai_reasoning?.split_reasoning,
-        exerciseReasoning: !!appFormatPlan.ai_reasoning?.exercise_selection_reasoning,
-        splitReasoningPreview: appFormatPlan.ai_reasoning?.split_reasoning?.substring(0, 100) || 'N/A',
-        exerciseReasoningPreview: appFormatPlan.ai_reasoning?.exercise_selection_reasoning?.substring(0, 100) || 'N/A',
-        fullAiReasoning: appFormatPlan.ai_reasoning
-      });
-      
-      // If reasoning is missing, log a warning
-      if (!appFormatPlan.ai_reasoning || 
-          (!appFormatPlan.ai_reasoning.split_reasoning && !appFormatPlan.ai_reasoning.exercise_selection_reasoning)) {
-        console.warn('[WORKOUT] ⚠️ WARNING: Final plan has no AI reasoning! This means the AI did not generate reasoning or it was lost in transformation.');
-        console.warn('[WORKOUT] Raw plan had reasoning:', {
-          rawPlanHasSplit: !!rawPlan?.split_reasoning,
-          rawPlanHasExercise: !!rawPlan?.exercise_selection_reasoning
-        });
-        console.warn('[WORKOUT] Transformed plan had reasoning:', {
-          transformedHasAiReasoning: !!transformedPlan.ai_reasoning,
-          transformedSplit: !!transformedPlan.ai_reasoning?.split_reasoning,
-          transformedExercise: !!transformedPlan.ai_reasoning?.exercise_selection_reasoning
-        });
-      }
-
       console.log('[WORKOUT] ✅ SUCCESS - Enhanced AI workout plan generated');
       console.log('[WORKOUT] Final schedule:', appFormatPlan.weeklySchedule?.length || 0, 'days');
       console.log('[WORKOUT] Final schedule preview:', appFormatPlan.weeklySchedule?.map(d => ({ day: d.day, focus: d.focus, exerciseCount: d.exercises?.length || 0 })));
-      console.log('[WORKOUT] 🔍 Final appFormatPlan before sending - ai_reasoning check:', {
-        hasAiReasoning: !!appFormatPlan.ai_reasoning,
-        aiReasoningValue: appFormatPlan.ai_reasoning,
-        appFormatPlanKeys: Object.keys(appFormatPlan),
-        aiReasoningInKeys: 'ai_reasoning' in appFormatPlan
-      });
-      
-      // CRITICAL: Verify ai_reasoning is actually in the object before sending
-      if (!('ai_reasoning' in appFormatPlan)) {
-        console.error('[WORKOUT] ❌❌❌ CRITICAL ERROR: ai_reasoning is NOT in appFormatPlan keys!');
-        console.error('[WORKOUT] This should never happen - adding it now as fallback');
-        appFormatPlan.ai_reasoning = reasoningToInclude || transformedPlan.ai_reasoning || finalPlan.ai_reasoning || null;
-      }
 
       return res.json({ 
         success: true, 
@@ -2577,7 +2539,18 @@ app.post('/api/generate-workout-plan', async (req, res) => {
         }
       });
     } catch (aiError) {
-      console.log('[WORKOUT] ❌ AI generation failed:', aiError.message);
+      console.error('[WORKOUT] ❌ AI generation failed:', {
+        message: aiError?.message || 'Unknown error',
+        name: aiError?.name || 'Error',
+        stack: aiError?.stack?.substring(0, 500) || 'No stack trace',
+        errorType: aiError?.constructor?.name || 'Unknown',
+        fullError: aiError
+      });
+      console.error('[WORKOUT] Error details:', JSON.stringify({
+        message: aiError?.message,
+        name: aiError?.name,
+        code: aiError?.code
+      }, null, 2));
       console.log('[WORKOUT] Falling back to rule-based generation');
 
       // Generate rule-based fallback plan

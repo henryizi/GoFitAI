@@ -1,21 +1,33 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Pressable, Alert } from 'react-native';
-import { Text, Button, Card, ActivityIndicator, Portal, Modal } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Pressable, Alert, Image, Text, ActivityIndicator, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Portal } from 'react-native-paper';
 
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
-import { colors } from '../../styles/colors';
-import { typography } from '../../styles/fonts';
 import { ProgressService } from '../../services/progressService';
 import { Database } from '../../types/database';
 import { supabase } from '../../services/supabase/client';
-import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ImageOptimizer } from '../../services/storage/imageOptimizer';
 import HealthDisclaimer from '../legal/HealthDisclaimer';
 import ContentSafetyWarning from '../legal/ContentSafetyWarning';
+
+// Modern design colors
+const colors = {
+  primary: '#FF6B35',
+  primaryDark: '#E55A2B',
+  background: '#000000',
+  surface: '#1C1C1E',
+  card: 'rgba(28, 28, 30, 0.8)',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(235, 235, 245, 0.6)',
+  textTertiary: 'rgba(235, 235, 245, 0.3)',
+  border: 'rgba(84, 84, 88, 0.6)',
+  success: '#34C759',
+  white: '#FFFFFF',
+};
 
 type BodyPhoto = Database['public']['Tables']['body_photos']['Row'];
 
@@ -57,6 +69,7 @@ export default function BeforeAfterComparison({
   const [showContentWarning, setShowContentWarning] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+  const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({});
 
 
   // Get progress entries and sort by date
@@ -80,6 +93,36 @@ export default function BeforeAfterComparison({
       console.log('loadProgressEntries - Loaded entries:', entries);
       console.log('Entries with photos:', entries.filter(entry => entry.front_photo || entry.back_photo));
       setProgressEntries(entries);
+      
+      // Load image dimensions for timeline display
+      const dimensions: Record<string, { width: number; height: number }> = {};
+      for (const entry of entries) {
+        const frontPhoto = entry.front_photo?.storage_path;
+        const backPhoto = entry.back_photo?.storage_path;
+        
+        if (frontPhoto) {
+          try {
+            const { width, height } = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+              Image.getSize(frontPhoto, (width, height) => resolve({ width, height }), reject);
+            });
+            dimensions[`${entry.id}-front`] = { width, height };
+          } catch (error) {
+            console.warn('Failed to get front photo dimensions:', error);
+          }
+        }
+        
+        if (backPhoto) {
+          try {
+            const { width, height } = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+              Image.getSize(backPhoto, (width, height) => resolve({ width, height }), reject);
+            });
+            dimensions[`${entry.id}-back`] = { width, height };
+          } catch (error) {
+            console.warn('Failed to get back photo dimensions:', error);
+          }
+        }
+      }
+      setImageDimensions(dimensions);
     } catch (error) {
       console.error('Failed to load progress entries:', error);
     } finally {
@@ -462,14 +505,12 @@ export default function BeforeAfterComparison({
       >
         {sortedEntries.map((entry, index) => {
           const photo = selectedView === 'front' ? entry.front_photo : entry.back_photo;
-          const isFirst = index === 0;
-          const isLast = index === sortedEntries.length - 1;
           
           return (
             <View key={entry.id} style={styles.timelineItem}>
               <Text style={styles.timelineDate}>{entry.date}</Text>
-              <Card style={[styles.timelinePhotoCard, isFirst && styles.firstPhoto, isLast && styles.lastPhoto]}>
-                <Card.Content style={styles.timelinePhotoContent}>
+              <View style={styles.timelinePhotoCard}>
+                <View style={styles.timelinePhotoContent}>
                   <View style={styles.timelineImageContainer}>
                     {photo ? (
                       <Image 
@@ -486,8 +527,8 @@ export default function BeforeAfterComparison({
                       <Text style={styles.timelineLabelText}>{selectedView.toUpperCase()}</Text>
                     </View>
                   </View>
-                </Card.Content>
-              </Card>
+                </View>
+              </View>
               {index < sortedEntries.length - 1 && (
                 <View style={styles.timelineArrow}>
                   <Icon name="arrow-right" size={16} color={colors.primary} />
@@ -543,10 +584,10 @@ export default function BeforeAfterComparison({
               </LinearGradient>
             </View>
             <View style={styles.summaryHeaderText}>
-              <Text style={styles.summaryTitle}>Progress Summary</Text>
+          <Text style={styles.summaryTitle}>Progress Summary</Text>
               <Text style={styles.summarySubtitle}>Your transformation journey</Text>
             </View>
-          </View>
+            </View>
 
           {/* Stats Grid */}
           <View style={styles.summaryStatsGrid}>
@@ -571,8 +612,8 @@ export default function BeforeAfterComparison({
                   {weeksBetween % 4 > 0 ? `${weeksBetween % 4}w` : ''}
                 </Text>
               )}
-            </View>
-
+          </View>
+          
             {/* Photos Card */}
             <View style={styles.summaryStatCard}>
               <View style={styles.summaryStatIconContainer}>
@@ -682,15 +723,11 @@ export default function BeforeAfterComparison({
     // Check if we have exactly 1 photo
     const hasOnePhoto = sortedEntries.length === 1;
     
-    // Debug logging
-    console.log('renderNoPhotosMessage - Debug Info:');
-    console.log('sortedEntries.length:', sortedEntries.length);
-    console.log('photoEntriesForView.length:', photoEntriesForView.length);
-    console.log('hasOnePhoto:', hasOnePhoto);
-    
     return (
       <View style={styles.noPhotosContainer}>
-        <Icon name="camera-plus" size={64} color={colors.textSecondary} />
+        <View style={styles.noPhotosIconContainer}>
+          <Icon name="camera-plus" size={48} color={colors.primary} />
+        </View>
         <Text style={styles.noPhotosTitle}>
           {hasOnePhoto ? "One Photo Uploaded" : "No Photos Yet"}
         </Text>
@@ -700,14 +737,21 @@ export default function BeforeAfterComparison({
             : "Upload your first photos to start tracking your progress"
           }
         </Text>
-        <Button
-          mode="contained"
+        <TouchableOpacity
           onPress={onPhotoUpload}
           style={styles.uploadButton}
-          icon="camera"
+          activeOpacity={0.9}
         >
-          <Text>{hasOnePhoto ? "Add Another Photo" : "Upload Photos"}</Text>
-        </Button>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            style={styles.uploadButtonGradient}
+          >
+            <Icon name="camera" size={18} color={colors.white} />
+            <Text style={styles.uploadButtonText}>
+              {hasOnePhoto ? "Add Another Photo" : "Upload Photos"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -775,19 +819,19 @@ export default function BeforeAfterComparison({
     <>
       {/* Optional header component */}
       {headerComponent}
-      
-      {/* Health Disclaimer */}
-      <HealthDisclaimer 
-        variant="compact" 
-        title="Progress Photo Disclaimer"
-        showAcceptButton={false}
-      />
 
       {/* Controls */}
       {renderControls()}
 
       {/* Photo Comparison */}
       {renderPhotoComparison()}
+
+      {/* Health Disclaimer - Moved to bottom */}
+      <HealthDisclaimer 
+        variant="compact" 
+        title="Progress Photo Disclaimer"
+        showAcceptButton={false}
+      />
     </>
   );
 
@@ -813,42 +857,61 @@ export default function BeforeAfterComparison({
       )}
 
       {/* Date selection modal - moved outside ScrollView */}
-      <Portal>
-        <Modal visible={openSelector !== null} onDismiss={() => setOpenSelector(null)} contentContainerStyle={styles.modalContent}>
-          <Text style={styles.modalTitle}>{openSelector === 'before' ? 'Select Before Date' : 'Select After Date'}</Text>
-          <View style={styles.modalList}>
-            {photoEntriesForView.map((entry, index) => {
-              const isDisabled = openSelector === 'before' ? index >= afterIndex : index <= beforeIndex;
-              return (
-                <TouchableOpacity
-                  key={entry.id}
-                  style={[styles.modalItem, isDisabled && styles.modalItemDisabled]}
-                  disabled={isDisabled}
-                  onPress={() => {
-                    if (openSelector === 'before') {
-                      setBeforeIndex(index);
-                      if (index >= afterIndex) {
-                        setAfterIndex(Math.min(index + 1, photoEntriesForView.length - 1));
+      <Modal
+        visible={openSelector !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenSelector(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setOpenSelector(null)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{openSelector === 'before' ? 'Select Before Date' : 'Select After Date'}</Text>
+            <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+              {photoEntriesForView.map((entry, index) => {
+                const isDisabled = openSelector === 'before' ? index >= afterIndex : index <= beforeIndex;
+                const isSelected = openSelector === 'before' ? index === beforeIndex : index === afterIndex;
+                return (
+                  <TouchableOpacity
+                    key={entry.id}
+                    style={[
+                      styles.modalItem, 
+                      isDisabled && styles.modalItemDisabled,
+                      isSelected && styles.modalItemSelected
+                    ]}
+                    disabled={isDisabled}
+                    onPress={() => {
+                      if (openSelector === 'before') {
+                        setBeforeIndex(index);
+                        if (index >= afterIndex) {
+                          setAfterIndex(Math.min(index + 1, photoEntriesForView.length - 1));
+                        }
+                      } else if (openSelector === 'after') {
+                        setAfterIndex(index);
+                        if (index <= beforeIndex) {
+                          setBeforeIndex(Math.max(index - 1, 0));
+                        }
                       }
-                    } else if (openSelector === 'after') {
-                      setAfterIndex(index);
-                      if (index <= beforeIndex) {
-                        setBeforeIndex(Math.max(index - 1, 0));
-                      }
-                    }
-                    setOpenSelector(null);
-                  }}
-                >
-                  <Text style={styles.modalItemText}>{entry.date}</Text>
-                </TouchableOpacity>
-              );
-            })}
+                      setOpenSelector(null);
+                    }}
+                  >
+                    <Icon 
+                      name="calendar" 
+                      size={16} 
+                      color={isSelected ? colors.primary : colors.textSecondary} 
+                      style={{ marginRight: 10 }}
+                    />
+                    <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>{entry.date}</Text>
+                    {isSelected && <Icon name="check" size={18} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setOpenSelector(null)} style={styles.modalCloseButton}>
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
           </View>
-          <Button mode="text" onPress={() => setOpenSelector(null)}>
-            <Text>Close</Text>
-          </Button>
-        </Modal>
-      </Portal>
+        </Pressable>
+      </Modal>
 
       {/* Debug info */}
       {console.log('[BeforeAfterComparison] Render - showContentWarning:', showContentWarning)}
@@ -894,20 +957,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    padding: 16,
   },
   viewToggleContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 4,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   viewToggleItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   viewToggleItemActive: {
     backgroundColor: colors.primary,
@@ -915,7 +978,7 @@ const styles = StyleSheet.create({
   viewToggleText: {
     color: colors.textSecondary,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 14,
   },
   viewToggleTextActive: {
     color: '#FFFFFF',
@@ -926,46 +989,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modeIconBtn: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   modeIconBtnActive: {
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
   },
   comparisonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     marginBottom: 20,
+    gap: 10,
   },
   controlsCard: {
-    marginHorizontal: 8,
+    marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 20,
-    backgroundColor: colors.card,
-    elevation: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   photoFrame: {
     width: '100%',
-    height: 240,
-    borderRadius: 16,
+    height: 260,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: colors.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: colors.border,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   photoHeader: {
     position: 'absolute',
@@ -977,12 +1035,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   badgeContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   badgeContainerActive: {
     backgroundColor: colors.primary,
@@ -1107,7 +1165,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   photoColumn: {
-    width: '49%',
+    flex: 1,
     alignItems: 'center',
   },
   photoLabel: {
@@ -1242,18 +1300,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryCardContainer: {
-    marginHorizontal: 8,
+    marginHorizontal: 16,
     marginTop: 20,
     marginBottom: 12,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.2)',
-    elevation: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   summaryCardGradient: {
     padding: 20,
@@ -1397,7 +1450,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
   },
   shareButtonText: {
-    ...typography.button,
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600' as const,
@@ -1465,9 +1517,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   timelinePhotoCard: {
-    width: 120,
-    backgroundColor: 'transparent',
-    elevation: 0,
+    width: (screenWidth - 16) * 0.49, // Same width calculation as before/after comparison photos (49% of container width)
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
   },
   firstPhoto: {
     borderWidth: 2,
@@ -1483,10 +1538,11 @@ const styles = StyleSheet.create({
   timelineImageContainer: {
     position: 'relative',
     width: '100%',
+    overflow: 'hidden',
   },
   timelineImage: {
     width: '100%',
-    height: 200,
+    height: 240, // Same height as before/after comparison photos
     borderRadius: 16,
   },
   timelineLabelOverlay: {
@@ -1506,7 +1562,7 @@ const styles = StyleSheet.create({
   },
   timelineNoPhoto: {
     width: '100%',
-    height: 200,
+    height: 240, // Same height as before/after comparison photos
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1517,64 +1573,137 @@ const styles = StyleSheet.create({
   },
   noPhotosContainer: {
     alignItems: 'center',
-    padding: 40,
+    padding: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    margin: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  noPhotosIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   noPhotosTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: colors.text,
-    marginTop: 16,
     marginBottom: 8,
   },
   noPhotosSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
-    lineHeight: 22,
+    lineHeight: 21,
+    paddingHorizontal: 16,
   },
   uploadButton: {
-    backgroundColor: colors.primary,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  uploadButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    gap: 8,
+  },
+  uploadButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    marginHorizontal: 8,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+    width: '100%',
+    maxWidth: 340,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
   },
   modalList: {
     maxHeight: 300,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   modalItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  modalItemSelected: {
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
   },
   modalItemDisabled: {
     opacity: 0.4,
   },
   modalItemText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalItemTextSelected: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  modalCloseButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  modalCloseButtonText: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
     color: colors.textSecondary,
     marginTop: 16,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '500',
   },
   dropdownIcon: {
     marginLeft: 4,

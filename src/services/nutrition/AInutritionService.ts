@@ -1,5 +1,6 @@
 import { supabase } from '../supabase/client';
 import { GeminiService } from '../ai/GeminiService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface AInutritionPlan {
   id: string;
@@ -20,6 +21,11 @@ export interface AInutritionPlan {
     calorie_adjustment: string;
     macro_distribution: string;
     personalization_factors: string[];
+  };
+  preferences?: {
+    dietary?: string[];
+    intolerances?: string[];
+    favorite_cuisines?: string[];
   };
   created_at: string;
   updated_at: string;
@@ -56,11 +62,16 @@ export class AInutritionService {
     options: {
       dietaryPreferences?: string[];
       intolerances?: string[];
+      cuisinePreferences?: string[];
     } = {}
   ): Promise<AInutritionPlan | null> {
     try {
       console.log('[AI NUTRITION] 🤖 Generating AI-powered nutrition plan');
       console.log('[AI NUTRITION] Options:', options);
+
+      const dietaryPreferences = options.dietaryPreferences ?? [];
+      const intolerances = options.intolerances ?? [];
+      const cuisinePreferences = options.cuisinePreferences ?? [];
 
       // Fetch comprehensive user profile
       const userProfile = await this.fetchUserProfile(userId);
@@ -161,12 +172,43 @@ export class AInutritionService {
         fat_percentage: nutritionTargets.fatPercentage,
         explanation: explanation.summary,
         reasoning: explanation.reasoning,
+        preferences: {
+          dietary: dietaryPreferences,
+          intolerances,
+          favorite_cuisines: cuisinePreferences
+        },
       };
 
       // Save to database (using existing nutrition_plans table structure)
+      // Skip database save for guest users
+      if (userId === 'guest') {
+        console.log('[AI NUTRITION] Guest user detected, returning unsaved plan');
+        const tempPlan = {
+          id: 'temp-guest-plan',
+          ...aiPlanData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as AInutritionPlan;
+        
+        // Store in AsyncStorage for retrieval by the result screen
+        await AsyncStorage.setItem('temp_guest_nutrition_plan', JSON.stringify(tempPlan));
+        
+        return tempPlan;
+      }
+
       const aiPlan = await this.saveAInutritionPlan(aiPlanData);
 
       console.log('[AI NUTRITION] ✅ AI nutrition plan generated successfully');
+      console.log('[AI NUTRITION] Plan details:', {
+        id: aiPlan.id,
+        user_id: aiPlan.user_id,
+        plan_name: aiPlan.plan_name,
+        status: 'active'
+      });
+      
+      // Add a small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       return aiPlan;
 
     } catch (error) {
@@ -179,6 +221,23 @@ export class AInutritionService {
    * Fetch comprehensive user profile data
    */
   private static async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    if (userId === 'guest') {
+      console.log('[AI NUTRITION] Guest user detected, returning mock profile for calculation');
+      return {
+        id: 'guest',
+        full_name: 'Guest User',
+        age: 30,
+        height_cm: 175,
+        weight_kg: 75,
+        gender: 'male',
+        activity_level: 'moderately_active',
+        fitness_strategy: 'maintenance',
+        primary_goal: 'general_fitness',
+        training_level: 'beginner',
+        exercise_frequency: '2-3',
+      } as UserProfile;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -542,6 +601,17 @@ The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${
     try {
       // Save to nutrition_plans table with AI-specific metadata
       // Supabase will auto-generate the UUID and timestamps
+      // First, archive any existing active plans for this user
+      try {
+        await supabase
+          .from('nutrition_plans')
+          .update({ status: 'archived' })
+          .eq('user_id', planData.user_id)
+          .eq('status', 'active');
+      } catch (archiveError) {
+        console.warn('[AI NUTRITION] Could not archive existing plans:', archiveError);
+      }
+
       const { data, error } = await supabase
         .from('nutrition_plans')
         .insert({
@@ -549,6 +619,7 @@ The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${
           plan_name: planData.plan_name,
           goal_type: planData.goal_type,
           plan_type: 'ai_generated',
+          status: 'active', // Set as active so it shows up in the list
           daily_targets: {
             calories: planData.daily_calories,
             protein: planData.protein_grams,
@@ -560,6 +631,11 @@ The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${
           },
           ai_explanation: planData.explanation,
           ai_reasoning: planData.reasoning,
+          preferences: planData.preferences || {
+            dietary: [],
+            intolerances: [],
+            favorite_cuisines: []
+          },
         })
         .select()
         .single();
@@ -590,6 +666,7 @@ The AI considered your ${profile.fitness_strategy || 'maintenance'} strategy, ${
         fat_percentage: data.daily_targets.fat_percentage,
         explanation: data.ai_explanation,
         reasoning: data.ai_reasoning,
+        preferences: data.preferences || planData.preferences,
         created_at: data.created_at,
         updated_at: data.updated_at,
       };

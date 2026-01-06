@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -19,6 +20,7 @@ type WorkoutFrequency = '1' | '2' | '3' | '4' | '5' | '6' | '7';
 // which will be used to generate personalized workout plans
 const ExerciseFrequencyScreen = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [frequency, setFrequency] = useState<WorkoutFrequency | null>(null);
 
   // Map exercise frequency to database-compatible values
@@ -91,7 +93,7 @@ const ExerciseFrequencyScreen = () => {
   };
 
   const handleBack = () => {
-    router.replace('/(onboarding)/weight-trend');
+    router.replace('/(onboarding)/level');
   };
 
   const handleClose = () => {
@@ -147,8 +149,8 @@ const ExerciseFrequencyScreen = () => {
     <OnboardingLayout
       title="What's your preferred workout frequency?"
       subtitle="This will help us create personalized workout plans for you"
-      progress={0.63}
-      currentStep={7}
+      progress={0.666}
+      currentStep={8}
       totalSteps={12}
       showBackButton={true}
       showCloseButton={false}
@@ -157,6 +159,9 @@ const ExerciseFrequencyScreen = () => {
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 8</Text>
+        </View>
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -196,7 +201,7 @@ const ExerciseFrequencyScreen = () => {
         </View>
       </View>
       
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(40, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -214,6 +219,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     justifyContent: 'flex-start',
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     width: '100%',
@@ -288,8 +305,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   footer: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 });
 

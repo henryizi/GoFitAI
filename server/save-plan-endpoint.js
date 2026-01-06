@@ -5,6 +5,27 @@ app.post('/api/save-plan', async (req, res) => {
   try {
     // Try to save to the database first
     if (supabase) {
+      // Prevent skipping due to duplicate plan names: if same user already has a plan with the same name,
+      // adjust the plan name to ensure uniqueness before calling the upsert RPC.
+      try {
+        const { data: existing, error: selectError } = await supabase
+          .from('workout_plans')
+          .select('id,name')
+          .eq('user_id', user.id)
+          .eq('name', plan.name);
+
+        if (selectError) {
+          console.warn('[SAVE PLAN] Warning while checking for duplicate names:', selectError.message);
+        } else if (Array.isArray(existing) && existing.length > 0) {
+          // Append timestamp suffix to ensure uniqueness
+          const suffix = ` (${new Date().toISOString().replace(/[:.]/g, '-')})`;
+          plan.name = `${plan.name}${suffix}`;
+          console.log('[SAVE PLAN] Duplicate plan name detected - renaming to:', plan.name);
+        }
+      } catch (checkErr) {
+        console.warn('[SAVE PLAN] Duplicate name check failed, continuing with original plan name:', checkErr.message);
+      }
+
       const { data, error } = await supabase.rpc('upsert_ai_workout_plan', {
         user_id_param: user.id,
         plan_data: plan

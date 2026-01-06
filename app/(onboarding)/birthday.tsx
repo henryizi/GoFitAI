@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
@@ -13,9 +14,11 @@ import { OnboardingButton } from '../../src/components/onboarding/OnboardingButt
 import { formatDateToYYYYMMDD } from '../../src/utils/dateUtils';
 import { saveOnboardingData } from '../../src/utils/onboardingSave';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isTablet = Platform.OS === 'ios' && (width >= 768 || height >= 768);
 
 const BirthdayScreen = () => {
+  const insets = useSafeAreaInsets();
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedDay, setSelectedDay] = useState(1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear() - 25);
@@ -78,8 +81,8 @@ const BirthdayScreen = () => {
     label: string;
   }) => {
     const flatListRef = useRef<FlatList>(null);
-    const ITEM_HEIGHT = 50;
-    const PICKER_HEIGHT = 180;
+    const ITEM_HEIGHT = isTablet ? 60 : 50;
+    const PICKER_HEIGHT = isTablet ? 240 : 180;
     const CENTER_OFFSET = (PICKER_HEIGHT - ITEM_HEIGHT) / 2;
 
     const getValueFromIndex = (index: number) => {
@@ -123,11 +126,6 @@ const BirthdayScreen = () => {
       <View style={styles.pickerColumn}>
         <Text style={styles.pickerLabel}>{label}</Text>
         <View style={styles.pickerWrapper}>
-          <LinearGradient
-            colors={['rgba(0,0,0,0.8)', 'transparent', 'transparent', 'rgba(0,0,0,0.8)']}
-            style={styles.gradientOverlay}
-            pointerEvents="none"
-          />
           <FlatList
             ref={flatListRef}
             data={data}
@@ -138,15 +136,41 @@ const BirthdayScreen = () => {
             getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: idx * ITEM_HEIGHT, index: idx })}
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-              handleValueChange(idx);
+              if (idx >= 0 && idx < data.length) {
+                handleValueChange(idx);
+              }
             }}
+            onScrollEndDrag={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+              if (idx >= 0 && idx < data.length) {
+                handleValueChange(idx);
+              }
+            }}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
+            bounces={true}
+            removeClippedSubviews={false}
+            keyboardShouldPersistTaps="handled"
+            alwaysBounceVertical={true}
+            scrollEventThrottle={16}
             renderItem={({ item, index }) => {
               const value = getValueFromIndex(index);
               const isSelected = selectedValue === value;
               return (
                 <TouchableOpacity
                   style={[styles.pickerItem, isSelected && styles.selectedItem]}
-                  onPress={() => onValueChange(value)}
+                  onPress={() => {
+                    onValueChange(value);
+                    // Scroll to selected item for better UX
+                    const targetY = index * ITEM_HEIGHT;
+                    flatListRef.current?.scrollToOffset({
+                      offset: targetY,
+                      animated: true
+                    });
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: isTablet ? 15 : 10, bottom: isTablet ? 15 : 10, left: isTablet ? 15 : 10, right: isTablet ? 15 : 10 }}
+                  delayPressIn={0}
                 >
                   <Text style={[styles.pickerText, isSelected && styles.selectedText]}>
                     {item}
@@ -154,7 +178,16 @@ const BirthdayScreen = () => {
                 </TouchableOpacity>
               );
             }}
-            contentContainerStyle={{ paddingTop: CENTER_OFFSET, paddingBottom: CENTER_OFFSET }}
+            contentContainerStyle={{ 
+              paddingTop: CENTER_OFFSET, 
+              paddingBottom: CENTER_OFFSET,
+              minHeight: PICKER_HEIGHT + CENTER_OFFSET * 2
+            }}
+          />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.8)', 'transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.gradientOverlay}
+            pointerEvents="none"
           />
           <View style={[styles.selectionIndicator, { top: CENTER_OFFSET }]} pointerEvents="none" />
         </View>
@@ -166,7 +199,7 @@ const BirthdayScreen = () => {
     <OnboardingLayout
       title="What's your birthday?"
       subtitle="Your birthday helps us customize your experience based on your age"
-      progress={0.27}
+      progress={0.25}
       currentStep={3}
       totalSteps={12}
       showBackButton={true}
@@ -177,6 +210,9 @@ const BirthdayScreen = () => {
       disableScroll={true}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 3</Text>
+        </View>
         <View style={styles.mainContent}>
           <View style={styles.pickerRow}>
             <ModernPicker
@@ -206,7 +242,7 @@ const BirthdayScreen = () => {
           </View>
         </View>
         
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(34, insets.bottom + 16) }]}>
           <OnboardingButton
             title="Continue"
             onPress={handleNext}
@@ -221,17 +257,35 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: 20,
+    justifyContent: 'space-between',
+    minHeight: 0,
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   mainContent: {
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
+    flexShrink: 1,
+    flexGrow: 0,
   },
   pickerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    maxWidth: isTablet ? 600 : '100%',
+    alignSelf: 'center',
     marginBottom: 30,
+    gap: isTablet ? 16 : 8,
   },
   pickerColumn: {
     flex: 1,
@@ -239,7 +293,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   pickerLabel: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : 12,
     color: colors.textSecondary,
     marginBottom: 16,
     fontWeight: '600',
@@ -251,10 +305,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    height: 180,
+    height: isTablet ? 240 : 180,
     width: '100%',
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'visible',
+    zIndex: 1,
   },
   gradientOverlay: {
     position: 'absolute',
@@ -262,39 +317,44 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 1,
+    zIndex: 2,
+    pointerEvents: 'none',
   },
 
   pickerItem: {
-    height: 50,
+    height: isTablet ? 60 : 50,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
+    minHeight: isTablet ? 60 : 50,
   },
   selectedItem: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 12,
     marginHorizontal: 8,
   },
   pickerText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: isTablet ? 11 : 10,
+    color: 'rgba(255,255,255,0.4)',
     fontWeight: '400',
   },
   selectedText: {
-    color: colors.text,
-    fontWeight: '700',
-    fontSize: 18,
+    fontSize: isTablet ? 11 : 10,
+    color: '#FFFFFF',
+    fontWeight: '900',
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   selectionIndicator: {
     position: 'absolute',
     left: 8,
     right: 8,
-    height: 50,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: isTablet ? 60 : 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     zIndex: 0,
   },
   birthdayPreview: {
@@ -315,8 +375,8 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingTop: 32,
-    paddingBottom: 24,
     backgroundColor: colors.background,
+    flexShrink: 0,
   },
   buttonDisabled: {
     backgroundColor: colors.border,

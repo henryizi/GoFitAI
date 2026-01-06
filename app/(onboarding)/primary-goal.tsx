@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { useAuth } from '../../src/hooks/useAuth';
 import { supabase } from '../../src/services/supabase/client';
@@ -16,6 +17,7 @@ type PrimaryGoal = 'general_fitness' | 'muscle_gain' | 'fat_loss' | 'athletic_pe
 
 const PrimaryGoalScreen = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | null>(null);
 
   const handleNext = async () => {
@@ -90,8 +92,8 @@ const PrimaryGoalScreen = () => {
     <OnboardingLayout
       title="What's your primary fitness goal?"
       subtitle="This helps us personalize your workout and nutrition plans"
-      progress={0.83}
-      currentStep={10}
+      progress={0.916}
+      currentStep={11}
       totalSteps={12}
       showBackButton={true}
       showCloseButton={false}
@@ -100,8 +102,11 @@ const PrimaryGoalScreen = () => {
       onClose={handleClose}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <View style={styles.optionsContainer}>
+      <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 11</Text>
+        </View>
+        <View style={styles.optionsContainer}>
             {options.map((option) => (
               <TouchableOpacity
                 key={option.value}
@@ -153,7 +158,7 @@ const PrimaryGoalScreen = () => {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(34, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -168,6 +173,16 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingVertical: 20,
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     gap: 16,
@@ -225,7 +240,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
 });
 

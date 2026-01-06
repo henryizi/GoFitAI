@@ -28,7 +28,7 @@ export default function SettingsScreen() {
                 console.error('Logout error:', error);
                 return;
               }
-              router.replace('/login');
+              router.replace('/(auth)/login' as any);
             } catch (error) {
               Alert.alert('Error', 'An unexpected error occurred during logout.');
               console.error('Unexpected logout error:', error);

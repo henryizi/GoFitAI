@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Dimensions, ImageBackground } from 'react-native';
-import { Text, Button, ActivityIndicator, TextInput, Divider, IconButton, Avatar, ProgressBar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Dimensions, ImageBackground, AppState, Text, Image } from 'react-native';
+import { Button, ActivityIndicator, TextInput, Divider, IconButton, Avatar, ProgressBar, Dialog, Portal } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../../src/services/supabase/client';
@@ -23,6 +23,8 @@ import { isBodyweightExercise, canUseOptionalWeight } from '../../../../src/cons
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { calculateWorkoutCalories, adjustCaloriesForUserProfile } from '../../../../src/utils/calorieCalculation';
 import ExercisePicker from '../../../../src/components/workout/ExercisePicker';
+import { RecentExercisesService, RecentExercise } from '../../../../src/services/workout/RecentExercisesService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -190,13 +192,12 @@ async function fetchLastExercisePerformance(exerciseName: string, userId: string
         console.log('[Session] Found', setsData.length, 'exercise sets');
         const setIds = setsData.map(s => s.id);
         
-        // Get exercise logs for these sets
+        // Get ALL exercise logs for these sets (no limit to find true personal best)
         const { data: logsData, error: logsError } = await supabase
           .from('exercise_logs')
           .select('id, actual_reps, actual_weight, actual_rpe, completed_at, set_id')
           .in('set_id', setIds)
-          .order('completed_at', { ascending: false })
-          .limit(50);
+          .order('completed_at', { ascending: false });
         
         if (logsError) {
           console.error('[Session] Error fetching exercise logs:', logsError);
@@ -224,19 +225,39 @@ async function fetchLastExercisePerformance(exerciseName: string, userId: string
     // Sort all sets by completion time (most recent first)
     allSets.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
     
-    // Take only the most recent 10 sets
+    // Take only the most recent 10 sets for display
     const recentSets = allSets.slice(0, 10);
     
     console.log('[Session] Total sets found:', allSets.length, '| Showing most recent:', recentSets.length);
     
+    // Find TRUE personal best across ALL historical sets (not just recent 10)
+    let topSetWeight: number | null = null;
+    let topSetReps: number = 0;
+    
+    allSets.forEach((set) => {
+      if (set.weight !== null && set.weight > 0) {
+        // Update personal best if this weight is higher
+        if (topSetWeight === null || set.weight > topSetWeight) {
+          topSetWeight = set.weight;
+          topSetReps = set.reps;
+        }
+      }
+    });
+    
+    console.log('[Session] 🏆 Personal Best found:', {
+      weight: topSetWeight,
+      reps: topSetReps,
+      fromTotalSets: allSets.length
+    });
+    
     // Format the data
     return {
       exerciseName,
-      lastPerformed: recentSets[0].completed_at,
-      sets: recentSets,
+      lastPerformed: recentSets[0]?.completed_at || null,
+      sets: recentSets, // Show recent sets for display
       topSet: {
-        weight: Math.max(...recentSets.map(s => s.weight || 0)),
-        reps: recentSets.find(s => s.weight === Math.max(...recentSets.map(set => set.weight || 0)))?.reps || 0
+        weight: topSetWeight || 0,
+        reps: topSetReps
       }
     };
   } catch (error) {
@@ -255,14 +276,16 @@ export default function SessionExecutionScreen() {
   const { user, profile } = useAuth();
 
   const [sets, setSets] = useState<ExerciseSet[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [setNumber, setSetNumber] = useState(1);
-  const [actualReps, setActualReps] = useState('');
-  const [actualWeight, setActualWeight] = useState('');
-  const [actualRPE, setActualRPE] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0); // Keep for backward compatibility but not used for navigation
+  const [setNumber, setSetNumber] = useState(1); // Keep for backward compatibility
+  const [actualReps, setActualReps] = useState(''); // Keep for backward compatibility
+  const [actualWeight, setActualWeight] = useState(''); // Keep for backward compatibility
+  const [actualRPE, setActualRPE] = useState(''); // Keep for backward compatibility
+  // Table view state: track inputs for each set per exercise (keyed by "exerciseId_setNumber")
+  const [setInputs, setSetInputs] = useState<Record<string, { reps: string; weight: string; rpe: string }>>({});
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(profile?.weight_unit_preference || 'kg');
   const [sessionWeightUnit, setSessionWeightUnit] = useState<'kg' | 'lbs' | null>(null);
-  const [exerciseMap, setExerciseMap] = useState<Record<string, { name: string }>>({});
+  const [exerciseMap, setExerciseMap] = useState<Record<string, { name: string; image?: string | null; muscleGroups?: string[] }>>({});
   const [loading, setLoading] = useState(true);
   const [resting, setResting] = useState(false);
   const [completedSets, setCompletedSets] = useState<Record<string, Array<{
@@ -283,13 +306,210 @@ export default function SessionExecutionScreen() {
   const [isQuickWorkout, setIsQuickWorkout] = useState(false);
   const [showLastPerformance, setShowLastPerformance] = useState(false);
   const [lastPerformanceData, setLastPerformanceData] = useState<any>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [workoutName, setWorkoutName] = useState(sessionTitle || 'Quick Workout');
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [preloadedExercises, setPreloadedExercises] = useState<any[]>([]);
+  const [preloadedRecentExercises, setPreloadedRecentExercises] = useState<RecentExercise[]>([]);
+
+  // Reset image error when exercise changes
+  useEffect(() => {
+    setImageLoadError(false);
+  }, [currentIndex]);
+
+  // Load last used weight unit across workouts as a warm default
+  useEffect(() => {
+    const loadLastUnit = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('last_weight_unit');
+        if (stored === 'kg' || stored === 'lbs') {
+          setWeightUnit(stored);
+        }
+      } catch (err) {
+        console.warn('[Session] Failed to load last weight unit:', err);
+      }
+    };
+
+    loadLastUnit();
+  }, []);
+
+  const handleRPEChange = (text: string) => {
+    if (text === '') {
+      setActualRPE('');
+      return;
+    }
+    // Only allow integers 1-10
+    if (/^([1-9]|10)$/.test(text)) {
+      setActualRPE(text);
+    }
+  };
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const headerOpacity = useRef(new Animated.Value(1)).current;
-  const sessionStartTime = useRef(Date.now()).current;
+  // Track session start time - use ref so it doesn't change on re-renders
+  const sessionStartTime = useRef<number>(Date.now());
+
+  // Storage key for persisting session state
+  const SESSION_STORAGE_KEY = `workout_session_${sessionId}`;
+
+  // Save session state to AsyncStorage
+  const saveSessionState = async () => {
+    try {
+      const stateToSave = {
+        completedSets,
+        currentIndex,
+        setNumber,
+        setInputs,
+        workoutName,
+        sessionStartTime: sessionStartTime.current,
+        savedAt: Date.now()
+      };
+      await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stateToSave));
+      console.log('[Session] 💾 Saved session state to storage');
+    } catch (error) {
+      console.warn('[Session] Failed to save session state:', error);
+    }
+  };
+
+  // Load session state from AsyncStorage
+  const loadSessionState = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        // Only restore if saved within last 24 hours (prevent stale data)
+        const hoursSinceSave = (Date.now() - state.savedAt) / (1000 * 60 * 60);
+        if (hoursSinceSave < 24) {
+          console.log('[Session] 📂 Restoring session state from storage');
+          if (state.completedSets) {
+            setCompletedSets(state.completedSets);
+          }
+          if (typeof state.currentIndex === 'number') {
+            setCurrentIndex(state.currentIndex);
+          }
+          if (typeof state.setNumber === 'number') {
+            setSetNumber(state.setNumber);
+          }
+          if (state.setInputs) {
+            setSetInputs(state.setInputs);
+          }
+          if (state.workoutName) {
+            setWorkoutName(state.workoutName);
+          }
+          if (state.sessionStartTime) {
+            sessionStartTime.current = state.sessionStartTime;
+          }
+        } else {
+          console.log('[Session] ⏰ Saved state is too old, clearing');
+          await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+      }
+    } catch (error) {
+      console.warn('[Session] Failed to load session state:', error);
+    }
+  };
+
+  // Clear saved session state (when workout is completed)
+  const clearSessionState = async () => {
+    try {
+      await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+      console.log('[Session] 🗑️ Cleared saved session state');
+    } catch (error) {
+      console.warn('[Session] Failed to clear session state:', error);
+    }
+  };
+
+  // Save state whenever completedSets changes (debounced to avoid too frequent saves)
+  useEffect(() => {
+    if (Object.keys(completedSets).length > 0) {
+      const timer = setTimeout(() => {
+        saveSessionState();
+      }, 500); // Debounce by 500ms
+      return () => clearTimeout(timer);
+    }
+  }, [completedSets]);
+
+  // Save state when currentIndex or setNumber changes
+  useEffect(() => {
+    if (sets.length > 0) {
+      const timer = setTimeout(() => {
+        saveSessionState();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, setNumber]);
+
+  // Save state when workoutName changes
+  useEffect(() => {
+    if (workoutName) {
+      saveSessionState();
+    }
+  }, [workoutName]);
+
+  // Load saved state on mount
+  useEffect(() => {
+    loadSessionState();
+  }, []);
+
+  // Save state when app goes to background - use refs to get latest state
+  const completedSetsRef = useRef(completedSets);
+  const currentIndexRef = useRef(currentIndex);
+  const setNumberRef = useRef(setNumber);
+  const workoutNameRef = useRef(workoutName);
+  const setInputsRef = useRef(setInputs);
+
+  // Update refs when state changes
+  useEffect(() => {
+    completedSetsRef.current = completedSets;
+  }, [completedSets]);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+  useEffect(() => {
+    setNumberRef.current = setNumber;
+  }, [setNumber]);
+  useEffect(() => {
+    workoutNameRef.current = workoutName;
+  }, [workoutName]);
+  useEffect(() => {
+    setInputsRef.current = setInputs;
+  }, [setInputs]);
+
+  // Save state when app goes to background
+  useEffect(() => {
+    const saveStateOnBackground = async () => {
+      try {
+        const stateToSave = {
+          completedSets: completedSetsRef.current,
+          currentIndex: currentIndexRef.current,
+          setNumber: setNumberRef.current,
+          setInputs: setInputsRef.current,
+          workoutName: workoutNameRef.current,
+          sessionStartTime: sessionStartTime.current,
+          savedAt: Date.now()
+        };
+        await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stateToSave));
+        console.log('[Session] 💾 Saved session state on background');
+      } catch (error) {
+        console.warn('[Session] Failed to save session state on background:', error);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        console.log('[Session] 📱 App going to background, saving state...');
+        saveStateOnBackground();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Update weight unit when user profile changes
   useEffect(() => {
@@ -304,6 +524,20 @@ export default function SessionExecutionScreen() {
       setWeightUnit(sessionWeightUnit);
     }
   }, [currentIndex, sessionWeightUnit]);
+
+  // Persist session weight unit as the last used unit across workouts
+  useEffect(() => {
+    const persistUnit = async () => {
+      if (!sessionWeightUnit) return;
+      try {
+        await AsyncStorage.setItem('last_weight_unit', sessionWeightUnit);
+      } catch (err) {
+        console.warn('[Session] Failed to save last weight unit:', err);
+      }
+    };
+
+    persistUnit();
+  }, [sessionWeightUnit]);
 
   // Calculate real-time calories based on actual exercises performed + projected remaining
   const calculateRealTimeCalories = () => {
@@ -505,8 +739,8 @@ export default function SessionExecutionScreen() {
         // For fallback exercises, generate a random calorie estimate
         setEstimatedCalories(Math.floor(Math.random() * 200 + 200));
         
-        // Check if this is a quick workout
-        if (String(sessionId).startsWith('quick-')) {
+        // Check if this is a quick workout (quick- or custom-)
+        if (String(sessionId).startsWith('quick-') || String(sessionId).startsWith('custom-')) {
           setIsQuickWorkout(true);
         }
       }
@@ -521,13 +755,17 @@ export default function SessionExecutionScreen() {
           if (exerciseIds.length > 0 && exerciseIds[0] && !exerciseIds[0].startsWith('ex-id-')) {
             const { data: exerciseData, error: exerciseError } = await supabase
               .from('exercises')
-              .select('id, name')
+              .select('id, name, animation_url, muscle_groups')
               .in('id', exerciseIds);
             
             if (!exerciseError && exerciseData) {
-              const map: Record<string, { name: string }> = {};
+              const map: Record<string, { name: string; image?: string | null; muscleGroups?: string[] }> = {};
               exerciseData.forEach(ex => {
-                if (ex.id) map[ex.id] = { name: ex.name || 'Exercise' };
+                if (ex.id) map[ex.id] = { 
+                  name: ex.name || 'Exercise',
+                  image: ex.animation_url,
+                  muscleGroups: ex.muscle_groups
+                };
               });
               setExerciseMap(map);
             }
@@ -556,6 +794,35 @@ export default function SessionExecutionScreen() {
 
     fetchSets();
   }, [sessionId, fallbackExercises, fadeAnim, slideAnim]);
+
+  // Preload exercise library data immediately and eagerly for instant picker display
+  useEffect(() => {
+    const preloadExercises = async () => {
+      try {
+        // Load exercises and recent exercises in parallel - start immediately
+        const exercisePromise = ExerciseService.getExercises(undefined, true);
+        const recentPromise = user?.id 
+          ? RecentExercisesService.getRecentExercises(user.id).catch(() => []) 
+          : Promise.resolve([]);
+        
+        // Don't wait, set as soon as available
+        exercisePromise.then(exerciseList => {
+          setPreloadedExercises(exerciseList);
+          console.log('[Session] Preloaded exercises:', exerciseList.length);
+        }).catch(err => console.warn('[Session] Error preloading exercises:', err));
+        
+        recentPromise.then(recentList => {
+          setPreloadedRecentExercises(recentList);
+          console.log('[Session] Preloaded recent exercises:', recentList.length);
+        }).catch(err => console.warn('[Session] Error preloading recent exercises:', err));
+      } catch (err) {
+        console.warn('[Session] Error preloading exercises:', err);
+      }
+    };
+    
+    // Preload immediately when component mounts - don't block
+    preloadExercises();
+  }, [user?.id]);
 
   useEffect(() => {
     // Start animations
@@ -618,27 +885,81 @@ export default function SessionExecutionScreen() {
 
       console.log('[Session] Fetching previous exercise data for user:', user.id);
 
-      // Get unique exercise IDs
-      const exerciseIds = sets
-        .map(set => set.exercise_id)
-        .filter((id, index, self) => self.indexOf(id) === index && !id.startsWith('ex-id-')); // Skip synthetic IDs
+      // Build exercise name map for ALL exercises (needed for name-based lookup)
+      const exerciseNameMap = new Map<string, string>(); // exerciseId -> exerciseName
+      sets.forEach(set => {
+        const exerciseName = exerciseMap[set.exercise_id]?.name;
+        if (exerciseName) {
+          exerciseNameMap.set(set.exercise_id, exerciseName);
+        }
+      });
 
-      if (exerciseIds.length === 0) {
-        console.log('[Session] No valid exercise IDs to fetch previous data for');
-        return;
-      }
+      // Check if this is a quick workout (has synthetic IDs or sessionId starts with 'quick-')
+      const isQuickWorkout = sessionId?.startsWith('quick-') || sets.some(set => set.exercise_id?.startsWith('ex-id-'));
+      
+      if (isQuickWorkout) {
+        // For quick workouts, always match by exercise name since IDs are synthetic
+        console.log('[Session] Quick workout detected, fetching by exercise name');
+        try {
+          const exercisesByName = Array.from(exerciseNameMap.entries())
+            .map(([id, name]) => ({ exerciseId: id, exerciseName: name }));
+          
+          if (exercisesByName.length > 0) {
+            const previousDataByName = await PreviousExerciseService.getLastPerformedExercisesByName(
+              user.id,
+              exercisesByName
+            );
+            
+            setPreviousExerciseData(previousDataByName);
+            console.log(`[Session] Loaded previous exercise data for ${previousDataByName.size} exercises by name`);
+          }
+        } catch (error) {
+          console.error('[Session] Error fetching previous exercise data by name:', error);
+        }
+      } else {
+        // For regular workouts, try by ID first, then by name as fallback
+        const exerciseIds = sets
+          .map(set => set.exercise_id)
+          .filter((id, index, self) => self.indexOf(id) === index && !id.startsWith('ex-id-'));
 
-      try {
-        const previousData = await PreviousExerciseService.getLastPerformedExercises(user.id, exerciseIds);
-        setPreviousExerciseData(previousData);
-        console.log(`[Session] Loaded previous exercise data for ${previousData.size} exercises`);
-      } catch (error) {
-        console.error('[Session] Error fetching previous exercise data:', error);
+        if (exerciseIds.length > 0) {
+          try {
+            const previousData = await PreviousExerciseService.getLastPerformedExercises(user.id, exerciseIds);
+            setPreviousExerciseData(previousData);
+            console.log(`[Session] Loaded previous exercise data for ${previousData.size} exercises by ID`);
+            
+            // Also try by name for any exercises not found by ID
+            const foundIds = new Set(Array.from(previousData.keys()));
+            const missingExercises = Array.from(exerciseNameMap.entries())
+              .filter(([id]) => !foundIds.has(id))
+              .map(([id, name]) => ({ exerciseId: id, exerciseName: name }));
+            
+            if (missingExercises.length > 0) {
+              console.log(`[Session] Trying to find ${missingExercises.length} missing exercises by name`);
+              const previousDataByName = await PreviousExerciseService.getLastPerformedExercisesByName(
+                user.id,
+                missingExercises
+              );
+              
+              // Merge with existing data
+              setPreviousExerciseData(prev => {
+                const merged = new Map(prev);
+                previousDataByName.forEach((value, key) => {
+                  merged.set(key, value);
+                });
+                return merged;
+              });
+              console.log(`[Session] Found ${previousDataByName.size} additional exercises by name`);
+            }
+          } catch (error) {
+            console.error('[Session] Error fetching previous exercise data by ID:', error);
+          }
+        }
       }
     };
 
     fetchPreviousExerciseData();
-  }, [sets, user?.id]);
+  }, [sets, user?.id, exerciseMap]);
 
   useEffect(() => {
     // Fetch session details to get estimated calories
@@ -711,8 +1032,13 @@ export default function SessionExecutionScreen() {
       notes: null
     };
     
-    // Add to sets array
-    setSets(prevSets => [...prevSets, newExerciseSet]);
+    // Add to sets array and move to the new exercise
+    setSets(prevSets => {
+      const newSets = [...prevSets, newExerciseSet];
+      // Move to the newly added exercise (it will be at the last index)
+      setCurrentIndex(newSets.length - 1);
+      return newSets;
+    });
     
     // Add to exercise map
     setExerciseMap(prevMap => ({
@@ -723,12 +1049,11 @@ export default function SessionExecutionScreen() {
     // Close the picker
     setShowExercisePicker(false);
     
-    // Move to the newly added exercise and reset set number
-    setCurrentIndex(sets.length); // Move to the new exercise (current length will be the new index)
+    // Reset set number and inputs for the new exercise
     setSetNumber(1);
     setActualReps('');
     setActualWeight('');
-    console.log('[Session] Moved to newly added exercise at index:', sets.length);
+    console.log('[Session] Added exercise and moved to it');
   };
 
   const handleSetDone = async () => {
@@ -1020,7 +1345,7 @@ export default function SessionExecutionScreen() {
               console.log('[Session] DEBUG CUSTOM: Workout history data being saved:', {
                 user_id: user.id,
                 plan_name: 'Custom Workout',
-                session_name: sessionTitle || splitName || 'Custom Session',
+                session_name: workoutName || splitName || 'Custom Session',
                 completed_at: completedAt,
                 duration_minutes: durationMinutes,
                 total_sets: totalSets,
@@ -1059,7 +1384,7 @@ export default function SessionExecutionScreen() {
               const customHistorySaved = await WorkoutHistoryService.saveCustomWorkoutHistory({
                 user_id: user.id,
                 plan_name: 'Custom Workout',
-                session_name: sessionTitle || splitName || 'Custom Session',
+                session_name: workoutName || splitName || 'Custom Session',
                 completed_at: completedAt,
                 duration_minutes: durationMinutes,
                 total_sets: totalSets,
@@ -1088,53 +1413,66 @@ export default function SessionExecutionScreen() {
       // Show completion dialog instead of navigating to non-existent route
       showCompletionDialog();
     } else {
-      // Always start rest timer after completing a set (unlimited sets)
-      setResting(true);
-      console.log('[Session] Rest started');
+      // In table view, we don't show rest timer - rest time is displayed as text below each set
+      console.log('[Session] Set completed');
     }
   };
 
-  const handleRestFinish = () => {
-    console.log('[Session] Rest finished');
-    setResting(false); // Hide the timer first
+  // Rest timer removed - rest time is now shown as text below each set in table view
 
-    const currentSet = sets[currentIndex];
-    if (!currentSet) return;
-
-    // Check if we're about to exceed the planned sets
-    if (setNumber >= currentSet.target_sets) {
-      // Automatically move to next exercise without alert
-      console.log('[Session] All sets completed, moving to next exercise');
-      handleFinishExercise();
-    } else {
-      // Normal case: continue to next set
-      setSetNumber(prev => prev + 1);
-      console.log('[Session] Moving to next set');
-    }
-  };
+  // State to track if workout is technically finished but summary was closed
+  const [workoutFinished, setWorkoutFinished] = useState(false);
 
   // Function to finish current exercise and move to next
   const handleFinishExercise = () => {
     console.log('[Session] Finishing current exercise');
     
+    // Check if this is a quick workout (custom or quick)
+    const isQuickOrCustom = sessionId.startsWith('custom-') || sessionId.startsWith('quick-') || isQuickWorkout;
+    
       if (currentIndex + 1 < sets.length) {
-      // Move to next exercise
+      // There are more exercises - move to next
         setCurrentIndex(prev => prev + 1);
       setSetNumber(1);
       setActualReps('');
       setActualWeight('');
+      setActualRPE('');
+      // Clear table inputs for the new exercise
+      setSetInputs({});
       console.log('[Session] Moving to next exercise');
       } else {
-      // This was the last exercise - automatically finish the workout
+      // This was the last exercise
+      // For quick workouts, buttons will appear at bottom - no popup needed
+      // For regular workouts, automatically finish
+      if (!isQuickOrCustom) {
       console.log('[Session] ✅ Last exercise completed! Auto-finishing workout...');
+        setWorkoutFinished(true);
       setTimeout(() => {
         handleFinishWorkout();
-      }, 1000); // Small delay to let user see completion before dialog
+        }, 1000);
+      }
     }
   };
 
-  // Function to finish the entire workout
+  const [showSummary, setShowSummary] = useState(false);
+  const [editingSet, setEditingSet] = useState<{
+    exerciseId: string;
+    setIndex: number;
+    reps: number;
+    weight: number | null;
+    rpe: number | null;
+  } | null>(null);
+
   const handleFinishWorkout = async () => {
+    if (!showSummary) {
+      setShowSummary(true);
+      return;
+    }
+    submitWorkout();
+  };
+
+  // Function to finish the entire workout
+  const submitWorkout = async () => {
     console.log('[Session] Finishing entire workout');
     console.log('[Session] DEBUG: Current completedSets state:', completedSets);
     console.log('[Session] DEBUG: Number of exercises in completedSets:', Object.keys(completedSets).length);
@@ -1142,8 +1480,24 @@ export default function SessionExecutionScreen() {
       console.log(`[Session] DEBUG: Exercise ${exerciseId} has ${sets.length} completed sets:`, sets);
     });
     
+    // For quick workouts, show name dialog first
+    const isQuick = sessionId.startsWith('quick-') || isQuickWorkout;
+    if (isQuick) {
+      setPendingSubmit(true);
+      setShowNameDialog(true);
+      return;
+    }
+    
+    // For regular workouts, proceed directly
+    await saveWorkoutHistory();
+  };
+
+  // Function to actually save the workout history
+  const saveWorkoutHistory = async () => {
     // Always save workout history for completed workouts
     try {
+      // Clear saved session state since workout is being completed
+      await clearSessionState();
       if (sessionId.startsWith('custom-')) {
         // Handle custom workout completion
         if (user?.id) {
@@ -1164,36 +1518,52 @@ export default function SessionExecutionScreen() {
           });
 
           if (completedExercises.length > 0) {
-            const workoutHistoryData = {
-              user_id: user.id,
-              workout_name: sessionTitle || 'Custom Workout',
-              completed_exercises: completedExercises,
-              total_duration_minutes: Math.round((Date.now() - sessionStartTime) / 60000),
-              calories_burned: realTimeCalories,
-              workout_date: new Date().toISOString().split('T')[0],
-              split_name: splitName
-            };
+            // Calculate workout metrics
+            const completedAt = new Date().toISOString();
+            const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
+            const totalSets = Object.values(completedSets).reduce((sum, sets) => sum + sets.length, 0);
+            const uniqueExercises = new Set(Object.keys(completedSets));
+            const totalExercises = uniqueExercises.size;
 
-            console.log('[Session] Saving custom workout history');
+            // Convert completedSets to exercises_data format for saving
+            const exercisesData = Object.keys(completedSets).map(exerciseId => {
+              const exerciseName = exerciseMap[exerciseId]?.name || 'Exercise';
+              const sets = completedSets[exerciseId];
+              
+              return {
+                exercise_id: exerciseId,
+                exercise_name: exerciseName,
+                sets: sets.map(set => ({
+                  reps: set.reps,
+                  weight: set.weight,
+                  weight_unit: set.weight_unit,
+                  original_weight: set.original_weight,
+                  rpe: set.rpe,
+                  completed_at: set.completed_at,
+                  set_number: set.set_number
+                }))
+              };
+            });
+
+            console.log('[Session] Saving custom workout history with duration:', durationMinutes, 'minutes');
             
-            try {
-              const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/workout-history/custom`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(workoutHistoryData),
-              });
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[Session] Failed to save custom workout history:', response.status, errorText);
+            const customHistorySaved = await WorkoutHistoryService.saveCustomWorkoutHistory({
+              user_id: user.id,
+              plan_name: 'Custom Workout',
+              session_name: workoutName || 'Custom Session',
+              completed_at: completedAt,
+              duration_minutes: durationMinutes,
+              total_sets: totalSets,
+              total_exercises: totalExercises,
+              estimated_calories: realTimeCalories,
+              notes: `Custom workout: ${totalExercises} exercises with ${totalSets} total sets`,
+              exercises_data: exercisesData
+            });
+            
+            if (customHistorySaved) {
+              console.log('[Session] ✅ Custom workout history saved successfully');
               } else {
-                const result = await response.json();
-                console.log('[Session] Custom workout history saved successfully:', result);
-              }
-            } catch (fetchError) {
-              console.error('[Session] Network error saving custom workout history:', fetchError);
+              console.error('[Session] ❌ Failed to save custom workout history');
             }
           } else {
             console.warn('[Session] No completed exercises to save for custom workout');
@@ -1224,7 +1594,7 @@ export default function SessionExecutionScreen() {
             if (planData?.user_id && user?.id) {
               // Calculate workout metrics
               const completedAt = new Date().toISOString();
-              const durationMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+              const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
               const totalSets = Object.values(completedSets).reduce((sum, sets) => sum + sets.length, 0);
               const uniqueExercises = new Set(Object.keys(completedSets));
               const totalExercises = uniqueExercises.size;
@@ -1274,7 +1644,7 @@ export default function SessionExecutionScreen() {
                 total_sets: totalSets,
                 total_exercises: totalExercises,
                 estimated_calories: actualCompletedCalories,
-                notes: `${sessionTitle || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
+                notes: `${workoutName || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
                 exercises_data: exercisesData
               });
               
@@ -1296,7 +1666,7 @@ export default function SessionExecutionScreen() {
             if (user?.id) {
               // Calculate workout metrics
               const completedAt = new Date().toISOString();
-              const durationMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+              const durationMinutes = Math.round((Date.now() - sessionStartTime.current) / 60000);
               const totalSets = Object.values(completedSets).reduce((sum, sets) => sum + sets.length, 0);
               const uniqueExercises = new Set(Object.keys(completedSets));
               const totalExercises = uniqueExercises.size;
@@ -1323,10 +1693,12 @@ export default function SessionExecutionScreen() {
                 return {
                   id: exerciseId,
                   name: exerciseName,
-                  sets: completedSetsList.length,
-                  reps: completedSetsList.map(set => set.reps || 0),
-                  weights: completedSetsList.map(set => set.weight || 0),
-                  rpe: completedSetsList.map(set => set.rpe || null)
+                  sets: completedSetsList.map(set => ({
+                    reps: set.reps || 0,
+                    weight: set.weight || 0,
+                    rpe: set.rpe || null,
+                    completed_at: set.completed_at || new Date().toISOString()
+                  }))
                 };
               });
 
@@ -1341,7 +1713,7 @@ export default function SessionExecutionScreen() {
                 total_exercises: totalExercises,
                 estimated_calories: actualCompletedCalories,
                 plan_name: splitName || 'Custom Workout',
-                session_name: sessionTitle || splitName || 'Standalone Session',
+                session_name: workoutName || splitName || 'Standalone Session',
                 exercises_data: exercisesData
               });
               
@@ -1354,9 +1726,9 @@ export default function SessionExecutionScreen() {
                 total_sets: totalSets,
                 total_exercises: totalExercises,
                 estimated_calories: actualCompletedCalories,
-                notes: `${sessionTitle || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
+                notes: `${workoutName || splitName || 'Standalone'} workout: ${totalExercises} exercises with ${totalSets} total sets`,
                 plan_name: splitName || 'Custom Workout',
-                session_name: sessionTitle || splitName || 'Standalone Session',
+                session_name: workoutName || splitName || 'Standalone Session',
                 week_number: 1,
                 day_number: 1,
                 exercises_data: exercisesData
@@ -1412,6 +1784,11 @@ export default function SessionExecutionScreen() {
     );
   };
 
+
+  // Simple handler for rest timer (not used in new all-exercises view, but kept for compatibility)
+  const handleRestFinish = () => {
+    setResting(false);
+  };
 
   const renderRestTimer = () => {
     if (!currentSet) return null;
@@ -1475,482 +1852,586 @@ export default function SessionExecutionScreen() {
     );
   };
 
-  const getExerciseImage = (exerciseName: string) => {
-    const name = exerciseName.toLowerCase();
+  const getExerciseImage = (exerciseId: string, exerciseName: string) => {
+    // 1. Check database image (if available)
+    const exerciseData = exerciseMap[exerciseId];
+    if (exerciseData?.image) return exerciseData.image;
+
+    // 2. Fallback if error occurred
+    const defaultImage = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop';
+    if (imageLoadError) return defaultImage;
+
+    if (!exerciseName) return defaultImage;
     
-    if (name.includes('bench') || name.includes('chest')) {
-      return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2000&auto=format&fit=crop';
-    } else if (name.includes('squat') || name.includes('leg')) {
-      return 'https://images.unsplash.com/photo-1434596922112-19c563067271?q=80&w=2000&auto=format&fit=crop';
-    } else if (name.includes('deadlift') || name.includes('back')) {
-      return 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=2000&auto=format&fit=crop';
-    } else if (name.includes('shoulder') || name.includes('press')) {
-      return 'https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?q=80&w=2000&auto=format&fit=crop';
-    } else if (name.includes('bicep') || name.includes('curl') || name.includes('arm')) {
-      return 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2000&auto=format&fit=crop';
+    const name = exerciseName.toLowerCase();
+    const muscles = (exerciseData?.muscleGroups || []).map(m => m.toLowerCase());
+    
+    // Specific Compound Movements - Using VERY SPECIFIC high quality images
+    if (name.includes('bench press')) {
+      return 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=1000&auto=format&fit=crop'; // Alternative Bench Press
+    }
+    if (name.includes('incline')) {
+      return 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1000&auto=format&fit=crop'; // Incline/Dumbbell press
+    }
+    if (name.includes('squat') || name.includes('leg press')) {
+      return 'https://images.unsplash.com/photo-1574680096141-1cddd32e04ca?q=80&w=1000&auto=format&fit=crop'; // Squat rack/legs
+    }
+    if (name.includes('deadlift')) {
+      return 'https://images.unsplash.com/photo-1517963879466-cd116617a1e5?q=80&w=1000&auto=format&fit=crop'; // Deadlift setup
+    }
+    if (name.includes('overhead') || name.includes('military') || name.includes('shoulder press')) {
+      return 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=1000&auto=format&fit=crop'; // Overhead press
+    }
+    if (name.includes('pull up') || name.includes('chin up')) {
+      return 'https://images.unsplash.com/photo-1598971639058-211a74a96aea?q=80&w=1000&auto=format&fit=crop'; // Pull up bar
+    }
+    if (name.includes('row')) {
+      return 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=1000&auto=format&fit=crop'; // Barbell row/back
+    }
+
+    // Isolation / Specific Muscle Groups
+    if (name.includes('bicep') || name.includes('curl') || muscles.includes('biceps')) {
+      return 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=1000&auto=format&fit=crop'; // Bicep curl
+    }
+    if (name.includes('tricep') || name.includes('extension') || name.includes('pushdown') || muscles.includes('triceps')) {
+      return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop'; // Gym/Cable machine context
+    }
+    if (name.includes('lateral raise') || name.includes('fly')) {
+      return 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=1000&auto=format&fit=crop'; // Dumbbells
     }
     
-    // Default image
-    return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop';
+    // Muscle Groups / Types (Fallback if specific movement not found)
+    if (name.includes('chest') || name.includes('push up') || name.includes('pectoral') || muscles.includes('chest')) {
+      return 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1000&auto=format&fit=crop';
+    } 
+    if (name.includes('leg') || name.includes('calf') || name.includes('lunge') || name.includes('quad') || name.includes('hamstring') || muscles.includes('legs') || muscles.includes('quadriceps') || muscles.includes('hamstrings') || muscles.includes('calves')) {
+      return 'https://images.unsplash.com/photo-1434596922112-19c563067271?q=80&w=1000&auto=format&fit=crop';
+    } 
+    if (name.includes('back') || name.includes('pull') || name.includes('lat') || muscles.includes('back') || muscles.includes('lats')) {
+      return 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=1000&auto=format&fit=crop';
+    } 
+    if (name.includes('shoulder') || name.includes('deltoid') || muscles.includes('shoulders')) {
+      return 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=1000&auto=format&fit=crop';
+    } 
+    if (name.includes('arm') || muscles.includes('arms')) {
+      return 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=1000&auto=format&fit=crop';
+    }
+    if (name.includes('abs') || name.includes('core') || name.includes('crunch') || name.includes('plank') || muscles.includes('core') || muscles.includes('abs')) {
+        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=1000&auto=format&fit=crop';
+    }
+    if (name.includes('cardio') || name.includes('run') || name.includes('treadmill') || name.includes('bike') || muscles.includes('cardio')) {
+         return 'https://images.unsplash.com/photo-1538805060504-d14b84db1933?q=80&w=1000&auto=format&fit=crop';
+    }
+    
+    // Default image (Gym atmosphere)
+    return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop';
   };
 
-  const renderExerciseContent = () => {
-    if (!currentSet) {
-      return null;
+  // Handle completing a set from the table view
+  const handleCompleteSetFromTable = async (exerciseId: string, setNum: number) => {
+    const exerciseSet = sets.find(s => s.exercise_id === exerciseId);
+    if (!exerciseSet) return;
+    
+    const inputKey = `${exerciseId}_${setNum}`;
+    const setInput = setInputs[inputKey] || { reps: '', weight: '', rpe: '' };
+    const repsNum = parseInt(setInput.reps, 10);
+    const exerciseName = exerciseMap[exerciseId]?.name || '';
+    const isCardio = isCardioExercise(exerciseName);
+    let weightNum = isCardio ? 0 : (setInput.weight ? parseFloat(setInput.weight) : null);
+    
+    if (isNaN(repsNum) || repsNum <= 0) {
+      Alert.alert("Invalid Input", isCardio ? "Please enter a valid number of minutes" : "Please enter a valid number of reps");
+      return;
     }
     
-    const exerciseName = exerciseMap[currentSet.exercise_id]?.name || 'Exercise';
-    const exerciseImage = getExerciseImage(exerciseName);
+    // Convert weight to kg if entered in lbs
+    if (!isCardio && weightNum !== null && weightUnit === 'lbs') {
+      weightNum = convertLbsToKg(weightNum);
+    }
     
+    // Set session weight unit on first weight entry
+    if (!isCardio && weightNum !== null && sessionWeightUnit === null) {
+      setSessionWeightUnit(weightUnit);
+    }
+    
+    // Track the completed set - use a precise timestamp
+    const setCompletedAt = new Date().toISOString();
+    const completedSet = {
+      reps: repsNum,
+      weight: weightNum,
+      weight_unit: weightUnit,
+      original_weight: setInput.weight ? parseFloat(setInput.weight) : null,
+      rpe: setInput.rpe ? parseFloat(setInput.rpe) : null,
+      completed_at: setCompletedAt,
+      set_number: setNum
+    };
+    const updatedCompletedSets = {
+      ...completedSets,
+      [exerciseId]: [...(completedSets[exerciseId] || []), completedSet]
+    };
+    setCompletedSets(updatedCompletedSets);
+
+    // Update recent exercises so the picker can show a \"Recently Logged\" section
+    if (user?.id) {
+      RecentExercisesService.addRecentExercise(user.id, {
+        id: exerciseId,
+        name: exerciseName || 'Exercise',
+        muscle_groups: exerciseMap[exerciseId]?.muscleGroups,
+      }).catch(err => {
+        console.warn('[Session] Error adding recent exercise:', err);
+      });
+    }
+    
+    // Clear input for this set
+    setSetInputs(prev => {
+      const newInputs = { ...prev };
+      delete newInputs[inputKey];
+      return newInputs;
+    });
+    
+    // Log to database if this is a real set - use the same timestamp
+    if (!String(exerciseSet.id).toString().startsWith('fallback-') && !String(exerciseSet.id).toString().startsWith('ex-')) {
+      try {
+        const log = {
+          set_id: exerciseSet.id,
+          actual_reps: repsNum,
+          actual_weight: weightNum || 0,
+          actual_rpe: setInput.rpe ? parseFloat(setInput.rpe) : null,
+          completed_at: setCompletedAt, // Use the same timestamp
+        };
+        
+        const { error } = await supabase
+          .from('exercise_logs')
+          .insert(log);
+        
+        if (error) {
+          console.error('[Session] Error logging exercise set:', error);
+        }
+      } catch (err) {
+        console.error('[Session] Exception while logging exercise set:', err);
+      }
+    }
+    
+    // Update progress - progress is calculated in useEffect
+  };
+  
+  // Add a new set to an exercise
+  const handleAddSet = (exerciseId: string) => {
+    const completedSetsForExercise = completedSets[exerciseId] || [];
+    // Determine how many sets are currently visible/loggable based on completed sets and inputs,
+    // not on the planned target sets. This lets the user freely add sets as they go.
+    const inputSetNumbers = Object.keys(setInputs)
+      .filter(k => k.startsWith(`${exerciseId}_`))
+      .map(k => {
+        const parts = k.split('_');
+        return parseInt(parts[parts.length - 1], 10);
+      })
+      .filter(n => !isNaN(n));
+    const highestInputSet = inputSetNumbers.length > 0 ? Math.max(...inputSetNumbers) : 0;
+    const currentTotalSets = Math.max(completedSetsForExercise.length, highestInputSet);
+    const newSetNumber = currentTotalSets + 1;
+    // Initialize empty input for the new set
+    const inputKey = `${exerciseId}_${newSetNumber}`;
+    setSetInputs(prev => ({
+      ...prev,
+      [inputKey]: { reps: '', weight: '', rpe: '' }
+    }));
+  };
+
+  // Remove an in-progress set row from the table view (does not affect completed logs)
+  // If deleting the first set and exercise has no logged sets, delete the entire exercise
+  const handleRemoveSetFromTable = (exerciseId: string, setNum: number) => {
+    const completedSetsForExercise = completedSets[exerciseId] || [];
+    const isFirstSet = setNum === 1;
+    
+    // Check if there are any other in-progress inputs for this exercise (besides the current one)
+    const otherInputKeys = Object.keys(setInputs).filter(key => {
+      if (key.startsWith(`${exerciseId}_`)) {
+        const inputSetNum = parseInt(key.split('_').pop() || '0', 10);
+        if (inputSetNum !== setNum) {
+          const input = setInputs[key];
+          // Check if there's any actual data entered
+          return (input.weight && input.weight.trim() !== '') || 
+                 (input.reps && input.reps.trim() !== '');
+        }
+      }
+      return false;
+    });
+    
+    const hasNoLoggedSets = completedSetsForExercise.length === 0;
+    const hasNoOtherInputs = otherInputKeys.length === 0;
+    
+    // If deleting the first set and exercise has no logged sets or other inputs, delete the entire exercise
+    if (isFirstSet && hasNoLoggedSets && hasNoOtherInputs) {
+      // Remove the exercise from sets
+      setSets(prev => prev.filter(set => set.exercise_id !== exerciseId));
+      
+      // Clean up all inputs for this exercise
+      setSetInputs(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(key => {
+          if (key.startsWith(`${exerciseId}_`)) {
+            delete next[key];
+          }
+        });
+        return next;
+      });
+      
+      // Clean up completed sets
+      setCompletedSets(prev => {
+        const next = { ...prev };
+        delete next[exerciseId];
+        return next;
+      });
+      
+      return;
+    }
+    
+    // Otherwise, just remove the specific set input
+    const inputKey = `${exerciseId}_${setNum}`;
+    setSetInputs(prev => {
+      const next = { ...prev };
+      delete next[inputKey];
+      return next;
+    });
+  };
+
+
+  // Render a single exercise card with its table
+  const renderExerciseCard = (exerciseSet: ExerciseSet, index: number) => {
+    const exerciseId = exerciseSet.exercise_id;
+    const exerciseName = exerciseMap[exerciseId]?.name || 'Exercise';
+    const exerciseImage = getExerciseImage(exerciseId, exerciseName);
+    const isCardio = isCardioExercise(exerciseName);
+    const previousData = previousExerciseData.get(exerciseId);
+    const completedSetsForExercise = completedSets[exerciseId] || [];
+    // Display unit for this exercise: lock to the first unit used in the session
+    const displayWeightUnit = sessionWeightUnit || weightUnit;
+    
+    // Debug logging
+    if (!previousData) {
+      console.log(`[Session] No previous data found for exerciseId: ${exerciseId}, exerciseName: ${exerciseName}`);
+      console.log(`[Session] Available previousExerciseData keys:`, Array.from(previousExerciseData.keys()));
+    } else {
+      console.log(`[Session] Found previous data for ${exerciseName}:`, {
+        exerciseId,
+        setsCount: previousData.sets?.length || 0,
+        sets: previousData.sets
+      });
+    }
+    
+    // Get previous sets sorted chronologically (oldest first) to match by set number
+    const previousSets = previousData?.sets ? [...previousData.sets].sort((a, b) => 
+      new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+    ) : [];
+    // Total sets shown in the table are based on completed sets and any in-progress inputs.
+    const inputSetNumbers = Object.keys(setInputs)
+      .filter(k => k.startsWith(`${exerciseId}_`))
+      .map(k => {
+        const parts = k.split('_');
+        return parseInt(parts[parts.length - 1], 10);
+      })
+      .filter(n => !isNaN(n));
+    const highestInputSet = inputSetNumbers.length > 0 ? Math.max(...inputSetNumbers) : 0;
+    const maxSetNumber = Math.max(completedSetsForExercise.length, highestInputSet, 1);
+    const totalSets = maxSetNumber;
+    
+    // Get rest period in seconds for display
+    const getRestSeconds = (restPeriod: string): number => {
+      if (restPeriod.includes('min')) {
+        const mins = parseInt(restPeriod.replace(/[^0-9]/g, ''), 10);
+        return mins * 60;
+      }
+      const secs = parseInt(restPeriod.replace(/[^0-9]/g, ''), 10);
+      return secs || 90;
+    };
+    
+    const restSeconds = getRestSeconds(exerciseSet.rest_period);
+    const formatRestTime = (seconds: number): string => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return secs > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${mins}:00`;
+    };
+
+    const handleShowLastPerformanceForExercise = async () => {
+      if (!user?.id) return;
+      const data = await fetchLastExercisePerformance(exerciseName, user.id);
+      setLastPerformanceData(data);
+      setShowLastPerformance(true);
+    };
+    
+    return (
+      <View key={exerciseId} style={styles.exerciseCardContainer}>
+        {/* Exercise Header */}
+        <View style={styles.exerciseCard}>
+          <LinearGradient
+            colors={['rgba(28, 28, 30, 0.9)', 'rgba(18, 18, 18, 0.95)']}
+            style={styles.exerciseHeaderContainer}
+          >
+            <View style={styles.exerciseHeader}>
+              <View style={styles.exerciseInfo}>
+                <View style={styles.exerciseOrderContainer}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={styles.exerciseOrderGradient}
+                  >
+                    <Text style={styles.exerciseOrder}>{exerciseSet.order_in_session + 1}</Text>
+                  </LinearGradient>
+                </View>
+                <View>
+                  <Text style={styles.exerciseName}>{exerciseName}</Text>
+                  <Text style={styles.setProgress}>
+                    {completedSetsForExercise.length} of {totalSets} sets completed
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={styles.infoButton}
+                onPress={handleShowLastPerformanceForExercise}
+              >
+                <Icon name="history" size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+          
+          {/* Table View for Sets */}
+          <View style={styles.tableSection}>
+                  <LinearGradient
+              colors={['rgba(28, 28, 30, 0.9)', 'rgba(18, 18, 18, 0.95)']}
+              style={styles.tableGradient}
+            >
+              {/* Table Header */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderText, { flex: 0.12 }]}>Set</Text>
+                <Text style={[styles.tableHeaderText, { flex: 0.2 }]}>Last Time</Text>
+                <Text style={[styles.tableHeaderText, { flex: 0.2 }]}>
+                  {displayWeightUnit.toUpperCase()}
+                </Text>
+                <Text style={[styles.tableHeaderText, { flex: 0.18 }]}>Reps</Text>
+                <View style={{ flex: 0.3 }} />
+                    </View>
+                    
+              {/* Table Rows */}
+              {Array.from({ length: totalSets }, (_, setIndex) => {
+                const setNum = setIndex + 1;
+                const completedSet = completedSetsForExercise.find(s => s.set_number === setNum);
+                const isCompleted = !!completedSet;
+                const inputKey = `${exerciseId}_${setNum}`;
+                const setInput = setInputs[inputKey] || { reps: '', weight: '', rpe: '' };
+
+                return (
+                  <View key={setNum}>
+                    <View style={styles.tableRow}>
+                      {/* Set Number */}
+                      <View style={[styles.tableCell, { flex: 0.12 }]}>
+                        <View style={[styles.setNumberBadge, isCompleted && styles.setNumberBadgeCompleted]}>
+                          <Text style={[styles.setNumberText, isCompleted && styles.setNumberTextCompleted]}>
+                            {setNum}
+                          </Text>
+                        </View>
+                          </View>
+
+                      {/* Last Time Column */}
+                      <View style={[styles.tableCell, { flex: 0.2 }]}>
+                        {(() => {
+                          // Get the corresponding set from last time (by position: 1st set = index 0, 2nd set = index 1, etc.)
+                          const lastTimeSet = previousSets[setNum - 1];
+                          if (lastTimeSet) {
+                            const lastWeight = lastTimeSet.weight;
+                            const lastReps = lastTimeSet.reps;
+                            // Convert weight to display unit if needed
+                            let displayWeight = lastWeight;
+                            if (lastWeight !== null && lastTimeSet.weightUnit !== displayWeightUnit) {
+                              if (lastTimeSet.weightUnit === 'kg' && displayWeightUnit === 'lbs') {
+                                displayWeight = convertKgToLbs(lastWeight);
+                              } else if (lastTimeSet.weightUnit === 'lbs' && displayWeightUnit === 'kg') {
+                                displayWeight = convertLbsToKg(lastWeight);
+                              }
+                            }
+                            return (
+                              <View style={styles.lastTimeValueContainer}>
+                                <Text style={styles.lastTimeValue}>
+                                  {lastWeight !== null 
+                                    ? formatWeight(displayWeight, displayWeightUnit)
+                                    : 'BW'}
+                                </Text>
+                                <Text style={styles.lastTimeValueSeparator}>×</Text>
+                                <Text style={styles.lastTimeValue}>{lastReps}</Text>
+                              </View>
+                            );
+                          } else {
+                            return (
+                              <Text style={styles.lastTimeValueNA}>—</Text>
+                            );
+                          }
+                        })()}
+                      </View>
+
+                      {/* Weight Input */}
+                      <View style={[styles.tableCell, { flex: 0.2, overflow: 'hidden', paddingHorizontal: 4 }]}>
+                        {isCompleted ? (
+                          <Text style={styles.completedValue}>
+                            {completedSet.weight !== null && completedSet.weight !== undefined
+                              ? `${formatWeight(completedSet.original_weight || completedSet.weight, weightUnit)}`
+                              : 'BW'}
+                          </Text>
+                        ) : (
+                        <TextInput
+                            style={styles.tableInput}
+                            value={setInput.weight}
+                            onChangeText={(text) => {
+                              setSetInputs(prev => ({
+                                ...prev,
+                                [inputKey]: { ...prev[inputKey] || { reps: '', weight: '', rpe: '' }, weight: text }
+                              }));
+                          }}
+                          keyboardType="numeric"
+                            placeholder="—"
+                            placeholderTextColor={colors.textSecondary}
+                            editable={!isCompleted}
+                          />
+                        )}
+                      </View>
+
+                      {/* Reps Input */}
+                      <View style={[styles.tableCell, { flex: 0.18, overflow: 'hidden', paddingHorizontal: 4 }]}>
+                        {isCompleted ? (
+                          <Text style={styles.completedValue}>{completedSet.reps}</Text>
+                        ) : (
+                        <TextInput
+                            style={styles.tableInput}
+                            value={setInput.reps}
+                            onChangeText={(text) => {
+                              setSetInputs(prev => ({
+                                ...prev,
+                                [inputKey]: { ...prev[inputKey] || { reps: '', weight: '', rpe: '' }, reps: text }
+                              }));
+                            }}
+                            keyboardType="numeric"
+                            placeholder="—"
+                            placeholderTextColor={colors.textSecondary}
+                            editable={!isCompleted}
+                          />
+                        )}
+                      </View>
+
+                      {/* Complete / Remove Buttons */}
+                      <View style={[styles.tableCell, { flex: 0.3, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, paddingLeft: 8 }]}>
+                        {isCompleted ? (
+                          <View style={styles.completedCheckmark}>
+                            <Icon name="check-circle" size={24} color={colors.success} />
+                          </View>
+                        ) : (
+                          <>
+                                  <TouchableOpacity
+                              style={styles.completeButton}
+                              onPress={() => handleCompleteSetFromTable(exerciseId, setNum)}
+                            >
+                              <Icon name="check" size={20} color={colors.text} />
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                              style={styles.removeSetButton}
+                              onPress={() => handleRemoveSetFromTable(exerciseId, setNum)}
+                            >
+                              <Icon name="trash-can-outline" size={18} color={colors.textSecondary} />
+                                  </TouchableOpacity>
+                          </>
+                        )}
+                                </View>
+                              </View>
+
+                    {/* Rest Time Below Each Set */}
+                    {!isCompleted && (
+                      <View style={styles.restTimeRow}>
+                        <Text style={styles.restTimeText}>{formatRestTime(restSeconds)}</Text>
+                            </View>
+                          )}
+                  </View>
+                );
+              })}
+
+              {/* Add Set Button */}
+              <TouchableOpacity
+                style={styles.addSetButton}
+                onPress={() => handleAddSet(exerciseId)}
+              >
+                <Icon name="plus" size={18} color={colors.textSecondary} />
+                <Text style={styles.addSetButtonText}>
+                  Add Set ({formatRestTime(restSeconds)})
+                </Text>
+              </TouchableOpacity>
+
+              {/* Weight Unit Selector */}
+              {!isCardio && (
+                <View style={styles.unitSelectorRow}>
+                  <Text style={styles.unitLabel}>Weight Unit:</Text>
+                            <View style={styles.unitSelector}>
+                              <TouchableOpacity
+                      style={[styles.unitButton, displayWeightUnit === 'kg' && styles.unitButtonActive]}
+                                onPress={() => {
+                        // Allow changing unit only before any set with weight is logged
+                        if (!sessionWeightUnit) {
+                                  setWeightUnit('kg');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.unitButtonText, displayWeightUnit === 'kg' && styles.unitButtonTextActive]}>
+                        kg
+                      </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                      style={[styles.unitButton, displayWeightUnit === 'lbs' && styles.unitButtonActive]}
+                                onPress={() => {
+                        // Allow changing unit only before any set with weight is logged
+                        if (!sessionWeightUnit) {
+                                  setWeightUnit('lbs');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.unitButtonText, displayWeightUnit === 'lbs' && styles.unitButtonTextActive]}>
+                        lbs
+                      </Text>
+                              </TouchableOpacity>
+                            </View>
+                            </View>
+                          )}
+
+            </LinearGradient>
+          </View>
+          
+          {/* Add Exercise Button */}
+          <TouchableOpacity
+            style={styles.addExerciseButtonSmall}
+            onPress={() => {
+              console.log('[Session] User chose to add another exercise');
+              setShowExercisePicker(true);
+            }}
+          >
+            <Icon name="plus" size={18} color={colors.textSecondary} />
+            <Text style={styles.addExerciseButtonSmallText}>Add Exercise</Text>
+          </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Render all exercises in a scrollable list
+  const renderAllExercises = () => {
     return (
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={{
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.95, 1],
-              })
-            }
-          ]
-        }}>
-          {/* Continue with existing exercise card */}
-          <View style={styles.exerciseCard}>
-            <ImageBackground
-              source={{ uri: exerciseImage }}
-              style={styles.exerciseImageBackground}
-              imageStyle={styles.exerciseImage}
-            >
-              <BlurView intensity={20} tint="dark" style={styles.exerciseBlurOverlay}>
-                <LinearGradient
-                  colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
-                  style={styles.exerciseImageOverlay}
-                >
-                  <View style={styles.exerciseHeader}>
-                    <View style={styles.exerciseInfo}>
-                      <View style={styles.exerciseOrderContainer}>
-                        <LinearGradient
-                          colors={[colors.primary, colors.primaryDark]}
-                          style={styles.exerciseOrderGradient}
-                        >
-                          <Text style={styles.exerciseOrder}>{currentSet.order_in_session}</Text>
-                        </LinearGradient>
-                      </View>
-                      <View>
-                        <Text style={styles.exerciseName}>
-                          {exerciseName}
-                        </Text>
-                        <Text style={styles.setProgress}>
-                          Set {setNumber} of {currentSet.target_sets}
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity 
-                      style={styles.infoButton}
-                      onPress={handleShowLastPerformance}
-                    >
-                      <Icon name="history" size={24} color={colors.text} />
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
-              </BlurView>
-            </ImageBackground>
-            
-            <View style={styles.targetContainer}>
-              <View style={styles.targetItem}>
-                <Text style={styles.targetLabel}>Target Reps</Text>
-                <Text style={styles.targetValue}>{currentSet.target_reps}</Text>
-              </View>
-              <View style={styles.targetDivider} />
-              <View style={styles.targetItem}>
-                <Text style={styles.targetLabel}>Rest Time</Text>
-                <Text style={styles.targetValue}>{currentSet.rest_period}</Text>
-              </View>
-            </View>
-          </View>
-          
-          {/* Previous Workout Data */}
-          {(() => {
-            const previousData = previousExerciseData.get(currentSet.exercise_id);
-            if (previousData && previousData.sets.length > 0) {
-              const formatDate = (dateString: string) => {
-                const date = new Date(dateString);
-                const now = new Date();
-                const diffTime = Math.abs(now.getTime() - date.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays === 0) return 'Today';
-                if (diffDays === 1) return 'Yesterday';
-                if (diffDays < 7) return `${diffDays} days ago`;
-                if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-                return date.toLocaleDateString();
-              };
-
-              const formatWeightDisplay = (weight: number | null, unit: 'kg' | 'lbs') => {
-                if (weight === null) return 'Bodyweight';
-                // Convert to user's preferred unit
-                const displayWeight = unit === weightUnit ? weight : 
-                  (weightUnit === 'kg' ? weight * 0.453592 : weight * 2.20462);
-                return `${formatWeight(displayWeight, weightUnit)} ${weightUnit}`;
-              };
-
-              return (
-                <View style={styles.previousWorkoutSection}>
-                  <LinearGradient
-                    colors={['rgba(28, 28, 30, 0.8)', 'rgba(18, 18, 18, 0.9)']}
-                    style={styles.previousWorkoutGradient}
-                  >
-                    <View style={styles.previousWorkoutHeader}>
-                      <Icon name="history" size={18} color={colors.primary} style={styles.previousWorkoutIcon} />
-                      <Text style={styles.previousWorkoutTitle}>Last Performance</Text>
-                      <Text style={styles.previousWorkoutDate}>{formatDate(previousData.lastPerformed || '')}</Text>
-                    </View>
-                    
-                    <View style={styles.previousSetsList}>
-                      {previousData.sets.map((set, idx) => (
-                        <View key={idx} style={styles.previousSetRow}>
-                          <Text style={styles.previousSetNumber}>Set {idx + 1}</Text>
-                          <Text style={styles.previousSetReps}>{set.reps} reps</Text>
-                          <Text style={styles.previousSetWeight}>{formatWeightDisplay(set.weight, set.weightUnit)}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    
-                    {previousData.totalVolume > 0 && (
-                      <View style={styles.previousWorkoutStats}>
-                        <View style={styles.previousStatItem}>
-                          <Text style={styles.previousStatLabel}>Total Volume</Text>
-                          <Text style={styles.previousStatValue}>
-                            {formatWeightDisplay(previousData.totalVolume, 'kg')}
-                          </Text>
-                        </View>
-                        {previousData.topSetWeight && (
-                          <View style={styles.previousStatItem}>
-                            <Text style={styles.previousStatLabel}>Top Set</Text>
-                            <Text style={styles.previousStatValue}>
-                              {formatWeightDisplay(previousData.topSetWeight, 'kg')}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </LinearGradient>
-                </View>
-              );
-            }
-            return null;
-          })()}
-
-          <View style={styles.recordSection}>
-            <LinearGradient
-              colors={['rgba(28, 28, 30, 0.9)', 'rgba(18, 18, 18, 0.95)']}
-              style={styles.recordGradient}
-            >
-              <View style={styles.recordTitleContainer}>
-                <Icon name="pencil" size={20} color={colors.primary} style={styles.recordIcon} />
-                <Text style={styles.recordTitle}>Record Your Performance</Text>
-              </View>
-              
-              <View style={styles.inputsContainer}>
-                {(() => {
-                  const exerciseName = exerciseMap[currentSet.exercise_id]?.name || '';
-                  const isCardio = isCardioExercise(exerciseName);
-                  
-                  if (isCardio) {
-                    // Cardio exercises: show Time (minutes) only
-                    return (
-                      <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Time (minutes)</Text>
-                        <TextInput
-                          mode="outlined"
-                          value={actualReps}
-                          onChangeText={(value) => {
-                            // Remove 'm' suffix and any non-numeric characters
-                            const numericOnly = value.replace(/[^0-9]/g, '');
-                            setActualReps(numericOnly);
-                          }}
-                          keyboardType="numeric"
-                          style={styles.input}
-                          outlineColor={colors.border}
-                          activeOutlineColor={colors.primary}
-                          placeholder="Enter minutes"
-                          theme={{
-                            colors: {
-                              primary: colors.primary,
-                              outline: colors.border,
-                              onSurfaceVariant: colors.textSecondary,
-                              surface: colors.surface,
-                              onSurface: colors.text
-                            }
-                          }}
-                        />
-                      </View>
-                    );
-                  }
-                  
-                  // Strength exercises: show Reps and Weight
-                  return (
-                    <>
-                      <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Actual Reps</Text>
-                        <TextInput
-                          mode="outlined"
-                          value={actualReps}
-                          onChangeText={setActualReps}
-                          keyboardType="numeric"
-                          style={styles.input}
-                          outlineColor={colors.border}
-                          activeOutlineColor={colors.primary}
-                          placeholder="Enter reps"
-                          theme={{
-                            colors: {
-                              primary: colors.primary,
-                              outline: colors.border,
-                              onSurfaceVariant: colors.textSecondary,
-                              surface: colors.surface,
-                              onSurface: colors.text
-                            }
-                          }}
-                        />
-                      </View>
-                      
-                      <View style={styles.inputContainer}>
-                        {(() => {
-                          const isBodyweight = isBodyweightExercise(exerciseName);
-                          const canAddWeight = canUseOptionalWeight(exerciseName);
-                    
-                    if (isBodyweight) {
-                      return (
-                        <>
-                          <Text style={styles.inputLabel}>
-                            {canAddWeight ? `Additional Weight (${weightUnit}) - Optional` : 'Bodyweight Exercise'}
-                          </Text>
-                          {canAddWeight ? (
-                            <>
-                              <View style={styles.weightInputContainer}>
-                              <TextInput
-                                mode="outlined"
-                                value={actualWeight}
-                                onChangeText={setActualWeight}
-                                keyboardType="numeric"
-                                  style={[styles.input, styles.weightInput]}
-                                outlineColor={colors.border}
-                                activeOutlineColor={colors.primary}
-                                placeholder="0 (bodyweight only)"
-                                theme={{
-                                  colors: {
-                                    primary: colors.primary,
-                                    outline: colors.border,
-                                    onSurfaceVariant: colors.textSecondary,
-                                    surface: colors.surface,
-                                    onSurface: colors.text
-                                  }
-                                }}
-                              />
-                                <View style={styles.unitSelector}>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.unitButton,
-                                      weightUnit === 'kg' && styles.unitButtonActive
-                                    ]}
-                                    onPress={() => setWeightUnit('kg')}
-                                  >
-                                    <Text style={[
-                                      styles.unitButtonText,
-                                      weightUnit === 'kg' && styles.unitButtonTextActive
-                                    ]}>kg</Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.unitButton,
-                                      weightUnit === 'lbs' && styles.unitButtonActive
-                                    ]}
-                                    onPress={() => setWeightUnit('lbs')}
-                                  >
-                                    <Text style={[
-                                      styles.unitButtonText,
-                                      weightUnit === 'lbs' && styles.unitButtonTextActive
-                                    ]}>lbs</Text>
-                                  </TouchableOpacity>
-                                </View>
-                              </View>
-                              <Text style={styles.weightHelpText}>
-                                💡 Leave empty for bodyweight only. Add weight if using a belt, vest, or holding weights.
-                                {sessionWeightUnit && (
-                                  <Text style={styles.sessionUnitHint}>
-                                    {'\n'}📌 Session preference: {sessionWeightUnit}
-                                  </Text>
-                                )}
-                              </Text>
-                            </>
-                          ) : (
-                            <View style={styles.bodyweightInfo}>
-                              <Icon name="account" size={20} color={colors.primary} />
-                              <Text style={styles.bodyweightText}>
-                                Using your bodyweight only
-                              </Text>
-                            </View>
-                          )}
-                        </>
-                      );
-                    } else {
-                      return (
-                        <>
-                          <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
-                          <View style={styles.weightInputContainer}>
-                          <TextInput
-                            mode="outlined"
-                            value={actualWeight}
-                            onChangeText={setActualWeight}
-                            keyboardType="numeric"
-                              style={[styles.input, styles.weightInput]}
-                            outlineColor={colors.border}
-                            activeOutlineColor={colors.primary}
-                            placeholder="Enter weight"
-                            theme={{
-                              colors: {
-                                primary: colors.primary,
-                                outline: colors.border,
-                                onSurfaceVariant: colors.textSecondary,
-                                surface: colors.surface,
-                                onSurface: colors.text
-                              }
-                            }}
-                          />
-                            <View style={styles.unitSelector}>
-                              <TouchableOpacity
-                                style={[
-                                  styles.unitButton,
-                                  weightUnit === 'kg' && styles.unitButtonActive,
-                                  // Disable if session has different unit and user has logged sets
-                                  sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0 && styles.unitButtonDisabled
-                                ]}
-                                onPress={() => {
-                                  // Check if switching would cause inconsistency
-                                  if (sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0) {
-                                    Alert.alert(
-                                      "Weight Unit Consistency",
-                                      `You've already logged sets for this exercise using ${sessionWeightUnit.toUpperCase()}. Please continue using the same unit to keep your data consistent.\n\nIf you need to change units, you can do so when starting a new exercise.`,
-                                      [{ text: "OK", style: "default" }]
-                                    );
-                                    return;
-                                  }
-                                  setWeightUnit('kg');
-                                }}
-                              >
-                                <Text style={[
-                                  styles.unitButtonText,
-                                  weightUnit === 'kg' && styles.unitButtonTextActive,
-                                  sessionWeightUnit && sessionWeightUnit !== 'kg' && Object.keys(completedSets).length > 0 && styles.unitButtonTextDisabled
-                                ]}>kg</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[
-                                  styles.unitButton,
-                                  weightUnit === 'lbs' && styles.unitButtonActive,
-                                  // Disable if session has different unit and user has logged sets
-                                  sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0 && styles.unitButtonDisabled
-                                ]}
-                                onPress={() => {
-                                  // Check if switching would cause inconsistency
-                                  if (sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0) {
-                                    Alert.alert(
-                                      "Weight Unit Consistency",
-                                      `You've already logged sets for this exercise using ${sessionWeightUnit.toUpperCase()}. Please continue using the same unit to keep your data consistent.\n\nIf you need to change units, you can do so when starting a new exercise.`,
-                                      [{ text: "OK", style: "default" }]
-                                    );
-                                    return;
-                                  }
-                                  setWeightUnit('lbs');
-                                }}
-                              >
-                                <Text style={[
-                                  styles.unitButtonText,
-                                  weightUnit === 'lbs' && styles.unitButtonTextActive,
-                                  sessionWeightUnit && sessionWeightUnit !== 'lbs' && Object.keys(completedSets).length > 0 && styles.unitButtonTextDisabled
-                                ]}>lbs</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                          {sessionWeightUnit && (
-                            <View style={styles.sessionUnitIndicatorContainer}>
-                              <Text style={styles.sessionUnitIndicator}>
-                                📌 Session preference: {sessionWeightUnit.toUpperCase()}
-                              </Text>
-                              <Text style={styles.sessionUnitIndicatorSubtext}>
-                                Keep using {sessionWeightUnit} for consistency
-                              </Text>
-                            </View>
-                          )}
-                        </>
-                      );
-                    }
-                  })()}
-                      </View>
-                      
-                      {/* RPE Input */}
-                      <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>RPE (Rate of Perceived Exertion) - Optional</Text>
-                        <View style={styles.rpeContainer}>
-                          <TextInput
-                            mode="outlined"
-                            value={actualRPE}
-                            onChangeText={setActualRPE}
-                            keyboardType="numeric"
-                            style={[styles.input, styles.rpeInput]}
-                            outlineColor={colors.border}
-                            activeOutlineColor={colors.primary}
-                            placeholder="1-10"
-                            theme={{
-                              colors: {
-                                primary: colors.primary,
-                                outline: colors.border,
-                                onSurfaceVariant: colors.textSecondary,
-                                surface: colors.surface,
-                                onSurface: colors.text
-                              }
-                            }}
-                          />
-                          <Text style={styles.rpeHelpText}>
-                            1-3: Easy | 4-6: Moderate | 7-8: Hard | 9-10: Max effort
-                          </Text>
-                        </View>
-                      </View>
-                    </>
-                  );
-                })()}
-              </View>
-              
-              {/* Complete Set button - alert will handle set limit */}
-              {(
-              <TouchableOpacity
-                style={styles.doneButtonContainer}
-                onPress={handleSetDone}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.doneButton}
-                >
-                  <View style={styles.doneButtonContent}>
-                    <Icon name="check" size={20} color={colors.text} style={styles.doneButtonIcon} />
-                    <Text style={styles.doneButtonText}>Complete Set</Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-              )}
-
-            </LinearGradient>
-          </View>
-        </Animated.View>
+        {sets.map((exerciseSet, index) => renderExerciseCard(exerciseSet, index))}
+        
       </ScrollView>
     );
+  };
+
+  const renderExerciseContent = () => {
+    // Legacy function kept for backward compatibility, but now redirects to all exercises view
+    return renderAllExercises();
   };
 
   return (
@@ -1983,9 +2464,18 @@ export default function SessionExecutionScreen() {
               <Icon name="arrow-left" size={24} color={colors.text} />
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle}>{splitName || sessionTitle || 'Workout'}</Text>
+            <Text style={styles.headerTitle}>{splitName || workoutName || sessionTitle || 'Workout'}</Text>
             
-            <View style={styles.menuButton} />
+            <TouchableOpacity 
+              style={styles.finishCheckbox}
+              onPress={() => {
+                console.log('[Session] ✅ User chose to finish workout');
+                setWorkoutFinished(true);
+                handleFinishWorkout();
+              }}
+            >
+              <Icon name="check" size={20} color={colors.text} />
+            </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
         
@@ -2000,7 +2490,14 @@ export default function SessionExecutionScreen() {
                 {Math.round(sessionProgress * 100)}% Complete
               </Text>
               <Text style={styles.progressDetails}>
-                {currentIndex + 1}/{sets.length} Exercises
+                {(() => {
+                  // Count exercises with at least one completed set
+                  const exercisesWithSets = sets.filter(set => {
+                    const completedSetsForExercise = completedSets[set.exercise_id] || [];
+                    return completedSetsForExercise.length > 0;
+                  }).length;
+                  return `${exercisesWithSets}/${sets.length} Exercises`;
+                })()}
               </Text>
             </View>
             <View style={styles.progressRightSection}>
@@ -2046,86 +2543,74 @@ export default function SessionExecutionScreen() {
             </View>
           </View>
         ) : sets.length === 0 ? (
-          <View style={styles.centered}>
-            <View style={styles.loadingContainer}>
-              <LinearGradient
-                colors={['rgba(28, 28, 30, 0.8)', 'rgba(18, 18, 18, 0.9)']}
-                style={styles.loadingGradient}
-              >
-                <Icon name="dumbbell" size={64} color={colors.primary} />
-                <Text style={styles.loadingText}>
-                  {isQuickWorkout ? 'Ready to Start!' : 'No exercises found'}
+          <ScrollView 
+            contentContainerStyle={styles.emptyStateContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* AI Coach Header */}
+            <View style={styles.coachHeader}>
+              <View style={styles.coachAvatarContainer}>
+                <Image
+                  source={require('../../../../assets/mascot.png')}
+                  style={styles.coachAvatar}
+                />
+                <View style={styles.coachOnlineIndicator} />
+              </View>
+              <View style={styles.coachTextContainer}>
+                <Text style={styles.coachGreeting}>
+                  {isQuickWorkout ? 'Ready to Start!' : 'No Exercises'}
                 </Text>
-                <Text style={styles.loadingTip}>
+                <Text style={styles.coachMessage}>
                   {isQuickWorkout 
                     ? 'Add exercises as you go. Choose what feels right for today!'
                     : 'This workout session doesn\'t have any exercises configured.'
                   }
                 </Text>
-                
-                {isQuickWorkout ? (
-                  <TouchableOpacity
-                    style={styles.doneButtonContainer}
-                    onPress={() => setShowExercisePicker(true)}
-                  >
-                    <LinearGradient
-                      colors={[colors.primary, colors.primaryDark]}
-                      style={styles.doneButton}
-                    >
-                      <Icon name="plus-circle" size={20} color={colors.text} style={{ marginRight: 8 }} />
-                      <Text style={styles.doneButtonText}>Add First Exercise</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.doneButtonContainer}
-                    onPress={() => router.back()}
-                  >
-                    <LinearGradient
-                      colors={[colors.primary, colors.primaryDark]}
-                      style={styles.doneButton}
-                    >
-                      <Text style={styles.doneButtonText}>Go Back</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-              </LinearGradient>
+              </View>
             </View>
-          </View>
-        ) : resting ? (
-          renderRestTimer()
+
+            {/* Empty State Card */}
+            <View style={styles.emptyStateCard}>
+              <View style={styles.emptyIconContainer}>
+                <Icon name="dumbbell" size={48} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>
+                {isQuickWorkout ? 'Ready to Start!' : 'No Exercises Found'}
+              </Text>
+              <Text style={styles.emptyDescription}>
+                {isQuickWorkout 
+                  ? 'Add exercises as you go. Choose what feels right for today!'
+                  : 'This workout session doesn\'t have any exercises configured.'
+                }
+              </Text>
+              
+              {isQuickWorkout ? (
+                <TouchableOpacity
+                  style={styles.emptyAddExerciseButton}
+                  onPress={() => setShowExercisePicker(true)}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    style={styles.emptyAddExerciseButtonGradient}
+                  >
+                    <Icon name="plus" size={20} color={colors.text} />
+                    <Text style={styles.emptyAddExerciseButtonText}>Add First Exercise</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.backButtonEmpty}
+                  onPress={() => router.back()}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.backButtonText}>Go Back</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         ) : (
           renderExerciseContent()
-        )}
-        
-        {/* Floating Action Buttons */}
-        {!loading && !resting && sets.length > 0 && (
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => Alert.alert('Tip', 'Focus on proper form for maximum results and to prevent injuries.')}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              style={styles.fabGradient}
-            >
-              <Icon name="lightbulb-on" size={24} color={colors.text} />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-        
-        {/* Add Exercise FAB for Quick Workouts */}
-        {!loading && !resting && isQuickWorkout && (
-          <TouchableOpacity
-            style={[styles.fab, styles.addExerciseFab]}
-            onPress={() => setShowExercisePicker(true)}
-          >
-            <LinearGradient
-              colors={[colors.purple, colors.pink]}
-              style={styles.fabGradient}
-            >
-              <Icon name="plus" size={28} color={colors.text} />
-            </LinearGradient>
-          </TouchableOpacity>
         )}
         
         {/* Last Performance Modal */}
@@ -2223,13 +2708,232 @@ export default function SessionExecutionScreen() {
           </View>
         )}
         
-        {/* Exercise Picker Modal */}
-        <ExercisePicker
-          visible={showExercisePicker}
-          onClose={() => setShowExercisePicker(false)}
-          onSelectExercise={handleAddExercise}
-          excludeExerciseIds={sets.map(s => s.exercise_id)}
-        />
+        {/* Exercise Picker Modal - Only render when visible for instant display */}
+        {showExercisePicker && (
+          <ExercisePicker
+            visible={true}
+            onClose={() => setShowExercisePicker(false)}
+            onSelectExercise={handleAddExercise}
+            excludeExerciseIds={sets.map(s => s.exercise_id)}
+            userId={user?.id}
+            preloadedExercises={preloadedExercises}
+            preloadedRecentExercises={preloadedRecentExercises}
+          />
+        )}
+
+        {/* Workout Name Dialog for Quick Workouts */}
+        <Portal>
+          <Dialog 
+            visible={showNameDialog} 
+            onDismiss={() => {
+              setShowNameDialog(false);
+              setPendingSubmit(false);
+            }}
+            style={{ backgroundColor: colors.surface, borderRadius: 16 }}
+          >
+            <Dialog.Title style={{ color: colors.text }}>Name Your Workout</Dialog.Title>
+            <Dialog.Content>
+              <TextInput
+                label="Workout Name"
+                value={workoutName}
+                onChangeText={setWorkoutName}
+                mode="outlined"
+                style={{ backgroundColor: colors.background }}
+                activeOutlineColor={colors.primary}
+                placeholder="e.g., Morning Push, Leg Day, Full Body"
+                autoFocus
+              />
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button 
+                onPress={() => {
+                  setShowNameDialog(false);
+                  setPendingSubmit(false);
+                }}
+                textColor={colors.textSecondary}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onPress={async () => {
+                  setShowNameDialog(false);
+                  await saveWorkoutHistory();
+                  setPendingSubmit(false);
+                }}
+                mode="contained"
+                icon="check"
+                buttonColor={colors.primary}
+                textColor="#FFFFFF"
+              >
+                Save
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+
+        {/* Workout Summary Modal */}
+        {showSummary && (
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity 
+              style={styles.modalBackdrop}
+              activeOpacity={1}
+              onPress={() => setShowSummary(false)}
+            />
+            <View style={[styles.modalContent, { height: height * 0.85, maxHeight: height - insets.top - 100 }]}>
+              <View style={[styles.modalGradient, { flex: 1, backgroundColor: '#000000' }]}>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalTitleContainer}>
+                    <View style={styles.modalIconContainer}>
+                      <Icon name="check-circle" size={24} color={colors.success} />
+                    </View>
+                    <Text style={styles.modalTitle}>Workout Summary</Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => setShowSummary(false)}
+                    style={styles.modalCloseButton}
+                    activeOpacity={0.8}
+                  >
+                    <Icon name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <ScrollView 
+                    style={{ flex: 1 }} 
+                    contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 20, paddingTop: 20 }}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {Object.entries(completedSets).map(([exerciseId, setsList], exerciseIndex) => {
+                      const exerciseName = exerciseMap[exerciseId]?.name || `Exercise ${exerciseIndex + 1}`;
+                      
+                      return (
+                        <View key={exerciseId} style={styles.summaryExerciseContainer}>
+                          <Text style={styles.summaryExerciseName}>
+                            {exerciseName}
+                          </Text>
+                          
+                          {setsList.map((set, setIndex) => (
+                            <View key={setIndex} style={styles.summarySetCard}>
+                              <View style={styles.summarySetHeader}>
+                                <Text style={styles.summarySetNumber}>Set {set.set_number}</Text>
+                                <TouchableOpacity 
+                                  onPress={() => {
+                                    setEditingSet({
+                                      exerciseId,
+                                      setIndex,
+                                      reps: set.reps,
+                                      weight: set.original_weight !== null && set.original_weight !== undefined ? set.original_weight : set.weight,
+                                      rpe: null
+                                    });
+                                  }}
+                                  style={styles.summaryEditButton}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.summaryEditText}>Edit</Text>
+                                </TouchableOpacity>
+                              </View>
+
+                              {editingSet?.exerciseId === exerciseId && editingSet?.setIndex === setIndex ? (
+                                <View style={styles.summaryEditContainer}>
+                                  <View style={styles.summaryEditRow}>
+                                    <View style={styles.summaryEditField}>
+                                      <Text style={styles.summaryEditLabel}>Reps</Text>
+                                      <TextInput
+                                        mode="outlined"
+                                        value={editingSet.reps.toString()}
+                                        onChangeText={(text) => setEditingSet({...editingSet, reps: parseInt(text) || 0})}
+                                        keyboardType="numeric"
+                                        style={styles.summaryEditInput}
+                                        theme={{ colors: { text: colors.text, primary: colors.primary, outline: 'rgba(255, 255, 255, 0.1)' } }}
+                                      />
+                                    </View>
+                                    <View style={styles.summaryEditField}>
+                                      <Text style={styles.summaryEditLabel}>Weight ({set.weight_unit})</Text>
+                                      <TextInput
+                                        mode="outlined"
+                                        value={(editingSet.weight || 0).toString()}
+                                        onChangeText={(text) => setEditingSet({...editingSet, weight: parseFloat(text) || 0})}
+                                        keyboardType="numeric"
+                                        style={styles.summaryEditInput}
+                                        theme={{ colors: { text: colors.text, primary: colors.primary, outline: 'rgba(255, 255, 255, 0.1)' } }}
+                                      />
+                                    </View>
+                                  </View>
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      // Update local state
+                                      const newCompletedSets = { ...completedSets };
+                                      const updatedSets = [...newCompletedSets[exerciseId]];
+                                      const currentSet = updatedSets[setIndex];
+                                      const weightUnit = currentSet.weight_unit;
+                                      
+                                      // Convert to kg for database storage if needed
+                                      let weightInKg = editingSet.weight;
+                                      if (weightUnit === 'lbs' && editingSet.weight !== null) {
+                                        weightInKg = convertLbsToKg(editingSet.weight);
+                                      }
+                                      
+                                      updatedSets[setIndex] = {
+                                        ...currentSet,
+                                        reps: editingSet.reps,
+                                        weight: weightInKg, // Store in kg for database
+                                        original_weight: editingSet.weight, // Keep original user input
+                                        rpe: null // RPE removed
+                                      };
+                                      newCompletedSets[exerciseId] = updatedSets;
+                                      setCompletedSets(newCompletedSets);
+                                      setEditingSet(null);
+                                    }}
+                                    style={styles.summarySaveChangesButton}
+                                    activeOpacity={0.8}
+                                  >
+                                    <LinearGradient
+                                      colors={[colors.primary, colors.primaryDark]}
+                                      style={styles.summarySaveChangesGradient}
+                                    >
+                                      <Text style={styles.summarySaveChangesText}>Save Changes</Text>
+                                    </LinearGradient>
+                                  </TouchableOpacity>
+                                </View>
+                              ) : (
+                                <View style={styles.summarySetDetails}>
+                                  <Text style={styles.summarySetReps}>{set.reps} reps</Text>
+                                  <Text style={styles.summarySetWeight}>
+                                    {set.weight !== null 
+                                      ? `${set.original_weight !== null && set.original_weight !== undefined ? set.original_weight : set.weight} ${set.weight_unit}` 
+                                      : 'Bodyweight'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <View style={[styles.summaryFooter, { paddingBottom: Math.max(insets.bottom, 20) + 60 }]}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowSummary(false);
+                      submitWorkout();
+                    }}
+                    style={styles.summarySaveButton}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={[colors.primary, colors.primaryDark]}
+                      style={styles.summarySaveButtonGradient}
+                    >
+                      <Text style={styles.summarySaveButtonText}>Save Workout</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
@@ -2272,6 +2976,16 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     width: 40, // Maintain layout balance
+  },
+  finishCheckbox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   progressContainer: {
     paddingHorizontal: 16,
@@ -2355,20 +3069,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   exerciseCard: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.surface,
-    marginBottom: 16,
-    elevation: 4,
+    marginBottom: 12,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   exerciseImageBackground: {
     height: 200,
+    backgroundColor: colors.surface, // Fallback color
   },
   exerciseImage: {
     borderTopLeftRadius: 16,
@@ -2378,6 +3093,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     padding: 16,
+  },
+  exerciseHeaderContainer: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   exerciseHeader: {
     flexDirection: 'row',
@@ -2389,38 +3108,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   exerciseOrderContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   exerciseOrder: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
   },
   exerciseName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   setProgress: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-    marginTop: 4,
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  deleteExerciseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2556,12 +3280,15 @@ const styles = StyleSheet.create({
   },
   inputsContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 24,
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   inputContainer: {
     flex: 1,
-    marginHorizontal: 8,
+    minWidth: '45%', // Allows wrapping if needed, but keeps 2 per row mostly
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 14,
@@ -2577,31 +3304,45 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   doneButtonContainer: {
-    borderRadius: 12,
+    borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 8,
+    marginTop: 16,
+    alignSelf: 'stretch',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   doneButton: {
-    paddingVertical: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 999,
   },
   doneButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  doneButtonIcon: {
+  doneButtonIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   doneButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.text,
+  },
+  doneButtonSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   restContainer: {
     flex: 1,
@@ -2859,13 +3600,15 @@ const styles = StyleSheet.create({
   },
   rpeInput: {
     width: '100%',
+    textAlign: 'center',
   },
   rpeHelpText: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 8,
+    marginTop: 12,
+    marginBottom: 8,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   unitSelector: {
     flexDirection: 'row',
@@ -2958,23 +3701,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  finishWorkoutButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: colors.success + '20',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.success + '50',
-    gap: 8,
-  },
-  finishWorkoutButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
   continueButton: {
     alignItems: 'center',
     padding: 12,
@@ -2994,7 +3720,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 60,
     justifyContent: 'flex-end',
     zIndex: 1000,
   },
@@ -3007,10 +3733,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   modalContent: {
-    maxHeight: height * 0.8,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    maxHeight: height * 0.9,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
+    backgroundColor: '#000000',
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -3018,13 +3745,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   modalGradient: {
-    padding: 20,
+    flex: 1,
+    padding: 0,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   modalTitleContainer: {
     flexDirection: 'row',
@@ -3049,7 +3781,7 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.6,
   },
   modalScrollContent: {
-    paddingBottom: 100, // Extra padding to prevent content from being hidden by tab bar
+    paddingBottom: 150, // Extra padding to prevent content from being hidden by tab bar
   },
   performanceContainer: {
     gap: 12,
@@ -3101,19 +3833,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 12,
   },
-  setNumberBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary + '40',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  setNumberText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
   setDetails: {
     flex: 1,
     flexDirection: 'row',
@@ -3148,5 +3867,526 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  modalIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryExerciseContainer: {
+    marginBottom: 24,
+  },
+  summaryExerciseName: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  summarySetCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  summarySetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summarySetNumber: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  summaryEditButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  summaryEditText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  summarySetDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summarySetReps: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  summarySetWeight: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  summaryFooter: {
+    paddingTop: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#000000',
+    minHeight: 80,
+  },
+  summarySaveButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  summarySaveButtonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summarySaveButtonText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  summaryEditContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  summaryEditRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryEditField: {
+    flex: 1,
+  },
+  summaryEditLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  summaryEditInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    height: 48,
+  },
+  summarySaveChangesButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  summarySaveChangesGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summarySaveChangesText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  // Table View Styles
+  tableSection: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  tableGradient: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 8,
+  },
+  tableHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  tableCell: {
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+    overflow: 'hidden',
+    marginHorizontal: 2,
+  },
+  lastTimeText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  lastTimeValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lastTimeValueSeparator: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    marginHorizontal: 4,
+  },
+  lastTimeValue: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  lastTimeValueNA: {
+    fontSize: 12,
+    color: colors.textSecondary + '80',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  tableInput: {
+    backgroundColor: 'rgba(28, 28, 30, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
+    minHeight: 36,
+    width: '100%',
+    overflow: 'hidden',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    alignSelf: 'stretch',
+  },
+  completedValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.success,
+    textAlign: 'center',
+  },
+  completeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeSetButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedCheckmark: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setNumberBadgeCompleted: {
+    backgroundColor: 'rgba(52, 199, 89, 0.2)',
+  },
+  setNumberText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  setNumberTextCompleted: {
+    color: colors.success,
+  },
+  restTimeRow: {
+    paddingLeft: 52, // Align with set number column
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
+  restTimeText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  addSetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 6,
+  },
+  addSetButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  unitSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 12,
+  },
+  unitLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  exerciseCompleteActions: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 12,
+  },
+  addExerciseButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  addExerciseButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addExerciseButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  finishWorkoutButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  finishWorkoutButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  finishWorkoutButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  exerciseCardContainer: {
+    marginBottom: 16,
+  },
+  addExerciseButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderStyle: 'dashed',
+    gap: 6,
+  },
+  addExerciseButtonSmallText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  finishWorkoutContainer: {
+    marginTop: 24,
+    marginBottom: 32,
+    gap: 12,
+  },
+  finishWorkoutButtonFull: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  addExerciseButtonFull: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  // AI Coach Header Styles
+  emptyStateContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingTop: 8,
+  },
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
+    flex: 1,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
+    lineHeight: 20,
+  },
+  // Quick Actions Grid
+  quickActionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  quickActionCard: {
+    width: (width - 40 - 24) / 4,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
+    letterSpacing: 0.3,
+  },
+  // Empty State Card
+  emptyStateCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: colors.textSecondary || 'rgba(235, 235, 245, 0.6)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  emptyAddExerciseButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  emptyAddExerciseButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 10,
+  },
+  emptyAddExerciseButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  backButtonEmpty: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
 }); 

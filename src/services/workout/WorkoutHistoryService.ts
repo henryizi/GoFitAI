@@ -62,6 +62,10 @@ export type SessionExerciseLog = {
 export type SessionDetails = {
   id: string;
   completed_at: string | null;
+  duration_minutes?: number | null;
+  plan_id?: string | null;
+  plan_name?: string | null;
+  session_name?: string | null;
   exercises: SessionExerciseLog[];
 };
 
@@ -361,7 +365,21 @@ export class WorkoutHistoryService {
         .maybeSingle();
 
       if (error) {
-        console.error(`[WorkoutHistoryService] Error fetching exercise data for session ${sessionId}:`, error);
+        // Check if error message is HTML (Cloudflare error page)
+        const errorMessage = error.message || String(error);
+        const isHtmlError = typeof errorMessage === 'string' && (
+          errorMessage.includes('<!DOCTYPE html>') ||
+          errorMessage.includes('<html') ||
+          errorMessage.includes('Internal server error') ||
+          errorMessage.includes('Cloudflare')
+        );
+        
+        if (isHtmlError) {
+          console.warn(`[WorkoutHistoryService] Server error (500) when fetching exercise data for session ${sessionId}. This is likely a temporary Supabase/Cloudflare issue.`);
+          console.warn(`[WorkoutHistoryService] Returning empty array - session details will still be available from backup data.`);
+        } else {
+          console.error(`[WorkoutHistoryService] Error fetching exercise data for session ${sessionId}:`, error);
+        }
         return [];
       }
 
@@ -383,10 +401,21 @@ export class WorkoutHistoryService {
       
       exercisesData.forEach((exercise: any) => {
         // Get exercise name from various possible locations in the data structure
-        const exerciseName = exercise.exercises?.name || // From nested exercises object (database query)
-                            exercise.exercise_name ||     // From saved exercises_data
-                            exercise.name ||              // Fallback
-                            'Unknown Exercise';
+        let exerciseName = exercise.exercises?.name || // From nested exercises object (database query)
+                          exercise.exercise_name ||     // From saved exercises_data
+                          exercise.name ||              // Fallback
+                          null;
+        
+        // Check if the name is actually a number (index) - if so, it's not a valid name
+        if (exerciseName && /^\d+$/.test(String(exerciseName))) {
+          console.warn(`[WorkoutHistoryService] Exercise name "${exerciseName}" appears to be an index, not a name. Using fallback.`);
+          exerciseName = null;
+        }
+        
+        // If still no valid name, use fallback
+        if (!exerciseName) {
+          exerciseName = 'Unknown Exercise';
+        }
         
         // Get the logs/sets array - handle both database format (logs) and saved format (sets)
         const logs = Array.isArray(exercise.logs) ? exercise.logs :      // Database query format
@@ -511,7 +540,7 @@ export class WorkoutHistoryService {
       console.log(`📊 [WorkoutHistoryService] Found backup exercise data with ${Array.isArray(sessionData.exercises_data) ? sessionData.exercises_data.length : 'unknown count'} exercises`);
       
       // Convert backup data to exercise format
-      const exercises = WorkoutHistoryService.convertBackupDataToExercises(sessionData.exercises_data);
+      const exercises = await WorkoutHistoryService.convertBackupDataToExercises(sessionData.exercises_data, sessionData.completed_at);
       
       if (exercises.length > 0) {
         console.log(`🎯 [WorkoutHistoryService] Successfully converted backup data to ${exercises.length} exercises`);
@@ -522,9 +551,96 @@ export class WorkoutHistoryService {
         
         console.log(`📊 [WorkoutHistoryService] Calculated totals: ${totalExercises} exercises, ${totalSets} sets`);
         
+        // Fetch duration from workout_history if available
+        let durationMinutes: number | null = null;
+        try {
+          console.log(`[WorkoutHistoryService] Fetching duration for workout_history id: ${sessionData.id}`);
+          const { data: historyData, error: historyError } = await supabase
+            .from('workout_history')
+            .select('duration_minutes, completed_at')
+            .eq('id', sessionData.id)
+            .maybeSingle();
+          
+          if (historyError) {
+            console.warn('[WorkoutHistoryService] Error fetching duration by id:', historyError);
+          }
+          
+          if (historyData?.duration_minutes !== null && historyData?.duration_minutes !== undefined) {
+            durationMinutes = historyData.duration_minutes;
+            console.log(`[WorkoutHistoryService] ✅ Found duration: ${durationMinutes} minutes`);
+          } else {
+            console.log(`[WorkoutHistoryService] No duration found in database, calculating from exercise logs...`);
+            // Calculate duration from exercise log timestamps
+            try {
+              const allTimestamps: number[] = [];
+
+              exercises.forEach((ex, exIdx) => {
+                console.log(`[WorkoutHistoryService] Exercise ${exIdx + 1} (${ex.exercise_name}): ${ex.logs?.length || 0} logs`);
+                (ex.logs || []).forEach((log: any, logIdx: number) => {
+                  if (log.completed_at) {
+                    const t = new Date(log.completed_at).getTime();
+                    if (!isNaN(t)) {
+                      allTimestamps.push(t);
+                      console.log(`[WorkoutHistoryService]   Log ${logIdx + 1}: ${log.completed_at} -> ${t}`);
+                    } else {
+                      console.warn(`[WorkoutHistoryService]   Log ${logIdx + 1}: Invalid timestamp ${log.completed_at}`);
+                    }
+                  } else {
+                    console.warn(`[WorkoutHistoryService]   Log ${logIdx + 1}: No completed_at timestamp`);
+                  }
+                });
+              });
+
+              console.log(`[WorkoutHistoryService] Collected ${allTimestamps.length} valid timestamps`);
+
+              if (allTimestamps.length >= 2) {
+                const minTime = Math.min(...allTimestamps);
+                const maxTime = Math.max(...allTimestamps);
+                const calculatedDurationRaw = Math.round((maxTime - minTime) / 60000);
+                const safeDuration = Math.max(calculatedDurationRaw, 1);
+
+                console.log(`[WorkoutHistoryService] Time range: ${new Date(minTime).toISOString()} to ${new Date(maxTime).toISOString()}`);
+                console.log(`[WorkoutHistoryService] Raw duration: ${calculatedDurationRaw} minutes`);
+
+                if (!Number.isNaN(safeDuration) && safeDuration > 0) {
+                  durationMinutes = safeDuration;
+                  console.log(`[WorkoutHistoryService] ✅ Calculated duration from set logs: ${durationMinutes} minutes (from ${allTimestamps.length} timestamps)`);
+                } else {
+                  console.warn(`[WorkoutHistoryService] ⚠️ Calculated duration was invalid: ${calculatedDurationRaw} -> ${safeDuration}`);
+                  if (allTimestamps.length > 0) {
+                    durationMinutes = 1;
+                    console.log(`[WorkoutHistoryService] ⚠️ Setting duration to 1 minute as fallback`);
+                  }
+                }
+              } else if (allTimestamps.length === 1) {
+                durationMinutes = 1;
+                console.log(`[WorkoutHistoryService] ⚠️ Only 1 set timestamp found, defaulting to 1 minute`);
+              } else {
+                console.warn(`[WorkoutHistoryService] ⚠️ No valid timestamps found in exercise logs (found ${allTimestamps.length})`);
+                if (totalSets > 0) {
+                  durationMinutes = Math.max(totalSets, 1);
+                  console.log(`[WorkoutHistoryService] ⚠️ No timestamps, estimating ${durationMinutes} minutes based on ${totalSets} sets`);
+                }
+              }
+            } catch (calcError) {
+              console.warn('[WorkoutHistoryService] Error calculating duration from logs:', calcError);
+              if (totalSets > 0) {
+                durationMinutes = Math.max(totalSets, 1);
+                console.log(`[WorkoutHistoryService] ⚠️ Error in calculation, estimating ${durationMinutes} minutes based on ${totalSets} sets`);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('[WorkoutHistoryService] Could not fetch duration:', error);
+        }
+        
         return {
           id: sessionData.id,
           completed_at: sessionData.completed_at,
+          duration_minutes: durationMinutes,
+          plan_id: sessionData.plan_id || null,
+          plan_name: sessionData.plan_name || null,
+          session_name: sessionData.session_name || null,
           exercises,
         };
       } else {
@@ -564,10 +680,39 @@ export class WorkoutHistoryService {
         });
       }
       
+      // Fetch duration from workout_history if available
+      // Use the workout_history id (sessionData.id) instead of session_id
+      let durationMinutes: number | null = null;
+      try {
+        const { data: historyData } = await supabase
+          .from('workout_history')
+          .select('duration_minutes')
+          .eq('id', sessionData.id)
+          .maybeSingle();
+        
+        if (historyData?.duration_minutes) {
+          durationMinutes = historyData.duration_minutes;
+        } else {
+          // Fallback: try querying by session_id if id didn't work
+          const { data: fallbackData } = await supabase
+            .from('workout_history')
+            .select('duration_minutes')
+            .eq('session_id', actualSessionId)
+            .maybeSingle();
+          
+          if (fallbackData?.duration_minutes) {
+            durationMinutes = fallbackData.duration_minutes;
+          }
+        }
+      } catch (error) {
+        console.warn('[WorkoutHistoryService] Could not fetch duration:', error);
+      }
+
       // Return session details with placeholder or empty data
       return {
         id: sessionData.id,
         completed_at: sessionData.completed_at,
+        duration_minutes: durationMinutes,
         exercises: placeholderExercises,
       };
     }
@@ -614,8 +759,34 @@ export class WorkoutHistoryService {
 
     if (sets && sets.length > 0) {
       // Normal case: We have exercise_sets, process them
+      // First, collect all unique exercise_ids and fetch their names
+      const exerciseIds = [...new Set(sets.map(s => s.exercise_id))];
+      const exerciseNameMap = new Map<string, string>();
+      
+      // Fetch exercise names in batch
+      if (exerciseIds.length > 0) {
+        const { data: exercisesData } = await supabase
+          .from('exercises')
+          .select('id, name')
+          .in('id', exerciseIds);
+        
+        if (exercisesData) {
+          exercisesData.forEach(ex => {
+            exerciseNameMap.set(ex.id, ex.name);
+          });
+        }
+      }
+      
       for (const set of sets) {
-        const exerciseName = (set as any).exercises?.name ?? 'Exercise';
+        // Try to get name from join first, then from our map, then fallback
+        let exerciseName = (set as any).exercises?.name;
+        if (!exerciseName && set.exercise_id) {
+          exerciseName = exerciseNameMap.get(set.exercise_id);
+        }
+        if (!exerciseName) {
+          exerciseName = 'Unknown Exercise';
+          console.warn(`[WorkoutHistoryService] Could not find exercise name for exercise_id: ${set.exercise_id}`);
+        }
         
         // Fetch logs for this set
         const { data: logs, error: logsError } = await supabase
@@ -679,7 +850,7 @@ export class WorkoutHistoryService {
         console.log(`[WorkoutHistoryService] Found exercises_data in workout_history, converting to exercise logs`);
         
         // Convert exercises_data to SessionExerciseLog format
-        const convertedExercises = WorkoutHistoryService.convertBackupDataToExercises(historyData.exercises_data);
+        const convertedExercises = await WorkoutHistoryService.convertBackupDataToExercises(historyData.exercises_data, sessionData.completed_at);
         exercises.push(...convertedExercises);
         
         console.log(`[WorkoutHistoryService] Successfully converted ${convertedExercises.length} exercises from backup data`);
@@ -695,9 +866,141 @@ export class WorkoutHistoryService {
       exercise_count: exercises.length
     });
 
+    // Fetch duration from workout_history if available
+    // Use the workout_history id (sessionData.id) instead of session_id
+    let durationMinutes: number | null = null;
+    try {
+      console.log(`[WorkoutHistoryService] Fetching duration for workout_history id: ${sessionData.id}`);
+      const { data: historyData, error: historyError } = await supabase
+        .from('workout_history')
+        .select('duration_minutes, completed_at')
+        .eq('id', sessionData.id)
+        .maybeSingle();
+      
+      if (historyError) {
+        console.warn('[WorkoutHistoryService] Error fetching duration by id:', historyError);
+      }
+      
+      if (historyData?.duration_minutes !== null && historyData?.duration_minutes !== undefined) {
+        durationMinutes = historyData.duration_minutes;
+        console.log(`[WorkoutHistoryService] ✅ Found duration: ${durationMinutes} minutes`);
+      } else {
+        console.log(`[WorkoutHistoryService] No duration found by id, trying session_id fallback...`);
+        // Fallback: try querying by session_id if id didn't work
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('workout_history')
+          .select('duration_minutes, completed_at')
+          .eq('session_id', actualSessionId)
+          .maybeSingle();
+        
+        if (fallbackError) {
+          console.warn('[WorkoutHistoryService] Error fetching duration by session_id:', fallbackError);
+        }
+        
+        if (fallbackData?.duration_minutes !== null && fallbackData?.duration_minutes !== undefined) {
+          durationMinutes = fallbackData.duration_minutes;
+          console.log(`[WorkoutHistoryService] ✅ Found duration by session_id: ${durationMinutes} minutes`);
+        } else {
+          // Last resort: calculate from completed_at if we have session start/end times
+          if (historyData?.completed_at && sessionData.completed_at) {
+            const startTime = new Date(sessionData.completed_at).getTime();
+            const endTime = new Date(historyData.completed_at).getTime();
+            const calculatedDurationRaw = Math.round((endTime - startTime) / 60000);
+            const safeDuration = Math.max(calculatedDurationRaw, 1); // At least 1 minute if any work was logged
+            if (!Number.isNaN(safeDuration) && safeDuration > 0) {
+              durationMinutes = safeDuration;
+              console.log(`[WorkoutHistoryService] ⚠️ Calculated duration from timestamps: ${durationMinutes} minutes`);
+            }
+          }
+          if (durationMinutes === null) {
+            console.warn('[WorkoutHistoryService] ⚠️ Could not find or calculate duration');
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[WorkoutHistoryService] Could not fetch duration:', error);
+    }
+
+    // FINAL FALLBACK: If duration is still missing, calculate from first and last set log times
+    if ((durationMinutes === null || durationMinutes === undefined) && exercises.length > 0) {
+      try {
+        console.log(`[WorkoutHistoryService] 🔄 Attempting to calculate duration from exercise logs...`);
+        const allTimestamps: number[] = [];
+
+        exercises.forEach((ex, exIdx) => {
+          console.log(`[WorkoutHistoryService] Exercise ${exIdx + 1} (${ex.exercise_name}): ${ex.logs?.length || 0} logs`);
+          (ex.logs || []).forEach((log: any, logIdx: number) => {
+            if (log.completed_at) {
+              const t = new Date(log.completed_at).getTime();
+              if (!isNaN(t)) {
+                allTimestamps.push(t);
+                console.log(`[WorkoutHistoryService]   Log ${logIdx + 1}: ${log.completed_at} -> ${t}`);
+              } else {
+                console.warn(`[WorkoutHistoryService]   Log ${logIdx + 1}: Invalid timestamp ${log.completed_at}`);
+              }
+            } else {
+              console.warn(`[WorkoutHistoryService]   Log ${logIdx + 1}: No completed_at timestamp`);
+            }
+          });
+        });
+
+        console.log(`[WorkoutHistoryService] Collected ${allTimestamps.length} valid timestamps`);
+
+        if (allTimestamps.length >= 2) {
+          const minTime = Math.min(...allTimestamps);
+          const maxTime = Math.max(...allTimestamps);
+          const calculatedDurationRaw = Math.round((maxTime - minTime) / 60000);
+          const safeDuration = Math.max(calculatedDurationRaw, 1); // Treat ultra-short sessions as 1 minute
+
+          console.log(`[WorkoutHistoryService] Time range: ${new Date(minTime).toISOString()} to ${new Date(maxTime).toISOString()}`);
+          console.log(`[WorkoutHistoryService] Raw duration: ${calculatedDurationRaw} minutes`);
+
+          if (!Number.isNaN(safeDuration) && safeDuration > 0) {
+            durationMinutes = safeDuration;
+            console.log(`[WorkoutHistoryService] ✅ Calculated duration from set logs: ${durationMinutes} minutes (from ${allTimestamps.length} timestamps)`);
+          } else {
+            console.warn(`[WorkoutHistoryService] ⚠️ Calculated duration was invalid: ${calculatedDurationRaw} -> ${safeDuration}`);
+            // Even if calculation fails, set to 1 minute if we have logs
+            if (allTimestamps.length > 0) {
+              durationMinutes = 1;
+              console.log(`[WorkoutHistoryService] ⚠️ Setting duration to 1 minute as fallback`);
+            }
+          }
+        } else if (allTimestamps.length === 1) {
+          // Only one set logged, assume 1 minute minimum
+          durationMinutes = 1;
+          console.log(`[WorkoutHistoryService] ⚠️ Only 1 set timestamp found, defaulting to 1 minute`);
+        } else {
+          console.warn(`[WorkoutHistoryService] ⚠️ No valid timestamps found in exercise logs (found ${allTimestamps.length})`);
+          // If we have exercises but no timestamps, still set a minimum duration
+          if (exercises.length > 0) {
+            const totalSets = exercises.reduce((sum, ex) => sum + (ex.logs?.length || 0), 0);
+            if (totalSets > 0) {
+              durationMinutes = Math.max(totalSets, 1); // At least 1 minute per set
+              console.log(`[WorkoutHistoryService] ⚠️ No timestamps, estimating ${durationMinutes} minutes based on ${totalSets} sets`);
+            }
+          }
+        }
+      } catch (calcError) {
+        console.warn('[WorkoutHistoryService] Error calculating duration from logs:', calcError);
+        // Last resort: if we have exercises, set a minimum duration
+        if (exercises.length > 0) {
+          const totalSets = exercises.reduce((sum, ex) => sum + (ex.logs?.length || 0), 0);
+          if (totalSets > 0) {
+            durationMinutes = Math.max(totalSets, 1);
+            console.log(`[WorkoutHistoryService] ⚠️ Error in calculation, estimating ${durationMinutes} minutes based on ${totalSets} sets`);
+          }
+        }
+      }
+    }
+
     return {
       id: sessionData.id,
       completed_at: sessionData.completed_at,
+      duration_minutes: durationMinutes,
+      plan_id: sessionData.plan_id || null,
+      plan_name: sessionData.plan_name || null,
+      session_name: sessionData.session_name || null,
       exercises,
     };
   }
@@ -705,7 +1008,7 @@ export class WorkoutHistoryService {
   /**
    * Convert backup exercise data from JSONB to SessionExerciseLog format
    */
-  private static convertBackupDataToExercises(exercisesData: any): SessionExerciseLog[] {
+  private static async convertBackupDataToExercises(exercisesData: any, sessionCompletedAt?: string): Promise<SessionExerciseLog[]> {
     try {
       console.log(`[WorkoutHistoryService] Converting backup data:`, exercisesData);
       
@@ -717,7 +1020,7 @@ export class WorkoutHistoryService {
           // Check if this is exercise_sets data (flat array of sets)
           if (exercisesData.length > 0 && exercisesData[0].exercise_id && exercisesData[0].actual_reps !== undefined) {
             console.log(`[WorkoutHistoryService] Detected exercise_sets format with ${exercisesData.length} sets`);
-            return this.convertExerciseSetsToSessionLogs(exercisesData);
+            return await this.convertExerciseSetsToSessionLogs(exercisesData);
           }
           // Legacy format: direct array of exercises
           console.log(`[WorkoutHistoryService] Detected legacy array format with ${exercisesData.length} items`);
@@ -740,12 +1043,66 @@ export class WorkoutHistoryService {
       }
 
       console.log(`[WorkoutHistoryService] Processing ${exercisesArray.length} exercises`);
+      
+      // First, collect all exercise_ids that need name lookup
+      const exerciseIdsNeedingName: string[] = [];
+      exercisesArray.forEach(ex => {
+        const exerciseId = ex.exercise_id || ex.id;
+        const exerciseName = ex.exercise_name || ex.name;
+        if (exerciseId && !exerciseName) {
+          exerciseIdsNeedingName.push(exerciseId);
+        }
+      });
+      
+      // Fetch exercise names in batch if needed
+      const exerciseNameMap = new Map<string, string>();
+      if (exerciseIdsNeedingName.length > 0 && supabase) {
+        try {
+          const { data: exercisesData } = await supabase
+            .from('exercises')
+            .select('id, name')
+            .in('id', exerciseIdsNeedingName);
+          
+          if (exercisesData) {
+            exercisesData.forEach(ex => {
+              exerciseNameMap.set(ex.id, ex.name);
+            });
+          }
+        } catch (error) {
+          console.warn('[WorkoutHistoryService] Could not fetch exercise names for backup data:', error);
+        }
+      }
+      
       const exercises: SessionExerciseLog[] = [];
 
       for (const exercise of exercisesArray) {
+        const exerciseId = exercise.exercise_id || exercise.id;
+        let exerciseName = exercise.exercise_name || exercise.name;
+        
+        // Check if the name is actually a number (index) - if so, it's not a valid name
+        const isNumericName = exerciseName && /^\d+$/.test(String(exerciseName));
+        if (isNumericName) {
+          console.warn(`[WorkoutHistoryService] Exercise name "${exerciseName}" appears to be an index, not a name. Looking up by ID...`);
+          exerciseName = null; // Reset to null so we can look it up properly
+        }
+        
+        // If name is missing but we have an ID, try to get it from our map
+        if (!exerciseName && exerciseId) {
+          exerciseName = exerciseNameMap.get(exerciseId);
+        }
+        
+        // If still no name, check if exerciseId looks like a UUID (which means it's probably an ID, not a name)
+        if (!exerciseName && exerciseId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(exerciseId)) {
+          // This is a UUID, not a name - we couldn't find the exercise
+          exerciseName = 'Unknown Exercise';
+          console.warn(`[WorkoutHistoryService] Exercise ID ${exerciseId} appears to be a UUID but name not found in database`);
+        } else if (!exerciseName) {
+          exerciseName = 'Unknown Exercise';
+        }
+        
         console.log(`[WorkoutHistoryService] Processing exercise:`, {
-          exercise_id: exercise.exercise_id || exercise.id,
-          exercise_name: exercise.exercise_name || exercise.name,
+          exercise_id: exerciseId,
+          exercise_name: exerciseName,
           has_sets: !!exercise.sets,
           sets_count: exercise.sets?.length || 0,
           has_actual_logs: !!exercise.actual_logs,
@@ -809,18 +1166,27 @@ export class WorkoutHistoryService {
             notes: log.notes || null
           })));
         } else if (exercise.reps && Array.isArray(exercise.reps) && exercise.weights && Array.isArray(exercise.weights)) {
-          // Standalone workout format: reps and weights arrays
+          // Standalone workout format: reps and weights arrays (legacy format without timestamps)
           console.log(`[WorkoutHistoryService] Processing standalone format with ${exercise.reps.length} sets`);
           const repsArray = exercise.reps;
           const weightsArray = exercise.weights;
           
+          // For legacy format, we don't have individual timestamps, so we'll use the session completion time
+          // with a small offset to differentiate sets
+          const baseTime = sessionCompletedAt ? new Date(sessionCompletedAt) : new Date();
+          
           for (let i = 0; i < repsArray.length; i++) {
+            // Use session completion time with a small offset (each set is 1 minute before the previous)
+            // This is a best-effort approximation since we don't have actual timestamps
+            const estimatedTime = new Date(baseTime);
+            estimatedTime.setMinutes(estimatedTime.getMinutes() - (repsArray.length - i - 1));
+            
             exerciseLogs.push({
               id: uuidv4(),
               actual_reps: repsArray[i] || 0,
               actual_weight: weightsArray[i] || null,
               actual_rpe: null,
-              completed_at: new Date().toISOString(),
+              completed_at: estimatedTime.toISOString(),
               notes: null
             });
           }
@@ -841,8 +1207,8 @@ export class WorkoutHistoryService {
           }, null as number | null);
 
           exercises.push({
-            exercise_set_id: exercise.exercise_id || exercise.id || uuidv4(),
-            exercise_name: exercise.exercise_name || exercise.name || 'Unknown Exercise',
+            exercise_set_id: exerciseId || uuidv4(),
+            exercise_name: exerciseName,
             target_sets: exerciseLogs.length, // Use actual number of sets performed
             target_reps: '0', // Not available in backup data
             logs: exerciseLogs,
@@ -879,7 +1245,7 @@ export class WorkoutHistoryService {
    * Convert exercise_sets data to SessionExerciseLog format
    * Handles the flat array of sets from exercise_sets table
    */
-  private static convertExerciseSetsToSessionLogs(exerciseSets: any[]): SessionExerciseLog[] {
+  private static async convertExerciseSetsToSessionLogs(exerciseSets: any[]): Promise<SessionExerciseLog[]> {
     try {
       console.log(`[WorkoutHistoryService] Converting ${exerciseSets.length} exercise sets to session logs`);
       
@@ -890,23 +1256,55 @@ export class WorkoutHistoryService {
         logs: any[];
       }>();
       
+      // First, collect all unique exercise_ids and fetch their names
+      const exerciseIds = [...new Set(exerciseSets.map(s => s.exercise_id))];
+      const exerciseNameMap = new Map<string, string>();
+      
+      // Fetch exercise names in batch if we have a supabase client
+      if (exerciseIds.length > 0 && supabase) {
+        try {
+          const { data: exercisesData } = await supabase
+            .from('exercises')
+            .select('id, name')
+            .in('id', exerciseIds);
+          
+          if (exercisesData) {
+            exercisesData.forEach(ex => {
+              exerciseNameMap.set(ex.id, ex.name);
+            });
+          }
+        } catch (error) {
+          console.warn('[WorkoutHistoryService] Could not fetch exercise names:', error);
+        }
+      }
+      
       for (const set of exerciseSets) {
         const exerciseId = set.exercise_id;
         if (!exerciseGroups.has(exerciseId)) {
+          // Try to get name from join, then from map, then fallback
+          let exerciseName = set.exercises?.name;
+          if (!exerciseName && exerciseId) {
+            exerciseName = exerciseNameMap.get(exerciseId);
+          }
+          if (!exerciseName) {
+            exerciseName = 'Unknown Exercise';
+            console.warn(`[WorkoutHistoryService] Could not find exercise name for exercise_id: ${exerciseId}`);
+          }
+          
           exerciseGroups.set(exerciseId, {
             exercise_id: exerciseId,
-            exercise_name: set.exercises?.name || 'Unknown Exercise',
+            exercise_name: exerciseName,
             logs: []
           });
         }
         
-        // Add this set as a log
+        // Add this set as a log - use actual completed_at if available
         exerciseGroups.get(exerciseId)!.logs.push({
           id: uuidv4(),
           actual_reps: set.actual_reps || 0,
           actual_weight: set.actual_weight || null,
           actual_rpe: set.rpe || null,
-          completed_at: new Date().toISOString(),
+          completed_at: set.completed_at || new Date().toISOString(),
           notes: null
         });
       }

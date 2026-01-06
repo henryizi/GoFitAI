@@ -16,6 +16,9 @@ import { StatusBar } from 'expo-status-bar';
 import { theme } from '../src/styles/theme';
 import { AuthProvider } from '../src/hooks/useAuth';
 import { ServerStatusProvider } from '../src/contexts/ServerStatusContext';
+import { SubscriptionProvider } from '../src/contexts/SubscriptionContext';
+import { TutorialProvider } from '../src/contexts/TutorialContext';
+import { TutorialOverlay } from '../src/components/tutorial/TutorialOverlay';
 import Toast from 'react-native-toast-message';
 import { FontLoader } from '../src/components/ui/FontLoader';
 import { initSentry } from '../src/services/monitoring/sentry';
@@ -40,6 +43,7 @@ const InitialLayout = () => {
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="(paywall)" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="(tutorial)" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
   )
 }
@@ -108,15 +112,20 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ServerStatusProvider>
-        <PaperProvider theme={theme}>
-          <FontLoader>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <StatusBar style="auto" backgroundColor="transparent" translucent />
-              <InitialLayout />
-            </GestureHandlerRootView>
-            <Toast />
-          </FontLoader>
-        </PaperProvider>
+        <SubscriptionProvider>
+          <TutorialProvider>
+            <PaperProvider theme={theme}>
+              <FontLoader>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <StatusBar style="auto" backgroundColor="transparent" translucent />
+                  <InitialLayout />
+                  <TutorialOverlay />
+                </GestureHandlerRootView>
+                <Toast />
+              </FontLoader>
+            </PaperProvider>
+          </TutorialProvider>
+        </SubscriptionProvider>
       </ServerStatusProvider>
     </AuthProvider>
   );

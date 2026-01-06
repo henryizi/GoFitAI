@@ -1,34 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, ImageBackground, Alert } from 'react-native';
-import { Text } from 'react-native-paper';
-import Slider from '@react-native-community/slider';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Alert, Image, Text } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { supabase } from '../../../src/services/supabase/client';
 import { identify } from '../../../src/services/analytics/analytics';
-import { environment } from '../../../src/config/environment';
 
+// Clean Design System
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#E55A2B',
-  accent: '#FF8F65',
-  secondary: '#FF8F65',
-  background: '#000000',
-  surface: '#1C1C1E',
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
-  textTertiary: 'rgba(235, 235, 245, 0.3)',
-  success: '#34C759',
+  success: '#22C55E',
   warning: '#FF9500',
   error: '#FF453A',
-  card: 'rgba(28, 28, 30, 0.8)',
-  border: 'rgba(84, 84, 88, 0.6)',
-  white: '#FFFFFF',
-  dark: '#121212',
 };
 
 const trainingLevels = [
@@ -130,7 +118,7 @@ const mapWorkoutFrequencyFromDatabase = (frequency: string): string => {
 
 export default function FitnessGoalsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   
   const [selectedTrainingLevel, setSelectedTrainingLevel] = useState<string>('beginner');
@@ -170,6 +158,26 @@ export default function FitnessGoalsScreen() {
   // Track if user has made changes to avoid overwriting with profile updates
   const [userHasModified, setUserHasModified] = useState(false);
 
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    message = "Customize your fitness goals and preferences here.";
+    
+    return { greeting, message };
+  }, []);
+
 
   // Sync local state with profile data when profile changes (but only if user hasn't modified)
   useEffect(() => {
@@ -186,8 +194,10 @@ export default function FitnessGoalsScreen() {
       // Handle migration from 'hypertrophy' to 'muscle_gain'
       const goal = profile.primary_goal === 'hypertrophy' ? 'muscle_gain' : (profile.primary_goal || 'general_fitness');
       setSelectedGoal(goal);
-      // Map database workout frequency to UI format
-      const mappedFrequency = profile.workout_frequency ? mapWorkoutFrequencyFromDatabase(profile.workout_frequency) : '4';
+      // Prefer exact preferred_workout_frequency if available, fallback to mapped value
+      const mappedFrequency = profile.preferred_workout_frequency
+        ? String(profile.preferred_workout_frequency)
+        : (profile.workout_frequency ? mapWorkoutFrequencyFromDatabase(profile.workout_frequency) : '4');
       setSelectedFrequency(mappedFrequency);
       setSelectedFitnessStrategy(profile.fitness_strategy || 'maintenance');
 
@@ -217,27 +227,23 @@ export default function FitnessGoalsScreen() {
       };
 
       console.log('💾 Saving fitness goals:', updateData);
-      console.log('🌐 Using API URL:', environment.apiUrl);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', user.id);
 
-      // Use proper environment configuration
-      const response = await fetch(`${environment.apiUrl}/api/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          updates: updateData,
-        }),
-      });
-
-      const result = await response.json() as { success: boolean; error?: string };
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update profile');
+      if (updateError) {
+        throw updateError;
       }
 
-      console.log('✅ Save successful, result:', result);
+      console.log('✅ Fitness goals saved via Supabase');
+
+      try {
+        await refreshProfile();
+        updateProfile(updateData);
+      } catch (refreshError) {
+        console.warn('⚠️ Failed to refresh profile after saving fitness goals:', refreshError);
+      }
 
       // Reset modification flag since we've saved the changes
       setUserHasModified(false);
@@ -271,34 +277,49 @@ export default function FitnessGoalsScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop' }}
-        style={styles.backgroundImage}
-      >
-        <LinearGradient
-          colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)', colors.dark]}
-          style={styles.overlay}
-        />
-      </ImageBackground>
-
+      
       <ScrollView 
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 16, paddingBottom: 60 + insets.bottom + 20 }
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Icon name="arrow-left" size={24} color={colors.text} />
+        {/* AI Coach Header */}
+        <View style={styles.coachHeader}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.backButton}
+            activeOpacity={0.8}
+          >
+            <Icon name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>FITNESS GOALS</Text>
-          <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={loading}>
-            <Text style={styles.saveButtonText}>SAVE</Text>
+          <View style={styles.coachAvatarContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.coachAvatar}
+            />
+            <View style={styles.coachOnlineIndicator} />
+          </View>
+          <View style={styles.coachTextContainer}>
+            <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+            <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+          </View>
+          <TouchableOpacity 
+            onPress={handleSave} 
+            style={styles.saveButton} 
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.saveButtonText, loading && styles.saveButtonTextDisabled]}>
+              {loading ? 'Saving...' : 'Save'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Training Level */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>01 <Text style={styles.sectionTitleText}>TRAINING LEVEL</Text></Text>
+          <Text style={styles.sectionTitle}>Training Level</Text>
           {trainingLevels.map((level) => (
             <TouchableOpacity
               key={level.id}
@@ -306,28 +327,27 @@ export default function FitnessGoalsScreen() {
                 setUserHasModified(true);
                 setSelectedTrainingLevel(level.id);
               }}
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                selectedTrainingLevel === level.id && styles.optionCardSelected
+              ]}
+              activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={selectedTrainingLevel === level.id ? 
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] : 
-                  ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.optionCardGradient}
-              >
-                <View style={[styles.optionIconContainer, 
-                  selectedTrainingLevel === level.id && styles.selectedIconContainer]}>
-                  <Icon name={level.icon as any} size={24} color={colors.primary} />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>{level.title}</Text>
-                  <Text style={styles.optionSubtitle}>{level.subtitle}</Text>
-                </View>
-                <View style={styles.radioButton}>
-                  {selectedTrainingLevel === level.id && (
-                    <View style={styles.radioButtonSelected} />
-                  )}
-                </View>
-              </LinearGradient>
+              <View style={[
+                styles.optionIconContainer,
+                selectedTrainingLevel === level.id && styles.selectedIconContainer
+              ]}>
+                <Icon name={level.icon as any} size={20} color={colors.primary} />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>{level.title}</Text>
+                <Text style={styles.optionSubtitle}>{level.subtitle}</Text>
+              </View>
+              <View style={styles.radioButton}>
+                {selectedTrainingLevel === level.id && (
+                  <View style={styles.radioButtonSelected} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -336,7 +356,7 @@ export default function FitnessGoalsScreen() {
 
         {/* Primary Goal */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>02 <Text style={styles.sectionTitleText}>PRIMARY GOAL</Text></Text>
+          <Text style={styles.sectionTitle}>Primary Goal</Text>
           {primaryGoals.map((goal) => (
             <TouchableOpacity
               key={goal.id}
@@ -344,35 +364,34 @@ export default function FitnessGoalsScreen() {
                 setUserHasModified(true);
                 setSelectedGoal(goal.id);
               }}
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                effectiveSelectedGoal === goal.id && styles.optionCardSelected
+              ]}
+              activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={effectiveSelectedGoal === goal.id ?
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
-                  ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.optionCardGradient}
-              >
-                <View style={[styles.optionIconContainer,
-                  effectiveSelectedGoal === goal.id && styles.selectedIconContainer]}>
-                  <Icon name={goal.icon as any} size={24} color={colors.primary} />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>{goal.title}</Text>
-                  <Text style={styles.optionSubtitle}>{goal.subtitle}</Text>
-                </View>
-                <View style={styles.radioButton}>
-                  {effectiveSelectedGoal === goal.id && (
-                    <View style={styles.radioButtonSelected} />
-                  )}
-                </View>
-              </LinearGradient>
+              <View style={[
+                styles.optionIconContainer,
+                effectiveSelectedGoal === goal.id && styles.selectedIconContainer
+              ]}>
+                <Icon name={goal.icon as any} size={20} color={colors.primary} />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>{goal.title}</Text>
+                <Text style={styles.optionSubtitle}>{goal.subtitle}</Text>
+              </View>
+              <View style={styles.radioButton}>
+                {effectiveSelectedGoal === goal.id && (
+                  <View style={styles.radioButtonSelected} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Workout Frequency */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>03 <Text style={styles.sectionTitleText}>WORKOUT FREQUENCY</Text></Text>
+          <Text style={styles.sectionTitle}>Workout Frequency</Text>
           {workoutFrequencies.map((frequency) => (
             <TouchableOpacity
               key={frequency.id}
@@ -380,35 +399,34 @@ export default function FitnessGoalsScreen() {
                 setUserHasModified(true);
                 setSelectedFrequency(frequency.id);
               }}
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                selectedFrequency === frequency.id && styles.optionCardSelected
+              ]}
+              activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={selectedFrequency === frequency.id ?
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
-                  ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.optionCardGradient}
-              >
-                <View style={[styles.optionIconContainer,
-                  selectedFrequency === frequency.id && styles.selectedIconContainer]}>
-                  <Icon name="calendar-clock" size={24} color={colors.primary} />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>{frequency.title}</Text>
-                  <Text style={styles.optionSubtitle}>{frequency.subtitle}</Text>
-                </View>
-                <View style={styles.radioButton}>
-                  {selectedFrequency === frequency.id && (
-                    <View style={styles.radioButtonSelected} />
-                  )}
-                </View>
-              </LinearGradient>
+              <View style={[
+                styles.optionIconContainer,
+                selectedFrequency === frequency.id && styles.selectedIconContainer
+              ]}>
+                <Icon name="calendar-clock" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>{frequency.title}</Text>
+                <Text style={styles.optionSubtitle}>{frequency.subtitle}</Text>
+              </View>
+              <View style={styles.radioButton}>
+                {selectedFrequency === frequency.id && (
+                  <View style={styles.radioButtonSelected} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Fitness Strategy */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>04 <Text style={styles.sectionTitleText}>FITNESS STRATEGY</Text></Text>
+          <Text style={styles.sectionTitle}>Fitness Strategy</Text>
           {fitnessStrategies.map((strategy) => (
             <TouchableOpacity
               key={strategy.id}
@@ -416,33 +434,32 @@ export default function FitnessGoalsScreen() {
                 setUserHasModified(true);
                 setSelectedFitnessStrategy(strategy.id);
               }}
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                selectedFitnessStrategy === strategy.id && styles.optionCardSelected
+              ]}
+              activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={selectedFitnessStrategy === strategy.id ?
-                  ['rgba(255,107,53,0.15)', 'rgba(255,107,53,0.05)'] :
-                  ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-                style={styles.optionCardGradient}
-              >
-                <View style={[styles.optionIconContainer,
-                  selectedFitnessStrategy === strategy.id && styles.selectedIconContainer]}>
-                  <Icon name={strategy.icon as any} size={24} color={strategy.color || colors.primary} />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>{strategy.title}</Text>
-                  <Text style={styles.optionSubtitle}>{strategy.subtitle}</Text>
-                  {strategy.description && (
-                    <Text style={[styles.optionSubtitle, { fontSize: 12, marginTop: 4 }]}>
-                      {strategy.description}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.radioButton}>
-                  {selectedFitnessStrategy === strategy.id && (
-                    <View style={styles.radioButtonSelected} />
-                  )}
-                </View>
-              </LinearGradient>
+              <View style={[
+                styles.optionIconContainer,
+                selectedFitnessStrategy === strategy.id && styles.selectedIconContainer
+              ]}>
+                <Icon name={strategy.icon as any} size={20} color={strategy.color || colors.primary} />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>{strategy.title}</Text>
+                <Text style={styles.optionSubtitle}>{strategy.subtitle}</Text>
+                {strategy.description && (
+                  <Text style={styles.optionDescription}>
+                    {strategy.description}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.radioButton}>
+                {selectedFitnessStrategy === strategy.id && (
+                  <View style={styles.radioButtonSelected} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -454,112 +471,146 @@ export default function FitnessGoalsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+    backgroundColor: '#000000',
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
+  content: {
+    paddingHorizontal: 20,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  contentContainer: {
-    paddingBottom: 100,
-  },
-  header: {
+
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    marginBottom: 24,
+    paddingTop: 8,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  headerTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
     flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 20,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   saveButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   saveButtonText: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
+  saveButtonTextDisabled: {
+    opacity: 0.6,
+  },
+
+  // Section
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   sectionTitle: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 16,
   },
-  sectionTitleText: {
-    color: colors.text,
-  },
   optionCard: {
-    marginBottom: 12,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  optionCardGradient: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  optionCardSelected: {
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderColor: colors.primary,
   },
   optionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,107,53,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   selectedIconContainer: {
-    backgroundColor: 'rgba(255,107,53,0.2)',
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
   },
   optionContent: {
     flex: 1,
   },
   optionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   optionSubtitle: {
+    fontSize: 13,
     color: colors.textSecondary,
-    fontSize: 14,
+  },
+  optionDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
   },
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonSelected: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.primary,
   },
   // New slider styles

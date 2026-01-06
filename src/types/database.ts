@@ -25,6 +25,7 @@ export interface Database {
           workout_frequency: '2_3' | '4_5' | '6' | null;
           preferred_workout_frequency: number | null; // Actual preferred workout days (1-7)
           onboarding_completed: boolean;
+          tutorial_completed: boolean | null;
           body_fat: number | null;
           weight_trend: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
           exercise_frequency: '1' | '2-3' | '4-5' | '6-7' | null;
@@ -58,6 +59,7 @@ export interface Database {
           workout_frequency?: '2_3' | '4_5' | '6' | null;
           exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
+          tutorial_completed?: boolean | null;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
           activity_level?: 'sedentary' | 'moderately_active' | 'very_active' | null;
@@ -90,6 +92,7 @@ export interface Database {
           workout_frequency?: '2_3' | '4_5' | '6' | null;
           exercise_frequency?: '1' | '2-3' | '4-5' | '6-7' | null;
           onboarding_completed?: boolean;
+          tutorial_completed?: boolean | null;
           body_fat?: number | null;
           weight_trend?: 'losing' | 'gaining' | 'stable' | 'unsure' | null;
           activity_level?: 'sedentary' | 'moderately_active' | 'very_active' | null;

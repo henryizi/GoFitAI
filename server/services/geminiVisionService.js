@@ -69,7 +69,8 @@ CRITICAL PORTION SIZE ANALYSIS WITH DEPTH PERCEPTION:
 1. CAREFULLY assess the ACTUAL VISIBLE PORTION SIZE in the image
 2. Look for visual cues: plate size, bowl fullness, food volume, comparison to utensils/hands if visible
 3. DEPTH & DISTANCE ASSESSMENT - CRITICAL FOR ACCURACY:
-   - If food appears very close to camera (fills most of frame): REDUCE portion estimate by 20-30%
+   - **CLOSE-UP WARNING**: Users often take photos very close to the food. This makes portions look HUGE.
+   - If food appears very close to camera (fills most of frame): **REDUCE portion estimate by 40-50%**
    - If food appears far from camera (small in frame): Look for reference objects to gauge true size
    - Check for perspective distortion: closer items appear disproportionately larger
    - Look for depth cues: shadows, overlapping items, background objects for scale
@@ -78,18 +79,43 @@ CRITICAL PORTION SIZE ANALYSIS WITH DEPTH PERCEPTION:
    - Plates: Standard dinner plate ~10-11 inches, salad plate ~7-8 inches
    - Bowls: Standard bowl ~6 inches diameter, small bowl ~4 inches
    - Hands/fingers visible: Use as approximate size reference
-5. CONSERVATIVE ESTIMATION BIAS:
-   - When uncertain about distance/size: DEFAULT to SMALLER portion estimate
-   - Better to underestimate than overestimate calories
-   - If portion looks ambiguous, classify as "Medium" rather than "Regular" or "Large"
+5. ULTRA-CONSERVATIVE ESTIMATION BIAS - ANTI-OVERESTIMATION:
+   - **CRITICAL**: Apply a **20-25% reduction** to ALL initial calorie estimates to counter AI overestimation bias
+   - When uncertain about distance/size: DEFAULT to SMALLER portion estimate (always err on the side of underestimation)
+   - Better to significantly underestimate than slightly overestimate calories
+   - If portion looks ambiguous, classify as "Small" or "Medium" rather than "Regular" or "Large"
+   - For high-calorie foods (fried, sauced, fatty): Be extra conservative with estimates
+   - Assume "healthier preparation" when unclear (e.g., less oil, smaller portions, leaner cuts)
 6. Classify the portion as: "Small" (child-size/snack), "Medium" (half portion), "Regular" (standard meal), "Large" (1.5x normal), or "Extra Large" (2x+ normal)
 7. Adjust calorie estimates based on the ACTUAL portion you see, NOT a standard serving
+8. **MACRO ACCURACY RULES**:
+   - Protein: Be realistic - a palm-sized chicken breast is ~25g protein, not 40g
+   - Carbs: Account for cooking method - cooked rice/pasta has water weight (1 cup cooked rice = ~45g carbs, not 80g)
+   - Fat: Don't assume extra oil unless visibly greasy - use minimal fat estimates for grilled/steamed foods
 
-PORTION SIZE EXAMPLES:
-- Small bowl of rice (1/2 cup) = ~100 cal, not a full bowl (1 cup) = ~200 cal
-- Small piece of chicken (2 oz) = ~100 cal, not regular piece (4 oz) = ~200 cal  
-- Half sandwich = ~200 cal, not full sandwich = ~400 cal
-- Small salad (side dish) = ~50 cal, not large salad (meal) = ~200 cal
+PORTION SIZE EXAMPLES WITH ACCURATE MACROS:
+- Small bowl of rice (1/2 cup cooked) = ~100 cal (1g protein, 22g carbs, 0g fat)
+- Regular bowl of rice (1 cup cooked) = ~200 cal (4g protein, 45g carbs, 0g fat)
+- Small chicken breast (3 oz grilled) = ~140 cal (26g protein, 0g carbs, 3g fat)
+- Regular chicken breast (5 oz grilled) = ~230 cal (43g protein, 0g carbs, 5g fat)
+- Half sandwich = ~200 cal (10g protein, 25g carbs, 6g fat)
+- Full sandwich = ~400 cal (20g protein, 45g carbs, 12g fat)
+- Small salad (side dish, no dressing) = ~30 cal (2g protein, 5g carbs, 0g fat)
+- Large salad with dressing = ~150 cal (5g protein, 12g carbs, 10g fat)
+
+MACRONUTRIENT ACCURACY GUIDELINES:
+- Protein per oz of meat/fish: Chicken/turkey ~7g, beef ~7g, fish ~6g, tofu ~2g
+- Cooked carbs have water: 1 cup cooked rice = 45g carbs, 1 cup cooked pasta = 43g carbs
+- Visible oil/sauce: 1 tbsp oil = 14g fat (120 cal), minimal coating = 5g fat
+- Don't overestimate protein - most people overestimate by 50-100%
+- Restaurant portions often look bigger than they are due to plating and camera angle
+
+⚠️ FINAL VALIDATION BEFORE RESPONSE:
+1. Review your calorie estimate - does it seem too high? Reduce it by 20-25%
+2. Check protein - is it realistic for the portion size? Most estimates are too high
+3. Verify carbs - remember cooked grains/pasta have lots of water weight
+4. Confirm fat - only add fat grams if you see visible oil, sauce, or fatty cuts
+5. When in doubt, always choose the LOWER estimate
 
 CRITICAL: Respond ONLY with valid JSON in this exact format:
 
@@ -357,7 +383,51 @@ BEVERAGE ANALYSIS GUIDELINES:
       normalized.foodName = generatedName;
     }
 
+    // ✅ ENFORCE MACRO CONSISTENCY
+    // Ensure that protein*4 + carbs*4 + fat*9 roughly matches total calories
+    // If there's a large discrepancy, scale macros to match calories (trusting calories more for low-cal items)
+    this.enforceMacroConsistency(normalized.totalNutrition);
+    
+    // Apply consistency to each food item as well
+    if (normalized.foodItems) {
+      normalized.foodItems.forEach(item => this.enforceMacroConsistency(item));
+    }
+
     return normalized;
+  }
+
+  /**
+   * Enforces consistency between macros and total calories
+   * Scales macros if they don't align with calorie count
+   * @param {Object} nutritionObj - Nutrition object to validate
+   */
+  enforceMacroConsistency(nutritionObj) {
+    const p = parseFloat(nutritionObj.protein) || 0;
+    const c = parseFloat(nutritionObj.carbohydrates) || 0;
+    const f = parseFloat(nutritionObj.fat) || 0;
+    const reportedCals = parseFloat(nutritionObj.calories) || 0;
+
+    const calculatedCals = (p * 4) + (c * 4) + (f * 9);
+
+    // If reported calories are valid (> 0) and calculated calories exist (> 0)
+    if (reportedCals > 0 && calculatedCals > 0) {
+      const ratio = reportedCals / calculatedCals;
+      
+      // If discrepancy is large (reported is < 80% or > 120% of calculated)
+      // Example: Reported 5 kcal, Calculated 90 kcal (10g fat). Ratio = 0.055.
+      // We trust the reported calories (5) and scale down macros.
+      if (ratio < 0.8 || ratio > 1.2) {
+        console.log(`[Gemini] Inconsistent macros detected. Reported Cals: ${reportedCals}, Calculated: ${calculatedCals}. Scaling macros by ${ratio.toFixed(2)}`);
+        
+        nutritionObj.protein = this.roundToDecimal(p * ratio, 1);
+        nutritionObj.carbohydrates = this.roundToDecimal(c * ratio, 1);
+        nutritionObj.fat = this.roundToDecimal(f * ratio, 1);
+      }
+    } else if (reportedCals === 0 && calculatedCals > 5) {
+        // If reported is 0 but macros exist (and > 5 kcal worth), update calories to match macros
+        // This handles the case where AI gives macros but forgot to sum them
+        nutritionObj.calories = this.roundToDecimal(calculatedCals, 0);
+    }
   }
 
   /**

@@ -269,6 +269,8 @@ PODS:
     - Yoga
   - ExpoSharing (14.0.7):
     - ExpoModulesCore
+  - ExpoStoreReview (9.0.9):
+    - ExpoModulesCore
   - ExpoWebBrowser (15.0.8):
     - ExpoModulesCore
   - EXStructuredHeaders (5.0.0)
@@ -2483,6 +2485,7 @@ DEPENDENCIES:
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSharing (from `../node_modules/expo-sharing/ios`)
+  - ExpoStoreReview (from `../node_modules/expo-store-review/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - EXStructuredHeaders (from `../node_modules/expo-structured-headers/ios`)
   - EXUpdates (from `../node_modules/expo-updates/ios`)
@@ -2640,6 +2643,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoSharing:
     :path: "../node_modules/expo-sharing/ios"
+  ExpoStoreReview:
+    :path: "../node_modules/expo-store-review/ios"
   ExpoWebBrowser:
     :path: "../node_modules/expo-web-browser/ios"
   EXStructuredHeaders:
@@ -2842,6 +2847,7 @@ SPEC CHECKSUMS:
   ExpoLinking: f051f28e50ea9269ff539317c166adec81d9342d
   ExpoModulesCore: 5f20603cf25698682d7c43c05fbba8c748b189d2
   ExpoSharing: 032c01bb034319e2374badf082ae935be866d2e9
+  ExpoStoreReview: 32bb43b6fae9c8db3e33cad69996dff3785eef5f
   ExpoWebBrowser: d04a0d6247a0bea4519fbc2ea816610019ad83e0
   EXStructuredHeaders: c951e77f2d936f88637421e9588c976da5827368
   EXUpdates: ef83273afc231a627b170358c90689ac30a4429d

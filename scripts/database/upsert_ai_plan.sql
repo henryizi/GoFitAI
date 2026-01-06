@@ -12,6 +12,8 @@ DECLARE
   day_data JSONB;
   exercise_data JSONB;
   day_counter INT := 0; -- Counter for the day order
+  exercise_name_lower TEXT;
+  inferred_muscle_groups TEXT[];
 BEGIN
   -- Step 1: Delete the user's current active plan and its children
   DELETE FROM public.workout_plans WHERE user_id = user_id_param AND status = 'active';
@@ -54,8 +56,71 @@ BEGIN
       SELECT id INTO exercise_id_var FROM public.exercises WHERE name = exercise_data->>'name';
 
       IF NOT FOUND THEN
+        -- Infer muscle groups from exercise name
+        exercise_name_lower := LOWER(exercise_data->>'name');
+        inferred_muscle_groups := ARRAY[]::TEXT[];
+          
+          -- Chest
+          IF exercise_name_lower LIKE '%chest%' OR 
+             exercise_name_lower LIKE '%bench%' OR 
+             (exercise_name_lower LIKE '%press%' AND exercise_name_lower NOT LIKE '%shoulder%' AND exercise_name_lower NOT LIKE '%overhead%') OR
+             exercise_name_lower LIKE '%fly%' OR
+             exercise_name_lower LIKE '%pec%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'chest');
+          END IF;
+          
+          -- Back
+          IF exercise_name_lower LIKE '%back%' OR 
+             exercise_name_lower LIKE '%row%' OR 
+             exercise_name_lower LIKE '%pull%' OR 
+             exercise_name_lower LIKE '%lat%' OR 
+             exercise_name_lower LIKE '%deadlift%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'back');
+          END IF;
+          
+          -- Legs
+          IF exercise_name_lower LIKE '%leg%' OR 
+             exercise_name_lower LIKE '%squat%' OR 
+             exercise_name_lower LIKE '%lunge%' OR 
+             exercise_name_lower LIKE '%calf%' OR
+             exercise_name_lower LIKE '%quad%' OR
+             exercise_name_lower LIKE '%hamstring%' OR
+             exercise_name_lower LIKE '%glute%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'legs');
+          END IF;
+          
+          -- Shoulders
+          IF exercise_name_lower LIKE '%shoulder%' OR 
+             exercise_name_lower LIKE '%delt%' OR 
+             (exercise_name_lower LIKE '%press%' AND (exercise_name_lower LIKE '%overhead%' OR exercise_name_lower LIKE '%shoulder%')) OR
+             exercise_name_lower LIKE '%lateral raise%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'shoulders');
+          END IF;
+          
+          -- Arms
+          IF exercise_name_lower LIKE '%arm%' OR 
+             exercise_name_lower LIKE '%bicep%' OR 
+             exercise_name_lower LIKE '%tricep%' OR 
+             exercise_name_lower LIKE '%curl%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'arms');
+          END IF;
+          
+          -- Core
+          IF exercise_name_lower LIKE '%core%' OR 
+             exercise_name_lower LIKE '%abs%' OR 
+             exercise_name_lower LIKE '%abdominal%' OR 
+             exercise_name_lower LIKE '%crunch%' OR
+             exercise_name_lower LIKE '%plank%' THEN
+            inferred_muscle_groups := array_append(inferred_muscle_groups, 'core');
+          END IF;
+          
+          -- Default to 'full body' if no matches
+          IF array_length(inferred_muscle_groups, 1) IS NULL THEN
+            inferred_muscle_groups := ARRAY['full body']::TEXT[];
+          END IF;
+          
         INSERT INTO public.exercises (name, category, muscle_groups, difficulty, is_custom)
-        VALUES (exercise_data->>'name', 'accessory', ARRAY['new'], 'intermediate', false) -- Provide sensible defaults
+        VALUES (exercise_data->>'name', 'accessory', inferred_muscle_groups, 'intermediate', false)
         RETURNING id INTO exercise_id_var;
       END IF;
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ImageBackground, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ImageBackground, Image, Dimensions } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -521,21 +521,19 @@ export default function PreviewPlanScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={[colors.background, colors.surface]}
-          style={styles.loadingGradient}
-        >
-          <View style={styles.loadingCard}>
-            <LinearGradient
-              colors={[colors.glass, colors.glassStrong]}
-              style={styles.loadingCardGradient}
-            >
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading plan preview...</Text>
-              <Text style={styles.loadingSubText}>Preparing your workout details</Text>
-            </LinearGradient>
+        <StatusBar style="light" />
+        <View style={styles.loadingCard}>
+          <View style={styles.loadingIconContainer}>
+            <Image
+              source={require('../../../assets/mascot.png')}
+              style={styles.loadingMascot}
+            />
+            <View style={styles.loadingOnlineIndicator} />
           </View>
-        </LinearGradient>
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingSpinner} />
+          <Text style={styles.loadingText}>Loading plan preview...</Text>
+          <Text style={styles.loadingSubText}>Preparing your workout details</Text>
+        </View>
       </View>
     );
   }
@@ -637,7 +635,6 @@ export default function PreviewPlanScreen() {
             <Text style={styles.titleDescription}>
               Training level: {plan.training_level || 'Intermediate'}
             </Text>
-            <View style={styles.titleAccent} />
           </View>
         </View>
         
@@ -677,53 +674,56 @@ export default function PreviewPlanScreen() {
             <View style={styles.exercisesContainer}>
               {day.exercises && day.exercises.length > 0 ? (
                 day.exercises.map((exercise, exIndex) => (
-                  <View key={`exercise-${dayIndex}-${exIndex}`} style={styles.exerciseItem}>
-                    <View style={styles.exerciseIconContainer}>
-                      <Text style={styles.exerciseNumber}>{exIndex + 1}</Text>
-                    </View>
-                    <View style={styles.exerciseDetails}>
-                      <Text style={styles.exerciseName}>{exercise.name || 'Exercise'}</Text>
-                      <View style={styles.exerciseMetrics}>
-                        {isCardioExercise(exercise) ? (
-                          // Cardio exercises: show timing-based parameters
-                          <>
-                            <View style={styles.metric}>
-                              <Icon name="timer" size={14} color={colors.primary} />
-                              <Text style={styles.metricText}>
-                                {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'} duration
-                              </Text>
-                            </View>
-                            <View style={styles.metric}>
-                              <Icon name="timer-outline" size={14} color={colors.primary} />
-                              <Text style={styles.metricText}>
-                                {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'} rest
-                              </Text>
-                            </View>
-                          </>
-                        ) : (
-                          // Strength exercises: show traditional sets/reps parameters
-                          <>
-                            <View style={styles.metric}>
-                              <Icon name="repeat" size={14} color={colors.primary} />
-                              <Text style={styles.metricText}>
-                                {typeof exercise.sets === 'number' ? exercise.sets : 3} sets
-                              </Text>
-                            </View>
-                            <View style={styles.metric}>
-                              <Icon name="sync" size={14} color={colors.primary} />
-                              <Text style={styles.metricText}>
-                                {exercise.reps || '8-12'} reps
-                              </Text>
-                            </View>
-                            <View style={styles.metric}>
-                              <Icon name="timer-outline" size={14} color={colors.primary} />
-                              <Text style={styles.metricText}>
-                                {exercise.rest || exercise.restBetweenSets || '60s'} rest
-                              </Text>
-                            </View>
-                          </>
-                        )}
+                  <View key={`exercise-${dayIndex}-${exIndex}`} style={styles.exerciseCard}>
+                    <View style={styles.exerciseCardHeader}>
+                      <View style={styles.exerciseNumberBadge}>
+                        <Text style={styles.exerciseNumberText}>{exIndex + 1}</Text>
                       </View>
+                      <View style={styles.exerciseMainInfo}>
+                        <Text style={styles.exerciseNameText} numberOfLines={2}>{exercise.name || 'Exercise'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.exerciseMetricsRow}>
+                      {isCardioExercise(exercise) ? (
+                        <>
+                          <View style={[styles.exerciseMetricPill, { borderLeftColor: colors.primary }]}>
+                            <Icon name="timer" size={14} color={colors.primary} />
+                            <Text style={styles.exerciseMetricValue}>
+                              {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'}
+                            </Text>
+                            <Text style={styles.exerciseMetricLabel}>duration</Text>
+                          </View>
+                          <View style={[styles.exerciseMetricPill, { borderLeftColor: colors.secondary }]}>
+                            <Icon name="timer-sand" size={14} color={colors.secondary} />
+                            <Text style={styles.exerciseMetricValue}>
+                              {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'}
+                            </Text>
+                            <Text style={styles.exerciseMetricLabel}>rest</Text>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={[styles.exerciseMetricPill, { borderColor: colors.primary }]}>
+                            <Icon name="layers-triple" size={18} color={colors.primary} />
+                            <Text style={styles.exerciseMetricValue}>
+                              {typeof exercise.sets === 'number' ? exercise.sets : 3}
+                            </Text>
+                            <Text style={styles.exerciseMetricLabel}>SETS</Text>
+                          </View>
+                          <View style={[styles.exerciseMetricPill, { borderColor: colors.success }]}>
+                            <Icon name="repeat" size={18} color={colors.success} />
+                            <Text style={styles.exerciseMetricValue}>{exercise.reps || '8-12'}</Text>
+                            <Text style={styles.exerciseMetricLabel}>REPS</Text>
+                          </View>
+                          <View style={[styles.exerciseMetricPill, { borderColor: colors.primary }]}>
+                            <Icon name="timer-sand" size={18} color={colors.primary} />
+                            <Text style={styles.exerciseMetricValue}>
+                              {exercise.rest || exercise.restBetweenSets || '60s'}
+                            </Text>
+                            <Text style={styles.exerciseMetricLabel}>REST</Text>
+                          </View>
+                        </>
+                      )}
                     </View>
                   </View>
                 ))
@@ -764,7 +764,7 @@ export default function PreviewPlanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   backgroundImage: {
     position: 'absolute',
@@ -796,38 +796,59 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
+    backgroundColor: '#000000',
   },
   loadingCard: {
-    width: width * 0.8,
+    width: width * 0.85,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 20,
-    overflow: 'hidden',
-  },
-  loadingCardGradient: {
-    padding: 40,
+    padding: 32,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  loadingIconContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  loadingMascot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    resizeMode: 'contain',
+  },
+  loadingOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  loadingSpinner: {
+    marginBottom: 20,
   },
   loadingText: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   loadingSubText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   backButton: {
     marginTop: 20,
@@ -941,6 +962,72 @@ const styles = StyleSheet.create({
   exercisesContainer: {
     padding: 20,
   },
+  // New Exercise Card Styles
+  exerciseCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  exerciseCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  exerciseNumberBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  exerciseNumberText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  exerciseMainInfo: {
+    flex: 1,
+  },
+  exerciseNameText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 24,
+  },
+  exerciseMetricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  exerciseMetricPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseMetricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  exerciseMetricLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Keep old styles for backward compatibility
   exerciseItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',

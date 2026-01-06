@@ -546,58 +546,133 @@ export class NutritionService {
   /**
    * Fetches the user's active nutrition plan from the database.
    */
+  /**
+   * Utility method to check if a string is a valid UUID
+   */
+  private static isValidUUID(id: string): boolean {
+    if (!id || typeof id !== 'string') return false;
+    if (id === 'guest') return false; // Guest users don't have valid UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  }
+
   static async getLatestNutritionPlan(
     userId: string
   ): Promise<NutritionPlan | null> {
     try {
-      console.log('[NUTRITION] Fetching latest nutrition plan for user:', userId);
-      
-      // 1. Try to fetch from Supabase first
-      try {
-        const { data, error } = await supabase
-          .from('nutrition_plans')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (data) {
-          const planData = data as any;
-          console.log('[NUTRITION] ✅ Found latest plan in Supabase:', planData.id);
-          
-          // Normalize daily_targets
-          if (planData.daily_targets) {
-            if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
-              planData.daily_targets.protein = planData.daily_targets.protein_grams;
+      // Skip Supabase queries for guest users or invalid UUIDs
+      if (!this.isValidUUID(userId)) {
+        console.log('[NUTRITION] Guest user or invalid UUID detected, skipping Supabase query');
+        // Fall through to mock data
+      } else {
+        // Optimized: Use only essential fields to reduce query time
+        // Note: metabolic_calculations is not a database column, it's computed/stored in plan object
+        const essentialFields = 'id, user_id, plan_name, plan_type, goal_type, created_at, updated_at, status, daily_targets, preferences';
+        
+          const selectedPlanId = await this.getSelectedNutritionPlanId(userId).catch(() => null);
+        
+        if (selectedPlanId) {
+          // Try to fetch the selected plan from Supabase with essential fields only
+          try {
+            const { data: selectedPlan, error: selectedError } = await supabase
+              .from('nutrition_plans')
+              .select(essentialFields)
+              .eq('id', selectedPlanId)
+              .eq('user_id', userId)
+              .maybeSingle();
+            
+            if (selectedPlan) {
+              const planData = selectedPlan as any;
+              
+              // Normalize daily_targets
+              if (planData.daily_targets) {
+                if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
+                  planData.daily_targets.protein = planData.daily_targets.protein_grams;
+                }
+                if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
+                  planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
+                }
+                if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
+                  planData.daily_targets.fat = planData.daily_targets.fat_grams;
+                }
+              }
+              
+              // Extract metabolic_calculations from preferences if stored there (for mathematical plans)
+              if (planData.plan_type === 'mathematical' && planData.preferences?.metabolic_calculations) {
+                planData.metabolic_calculations = planData.preferences.metabolic_calculations;
+              }
+              
+              return planData;
+            } else if (selectedError && selectedError.code !== 'PGRST116') {
+              // Clear invalid selection (non-blocking)
+              AsyncStorage.removeItem(`selected_nutrition_plan_${userId}`).catch(() => {});
             }
-            if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
-              planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
-            }
-            if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
-              planData.daily_targets.fat = planData.daily_targets.fat_grams;
-            }
+          } catch (dbError) {
+            // Continue to fallback
           }
-          
-          return planData;
         }
         
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-          console.warn('[NUTRITION] Error fetching from Supabase:', error);
+        // 2. Fallback: get the latest plan if no selected plan found (optimized query)
+        try {
+          const { data, error } = await supabase
+            .from('nutrition_plans')
+            .select(essentialFields)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (data) {
+            const planData = data as any;
+            console.log('[NUTRITION] ✅ Found latest plan in Supabase:', planData.id);
+            
+              // Normalize daily_targets
+              if (planData.daily_targets) {
+                if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
+                  planData.daily_targets.protein = planData.daily_targets.protein_grams;
+                }
+                if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
+                  planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
+                }
+                if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
+                  planData.daily_targets.fat = planData.daily_targets.fat_grams;
+                }
+              }
+              
+              // Extract metabolic_calculations from preferences if stored there (for mathematical plans)
+              if (planData.plan_type === 'mathematical' && planData.preferences?.metabolic_calculations) {
+                planData.metabolic_calculations = planData.preferences.metabolic_calculations;
+              }
+              
+              return planData;
+          }
+          
+          if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            console.warn('[NUTRITION] Error fetching from Supabase:', error);
+          }
+        } catch (dbError) {
+          console.warn('[NUTRITION] Exception fetching from Supabase:', dbError);
         }
-      } catch (dbError) {
-        console.warn('[NUTRITION] Exception fetching from Supabase:', dbError);
       }
 
       console.log('[NUTRITION] Falling back to mock data for getLatestNutritionPlan');
       console.log('[NUTRITION] Mock store plans:', mockPlansStore.plans.map(p => ({ id: p.id, name: p.plan_name, user_id: p.user_id })));
       
-      // 2. Fallback to mock store
+      // 3. Fallback to mock store
       const userPlans = mockPlansStore.plans.filter(plan => plan.user_id === userId);
       console.log('[NUTRITION] User plans found in mock store:', userPlans.length);
       
       if (userPlans.length > 0) {
-        // Return the most recently created plan
+        // First try to find the selected plan
+        if (selectedPlanId) {
+          const selectedPlan = userPlans.find(plan => plan.id === selectedPlanId);
+          if (selectedPlan) {
+            console.log('[NUTRITION] Returning selected plan from mock:', selectedPlan.plan_name);
+            return selectedPlan;
+          }
+        }
+        
+        // If no selected plan, return the most recently created plan
         const sortedPlans = [...userPlans].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -618,38 +693,83 @@ export class NutritionService {
     planId: string
   ): Promise<NutritionPlan | null> {
     try {
-      // 1. Try to fetch from Supabase first
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data, error } = await supabase
-            .from('nutrition_plans')
-            .select('*')
-            .eq('id', planId)
-            .maybeSingle();
-
-          if (data) {
-            const planData = data as any;
-            console.log('[NUTRITION] ✅ Found plan in Supabase:', planData.id);
-
-            // Normalize daily_targets to ensure compatibility with UI
-            if (planData.daily_targets) {
-              if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
-                planData.daily_targets.protein = planData.daily_targets.protein_grams;
-              }
-              if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
-                planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
-              }
-              if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
-                planData.daily_targets.fat = planData.daily_targets.fat_grams;
-              }
-            }
-
-            return planData;
-          }
+      // 0. Handle temporary guest plan
+      if (planId === 'temp-guest-plan') {
+        console.log('[NUTRITION] Loading temporary guest plan from storage');
+        const tempPlanStr = await AsyncStorage.getItem('temp_guest_nutrition_plan');
+        if (tempPlanStr) {
+          const tempPlan = JSON.parse(tempPlanStr);
+          // Convert AInutritionPlan format to NutritionPlan format if needed
+          return {
+            id: tempPlan.id,
+            user_id: tempPlan.user_id,
+            plan_name: tempPlan.plan_name,
+            goal_type: tempPlan.goal_type,
+            plan_type: 'ai_generated',
+            daily_targets: {
+              calories: tempPlan.daily_calories,
+              protein: tempPlan.protein_grams,
+              carbs: tempPlan.carbs_grams,
+              fat: tempPlan.fat_grams,
+              protein_percentage: tempPlan.protein_percentage,
+              carbs_percentage: tempPlan.carbs_percentage,
+              fat_percentage: tempPlan.fat_percentage,
+            },
+            ai_explanation: tempPlan.explanation,
+            ai_reasoning: tempPlan.reasoning,
+            preferences: tempPlan.preferences,
+            status: 'active',
+            created_at: tempPlan.created_at,
+            updated_at: tempPlan.updated_at,
+          } as NutritionPlan;
         }
-      } catch (err) {
-        console.warn('[NUTRITION] Exception fetching plan from Supabase:', err);
+      }
+
+      // 1. Try to fetch from Supabase first
+      // Only attempt if planId looks like a UUID to avoid PostgreSQL errors
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (uuidRegex.test(planId)) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const { data, error } = await supabase
+              .from('nutrition_plans')
+              .select('*')
+              .eq('id', planId)
+              .maybeSingle();
+
+            if (data) {
+              const planData = data as any;
+              console.log('[NUTRITION] ✅ Found plan in Supabase:', planData.id);
+
+              // Normalize daily_targets to ensure compatibility with UI
+              if (planData.daily_targets) {
+                if (!planData.daily_targets.protein && planData.daily_targets.protein_grams) {
+                  planData.daily_targets.protein = planData.daily_targets.protein_grams;
+                }
+                if (!planData.daily_targets.carbs && planData.daily_targets.carbs_grams) {
+                  planData.daily_targets.carbs = planData.daily_targets.carbs_grams;
+                }
+                if (!planData.daily_targets.fat && planData.daily_targets.fat_grams) {
+                  planData.daily_targets.fat = planData.daily_targets.fat_grams;
+                }
+              }
+              
+              // Extract metabolic_calculations from preferences if stored there (for mathematical plans)
+              if (planData.plan_type === 'mathematical' && planData.preferences?.metabolic_calculations) {
+                planData.metabolic_calculations = planData.preferences.metabolic_calculations;
+                console.log('[NUTRITION] ✅ Extracted metabolic_calculations from preferences for mathematical plan');
+              }
+
+              return planData;
+            }
+          }
+        } catch (err) {
+          console.warn('[NUTRITION] Exception fetching plan from Supabase:', err);
+        }
+      } else {
+        console.log('[NUTRITION] Skipping Supabase query for non-UUID planId:', planId);
       }
 
       console.log('[NUTRITION] Using mock data for getNutritionPlanById');
@@ -687,6 +807,12 @@ export class NutritionService {
           }
         }
         
+        // Extract metabolic_calculations from preferences if stored there (for mathematical plans)
+        if (storedPlan.plan_type === 'mathematical' && storedPlan.preferences?.metabolic_calculations) {
+          storedPlan.metabolic_calculations = storedPlan.preferences.metabolic_calculations;
+          console.log('[NUTRITION] ✅ Extracted metabolic_calculations from preferences for mathematical plan (mock store)');
+        }
+        
         return storedPlan;
       }
       
@@ -710,45 +836,66 @@ export class NutritionService {
     try {
       console.log('[NUTRITION] Fetching all nutrition plans for user:', userId);
       
-      // 1. Try to fetch from Supabase first
-      try {
-        const { data, error } = await supabase
-          .from('nutrition_plans')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+      // Skip Supabase queries for guest users or invalid UUIDs
+      if (this.isValidUUID(userId)) {
+        // 1. Try to fetch from Supabase first - only essential fields for list view
+        try {
+          // Only fetch essential fields - exclude large JSON fields like meal_plans, weekly_schedule
+          // IMPORTANT: Do NOT filter by status - return ALL plans (active, archived, draft, etc.)
+          // Note: metabolic_calculations is not a database column, it's computed/stored in plan object
+          const essentialFields = 'id, user_id, plan_name, plan_type, goal_type, created_at, updated_at, status, daily_targets, preferences';
+          const { data, error } = await supabase
+            .from('nutrition_plans')
+            .select(essentialFields)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50); // Limit to prevent fetching too many plans
 
-        if (data && data.length > 0) {
-          console.log(`[NUTRITION] ✅ Found ${data.length} plans in Supabase`);
-          
-          // Normalize plans
-          const normalizedPlans = data.map(item => {
-            const plan = item as any;
+          if (error) {
+            console.error('[NUTRITION] Query error:', error);
+          }
+
+          if (data && data.length > 0) {
+            console.log(`[NUTRITION] ✅ Found ${data.length} plans in Supabase`);
+            console.log(`[NUTRITION] Plan IDs:`, data.map(p => ({ id: p.id, name: p.plan_name, type: p.plan_type, status: p.status })));
             
-            // Normalize daily_targets
-            if (plan.daily_targets) {
-              if (!plan.daily_targets.protein && plan.daily_targets.protein_grams) {
-                plan.daily_targets.protein = plan.daily_targets.protein_grams;
+            // Normalize plans
+            const normalizedPlans = data.map(item => {
+              const plan = item as any;
+              
+              // Normalize daily_targets
+              if (plan.daily_targets) {
+                if (!plan.daily_targets.protein && plan.daily_targets.protein_grams) {
+                  plan.daily_targets.protein = plan.daily_targets.protein_grams;
+                }
+                if (!plan.daily_targets.carbs && plan.daily_targets.carbs_grams) {
+                  plan.daily_targets.carbs = plan.daily_targets.carbs_grams;
+                }
+                if (!plan.daily_targets.fat && plan.daily_targets.fat_grams) {
+                  plan.daily_targets.fat = plan.daily_targets.fat_grams;
+                }
               }
-              if (!plan.daily_targets.carbs && plan.daily_targets.carbs_grams) {
-                plan.daily_targets.carbs = plan.daily_targets.carbs_grams;
-              }
-              if (!plan.daily_targets.fat && plan.daily_targets.fat_grams) {
-                plan.daily_targets.fat = plan.daily_targets.fat_grams;
-              }
+              
+              return plan;
+            });
+            
+            console.log(`[NUTRITION] ✅ Returning ${normalizedPlans.length} normalized plans`);
+            return normalizedPlans;
+          } else {
+            console.log(`[NUTRITION] ⚠️ No plans found in Supabase for user_id: ${userId}`);
+            if (error) {
+              console.error(`[NUTRITION] Query had error:`, error);
             }
-            
-            return plan;
-          });
+          }
           
-          return normalizedPlans;
+          if (error) {
+            console.warn('[NUTRITION] Error fetching plans from Supabase:', error);
+          }
+        } catch (dbError) {
+          console.warn('[NUTRITION] Exception fetching plans from Supabase:', dbError);
         }
-        
-        if (error) {
-          console.warn('[NUTRITION] Error fetching plans from Supabase:', error);
-        }
-      } catch (dbError) {
-        console.warn('[NUTRITION] Exception fetching plans from Supabase:', dbError);
+      } else {
+        console.log('[NUTRITION] Guest user or invalid UUID detected, skipping Supabase query');
       }
 
       console.log('[NUTRITION] Falling back to mock data for getAllNutritionPlans');
@@ -764,57 +911,59 @@ export class NutritionService {
       }
 
       // Add metabolic calculations to existing plans that don't have them
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
+      // Only query profile if userId is a valid UUID
+      if (this.isValidUUID(userId)) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
 
-        if (profile) {
-          const typedProfile = profile as Profile;
-          const age = typedProfile.birthday ? 
-            new Date().getFullYear() - new Date(typedProfile.birthday).getFullYear() : 30;
+          if (profile) {
+            const typedProfile = profile as Profile;
+            const age = typedProfile.birthday ? 
+              new Date().getFullYear() - new Date(typedProfile.birthday).getFullYear() : 30;
 
-          userPlans.forEach(plan => {
-            if (!plan.metabolic_calculations) {
-              const metabolicData = this.getMetabolicData({
-                id: userId,
-                goal_type: plan.goal_type || 'maintenance',
-                height: typedProfile.height || 170,
-                weight: typedProfile.weight || 70,
-                age: age,
-                gender: typedProfile.gender || 'male',
-                goal_fat_reduction: typedProfile.goal_fat_reduction || 5,
-                goal_muscle_gain: typedProfile.goal_muscle_gain || 5,
-                full_name: typedProfile.full_name || 'User'
-              }, 'moderately_active');
+            userPlans.forEach(plan => {
+              if (!plan.metabolic_calculations) {
+                const metabolicData = this.getMetabolicData({
+                  id: userId,
+                  goal_type: plan.goal_type || 'maintenance',
+                  height: typedProfile.height || 170,
+                  weight: typedProfile.weight || 70,
+                  age: age,
+                  gender: typedProfile.gender || 'male',
+                  goal_fat_reduction: typedProfile.goal_fat_reduction || 5,
+                  goal_muscle_gain: typedProfile.goal_muscle_gain || 5,
+                  full_name: typedProfile.full_name || 'User'
+                }, 'moderately_active');
 
-              plan.metabolic_calculations = {
-                bmr: metabolicData.bmr,
-                tdee: metabolicData.tdee,
-                activity_level: metabolicData.activity_level,
-                goal_calories: metabolicData.goal_calories, // ⭐ ENSURE CONSISTENCY
-                adjusted_calories: metabolicData.goal_calories, // ⭐ UI PRIORITY FIELD
-                goal_adjustment: metabolicData.goal_adjustment,
-                goal_adjustment_reason: metabolicData.goal_adjustment_reason,
-                calorie_adjustment_reason: metabolicData.goal_adjustment_reason, // ⭐ UI DISPLAY FIELD
-                calculation_method: metabolicData.calculation_method
-              };
+                plan.metabolic_calculations = {
+                  bmr: metabolicData.bmr,
+                  tdee: metabolicData.tdee,
+                  activity_level: metabolicData.activity_level,
+                  goal_calories: metabolicData.goal_calories, // ⭐ ENSURE CONSISTENCY
+                  adjusted_calories: metabolicData.goal_calories, // ⭐ UI PRIORITY FIELD
+                  goal_adjustment: metabolicData.goal_adjustment,
+                  goal_adjustment_reason: metabolicData.goal_adjustment_reason,
+                  calorie_adjustment_reason: metabolicData.goal_adjustment_reason, // ⭐ UI DISPLAY FIELD
+                  calculation_method: metabolicData.calculation_method
+                };
 
-              console.log('[NUTRITION] Added metabolic calculations to existing plan:', plan.id);
-            }
-          });
+                console.log('[NUTRITION] Added metabolic calculations to existing plan:', plan.id);
+              }
+            });
 
-          // Save updated plans to storage
-          await this.savePlansToStorage();
+            // Save updated plans to storage
+            await this.savePlansToStorage();
+          }
+        } catch (profileError) {
+          console.warn('[NUTRITION] Could not fetch profile for metabolic calculations:', profileError);
         }
-      } catch (profileError) {
-        console.warn('[NUTRITION] Could not fetch profile for metabolic calculations:', profileError);
       }
       
-      // Simulate a delay to mimic network request
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Removed artificial delay - it was slowing down the app
       
       console.log(`[NUTRITION] Returning ${userPlans.length} nutrition plans for user ${userId}`);
       console.log('[NUTRITION] Plans being returned:', userPlans.map(p => ({ id: p.id, name: p.plan_name })));
@@ -1086,6 +1235,7 @@ export class NutritionService {
       goal: string;
       dietaryPreferences: string[];
       intolerances: string[];
+      cuisinePreferences?: string[];
     }
   ): Promise<NutritionPlan | null> {
     try {
@@ -1093,43 +1243,63 @@ export class NutritionService {
       console.log('[NUTRITION] Options:', options);
 
       let userProfile;
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (error) {
-          console.error('[NUTRITION] Error fetching user profile:', error);
-          throw new Error('Unable to fetch user profile for nutrition plan generation');
-        }
-
-        userProfile = data;
-
-        if (!userProfile) {
-          throw new Error('User profile not found');
-        }
-      } catch (profileError) {
-        console.error('[NUTRITION] Profile fetch error:', profileError);
-        // For guest mode or when profile can't be fetched, create a minimal profile
+      if (userId === 'guest') {
+        console.log('[NUTRITION] Guest user detected, using mock profile for mathematical calculation');
         userProfile = {
-          id: userId,
+          id: 'guest',
           full_name: 'Guest User',
           username: 'guest',
           email: 'guest@example.com',
           birthday: null,
-          height: 170,
-          weight: 70,
-          gender: 'male',
+          height: 175,
+          weight: 75,
+          gender: 'male' as const,
           goal_type: options.goal,
           goal_fat_reduction: options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5),
           goal_muscle_gain: options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2),
-          fitness_strategy: 'maintenance',
-          activity_level: 'moderately_active',
+          fitness_strategy: 'maintenance' as const,
+          activity_level: 'moderately_active' as const,
           body_fat_percentage: 20
         };
-        console.log('[NUTRITION] Using fallback profile for guest/error:', userProfile);
+      } else {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+          if (error) {
+            console.error('[NUTRITION] Error fetching user profile:', error);
+            throw new Error('Unable to fetch user profile for nutrition plan generation');
+          }
+
+          userProfile = data;
+
+          if (!userProfile) {
+            throw new Error('User profile not found');
+          }
+        } catch (profileError) {
+          console.error('[NUTRITION] Profile fetch error:', profileError);
+          // For guest mode or when profile can't be fetched, create a minimal profile
+          userProfile = {
+            id: userId,
+            full_name: 'Guest User',
+            username: 'guest',
+            email: 'guest@example.com',
+            birthday: null,
+            height: 170,
+            weight: 70,
+            gender: 'male',
+            goal_type: options.goal,
+            goal_fat_reduction: options.goal === 'fat_loss' ? 10 : (options.goal === 'muscle_gain' ? 2 : 5),
+            goal_muscle_gain: options.goal === 'muscle_gain' ? 5 : (options.goal === 'fat_loss' ? 1 : 2),
+            fitness_strategy: 'maintenance',
+            activity_level: 'moderately_active',
+            body_fat_percentage: 20
+          };
+          console.log('[NUTRITION] Using fallback profile for guest/error:', userProfile);
+        }
       }
 
       // Calculate age from birthday
@@ -1167,6 +1337,7 @@ export class NutritionService {
       console.log('[NUTRITION] 🔍 Metabolic data used:', JSON.stringify(metabolicData, null, 2));
       
       // 3. Generate food suggestions (general categories, not specific meals)
+      const cuisinePreferences = options.cuisinePreferences ?? [];
       const foodSuggestions = this.generateFoodSuggestions(options.dietaryPreferences, options.intolerances);
       
       console.log('[NUTRITION] ✅ Generated food suggestions (no specific meals)');
@@ -1183,7 +1354,8 @@ export class NutritionService {
         status: 'active',
         preferences: {
           dietary: options.dietaryPreferences,
-          intolerances: options.intolerances
+          intolerances: options.intolerances,
+          favorite_cuisines: cuisinePreferences
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -1240,7 +1412,136 @@ export class NutritionService {
         daily_targets: compatibleDailyTargets
       };
       
-      // Add to mock store
+      // 6. Save to Supabase database (if not guest user)
+      if (userId !== 'guest') {
+        try {
+          console.log('[NUTRITION] 💾 Saving mathematical plan to database for user:', userId);
+          
+          // First, archive any existing active plans for this user
+          try {
+            const { error: archiveError } = await supabase
+              .from('nutrition_plans')
+              .update({ status: 'archived' })
+              .eq('user_id', userId)
+              .eq('status', 'active');
+            
+            if (archiveError) {
+              console.warn('[NUTRITION] Could not archive existing plans:', archiveError);
+            } else {
+              console.log('[NUTRITION] ✅ Archived existing active plans');
+            }
+          } catch (archiveError) {
+            console.warn('[NUTRITION] Exception archiving existing plans:', archiveError);
+          }
+
+          // Save to database
+          // Note: Store metabolic_calculations in preferences as JSON since it's not a database column
+          // This allows us to retrieve it later for displaying reasoning
+          const planPreferences = {
+            ...(planToStore.preferences || {
+              dietary: options.dietaryPreferences || [],
+              intolerances: options.intolerances || [],
+              favorite_cuisines: options.cuisinePreferences || []
+            }),
+            // Store metabolic calculations in preferences for retrieval
+            metabolic_calculations: planToStore.metabolic_calculations || nutritionPlan.metabolic_calculations
+          };
+          
+          const planData = {
+            user_id: userId,
+            plan_name: planToStore.plan_name,
+            goal_type: planToStore.goal_type,
+            plan_type: 'mathematical',
+            status: 'active',
+            daily_targets: compatibleDailyTargets,
+            preferences: planPreferences,
+          };
+          
+          console.log('[NUTRITION] Inserting plan data:', {
+            user_id: planData.user_id,
+            plan_name: planData.plan_name,
+            goal_type: planData.goal_type,
+            plan_type: planData.plan_type,
+            status: planData.status,
+            daily_targets: planData.daily_targets
+          });
+          
+          const { data: savedPlan, error: saveError } = await supabase
+            .from('nutrition_plans')
+            .insert(planData)
+            .select()
+            .single();
+
+          if (saveError) {
+            console.error('[NUTRITION] ❌ Error saving plan to database:', saveError);
+            console.error('[NUTRITION] Error details:', JSON.stringify(saveError, null, 2));
+            // Continue with local storage fallback
+          } else if (savedPlan) {
+            console.log('[NUTRITION] ✅ Plan saved to database successfully!');
+            console.log('[NUTRITION] Saved plan ID:', savedPlan.id);
+            console.log('[NUTRITION] Saved plan status:', savedPlan.status);
+            
+            // Update the plan ID to match database ID
+            planToStore.id = savedPlan.id;
+            nutritionPlan.id = savedPlan.id;
+            planToStore.created_at = savedPlan.created_at;
+            planToStore.updated_at = savedPlan.updated_at;
+            nutritionPlan.created_at = savedPlan.created_at;
+            nutritionPlan.updated_at = savedPlan.updated_at;
+            
+            // Set as selected plan for the user
+            try {
+              await this.setSelectedNutritionPlanForTargets(userId, savedPlan.id);
+              console.log('[NUTRITION] ✅ Plan set as active/selected');
+            } catch (selectError) {
+              console.warn('[NUTRITION] Could not set plan as selected:', selectError);
+            }
+            
+            // Verify the plan is in the database by querying it
+            try {
+              // Small delay to ensure database commit
+              await new Promise(resolve => setTimeout(resolve, 200));
+              
+              const { data: verifyPlan, error: verifyError } = await supabase
+                .from('nutrition_plans')
+                .select('id, plan_name, status, user_id, plan_type')
+                .eq('id', savedPlan.id)
+                .single();
+              
+              if (verifyError) {
+                console.error('[NUTRITION] ❌ Verification query failed:', verifyError);
+              } else if (verifyPlan) {
+                console.log('[NUTRITION] ✅ Verified plan exists in database:', verifyPlan);
+              }
+              
+              // Also verify it appears in getAllNutritionPlans query
+              const { data: allPlans, error: allPlansError } = await supabase
+                .from('nutrition_plans')
+                .select('id, plan_name, plan_type, status')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+              
+              if (allPlansError) {
+                console.error('[NUTRITION] ❌ getAllPlans query failed:', allPlansError);
+              } else {
+                console.log(`[NUTRITION] ✅ getAllPlans query found ${allPlans?.length || 0} plans:`, allPlans?.map(p => ({ id: p.id, name: p.plan_name, type: p.plan_type })));
+              }
+            } catch (verifyException) {
+              console.warn('[NUTRITION] Exception during verification:', verifyException);
+            }
+          } else {
+            console.error('[NUTRITION] ❌ No data returned from database insert');
+          }
+        } catch (dbError) {
+          console.error('[NUTRITION] ❌ Exception saving plan to database:', dbError);
+          console.error('[NUTRITION] Exception details:', dbError instanceof Error ? dbError.message : String(dbError));
+          // Continue with local storage fallback
+        }
+      } else {
+        console.log('[NUTRITION] Guest user detected, skipping database save');
+      }
+      
+      // Add to mock store (for local fallback)
       mockPlansStore.plans.unshift(planToStore);
       console.log('[NUTRITION] ✅ Added plan to mock store');
       
@@ -1255,17 +1556,17 @@ export class NutritionService {
         protein: planToStore.daily_targets.protein,
         carbs: planToStore.daily_targets.carbs,
         fat: planToStore.daily_targets.fat,
-        bmr: planToStore.metabolic_calculations.bmr,
-        tdee: planToStore.metabolic_calculations.tdee,
-        goal_calories: planToStore.metabolic_calculations.goal_calories
+        bmr: planToStore.metabolic_calculations?.bmr,
+        tdee: planToStore.metabolic_calculations?.tdee,
+        goal_calories: planToStore.metabolic_calculations?.goal_calories
       });
       
-      console.log('[NUTRITION] 🔍 CRITICAL CHECK - Values stored in plan:');
-      console.log('  daily_targets.calories:', planToStore.daily_targets.calories);
-      console.log('  metabolic_calculations.goal_calories:', planToStore.metabolic_calculations.goal_calories);
-      console.log('  These should be IDENTICAL for UI consistency!');
+      // Return the plan with database ID if it was saved
+      console.log('[NUTRITION] ✅ Nutrition plan generated and saved successfully!');
+      console.log('[NUTRITION] Returning plan with ID:', nutritionPlan.id);
+      console.log('[NUTRITION] Plan status:', nutritionPlan.status);
+      console.log('[NUTRITION] Plan user_id:', nutritionPlan.user_id);
       
-      console.log('[NUTRITION] ✅ Nutrition plan generated successfully!');
       return nutritionPlan;
     } catch (error: any) {
       console.error('[NUTRITION] Error generating nutrition plan:', error);
@@ -1476,6 +1777,655 @@ export class NutritionService {
   }
 
   /**
+   * Get the complete food database
+   * Returns all foods with their nutritional information (per 100g)
+   */
+  static getFoodDatabase(): Array<{
+    key: string;
+    name: string;
+    category: 'protein' | 'carbs' | 'fat';
+    protein: number;
+    carbs: number;
+    fat: number;
+    calories: number;
+    description?: string;
+    commonServing?: string;
+  }> {
+    // Access the internal food database directly
+    const foodDatabase = this.getFoodDatabaseInternal();
+    
+    // Convert to array format
+    return Object.entries(foodDatabase).map(([key, food]) => ({
+      key,
+      name: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      category: food.category,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      calories: food.calories,
+      description: food.description,
+      commonServing: food.commonServing,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Internal method to get the raw food database
+   */
+  private static getFoodDatabaseInternal(): Record<string, {
+    protein: number;
+    carbs: number;
+    fat: number;
+    calories: number;
+    category: 'protein' | 'carbs' | 'fat';
+    description?: string;
+    commonServing?: string;
+  }> {
+    // This is the same database used in calculateFoodServingsForMacro
+    return {
+      // Protein sources
+      // Chicken variations
+      'chicken_breast': { protein: 31, carbs: 0, fat: 3.6, calories: 165, category: 'protein', description: 'Grilled, skinless', commonServing: '100g (palm-sized portion)' },
+      'chicken_thigh': { protein: 26, carbs: 0, fat: 10, calories: 209, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1 medium thigh)' },
+      'chicken_leg': { protein: 27, carbs: 0, fat: 8, calories: 184, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1 drumstick + thigh)' },
+      'chicken_drumstick': { protein: 28, carbs: 0, fat: 5.7, calories: 172, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1-2 drumsticks)' },
+      'chicken_wing': { protein: 27, carbs: 0, fat: 8, calories: 203, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (2-3 wings)' },
+      'chicken_thigh_with_skin': { protein: 25, carbs: 0, fat: 15, calories: 229, category: 'protein', description: 'Roasted, with skin', commonServing: '100g (1 medium thigh)' },
+      'chicken_leg_with_skin': { protein: 26, carbs: 0, fat: 12, calories: 215, category: 'protein', description: 'Roasted, with skin', commonServing: '100g (1 leg)' },
+      'chicken_whole': { protein: 27, carbs: 0, fat: 8, calories: 190, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (mixed parts)' },
+      'chicken_ground': { protein: 27, carbs: 0, fat: 3, calories: 143, category: 'protein', description: 'Cooked, 99% lean', commonServing: '100g (palm-sized)' },
+      'chicken_liver': { protein: 25, carbs: 1, fat: 4.8, calories: 167, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'chicken_heart': { protein: 26, carbs: 0.1, fat: 7.9, calories: 185, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      
+      // Turkey variations
+      'turkey_breast': { protein: 30, carbs: 0, fat: 1, calories: 135, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (palm-sized)' },
+      'turkey_thigh': { protein: 28, carbs: 0, fat: 7, calories: 189, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1 medium thigh)' },
+      'turkey_leg': { protein: 29, carbs: 0, fat: 4, calories: 159, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1 leg)' },
+      'turkey_wing': { protein: 27, carbs: 0, fat: 6, calories: 177, category: 'protein', description: 'Roasted, skinless', commonServing: '100g (1-2 wings)' },
+      'turkey_ground': { protein: 28, carbs: 0, fat: 7, calories: 189, category: 'protein', description: 'Cooked, 93% lean', commonServing: '100g (palm-sized)' },
+      'turkey_deli': { protein: 18, carbs: 1.5, fat: 5, calories: 125, category: 'protein', description: 'Sliced, roasted', commonServing: '100g (4-5 slices)' },
+      
+      // Beef variations
+      'lean_beef': { protein: 26, carbs: 0, fat: 5, calories: 150, category: 'protein', description: '95% lean, cooked', commonServing: '100g (palm-sized)' },
+      'beef_sirloin': { protein: 28, carbs: 0, fat: 6, calories: 180, category: 'protein', description: 'Grilled, trimmed', commonServing: '100g (palm-sized)' },
+      'beef_ribeye': { protein: 25, carbs: 0, fat: 15, calories: 291, category: 'protein', description: 'Grilled, trimmed', commonServing: '100g (palm-sized)' },
+      'beef_tenderloin': { protein: 30, carbs: 0, fat: 8, calories: 211, category: 'protein', description: 'Grilled, filet mignon', commonServing: '100g (palm-sized)' },
+      'beef_ground_90': { protein: 26, carbs: 0, fat: 10, calories: 204, category: 'protein', description: 'Cooked, 90% lean', commonServing: '100g (palm-sized)' },
+      'beef_ground_85': { protein: 25, carbs: 0, fat: 15, calories: 250, category: 'protein', description: 'Cooked, 85% lean', commonServing: '100g (palm-sized)' },
+      'beef_ground_80': { protein: 24, carbs: 0, fat: 20, calories: 296, category: 'protein', description: 'Cooked, 80% lean', commonServing: '100g (palm-sized)' },
+      'beef_brisket': { protein: 28, carbs: 0, fat: 19, calories: 331, category: 'protein', description: 'Cooked, trimmed', commonServing: '100g (palm-sized)' },
+      'beef_chuck': { protein: 27, carbs: 0, fat: 18, calories: 305, category: 'protein', description: 'Braised, trimmed', commonServing: '100g (palm-sized)' },
+      'beef_round': { protein: 29, carbs: 0, fat: 4, calories: 157, category: 'protein', description: 'Roasted, top round', commonServing: '100g (palm-sized)' },
+      'beef_flank': { protein: 28, carbs: 0, fat: 8, calories: 211, category: 'protein', description: 'Grilled, trimmed', commonServing: '100g (palm-sized)' },
+      'beef_short_ribs': { protein: 22, carbs: 0, fat: 25, calories: 351, category: 'protein', description: 'Braised', commonServing: '100g (palm-sized)' },
+      'beef_liver': { protein: 29, carbs: 5, fat: 4.7, calories: 191, category: 'protein', description: 'Pan-fried', commonServing: '100g (1/2 cup)' },
+      'beef_heart': { protein: 28, carbs: 0.1, fat: 3.9, calories: 165, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'beef_tongue': { protein: 16, carbs: 0, fat: 16, calories: 224, category: 'protein', description: 'Cooked', commonServing: '100g (palm-sized)' },
+      'corned_beef': { protein: 25, carbs: 0.5, fat: 5, calories: 251, category: 'protein', description: 'Canned', commonServing: '100g (palm-sized)' },
+      'beef_jerky': { protein: 33, carbs: 11, fat: 25, calories: 410, category: 'protein', description: 'Dried', commonServing: '100g (1/2 cup)' },
+      
+      // Pork variations
+      'pork_tenderloin': { protein: 27, carbs: 0, fat: 4, calories: 143, category: 'protein', description: 'Roasted', commonServing: '100g (palm-sized)' },
+      'pork_chop': { protein: 26, carbs: 0, fat: 8, calories: 196, category: 'protein', description: 'Grilled, boneless', commonServing: '100g (1 medium chop)' },
+      'pork_shoulder': { protein: 27, carbs: 0, fat: 21, calories: 297, category: 'protein', description: 'Roasted, trimmed', commonServing: '100g (palm-sized)' },
+      'pork_loin': { protein: 28, carbs: 0, fat: 6, calories: 184, category: 'protein', description: 'Roasted, trimmed', commonServing: '100g (palm-sized)' },
+      'pork_ribs': { protein: 21, carbs: 0, fat: 24, calories: 321, category: 'protein', description: 'Roasted, back ribs', commonServing: '100g (2-3 ribs)' },
+      'pork_belly': { protein: 9, carbs: 0, fat: 53, calories: 518, category: 'protein', description: 'Roasted', commonServing: '100g (palm-sized)' },
+      'pork_ground': { protein: 26, carbs: 0, fat: 10, calories: 212, category: 'protein', description: 'Cooked, 90% lean', commonServing: '100g (palm-sized)' },
+      'pork_sausage': { protein: 14, carbs: 2, fat: 28, calories: 301, category: 'protein', description: 'Cooked, Italian', commonServing: '100g (2 links)' },
+      'pork_ham': { protein: 18, carbs: 1.5, fat: 5, calories: 145, category: 'protein', description: 'Cured, cooked', commonServing: '100g (3-4 slices)' },
+      'pork_bacon': { protein: 37, carbs: 1.4, fat: 42, calories: 541, category: 'protein', description: 'Pan-fried', commonServing: '100g (8-10 strips)' },
+      'pancetta': { protein: 19, carbs: 0, fat: 60, calories: 655, category: 'protein', description: 'Cured, raw', commonServing: '100g (1/2 cup diced)' },
+      'prosciutto': { protein: 26, carbs: 0, fat: 18, calories: 263, category: 'protein', description: 'Cured, dry-cured', commonServing: '100g (5-6 slices)' },
+      'pork_liver': { protein: 26, carbs: 4, fat: 4.4, calories: 165, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      
+      // Lamb variations
+      'lamb': { protein: 25, carbs: 0, fat: 21, calories: 294, category: 'protein', description: 'Leg, roasted', commonServing: '100g (palm-sized)' },
+      'lamb_leg': { protein: 26, carbs: 0, fat: 14, calories: 258, category: 'protein', description: 'Roasted, trimmed', commonServing: '100g (palm-sized)' },
+      'lamb_chop': { protein: 25, carbs: 0, fat: 23, calories: 313, category: 'protein', description: 'Grilled, rib chop', commonServing: '100g (1-2 chops)' },
+      'lamb_shoulder': { protein: 24, carbs: 0, fat: 25, calories: 337, category: 'protein', description: 'Roasted, trimmed', commonServing: '100g (palm-sized)' },
+      'lamb_ground': { protein: 25, carbs: 0, fat: 21, calories: 294, category: 'protein', description: 'Cooked', commonServing: '100g (palm-sized)' },
+      'lamb_ribs': { protein: 20, carbs: 0, fat: 28, calories: 361, category: 'protein', description: 'Roasted', commonServing: '100g (2-3 ribs)' },
+      
+      // Fish variations
+      'salmon': { protein: 25, carbs: 0, fat: 12, calories: 208, category: 'protein', description: 'Wild-caught, cooked', commonServing: '100g (deck of cards)' },
+      'salmon_fillet': { protein: 25, carbs: 0, fat: 12, calories: 208, category: 'protein', description: 'Grilled, skin-on', commonServing: '100g (deck of cards)' },
+      'salmon_canned': { protein: 20, carbs: 0, fat: 6, calories: 142, category: 'protein', description: 'Canned, pink', commonServing: '100g (1 small can)' },
+      'salmon_smoked': { protein: 25, carbs: 0, fat: 4.3, calories: 117, category: 'protein', description: 'Cold-smoked', commonServing: '100g (3-4 slices)' },
+      'tuna': { protein: 30, carbs: 0, fat: 1, calories: 132, category: 'protein', description: 'Canned in water', commonServing: '100g (1 small can)' },
+      'tuna_steak': { protein: 30, carbs: 0, fat: 1, calories: 132, category: 'protein', description: 'Grilled, fresh', commonServing: '100g (deck of cards)' },
+      'tuna_canned_oil': { protein: 26, carbs: 0, fat: 8, calories: 198, category: 'protein', description: 'Canned in oil', commonServing: '100g (1 small can)' },
+      'tuna_ahi': { protein: 30, carbs: 0, fat: 1, calories: 132, category: 'protein', description: 'Sashimi grade, raw', commonServing: '100g (deck of cards)' },
+      'eggs': { protein: 13, carbs: 1.1, fat: 11, calories: 155, category: 'protein', description: 'Whole eggs, large', commonServing: '100g (2 large eggs)' },
+      'egg_whites': { protein: 11, carbs: 0.7, fat: 0.2, calories: 52, category: 'protein', description: 'Liquid, pasteurized', commonServing: '100g (3-4 whites)' },
+      'greek_yogurt': { protein: 10, carbs: 3.6, fat: 0.4, calories: 59, category: 'protein', description: 'Non-fat, plain', commonServing: '100g (1/2 cup)' },
+      'cottage_cheese': { protein: 11, carbs: 3.4, fat: 4.3, calories: 98, category: 'protein', description: 'Low-fat', commonServing: '100g (1/2 cup)' },
+      'lean_beef': { protein: 26, carbs: 0, fat: 5, calories: 150, category: 'protein', description: '95% lean, cooked', commonServing: '100g (palm-sized)' },
+      'pork_tenderloin': { protein: 27, carbs: 0, fat: 4, calories: 143, category: 'protein', description: 'Roasted', commonServing: '100g (palm-sized)' },
+      'shrimp': { protein: 24, carbs: 0, fat: 0.3, calories: 99, category: 'protein', description: 'Cooked', commonServing: '100g (8-10 large)' },
+      'cod': { protein: 18, carbs: 0, fat: 0.7, calories: 82, category: 'protein', description: 'Baked', commonServing: '100g (deck of cards)' },
+      'halibut': { protein: 23, carbs: 0, fat: 2.3, calories: 111, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'tilapia': { protein: 26, carbs: 0, fat: 1.7, calories: 128, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'mackerel': { protein: 19, carbs: 0, fat: 18, calories: 262, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'sardines': { protein: 25, carbs: 0, fat: 11, calories: 208, category: 'protein', description: 'Canned in oil', commonServing: '100g (1 small can)' },
+      'tofu': { protein: 17, carbs: 2.3, fat: 9, calories: 144, category: 'protein', description: 'Firm, raw', commonServing: '100g (1/2 block)' },
+      'tempeh': { protein: 19, carbs: 9, fat: 11, calories: 193, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 block)' },
+      'edamame': { protein: 11, carbs: 10, fat: 5, calories: 122, category: 'protein', description: 'Shelled, cooked', commonServing: '100g (1/2 cup)' },
+      'lentils': { protein: 9, carbs: 20, fat: 0.4, calories: 116, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'chickpeas': { protein: 8.9, carbs: 27, fat: 2.6, calories: 164, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'black_beans': { protein: 8.9, carbs: 23, fat: 0.5, calories: 132, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'kidney_beans': { protein: 8.7, carbs: 22, fat: 0.5, calories: 127, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'pinto_beans': { protein: 9, carbs: 26, fat: 0.6, calories: 143, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'milk': { protein: 3.4, carbs: 5, fat: 1, calories: 42, category: 'protein', description: '2% reduced fat', commonServing: '100g (1/3 cup)' },
+      'cheese': { protein: 25, carbs: 1.3, fat: 33, calories: 402, category: 'protein', description: 'Cheddar, shredded', commonServing: '100g (1 cup)' },
+      'mozzarella': { protein: 22, carbs: 2.2, fat: 22, calories: 300, category: 'protein', description: 'Part-skim', commonServing: '100g (1 cup shredded)' },
+      'protein_powder': { protein: 80, carbs: 5, fat: 3, calories: 370, category: 'protein', description: 'Whey isolate', commonServing: '30g (1 scoop)' },
+      'seitan': { protein: 25, carbs: 4, fat: 1.2, calories: 120, category: 'protein', description: 'Wheat gluten, cooked', commonServing: '100g (palm-sized)' },
+      'nutritional_yeast': { protein: 50, carbs: 38, fat: 5, calories: 325, category: 'protein', description: 'Flakes', commonServing: '100g (1 cup)' },
+      'hemp_hearts': { protein: 33, carbs: 9, fat: 49, calories: 553, category: 'protein', description: 'Shelled hemp seeds', commonServing: '100g (10 tbsp)' },
+      'spirulina': { protein: 57, carbs: 24, fat: 8, calories: 290, category: 'protein', description: 'Dried powder', commonServing: '100g (1 cup)' },
+      'quorn': { protein: 14, carbs: 9, fat: 2, calories: 105, category: 'protein', description: 'Mycoprotein, pieces', commonServing: '100g (1/2 cup)' },
+      'duck_breast': { protein: 19, carbs: 0, fat: 11, calories: 201, category: 'protein', description: 'Cooked, skinless', commonServing: '100g (palm-sized)' },
+      'lamb': { protein: 25, carbs: 0, fat: 21, calories: 294, category: 'protein', description: 'Leg, roasted', commonServing: '100g (palm-sized)' },
+      'venison': { protein: 30, carbs: 0, fat: 3, calories: 158, category: 'protein', description: 'Cooked', commonServing: '100g (palm-sized)' },
+      'bison': { protein: 28, carbs: 0, fat: 2.4, calories: 143, category: 'protein', description: 'Ground, cooked', commonServing: '100g (palm-sized)' },
+      'anchovies': { protein: 20, carbs: 0, fat: 4.8, calories: 131, category: 'protein', description: 'Canned in oil', commonServing: '100g (1 small can)' },
+      'herring': { protein: 18, carbs: 0, fat: 9, calories: 158, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'trout': { protein: 22, carbs: 0, fat: 7, calories: 168, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'sea_bass': { protein: 24, carbs: 0, fat: 2, calories: 124, category: 'protein', description: 'Cooked', commonServing: '100g (deck of cards)' },
+      'scallops': { protein: 20, carbs: 5, fat: 0.8, calories: 111, category: 'protein', description: 'Cooked', commonServing: '100g (6-8 large)' },
+      'crab': { protein: 19, carbs: 0, fat: 1.5, calories: 97, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup meat)' },
+      'lobster': { protein: 19, carbs: 0.5, fat: 0.5, calories: 89, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup meat)' },
+      'mussels': { protein: 24, carbs: 7, fat: 2.2, calories: 172, category: 'protein', description: 'Cooked', commonServing: '100g (10-12 mussels)' },
+      'oysters': { protein: 9, carbs: 4.2, fat: 2.5, calories: 81, category: 'protein', description: 'Raw', commonServing: '100g (6-8 medium)' },
+      'crab_sticks': { protein: 15, carbs: 7, fat: 1, calories: 99, category: 'protein', description: 'Surimi', commonServing: '100g (4-5 sticks)' },
+      'soy_chunks': { protein: 52, carbs: 33, fat: 0.4, calories: 345, category: 'protein', description: 'Textured vegetable protein', commonServing: '100g (dry, 1 cup)' },
+      'peanut_powder': { protein: 50, carbs: 25, fat: 12, calories: 428, category: 'protein', description: 'Defatted', commonServing: '100g (1 cup)' },
+      'bone_broth': { protein: 6, carbs: 0, fat: 0.2, calories: 27, category: 'protein', description: 'Homemade', commonServing: '100g (1/2 cup)' },
+      'collagen_peptides': { protein: 90, carbs: 0, fat: 0, calories: 360, category: 'protein', description: 'Powder', commonServing: '100g (3-4 scoops)' },
+      'whey_protein': { protein: 80, carbs: 5, fat: 3, calories: 370, category: 'protein', description: 'Concentrate powder', commonServing: '100g (3 scoops)' },
+      'casein_protein': { protein: 80, carbs: 4, fat: 1, calories: 350, category: 'protein', description: 'Powder', commonServing: '100g (3 scoops)' },
+      'pea_protein': { protein: 80, carbs: 4, fat: 2, calories: 360, category: 'protein', description: 'Isolate powder', commonServing: '100g (3 scoops)' },
+      'rice_protein': { protein: 80, carbs: 4, fat: 2, calories: 360, category: 'protein', description: 'Isolate powder', commonServing: '100g (3 scoops)' },
+      'hemp_protein': { protein: 50, carbs: 20, fat: 10, calories: 370, category: 'protein', description: 'Powder', commonServing: '100g (3 scoops)' },
+      'soy_protein': { protein: 88, carbs: 0, fat: 0, calories: 350, category: 'protein', description: 'Isolate powder', commonServing: '100g (3 scoops)' },
+      'pumpkin_seeds': { protein: 30, carbs: 10, fat: 49, calories: 559, category: 'protein', description: 'Roasted, shelled', commonServing: '100g (3/4 cup)' },
+      'sunflower_seeds': { protein: 21, carbs: 20, fat: 51, calories: 584, category: 'protein', description: 'Roasted, shelled', commonServing: '100g (3/4 cup)' },
+      'hemp_seeds': { protein: 31, carbs: 8.7, fat: 48, calories: 553, category: 'protein', description: 'Hulled', commonServing: '100g (10 tbsp)' },
+      'chia_seeds': { protein: 17, carbs: 42, fat: 31, calories: 486, category: 'protein', description: 'Dried', commonServing: '100g (10 tbsp)' },
+      'flax_seeds': { protein: 18, carbs: 29, fat: 42, calories: 534, category: 'protein', description: 'Ground', commonServing: '100g (10 tbsp)' },
+      'quinoa': { protein: 4.4, carbs: 22, fat: 1.9, calories: 120, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'amaranth': { protein: 3.8, carbs: 19, fat: 1.6, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'buckwheat': { protein: 3.4, carbs: 20, fat: 0.6, calories: 92, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'spelt': { protein: 5.5, carbs: 22, fat: 0.9, calories: 127, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'kamut': { protein: 5.7, carbs: 23, fat: 0.8, calories: 132, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'teff': { protein: 3.9, carbs: 20, fat: 0.7, calories: 101, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'millet': { protein: 3.5, carbs: 23, fat: 1, calories: 119, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'navy_beans': { protein: 8.2, carbs: 26, fat: 0.6, calories: 140, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'lima_beans': { protein: 7.8, carbs: 21, fat: 0.4, calories: 115, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'fava_beans': { protein: 7.6, carbs: 19, fat: 0.4, calories: 110, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'cannellini_beans': { protein: 8.7, carbs: 25, fat: 0.4, calories: 139, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'great_northern_beans': { protein: 8.3, carbs: 25, fat: 0.5, calories: 139, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'adzuki_beans': { protein: 7.5, carbs: 25, fat: 0.1, calories: 128, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'mung_beans': { protein: 7, carbs: 19, fat: 0.4, calories: 105, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'split_peas': { protein: 8.3, carbs: 21, fat: 0.4, calories: 118, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'black_eyed_peas': { protein: 8.2, carbs: 21, fat: 0.6, calories: 116, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'soybeans': { protein: 17, carbs: 9, fat: 9, calories: 173, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'white_beans': { protein: 9.7, carbs: 25, fat: 0.4, calories: 139, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'red_beans': { protein: 8.7, carbs: 22, fat: 0.5, calories: 127, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'butter_beans': { protein: 7.8, carbs: 21, fat: 0.4, calories: 115, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'garbanzo_beans': { protein: 8.9, carbs: 27, fat: 2.6, calories: 164, category: 'protein', description: 'Cooked, chickpeas', commonServing: '100g (1/2 cup)' },
+      'hummus': { protein: 8, carbs: 14, fat: 9.6, calories: 166, category: 'protein', description: 'Classic', commonServing: '100g (1/3 cup)' },
+      'refried_beans': { protein: 7, carbs: 26, fat: 1.5, calories: 142, category: 'protein', description: 'Canned', commonServing: '100g (1/3 cup)' },
+      'baked_beans': { protein: 5.2, carbs: 22, fat: 0.4, calories: 106, category: 'protein', description: 'Canned, in sauce', commonServing: '100g (1/3 cup)' },
+      'green_peas': { protein: 5.4, carbs: 14, fat: 0.4, calories: 81, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'snap_peas': { protein: 2.8, carbs: 7, fat: 0.2, calories: 42, category: 'protein', description: 'Raw', commonServing: '100g (1 cup)' },
+      'snow_peas': { protein: 2.8, carbs: 7, fat: 0.2, calories: 42, category: 'protein', description: 'Raw', commonServing: '100g (1 cup)' },
+      'broccoli': { protein: 2.8, carbs: 7, fat: 0.4, calories: 34, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup chopped)' },
+      'spinach': { protein: 2.9, carbs: 3.6, fat: 0.4, calories: 23, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup)' },
+      'kale': { protein: 2.9, carbs: 4.4, fat: 0.6, calories: 28, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup)' },
+      'brussels_sprouts': { protein: 3.4, carbs: 9, fat: 0.3, calories: 36, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup)' },
+      'asparagus': { protein: 2.2, carbs: 4, fat: 0.1, calories: 22, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'artichoke': { protein: 3.3, carbs: 11, fat: 0.2, calories: 47, category: 'protein', description: 'Cooked', commonServing: '100g (1 medium)' },
+      'mushrooms': { protein: 3.1, carbs: 3.3, fat: 0.3, calories: 22, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup sliced)' },
+      'portobello_mushrooms': { protein: 3.9, carbs: 3.9, fat: 0.4, calories: 29, category: 'protein', description: 'Grilled', commonServing: '100g (1 large cap)' },
+      'shiitake_mushrooms': { protein: 2.2, carbs: 7, fat: 0.2, calories: 34, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup)' },
+      'oyster_mushrooms': { protein: 3.3, carbs: 6, fat: 0.4, calories: 33, category: 'protein', description: 'Cooked', commonServing: '100g (1 cup)' },
+      'nutritional_yeast': { protein: 50, carbs: 38, fat: 5, calories: 325, category: 'protein', description: 'Flakes', commonServing: '100g (1 cup)' },
+      'spirulina': { protein: 57, carbs: 24, fat: 8, calories: 290, category: 'protein', description: 'Dried powder', commonServing: '100g (1 cup)' },
+      'chlorella': { protein: 58, carbs: 23, fat: 9, calories: 410, category: 'protein', description: 'Dried powder', commonServing: '100g (1 cup)' },
+      'nori': { protein: 6, carbs: 5, fat: 0.3, calories: 35, category: 'protein', description: 'Dried seaweed', commonServing: '100g (10 sheets)' },
+      'wakame': { protein: 3, carbs: 9, fat: 0.6, calories: 45, category: 'protein', description: 'Dried seaweed', commonServing: '100g (1 cup rehydrated)' },
+      'kombu': { protein: 6, carbs: 8, fat: 0.6, calories: 43, category: 'protein', description: 'Dried kelp', commonServing: '100g (1 cup rehydrated)' },
+      'dulse': { protein: 22, carbs: 5, fat: 0.2, calories: 49, category: 'protein', description: 'Dried seaweed', commonServing: '100g (1 cup)' },
+      'seaweed_snacks': { protein: 2, carbs: 1, fat: 0.5, calories: 15, category: 'protein', description: 'Roasted', commonServing: '100g (10 sheets)' },
+      'quorn': { protein: 14, carbs: 9, fat: 2, calories: 105, category: 'protein', description: 'Mycoprotein, pieces', commonServing: '100g (1/2 cup)' },
+      'seitan': { protein: 25, carbs: 4, fat: 1.2, calories: 120, category: 'protein', description: 'Wheat gluten, cooked', commonServing: '100g (palm-sized)' },
+      'tofu_silken': { protein: 6, carbs: 1.2, fat: 2.7, calories: 55, category: 'protein', description: 'Soft, raw', commonServing: '100g (1/2 block)' },
+      'tofu_extra_firm': { protein: 17, carbs: 2.3, fat: 9, calories: 144, category: 'protein', description: 'Extra firm, raw', commonServing: '100g (1/2 block)' },
+      'tofu_smoked': { protein: 18, carbs: 1.2, fat: 8, calories: 141, category: 'protein', description: 'Smoked', commonServing: '100g (1/2 block)' },
+      'tempeh': { protein: 19, carbs: 9, fat: 11, calories: 193, category: 'protein', description: 'Cooked', commonServing: '100g (1/2 block)' },
+      'edamame': { protein: 11, carbs: 10, fat: 5, calories: 122, category: 'protein', description: 'Shelled, cooked', commonServing: '100g (1/2 cup)' },
+      'soy_nuts': { protein: 47, carbs: 30, fat: 25, calories: 469, category: 'protein', description: 'Roasted', commonServing: '100g (1 cup)' },
+      'soy_milk': { protein: 3.3, carbs: 4, fat: 1.8, calories: 33, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'almond_milk': { protein: 1, carbs: 1.5, fat: 2.5, calories: 17, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'oat_milk': { protein: 1.3, carbs: 6.5, fat: 1.3, calories: 43, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'coconut_milk_drink': { protein: 0.2, carbs: 2.5, fat: 1.2, calories: 19, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'rice_milk': { protein: 0.3, carbs: 9, fat: 1, calories: 47, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'hemp_milk': { protein: 2, carbs: 1.3, fat: 3, calories: 35, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'cashew_milk': { protein: 0.5, carbs: 1.5, fat: 2, calories: 23, category: 'protein', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'kefir': { protein: 3.3, carbs: 4.5, fat: 1, calories: 41, category: 'protein', description: 'Fermented milk', commonServing: '100g (1/3 cup)' },
+      'buttermilk': { protein: 3.3, carbs: 4.8, fat: 0.6, calories: 40, category: 'protein', description: 'Cultured', commonServing: '100g (1/3 cup)' },
+      'yogurt_greek': { protein: 10, carbs: 3.6, fat: 0.4, calories: 59, category: 'protein', description: 'Non-fat, plain', commonServing: '100g (1/2 cup)' },
+      'yogurt_regular': { protein: 5, carbs: 9, fat: 1.5, calories: 59, category: 'protein', description: 'Low-fat, plain', commonServing: '100g (1/2 cup)' },
+      'yogurt_icelandic': { protein: 11, carbs: 4, fat: 0.2, calories: 59, category: 'protein', description: 'Skyr, plain', commonServing: '100g (1/2 cup)' },
+      'cottage_cheese': { protein: 11, carbs: 3.4, fat: 4.3, calories: 98, category: 'protein', description: 'Low-fat', commonServing: '100g (1/2 cup)' },
+      'ricotta': { protein: 11, carbs: 3, fat: 13, calories: 174, category: 'protein', description: 'Whole milk', commonServing: '100g (1/2 cup)' },
+      'paneer': { protein: 18, carbs: 2.6, fat: 20, calories: 260, category: 'protein', description: 'Indian cottage cheese', commonServing: '100g (1/2 cup)' },
+      'halloumi': { protein: 22, carbs: 1.8, fat: 26, calories: 320, category: 'protein', description: 'Grilling cheese', commonServing: '100g (1/2 block)' },
+      'feta': { protein: 14, carbs: 4.1, fat: 21, calories: 264, category: 'protein', description: 'Greek, in brine', commonServing: '100g (1/2 cup crumbled)' },
+      'goat_cheese': { protein: 22, carbs: 2.5, fat: 30, calories: 364, category: 'protein', description: 'Soft', commonServing: '100g (1/2 cup)' },
+      'parmesan': { protein: 38, carbs: 4.1, fat: 30, calories: 431, category: 'protein', description: 'Grated', commonServing: '100g (1 cup)' },
+      'cheddar': { protein: 25, carbs: 1.3, fat: 33, calories: 402, category: 'protein', description: 'Aged, shredded', commonServing: '100g (1 cup)' },
+      'mozzarella': { protein: 22, carbs: 2.2, fat: 22, calories: 300, category: 'protein', description: 'Part-skim', commonServing: '100g (1 cup shredded)' },
+      'swiss_cheese': { protein: 27, carbs: 1.4, fat: 28, calories: 380, category: 'protein', description: 'Emmental', commonServing: '100g (1 cup shredded)' },
+      'gouda': { protein: 25, carbs: 2.2, fat: 28, calories: 356, category: 'protein', description: 'Aged', commonServing: '100g (1 cup shredded)' },
+      'provolone': { protein: 26, carbs: 2.1, fat: 27, calories: 351, category: 'protein', description: 'Aged', commonServing: '100g (1 cup shredded)' },
+      'monterey_jack': { protein: 24, carbs: 0.7, fat: 30, calories: 373, category: 'protein', description: 'Semi-soft', commonServing: '100g (1 cup shredded)' },
+      'pepper_jack': { protein: 24, carbs: 0.7, fat: 30, calories: 373, category: 'protein', description: 'Spicy', commonServing: '100g (1 cup shredded)' },
+      'string_cheese': { protein: 22, carbs: 1, fat: 17, calories: 250, category: 'protein', description: 'Mozzarella sticks', commonServing: '100g (3-4 sticks)' },
+      'cheese_curds': { protein: 25, carbs: 1, fat: 33, calories: 371, category: 'protein', description: 'Fresh', commonServing: '100g (1/2 cup)' },
+      'queso_fresco': { protein: 19, carbs: 2.5, fat: 20, calories: 260, category: 'protein', description: 'Mexican fresh cheese', commonServing: '100g (1/2 cup crumbled)' },
+      'burrata': { protein: 17, carbs: 2.2, fat: 25, calories: 300, category: 'protein', description: 'Fresh mozzarella', commonServing: '100g (1/2 ball)' },
+      'stracciatella': { protein: 12, carbs: 3, fat: 18, calories: 220, category: 'protein', description: 'Fresh cheese', commonServing: '100g (1/2 cup)' },
+      'boursin': { protein: 7, carbs: 2, fat: 35, calories: 345, category: 'protein', description: 'Herb cream cheese', commonServing: '100g (1/2 cup)' },
+      'cream_cheese': { protein: 6.2, carbs: 4.1, fat: 35, calories: 342, category: 'protein', description: 'Regular', commonServing: '100g (1/2 cup)' },
+      'philadelphia': { protein: 6.2, carbs: 4.1, fat: 35, calories: 342, category: 'protein', description: 'Cream cheese', commonServing: '100g (1/2 cup)' },
+      'labneh': { protein: 10, carbs: 4, fat: 20, calories: 220, category: 'protein', description: 'Strained yogurt', commonServing: '100g (1/2 cup)' },
+      'mascarpone': { protein: 4.6, carbs: 4.6, fat: 47, calories: 429, category: 'protein', description: 'Italian cream cheese', commonServing: '100g (1/2 cup)' },
+      'brie': { protein: 21, carbs: 0.5, fat: 28, calories: 334, category: 'protein', description: 'Soft-ripened', commonServing: '100g (1/2 wheel)' },
+      'camembert': { protein: 20, carbs: 0.5, fat: 24, calories: 300, category: 'protein', description: 'Soft-ripened', commonServing: '100g (1/2 wheel)' },
+      'blue_cheese': { protein: 21, carbs: 2.3, fat: 29, calories: 353, category: 'protein', description: 'Roquefort style', commonServing: '100g (1/2 cup crumbled)' },
+      'gorgonzola': { protein: 19, carbs: 0.5, fat: 28, calories: 330, category: 'protein', description: 'Italian blue', commonServing: '100g (1/2 cup crumbled)' },
+      'pecorino': { protein: 32, carbs: 0, fat: 32, calories: 387, category: 'protein', description: 'Romano, grated', commonServing: '100g (1 cup)' },
+      'manchego': { protein: 31, carbs: 0, fat: 30, calories: 364, category: 'protein', description: 'Spanish, aged', commonServing: '100g (1 cup shredded)' },
+      'gruyere': { protein: 27, carbs: 0.4, fat: 32, calories: 413, category: 'protein', description: 'Swiss, aged', commonServing: '100g (1 cup shredded)' },
+      'havarti': { protein: 20, carbs: 0.5, fat: 28, calories: 334, category: 'protein', description: 'Creamy', commonServing: '100g (1 cup shredded)' },
+      'muenster': { protein: 23, carbs: 1.1, fat: 30, calories: 368, category: 'protein', description: 'Semi-soft', commonServing: '100g (1 cup shredded)' },
+      'colby': { protein: 23, carbs: 2.6, fat: 32, calories: 394, category: 'protein', description: 'Mild', commonServing: '100g (1 cup shredded)' },
+      'cheddar_aged': { protein: 25, carbs: 1.3, fat: 33, calories: 402, category: 'protein', description: 'Sharp, aged', commonServing: '100g (1 cup shredded)' },
+      'swiss_cheese': { protein: 27, carbs: 1.4, fat: 28, calories: 380, category: 'protein', description: 'Emmental', commonServing: '100g (1 cup shredded)' },
+      'gouda': { protein: 25, carbs: 2.2, fat: 28, calories: 356, category: 'protein', description: 'Aged', commonServing: '100g (1 cup shredded)' },
+      'provolone': { protein: 26, carbs: 2.1, fat: 27, calories: 351, category: 'protein', description: 'Aged', commonServing: '100g (1 cup shredded)' },
+      'monterey_jack': { protein: 24, carbs: 0.7, fat: 30, calories: 373, category: 'protein', description: 'Semi-soft', commonServing: '100g (1 cup shredded)' },
+      'pepper_jack': { protein: 24, carbs: 0.7, fat: 30, calories: 373, category: 'protein', description: 'Spicy', commonServing: '100g (1 cup shredded)' },
+      'string_cheese': { protein: 22, carbs: 1, fat: 17, calories: 250, category: 'protein', description: 'Mozzarella sticks', commonServing: '100g (3-4 sticks)' },
+      'cheese_curds': { protein: 25, carbs: 1, fat: 33, calories: 371, category: 'protein', description: 'Fresh', commonServing: '100g (1/2 cup)' },
+      'queso_fresco': { protein: 19, carbs: 2.5, fat: 20, calories: 260, category: 'protein', description: 'Mexican fresh cheese', commonServing: '100g (1/2 cup crumbled)' },
+      'burrata': { protein: 17, carbs: 2.2, fat: 25, calories: 300, category: 'protein', description: 'Fresh mozzarella', commonServing: '100g (1/2 ball)' },
+      'stracciatella': { protein: 12, carbs: 3, fat: 18, calories: 220, category: 'protein', description: 'Fresh cheese', commonServing: '100g (1/2 cup)' },
+      'boursin': { protein: 7, carbs: 2, fat: 35, calories: 345, category: 'protein', description: 'Herb cream cheese', commonServing: '100g (1/2 cup)' },
+      'cream_cheese': { protein: 6.2, carbs: 4.1, fat: 35, calories: 342, category: 'protein', description: 'Regular', commonServing: '100g (1/2 cup)' },
+      'philadelphia': { protein: 6.2, carbs: 4.1, fat: 35, calories: 342, category: 'protein', description: 'Cream cheese', commonServing: '100g (1/2 cup)' },
+      'labneh': { protein: 10, carbs: 4, fat: 20, calories: 220, category: 'protein', description: 'Strained yogurt', commonServing: '100g (1/2 cup)' },
+      'mascarpone': { protein: 4.6, carbs: 4.6, fat: 47, calories: 429, category: 'protein', description: 'Italian cream cheese', commonServing: '100g (1/2 cup)' },
+      'brie': { protein: 21, carbs: 0.5, fat: 28, calories: 334, category: 'protein', description: 'Soft-ripened', commonServing: '100g (1/2 wheel)' },
+      'camembert': { protein: 20, carbs: 0.5, fat: 24, calories: 300, category: 'protein', description: 'Soft-ripened', commonServing: '100g (1/2 wheel)' },
+      'blue_cheese': { protein: 21, carbs: 2.3, fat: 29, calories: 353, category: 'protein', description: 'Roquefort style', commonServing: '100g (1/2 cup crumbled)' },
+      'gorgonzola': { protein: 19, carbs: 0.5, fat: 28, calories: 330, category: 'protein', description: 'Italian blue', commonServing: '100g (1/2 cup crumbled)' },
+      'pecorino': { protein: 32, carbs: 0, fat: 32, calories: 387, category: 'protein', description: 'Romano, grated', commonServing: '100g (1 cup)' },
+      'manchego': { protein: 31, carbs: 0, fat: 30, calories: 364, category: 'protein', description: 'Spanish, aged', commonServing: '100g (1 cup shredded)' },
+      'gruyere': { protein: 27, carbs: 0.4, fat: 32, calories: 413, category: 'protein', description: 'Swiss, aged', commonServing: '100g (1 cup shredded)' },
+      'havarti': { protein: 20, carbs: 0.5, fat: 28, calories: 334, category: 'protein', description: 'Creamy', commonServing: '100g (1 cup shredded)' },
+      'muenster': { protein: 23, carbs: 1.1, fat: 30, calories: 368, category: 'protein', description: 'Semi-soft', commonServing: '100g (1 cup shredded)' },
+      'colby': { protein: 23, carbs: 2.6, fat: 32, calories: 394, category: 'protein', description: 'Mild', commonServing: '100g (1 cup shredded)' },
+      
+      // Carb sources
+      'rice': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'White rice, cooked', commonServing: '100g (1/2 cup cooked)' },
+      'brown_rice': { protein: 2.6, carbs: 23, fat: 0.9, calories: 111, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'wild_rice': { protein: 4, carbs: 21, fat: 0.3, calories: 101, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'quinoa': { protein: 4.4, carbs: 22, fat: 1.9, calories: 120, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'barley': { protein: 3.5, carbs: 28, fat: 0.8, calories: 123, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'couscous': { protein: 3.8, carbs: 23, fat: 0.2, calories: 112, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'bulgur': { protein: 3.1, carbs: 19, fat: 0.2, calories: 83, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'farro': { protein: 3.7, carbs: 25, fat: 0.5, calories: 127, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'oats': { protein: 17, carbs: 66, fat: 7, calories: 389, category: 'carbs', description: 'Dry, rolled oats', commonServing: '100g (1 cup dry)' },
+      'sweet_potato': { protein: 1.6, carbs: 20, fat: 0.1, calories: 86, category: 'carbs', description: 'Baked, with skin', commonServing: '100g (1 small potato)' },
+      'potato': { protein: 2, carbs: 17, fat: 0.1, calories: 77, category: 'carbs', description: 'Baked, with skin', commonServing: '100g (1 small potato)' },
+      'pasta': { protein: 5, carbs: 25, fat: 1.1, calories: 131, category: 'carbs', description: 'Cooked, whole wheat', commonServing: '100g (1/2 cup cooked)' },
+      'bread': { protein: 9, carbs: 49, fat: 3.2, calories: 265, category: 'carbs', description: 'Whole wheat', commonServing: '100g (2-3 slices)' },
+      'wheat_bread': { protein: 12, carbs: 48, fat: 3.2, calories: 247, category: 'carbs', description: 'Whole grain', commonServing: '100g (3-4 slices)' },
+      'bagel': { protein: 11, carbs: 56, fat: 1.7, calories: 275, category: 'carbs', description: 'Plain, medium', commonServing: '100g (1 medium bagel)' },
+      'pita_bread': { protein: 9.1, carbs: 56, fat: 1.2, calories: 275, category: 'carbs', description: 'Whole wheat', commonServing: '100g (2 medium pitas)' },
+      'english_muffin': { protein: 8, carbs: 46, fat: 1.8, calories: 235, category: 'carbs', description: 'Whole wheat', commonServing: '100g (2 muffins)' },
+      'tortilla': { protein: 8.2, carbs: 49, fat: 3.2, calories: 237, category: 'carbs', description: 'Whole wheat, medium', commonServing: '100g (2-3 tortillas)' },
+      'crackers': { protein: 10, carbs: 65, fat: 12, calories: 445, category: 'carbs', description: 'Whole wheat', commonServing: '100g (15-20 crackers)' },
+      'corn': { protein: 3.4, carbs: 21, fat: 1.2, calories: 96, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'peas': { protein: 5.4, carbs: 14, fat: 0.4, calories: 81, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'banana': { protein: 1.1, carbs: 23, fat: 0.3, calories: 89, category: 'carbs', description: 'Medium-sized', commonServing: '100g (1 medium banana)' },
+      'apple': { protein: 0.3, carbs: 14, fat: 0.2, calories: 52, category: 'carbs', description: 'Medium-sized', commonServing: '100g (1 medium apple)' },
+      'orange': { protein: 0.9, carbs: 12, fat: 0.1, calories: 47, category: 'carbs', description: 'Medium-sized', commonServing: '100g (1 medium orange)' },
+      'berries': { protein: 0.7, carbs: 14, fat: 0.3, calories: 57, category: 'carbs', description: 'Mixed, fresh', commonServing: '100g (3/4 cup)' },
+      'mango': { protein: 0.8, carbs: 15, fat: 0.4, calories: 60, category: 'carbs', description: 'Fresh, sliced', commonServing: '100g (2/3 cup)' },
+      'pineapple': { protein: 0.5, carbs: 13, fat: 0.1, calories: 50, category: 'carbs', description: 'Fresh, chunks', commonServing: '100g (2/3 cup)' },
+      'grapes': { protein: 0.7, carbs: 18, fat: 0.2, calories: 69, category: 'carbs', description: 'Red or green', commonServing: '100g (3/4 cup)' },
+      'watermelon': { protein: 0.6, carbs: 8, fat: 0.2, calories: 30, category: 'carbs', description: 'Fresh, cubed', commonServing: '100g (2/3 cup)' },
+      'dates': { protein: 2.5, carbs: 75, fat: 0.4, calories: 277, category: 'carbs', description: 'Dried, pitted', commonServing: '100g (10-12 dates)' },
+      'pear': { protein: 0.4, carbs: 15, fat: 0.1, calories: 57, category: 'carbs', description: 'Medium-sized', commonServing: '100g (1 medium pear)' },
+      'peach': { protein: 0.9, carbs: 10, fat: 0.3, calories: 39, category: 'carbs', description: 'Fresh', commonServing: '100g (1 medium peach)' },
+      'plum': { protein: 0.7, carbs: 11, fat: 0.3, calories: 46, category: 'carbs', description: 'Fresh', commonServing: '100g (2-3 plums)' },
+      'cherries': { protein: 1, carbs: 16, fat: 0.2, calories: 63, category: 'carbs', description: 'Sweet, fresh', commonServing: '100g (1 cup)' },
+      'strawberries': { protein: 0.7, carbs: 8, fat: 0.3, calories: 32, category: 'carbs', description: 'Fresh', commonServing: '100g (1 cup sliced)' },
+      'blueberries': { protein: 0.7, carbs: 14, fat: 0.3, calories: 57, category: 'carbs', description: 'Fresh', commonServing: '100g (3/4 cup)' },
+      'raspberries': { protein: 1.2, carbs: 12, fat: 0.7, calories: 52, category: 'carbs', description: 'Fresh', commonServing: '100g (1 cup)' },
+      'blackberries': { protein: 1.4, carbs: 10, fat: 0.5, calories: 43, category: 'carbs', description: 'Fresh', commonServing: '100g (1 cup)' },
+      'kiwi': { protein: 1.1, carbs: 15, fat: 0.5, calories: 61, category: 'carbs', description: 'Fresh', commonServing: '100g (1 medium kiwi)' },
+      'papaya': { protein: 0.5, carbs: 11, fat: 0.1, calories: 43, category: 'carbs', description: 'Fresh, cubed', commonServing: '100g (2/3 cup)' },
+      'cantaloupe': { protein: 0.8, carbs: 8, fat: 0.2, calories: 34, category: 'carbs', description: 'Fresh, cubed', commonServing: '100g (2/3 cup)' },
+      'honeydew': { protein: 0.5, carbs: 9, fat: 0.1, calories: 36, category: 'carbs', description: 'Fresh, cubed', commonServing: '100g (2/3 cup)' },
+      'coconut': { protein: 3.3, carbs: 15, fat: 33, calories: 354, category: 'carbs', description: 'Fresh, shredded', commonServing: '100g (1 cup)' },
+      'raisins': { protein: 3.1, carbs: 79, fat: 0.5, calories: 299, category: 'carbs', description: 'Dried', commonServing: '100g (2/3 cup)' },
+      'prunes': { protein: 2.2, carbs: 64, fat: 0.4, calories: 240, category: 'carbs', description: 'Dried, pitted', commonServing: '100g (10-12 prunes)' },
+      'apricots_dried': { protein: 3.4, carbs: 63, fat: 0.5, calories: 241, category: 'carbs', description: 'Dried', commonServing: '100g (1 cup halves)' },
+      'figs_dried': { protein: 3.3, carbs: 64, fat: 0.9, calories: 249, category: 'carbs', description: 'Dried', commonServing: '100g (5-6 figs)' },
+      'cranberries_dried': { protein: 0.1, carbs: 82, fat: 1.4, calories: 308, category: 'carbs', description: 'Sweetened, dried', commonServing: '100g (1 cup)' },
+      'millet': { protein: 3.5, carbs: 23, fat: 1, calories: 119, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'amaranth': { protein: 3.8, carbs: 19, fat: 1.6, calories: 102, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'teff': { protein: 3.9, carbs: 20, fat: 0.7, calories: 101, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'spelt': { protein: 5.5, carbs: 22, fat: 0.9, calories: 127, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'kamut': { protein: 5.7, carbs: 23, fat: 0.8, calories: 132, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'freekeh': { protein: 4.7, carbs: 25, fat: 0.5, calories: 125, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'sorghum': { protein: 3.3, carbs: 24, fat: 1.2, calories: 123, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'buckwheat': { protein: 3.4, carbs: 20, fat: 0.6, calories: 92, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_noodles': { protein: 1.8, carbs: 24, fat: 0.2, calories: 109, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'soba_noodles': { protein: 5.1, carbs: 21, fat: 0.1, calories: 99, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'udon_noodles': { protein: 2.6, carbs: 22, fat: 0.1, calories: 105, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'ramen_noodles': { protein: 4.5, carbs: 28, fat: 1.1, calories: 138, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'gnocchi': { protein: 3.5, carbs: 32, fat: 0.2, calories: 131, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'polenta': { protein: 1.7, carbs: 18, fat: 0.3, calories: 85, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'grits': { protein: 1.4, carbs: 19, fat: 0.2, calories: 71, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'cornbread': { protein: 6.6, carbs: 33, fat: 4.5, calories: 198, category: 'carbs', description: 'Baked', commonServing: '100g (1 slice)' },
+      'naan': { protein: 6.3, carbs: 46, fat: 2.5, calories: 262, category: 'carbs', description: 'Plain', commonServing: '100g (1 medium piece)' },
+      'flatbread': { protein: 7.9, carbs: 46, fat: 2.2, calories: 259, category: 'carbs', description: 'Whole wheat', commonServing: '100g (2 pieces)' },
+      'rye_bread': { protein: 8.5, carbs: 48, fat: 3.3, calories: 259, category: 'carbs', description: 'Dark rye', commonServing: '100g (3-4 slices)' },
+      'sourdough_bread': { protein: 9.1, carbs: 46, fat: 1.3, calories: 289, category: 'carbs', description: 'White', commonServing: '100g (3-4 slices)' },
+      'focaccia': { protein: 8.8, carbs: 36, fat: 18, calories: 249, category: 'carbs', description: 'Plain', commonServing: '100g (1 slice)' },
+      'pretzel': { protein: 10, carbs: 79, fat: 3.1, calories: 384, category: 'carbs', description: 'Soft', commonServing: '100g (1 large pretzel)' },
+      'croissant': { protein: 8.2, carbs: 46, fat: 21, calories: 406, category: 'carbs', description: 'Butter', commonServing: '100g (1 medium croissant)' },
+      'pancake': { protein: 5.9, carbs: 28, fat: 5.2, calories: 227, category: 'carbs', description: 'Plain', commonServing: '100g (1 medium pancake)' },
+      'waffle': { protein: 7.9, carbs: 38, fat: 11, calories: 291, category: 'carbs', description: 'Plain', commonServing: '100g (1 medium waffle)' },
+      'french_toast': { protein: 7.7, carbs: 25, fat: 11, calories: 229, category: 'carbs', description: 'Plain', commonServing: '100g (1 slice)' },
+      'muffin': { protein: 4.5, carbs: 44, fat: 11, calories: 265, category: 'carbs', description: 'Blueberry', commonServing: '100g (1 medium muffin)' },
+      'scone': { protein: 6.2, carbs: 45, fat: 13, calories: 339, category: 'carbs', description: 'Plain', commonServing: '100g (1 medium scone)' },
+      'doughnut': { protein: 4.3, carbs: 48, fat: 23, calories: 452, category: 'carbs', description: 'Glazed', commonServing: '100g (1 medium doughnut)' },
+      'beetroot': { protein: 1.6, carbs: 10, fat: 0.2, calories: 43, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'parsnip': { protein: 1.2, carbs: 18, fat: 0.3, calories: 75, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'turnip': { protein: 0.9, carbs: 6, fat: 0.1, calories: 28, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'rutabaga': { protein: 1.1, carbs: 9, fat: 0.2, calories: 36, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'plantain': { protein: 1.3, carbs: 32, fat: 0.4, calories: 122, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'yucca': { protein: 1.4, carbs: 38, fat: 0.3, calories: 160, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'taro': { protein: 1.5, carbs: 27, fat: 0.2, calories: 112, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'jicama': { protein: 0.7, carbs: 9, fat: 0.1, calories: 38, category: 'carbs', description: 'Raw', commonServing: '100g (1 cup sliced)' },
+      'acorn_squash': { protein: 1.1, carbs: 15, fat: 0.1, calories: 56, category: 'carbs', description: 'Baked', commonServing: '100g (1/2 cup)' },
+      'butternut_squash': { protein: 1, carbs: 12, fat: 0.1, calories: 45, category: 'carbs', description: 'Baked', commonServing: '100g (1/2 cup)' },
+      'pumpkin': { protein: 1, carbs: 7, fat: 0.1, calories: 26, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'zucchini': { protein: 1.2, carbs: 3, fat: 0.2, calories: 17, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup)' },
+      'winter_squash': { protein: 1, carbs: 10, fat: 0.1, calories: 40, category: 'carbs', description: 'Baked', commonServing: '100g (1/2 cup)' },
+      'rice_jasmine': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_basmati': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_arborio': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked, risotto', commonServing: '100g (1/2 cup cooked)' },
+      'rice_sticky': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked, glutinous', commonServing: '100g (1/2 cup cooked)' },
+      'rice_cakes': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (10-12 cakes)' },
+      'rice_paper': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Dried, for spring rolls', commonServing: '100g (20-25 sheets)' },
+      'rice_flour': { protein: 5.9, carbs: 80, fat: 1.4, calories: 366, category: 'carbs', description: 'White', commonServing: '100g (3/4 cup)' },
+      'rice_pudding': { protein: 3.2, carbs: 20, fat: 2, calories: 118, calories: 118, category: 'carbs', description: 'Cooked, with milk', commonServing: '100g (1/2 cup)' },
+      'rice_cereal': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Puffed', commonServing: '100g (3 cups)' },
+      'rice_crackers': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (15-20 crackers)' },
+      'rice_noodles': { protein: 1.8, carbs: 24, fat: 0.2, calories: 109, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_vermicelli': { protein: 1.8, carbs: 24, fat: 0.2, calories: 109, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_sticks': { protein: 1.8, carbs: 24, fat: 0.2, calories: 109, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_paper_wrappers': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Dried', commonServing: '100g (20-25 sheets)' },
+      'rice_milk': { protein: 0.3, carbs: 9, fat: 1, calories: 47, category: 'carbs', description: 'Unsweetened', commonServing: '100g (1/3 cup)' },
+      'rice_syrup': { protein: 0, carbs: 82, fat: 0, calories: 304, category: 'carbs', description: 'Brown rice syrup', commonServing: '100g (5 tbsp)' },
+      'rice_bran': { protein: 13, carbs: 49, fat: 20, calories: 316, category: 'carbs', description: 'Raw', commonServing: '100g (1 cup)' },
+      'rice_germ': { protein: 13, carbs: 49, fat: 20, calories: 316, category: 'carbs', description: 'Raw', commonServing: '100g (1 cup)' },
+      'rice_hulls': { protein: 2.8, carbs: 22, fat: 0.9, calories: 111, category: 'carbs', description: 'Cooked', commonServing: '100g (1/2 cup cooked)' },
+      'rice_pilaf': { protein: 3.5, carbs: 28, fat: 2, calories: 150, category: 'carbs', description: 'Cooked, with vegetables', commonServing: '100g (1/2 cup cooked)' },
+      'rice_stuffing': { protein: 3.5, carbs: 28, fat: 2, calories: 150, category: 'carbs', description: 'Cooked, with herbs', commonServing: '100g (1/2 cup cooked)' },
+      'rice_salad': { protein: 3.5, carbs: 28, fat: 2, calories: 150, category: 'carbs', description: 'Cooked, cold', commonServing: '100g (1/2 cup)' },
+      'rice_sushi': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked, seasoned', commonServing: '100g (1/2 cup)' },
+      'rice_porridge': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Congee, cooked', commonServing: '100g (1/2 cup)' },
+      'rice_congee': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked, watery', commonServing: '100g (1/2 cup)' },
+      'rice_cake': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain, puffed', commonServing: '100g (10-12 cakes)' },
+      'rice_crispies': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Cereal', commonServing: '100g (3 cups)' },
+      'rice_flakes': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Dried', commonServing: '100g (1 cup)' },
+      'rice_puffs': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Puffed', commonServing: '100g (3 cups)' },
+      'rice_bubbles': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Cereal', commonServing: '100g (3 cups)' },
+      'rice_krispies': { protein: 6.3, carbs: 85, fat: 0.4, calories: 370, category: 'carbs', description: 'Cereal', commonServing: '100g (3 cups)' },
+      'rice_chex': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Cereal', commonServing: '100g (2 cups)' },
+      'rice_cheerios': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Cereal', commonServing: '100g (2 cups)' },
+      'rice_krispie_treats': { protein: 3.5, carbs: 75, fat: 8, calories: 414, category: 'carbs', description: 'Marshmallow treats', commonServing: '100g (2 bars)' },
+      'rice_mochi': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked, sticky', commonServing: '100g (1/2 cup)' },
+      'rice_dumplings': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Cooked', commonServing: '100g (2-3 dumplings)' },
+      'rice_balls': { protein: 2.7, carbs: 28, fat: 0.3, calories: 130, category: 'carbs', description: 'Onigiri, cooked', commonServing: '100g (1-2 balls)' },
+      'rice_wraps': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Spring roll wrappers', commonServing: '100g (20-25 wraps)' },
+      'rice_sheets': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Dried', commonServing: '100g (20-25 sheets)' },
+      'rice_wrappers': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Dried', commonServing: '100g (20-25 wrappers)' },
+      'rice_paper_rolls': { protein: 1.4, carbs: 87, fat: 0.1, calories: 351, category: 'carbs', description: 'Dried', commonServing: '100g (20-25 sheets)' },
+      'rice_cake_snacks': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (10-12 cakes)' },
+      'rice_crackers_snacks': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (15-20 crackers)' },
+      'rice_chips': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Baked', commonServing: '100g (15-20 chips)' },
+      'rice_thins': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Crackers', commonServing: '100g (15-20 thins)' },
+      'rice_crisps': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Crackers', commonServing: '100g (15-20 crisps)' },
+      'rice_snacks': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (15-20 pieces)' },
+      'rice_bars': { protein: 3.5, carbs: 75, fat: 8, calories: 414, category: 'carbs', description: 'Energy bars', commonServing: '100g (2 bars)' },
+      'rice_cakes_plain': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Plain', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_flavored': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Flavored', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_mini': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Mini size', commonServing: '100g (20-25 mini cakes)' },
+      'rice_cakes_large': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Large size', commonServing: '100g (5-6 large cakes)' },
+      'rice_cakes_round': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Round', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_square': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Square', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_rectangular': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Rectangular', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_triangular': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Triangular', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_oval': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Oval', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_heart': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Heart-shaped', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_star': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Star-shaped', commonServing: '100g (10-12 cakes)' },
+      'rice_cakes_circle': { protein: 7.2, carbs: 81, fat: 0.9, calories: 387, category: 'carbs', description: 'Circular', commonServing: '100g (10-12 cakes)' },
+      
+      // Fat sources
+      'avocado': { protein: 2, carbs: 9, fat: 15, calories: 160, category: 'fat', description: 'Raw, Hass', commonServing: '100g (1/2 medium avocado)' },
+      'almonds': { protein: 21, carbs: 22, fat: 50, calories: 579, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'cashews': { protein: 18, carbs: 30, fat: 44, calories: 553, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'peanuts': { protein: 26, carbs: 16, fat: 49, calories: 567, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'peanut_butter': { protein: 25, carbs: 20, fat: 50, calories: 588, category: 'fat', description: 'Natural, smooth', commonServing: '100g (6 tbsp)' },
+      'almond_butter': { protein: 21, carbs: 18, fat: 55, calories: 614, category: 'fat', description: 'Natural', commonServing: '100g (6 tbsp)' },
+      'olive_oil': { protein: 0, carbs: 0, fat: 100, calories: 884, category: 'fat', description: 'Extra virgin', commonServing: '100g (7 tbsp)' },
+      'coconut_oil': { protein: 0, carbs: 0, fat: 100, calories: 862, category: 'fat', description: 'Unrefined', commonServing: '100g (7 tbsp)' },
+      'mct_oil': { protein: 0, carbs: 0, fat: 100, calories: 862, category: 'fat', description: 'Medium-chain triglycerides', commonServing: '100g (7 tbsp)' },
+      'ghee': { protein: 0, carbs: 0, fat: 100, calories: 900, category: 'fat', description: 'Clarified butter', commonServing: '100g (7 tbsp)' },
+      'butter': { protein: 0.9, carbs: 0.1, fat: 81, calories: 717, category: 'fat', description: 'Unsalted', commonServing: '100g (7 tbsp)' },
+      'walnuts': { protein: 15, carbs: 14, fat: 65, calories: 654, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'pecans': { protein: 9, carbs: 14, fat: 72, calories: 691, category: 'fat', description: 'Raw', commonServing: '100g (1 cup halves)' },
+      'pistachios': { protein: 20, carbs: 28, fat: 45, calories: 560, category: 'fat', description: 'Raw, shelled', commonServing: '100g (3/4 cup)' },
+      'macadamia_nuts': { protein: 8, carbs: 14, fat: 76, calories: 718, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'brazil_nuts': { protein: 14, carbs: 12, fat: 67, calories: 659, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'hazelnuts': { protein: 15, carbs: 17, fat: 61, calories: 628, category: 'fat', description: 'Raw', commonServing: '100g (3/4 cup)' },
+      'pine_nuts': { protein: 14, carbs: 13, fat: 68, calories: 673, category: 'fat', description: 'Dried', commonServing: '100g (3/4 cup)' },
+      'sunflower_seeds': { protein: 21, carbs: 20, fat: 51, calories: 584, category: 'fat', description: 'Dried, shelled', commonServing: '100g (3/4 cup)' },
+      'pumpkin_seeds': { protein: 30, carbs: 10, fat: 49, calories: 559, category: 'fat', description: 'Dried, shelled', commonServing: '100g (3/4 cup)' },
+      'sesame_seeds': { protein: 18, carbs: 23, fat: 50, calories: 573, category: 'fat', description: 'Dried', commonServing: '100g (10 tbsp)' },
+      'tahini': { protein: 17, carbs: 21, fat: 54, calories: 595, category: 'fat', description: 'Sesame seed paste', commonServing: '100g (6 tbsp)' },
+      'chia_seeds': { protein: 17, carbs: 42, fat: 31, calories: 486, category: 'fat', description: 'Dried', commonServing: '100g (10 tbsp)' },
+      'flax_seeds': { protein: 18, carbs: 29, fat: 42, calories: 534, category: 'fat', description: 'Ground', commonServing: '100g (10 tbsp)' },
+      'hemp_seeds': { protein: 31, carbs: 8.7, fat: 48, calories: 553, category: 'fat', description: 'Hulled', commonServing: '100g (10 tbsp)' },
+      'mayonnaise': { protein: 1, carbs: 0.6, fat: 75, calories: 680, category: 'fat', description: 'Regular', commonServing: '100g (7 tbsp)' },
+      'cream_cheese': { protein: 6.2, carbs: 4.1, fat: 35, calories: 342, category: 'fat', description: 'Regular', commonServing: '100g (1/2 cup)' },
+      'sour_cream': { protein: 2.3, carbs: 4.6, fat: 20, calories: 198, category: 'fat', description: 'Regular', commonServing: '100g (1/2 cup)' },
+      'coconut_milk': { protein: 2.3, carbs: 6, fat: 24, calories: 230, category: 'fat', description: 'Canned, full-fat', commonServing: '100g (1/3 cup)' },
+      'dark_chocolate': { protein: 7.8, carbs: 46, fat: 43, calories: 546, category: 'fat', description: '70-85% cacao', commonServing: '100g (1 bar)' },
+    };
+  }
+
+  /**
+   * Calculate food servings to meet specific macronutrient targets
+   * Returns food options with calculated serving sizes
+   */
+  static calculateFoodServingsForMacro(
+    macroType: 'protein' | 'carbs' | 'fat',
+    targetAmount: number, // in grams
+    options?: {
+      dietaryPreferences?: string[];
+      maxOptions?: number;
+    }
+  ): Array<{
+    food: string;
+    servingSize: string;
+    amount: number; // in grams
+    macros: {
+      protein: number;
+      carbs: number;
+      fat: number;
+      calories: number;
+    };
+    description?: string;
+  }> {
+    // Food database with macronutrient content per 100g
+    // Use the shared database to avoid duplication
+    const foodDatabase = this.getFoodDatabaseInternal();
+
+    // Filter foods by category and dietary preferences
+    let availableFoods = Object.entries(foodDatabase)
+      .filter(([_, food]) => food.category === macroType);
+
+    // Apply dietary filters
+    if (options?.dietaryPreferences) {
+      const nonVeganFoods = [
+        // Chicken variations
+        'chicken_breast', 'chicken_thigh', 'chicken_leg', 'chicken_drumstick', 'chicken_wing',
+        'chicken_thigh_with_skin', 'chicken_leg_with_skin', 'chicken_whole', 'chicken_ground',
+        'chicken_liver', 'chicken_heart',
+        // Turkey variations
+        'turkey_breast', 'turkey_thigh', 'turkey_leg', 'turkey_wing', 'turkey_ground', 'turkey_deli',
+        // Beef variations
+        'lean_beef', 'beef_sirloin', 'beef_ribeye', 'beef_tenderloin', 'beef_ground_90', 'beef_ground_85',
+        'beef_ground_80', 'beef_brisket', 'beef_chuck', 'beef_round', 'beef_flank', 'beef_short_ribs',
+        'beef_liver', 'beef_heart', 'beef_tongue', 'corned_beef', 'beef_jerky',
+        // Pork variations
+        'pork_tenderloin', 'pork_chop', 'pork_shoulder', 'pork_loin', 'pork_ribs', 'pork_belly',
+        'pork_ground', 'pork_sausage', 'pork_ham', 'pork_bacon', 'pancetta', 'prosciutto', 'pork_liver',
+        // Lamb variations
+        'lamb', 'lamb_leg', 'lamb_chop', 'lamb_shoulder', 'lamb_ground', 'lamb_ribs',
+        // Duck, venison, bison
+        'duck_breast', 'venison', 'bison',
+        // Fish and seafood
+        'salmon', 'salmon_fillet', 'salmon_canned', 'salmon_smoked', 'tuna', 'tuna_steak', 'tuna_canned_oil',
+        'tuna_ahi', 'cod', 'halibut', 'tilapia', 'mackerel', 'sardines', 'shrimp', 'anchovies', 'herring',
+        'trout', 'sea_bass', 'scallops', 'crab', 'lobster', 'mussels', 'oysters', 'crab_sticks',
+        // Eggs and dairy
+        'eggs', 'egg_whites', 'greek_yogurt', 'cottage_cheese', 'milk', 'cheese', 'mozzarella',
+        'mayonnaise', 'cream_cheese', 'sour_cream', 'butter', 'ghee', 'protein_powder'
+      ];
+      const nonVegetarianFoods = [
+        // All chicken
+        'chicken_breast', 'chicken_thigh', 'chicken_leg', 'chicken_drumstick', 'chicken_wing',
+        'chicken_thigh_with_skin', 'chicken_leg_with_skin', 'chicken_whole', 'chicken_ground',
+        'chicken_liver', 'chicken_heart',
+        // All turkey
+        'turkey_breast', 'turkey_thigh', 'turkey_leg', 'turkey_wing', 'turkey_ground', 'turkey_deli',
+        // All beef
+        'lean_beef', 'beef_sirloin', 'beef_ribeye', 'beef_tenderloin', 'beef_ground_90', 'beef_ground_85',
+        'beef_ground_80', 'beef_brisket', 'beef_chuck', 'beef_round', 'beef_flank', 'beef_short_ribs',
+        'beef_liver', 'beef_heart', 'beef_tongue', 'corned_beef', 'beef_jerky',
+        // All pork
+        'pork_tenderloin', 'pork_chop', 'pork_shoulder', 'pork_loin', 'pork_ribs', 'pork_belly',
+        'pork_ground', 'pork_sausage', 'pork_ham', 'pork_bacon', 'pancetta', 'prosciutto', 'pork_liver',
+        // All lamb
+        'lamb', 'lamb_leg', 'lamb_chop', 'lamb_shoulder', 'lamb_ground', 'lamb_ribs',
+        // Duck, venison, bison
+        'duck_breast', 'venison', 'bison',
+        // All fish and seafood
+        'salmon', 'salmon_fillet', 'salmon_canned', 'salmon_smoked', 'tuna', 'tuna_steak', 'tuna_canned_oil',
+        'tuna_ahi', 'cod', 'halibut', 'tilapia', 'mackerel', 'sardines', 'shrimp', 'anchovies', 'herring',
+        'trout', 'sea_bass', 'scallops', 'crab', 'lobster', 'mussels', 'oysters', 'crab_sticks'
+      ];
+      
+      if (options.dietaryPreferences.includes('vegan')) {
+        availableFoods = availableFoods.filter(([key, _]) => 
+          !nonVeganFoods.includes(key)
+        );
+      } else if (options.dietaryPreferences.includes('vegetarian')) {
+        availableFoods = availableFoods.filter(([key, _]) => 
+          !nonVegetarianFoods.includes(key)
+        );
+      }
+    }
+
+    // Calculate serving sizes for each food
+    const suggestions = availableFoods.map(([key, food]) => {
+      const macroValue = food[macroType];
+      if (macroValue === 0) {
+        return null; // Skip foods with 0 of the target macro
+      }
+
+      // Calculate amount needed (in grams) to meet target
+      const amountNeeded = (targetAmount / macroValue) * 100;
+      
+      // Calculate resulting macros for this serving
+      const servingMacros = {
+        protein: (food.protein * amountNeeded) / 100,
+        carbs: (food.carbs * amountNeeded) / 100,
+        fat: (food.fat * amountNeeded) / 100,
+        calories: (food.calories * amountNeeded) / 100,
+      };
+
+      // Format serving size description
+      let servingSize = '';
+      if (food.commonServing) {
+        // Calculate how many common servings
+        const commonServingGrams = 100; // Base is per 100g
+        const servings = amountNeeded / commonServingGrams;
+        
+        if (servings <= 0.5) {
+          servingSize = `${Math.round(amountNeeded)}g`;
+        } else if (servings <= 2) {
+          servingSize = servings < 1 
+            ? `${Math.round(amountNeeded)}g (${(servings * 100).toFixed(0)}% of ${food.commonServing})`
+            : servings === 1 
+              ? `${Math.round(amountNeeded)}g (${food.commonServing})`
+              : `${Math.round(amountNeeded)}g (${servings.toFixed(1)}x ${food.commonServing})`;
+        } else {
+          servingSize = `${Math.round(amountNeeded)}g (${servings.toFixed(1)} servings)`;
+        }
+      } else {
+        servingSize = `${Math.round(amountNeeded)}g`;
+      }
+
+      // Format food name
+      const foodName = key.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+
+      return {
+        food: foodName,
+        servingSize,
+        amount: Math.round(amountNeeded),
+        macros: {
+          protein: Math.round(servingMacros.protein * 10) / 10,
+          carbs: Math.round(servingMacros.carbs * 10) / 10,
+          fat: Math.round(servingMacros.fat * 10) / 10,
+          calories: Math.round(servingMacros.calories),
+        },
+        description: food.description,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => a.amount - b.amount); // Sort by amount needed (ascending)
+
+    // Limit results
+    const maxOptions = options?.maxOptions || 5;
+    return suggestions.slice(0, maxOptions);
+  }
+
+  /**
    * Generate micronutrient targets based on profile
    */
   static generateMicronutrientTargets(profile: any): any {
@@ -1635,12 +2585,86 @@ export class NutritionService {
         daily_targets: compatibleDailyTargets
       };
 
+      // Save to database first
+      try {
+        // Archive any existing active plans for this user
+        try {
+          await supabase
+            .from('nutrition_plans')
+            .update({ status: 'archived' })
+            .eq('user_id', userId)
+            .eq('status', 'active');
+          console.log('[NUTRITION] Archived existing active plans');
+        } catch (archiveError) {
+          console.warn('[NUTRITION] Could not archive existing plans:', archiveError);
+        }
+
+        // Save to database
+        const planData = {
+          user_id: userId,
+          plan_name: planName,
+          goal_type: options.goal,
+          plan_type: 'manual',
+          status: 'active',
+          daily_targets: compatibleDailyTargets,
+          preferences: planToStore.preferences || {
+            dietary: options.dietaryPreferences || [],
+            intolerances: options.intolerances || [],
+          },
+        };
+
+        console.log('[NUTRITION] Inserting manual plan data:', {
+          user_id: planData.user_id,
+          plan_name: planData.plan_name,
+          goal_type: planData.goal_type,
+          plan_type: planData.plan_type,
+          status: planData.status,
+          daily_targets: planData.daily_targets
+        });
+
+        const { data: savedPlan, error: saveError } = await supabase
+          .from('nutrition_plans')
+          .insert(planData)
+          .select()
+          .single();
+
+        if (saveError) {
+          console.error('[NUTRITION] Error saving manual plan to database:', saveError);
+          throw saveError;
+        }
+
+        if (savedPlan) {
+          console.log('[NUTRITION] ✅ Manual plan saved to database:', savedPlan.id);
+          // Update the plan ID with the database ID
+          planToStore.id = savedPlan.id;
+          manualPlan.id = savedPlan.id;
+          
+          // Verify the plan was saved
+          const { data: verifyPlan } = await supabase
+            .from('nutrition_plans')
+            .select('id, plan_name, status, plan_type')
+            .eq('id', savedPlan.id)
+            .single();
+          
+          if (verifyPlan) {
+            console.log('[NUTRITION] ✅ Verified manual plan in database:', verifyPlan);
+          }
+        }
+      } catch (dbError) {
+        console.error('[NUTRITION] Database save error (continuing with local storage):', dbError);
+        // Continue with local storage even if database save fails
+      }
+
       // Add to mock store
       mockPlansStore.plans.unshift(planToStore);
       console.log('[NUTRITION] ✅ Added manual plan to mock store');
 
       // Save to persistent storage
       await this.savePlansToStorage();
+
+      // Set as selected plan
+      await this.setSelectedNutritionPlanForTargets(userId, manualPlan.id);
+      console.log('[NUTRITION] ✅ Set manual plan as selected plan');
 
       console.log('[NUTRITION] ✅ Manual nutrition plan created and saved successfully!');
       return manualPlan;
@@ -1732,6 +2756,39 @@ export class NutritionService {
     }
 
     return fallbackPlan;
+  }
+
+  /**
+   * Set a specific nutrition plan as the selected plan for daily targets
+   */
+  static async setSelectedNutritionPlanForTargets(userId: string, planId: string): Promise<boolean> {
+    try {
+      console.log(`[NutritionService] Setting nutrition plan ${planId} as selected for daily targets for user ${userId}`);
+
+      // Store the selected plan ID in AsyncStorage
+      const storageKey = `selected_nutrition_plan_${userId}`;
+      await AsyncStorage.setItem(storageKey, planId);
+      console.log('[NutritionService] Successfully stored selected plan ID in AsyncStorage');
+
+      return true;
+    } catch (error) {
+      console.error('[NutritionService] Error setting selected nutrition plan:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get the selected nutrition plan ID for daily targets
+   */
+  static async getSelectedNutritionPlanId(userId: string): Promise<string | null> {
+    try {
+      const storageKey = `selected_nutrition_plan_${userId}`;
+      const planId = await AsyncStorage.getItem(storageKey);
+      return planId;
+    } catch (error) {
+      console.error('[NutritionService] Error getting selected nutrition plan ID:', error);
+      return null;
+    }
   }
 
   static async deleteNutritionPlan(planId: string): Promise<boolean> {
@@ -2234,7 +3291,8 @@ export class NutritionService {
     carbsGrams: number,
     fatGrams: number,
     dietaryPreferences: string[] = [],
-    cuisinePreference?: string
+    cuisinePreference?: string,
+    regenerationToken?: string
   ): Promise<any> {
     console.log('[NUTRITION] Generating AI-powered daily meal plan with recipes');
     console.log('[NUTRITION] Targets:', { dailyCalories, proteinGrams, carbsGrams, fatGrams });
@@ -2248,25 +3306,82 @@ export class NutritionService {
         carbsGrams, 
         fatGrams,
         dietaryPreferences,
-        cuisinePreference
+        cuisinePreference,
+        regenerationToken
       );
       
+      // Handle successful response (even if it's a fallback)
       if (result.success && result.mealPlan) {
         console.log('[NUTRITION] Successfully generated AI meal plan with', result.mealPlan.meals.length, 'meals');
         console.log('[NUTRITION] Cuisines used:', result.mealPlan.cuisine_variety);
+        // Check if AI was actually used - be more explicit about what counts as "AI used"
+        // AI is considered "used" if: usedAi/used_ai is true, method is gemini_ai, or aiProvider is gemini
+        const usedAi = result.usedAi !== undefined ? result.usedAi : (result as any).used_ai;
+        const isAIGenerated = usedAi === true || 
+                              result.method === 'gemini_ai' || 
+                              result.aiProvider === 'gemini';
+        const fallbackUsed = !isAIGenerated && (
+          result.fallback === true || 
+          result.method === 'mathematical_fallback' || 
+          result.aiProvider === 'fallback' || 
+          usedAi === false
+        );
+        
+        console.log('[NUTRITION] AI status check:', {
+          usedAi,
+          method: result.method,
+          aiProvider: result.aiProvider,
+          fallback: result.fallback,
+          isAIGenerated,
+          fallbackUsed
+        });
+        
         return {
           success: true,
           mealPlan: result.mealPlan.meals,
           totalNutrition: result.mealPlan.total_nutrition,
           cuisineVariety: result.mealPlan.cuisine_variety,
           cookingTips: result.mealPlan.cooking_tips,
-          method: 'gemini_ai',
-          aiProvider: 'gemini',
-          message: 'Daily meal plan generated successfully with AI-powered recipes and cooking instructions'
+          method: result.method || (fallbackUsed ? 'mathematical_fallback' : 'gemini_ai'),
+          aiProvider: result.aiProvider || (fallbackUsed ? 'fallback' : 'gemini'),
+          fallback: fallbackUsed,
+          message: fallbackUsed
+            ? 'AI meal plan temporarily unavailable. Showing fallback meals.'
+            : 'Daily meal plan generated successfully with AI-powered recipes and cooking instructions'
         };
-      } else {
-        throw new Error(result.error || 'Failed to generate AI meal plan');
       }
+      
+      // Handle fallback case - when all bases failed but we have a fallback response
+      if (result.fallback && !result.success) {
+        console.log('[NUTRITION] All AI bases failed, using mathematical fallback');
+        // Generate a mathematical fallback meal plan
+        const fallbackMealPlan = this.generateMathematicalMealPlan({
+          daily_calories: dailyCalories,
+          protein_grams: proteinGrams,
+          carbs_grams: carbsGrams,
+          fat_grams: fatGrams
+        }, dietaryPreferences);
+        
+        return {
+          success: true,
+          mealPlan: fallbackMealPlan,
+          totalNutrition: fallbackMealPlan.reduce((total: any, meal: any) => ({
+            calories: total.calories + (meal.macros?.calories || 0),
+            protein_grams: total.protein_grams + (meal.macros?.protein_grams || meal.macros?.protein || 0),
+            carbs_grams: total.carbs_grams + (meal.macros?.carbs_grams || meal.macros?.carbs || 0),
+            fat_grams: total.fat_grams + (meal.macros?.fat_grams || meal.macros?.fat || 0)
+          }), { calories: 0, protein_grams: 0, carbs_grams: 0, fat_grams: 0 }),
+          cuisineVariety: [],
+          cookingTips: [],
+          method: 'mathematical_fallback',
+          aiProvider: 'fallback',
+          fallback: true,
+          message: 'AI meal plan temporarily unavailable. Showing fallback meals.'
+        };
+      }
+      
+      // Only throw if it's a real error (not a fallback)
+      throw new Error(result.error || 'Failed to generate AI meal plan');
       
     } catch (error: any) {
       console.error('[NUTRITION] Error generating AI daily meal plan:', error.message);

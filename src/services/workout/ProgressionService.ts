@@ -85,31 +85,39 @@ class ProgressionService {
         return [];
       }
 
-      const groups = new Map<string, { date: string; sets: { reps: number; weight: number; rpe?: number | null }[] }[]>();
+      const groups = new Map<string, { date: string; sets: { reps: number; weight: number; rpe?: number | null; weight_unit?: string; original_weight?: number | null }[] }[]>();
 
       for (const workout of historyData as any[]) {
         const exercisesData = (workout as any).exercises_data;
         if (!Array.isArray(exercisesData)) continue;
         for (const exercise of exercisesData) {
           const exerciseName = exercise.exercise_name || exercise.name || 'Exercise';
-          let sets: { reps: number; weight: number; rpe?: number | null }[] = [];
+          let sets: { reps: number; weight: number; rpe?: number | null; weight_unit?: string; original_weight?: number | null }[] = [];
           if (Array.isArray(exercise.sets)) {
             sets = exercise.sets.map((s: any) => ({
-              reps: s.reps || 0,
-              weight: s.weight || 0,
-              rpe: s.rpe ?? null,
+              reps: s.reps || s.actual_reps || 0,
+              weight: s.weight || s.actual_weight || 0,
+              rpe: s.rpe ?? s.actual_rpe ?? null,
+              weight_unit: s.weight_unit || 'kg',
+              original_weight: s.original_weight ?? null,
             })).filter((s: any) => s.reps > 0 && s.weight > 0);
           } else if (Array.isArray(exercise.logs)) {
             sets = exercise.logs.map((l: any) => ({
               reps: l.actual_reps || l.reps || 0,
               weight: l.actual_weight || l.weight || 0,
               rpe: l.actual_rpe ?? l.rpe ?? null,
+              weight_unit: l.weight_unit || 'kg',
+              original_weight: l.original_weight ?? null,
             })).filter((s: any) => s.reps > 0 && s.weight > 0);
           } else if (Array.isArray(exercise.reps) && Array.isArray(exercise.weights)) {
+            // Legacy format - also check for RPE array if it exists
+            const rpeArray = Array.isArray(exercise.rpe) ? exercise.rpe : [];
             sets = exercise.reps.map((r: any, idx: number) => ({
               reps: r || 0,
               weight: exercise.weights[idx] || 0,
-              rpe: null,
+              rpe: rpeArray[idx] ?? null,
+              weight_unit: 'kg',
+              original_weight: null,
             })).filter((s: any) => s.reps > 0 && s.weight > 0);
           }
           if (sets.length === 0) continue;
@@ -130,12 +138,37 @@ class ProgressionService {
       };
       const average = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
 
+      // Conversion helper
+      const convertLbsToKg = (lbs: number): number => lbs * 0.453592;
+
       for (const [exerciseName, records] of groups.entries()) {
         const perWorkout = records.map(r => {
-          const totalVolume = r.sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
-          const avgWeight = average(r.sets.map(s => s.weight));
-          const avgReps = average(r.sets.map(s => s.reps));
-          const avgRpeVals = r.sets.map(s => s.rpe || 0).filter(x => x > 0);
+          // Normalize weights to kg for volume calculation
+          // Database stores weights in kg, but if we have original_weight, use that for accurate comparison
+          const normalizedSets = r.sets.map(s => {
+            let weightInKg = s.weight || 0;
+            // If we have original_weight and weight_unit is lbs, convert original_weight to kg
+            // This ensures we're comparing the actual weights the user logged, not the stored converted values
+            if (s.original_weight != null && s.original_weight !== undefined && s.weight_unit === 'lbs') {
+              weightInKg = convertLbsToKg(s.original_weight);
+            } else {
+              // Otherwise, weight is already in kg (database standard)
+              // No conversion needed
+              weightInKg = s.weight || 0;
+            }
+            return {
+              ...s,
+              weight: weightInKg
+            };
+          });
+
+          const totalVolume = normalizedSets.reduce((sum, s) => sum + s.weight * s.reps, 0);
+          const avgWeight = average(normalizedSets.map(s => s.weight));
+          const avgReps = average(normalizedSets.map(s => s.reps));
+          // Fix: Only count sets where RPE was actually logged (not null/undefined/0)
+          const avgRpeVals = normalizedSets
+            .map(s => s.rpe)
+            .filter(rpe => rpe != null && rpe !== undefined && rpe > 0);
           const avgRPE = average(avgRpeVals);
           const e1rm = calculateEpley(avgWeight, avgReps);
           return {
@@ -151,17 +184,75 @@ class ProgressionService {
         if (perWorkout.length === 0) continue;
 
         const n = perWorkout.length;
-        const recent = perWorkout.slice(Math.max(0, n - Math.min(5, n)));
-        const early = perWorkout.slice(0, Math.min(5, Math.max(0, n - recent.length)));
+        
+        // Split workouts into recent and early periods, ensuring they don't overlap
+        // Need at least 2 workouts to calculate meaningful change
+        let recent: typeof perWorkout = [];
+        let early: typeof perWorkout = [];
+        
+        if (n >= 2) {
+          // If we have 2-5 workouts, compare first half vs second half
+          if (n <= 5) {
+            const midPoint = Math.floor(n / 2);
+            early = perWorkout.slice(0, midPoint);
+            recent = perWorkout.slice(midPoint);
+          } else {
+            // If we have 6+ workouts, compare first 3-5 vs last 3-5
+            const periodSize = Math.min(5, Math.floor(n / 2));
+            early = perWorkout.slice(0, periodSize);
+            recent = perWorkout.slice(n - periodSize);
+          }
+        } else {
+          // Only 1 workout - can't calculate change
+          recent = perWorkout;
+          early = [];
+        }
 
         const recentAvg1RM = average(recent.map(r => r.e1rm));
         const oldAvg1RM = early.length > 0 ? average(early.map(r => r.e1rm)) : recentAvg1RM;
         const recentAvgVol = average(recent.map(r => r.totalVolume));
-        const oldAvgVol = early.length > 0 ? average(early.map(r => r.totalVolume)) : recentAvgVol;
-        const avgRPE = average(recent.map(r => r.avgRPE).filter(x => x > 0));
+        const oldAvgVol = early.length > 0 ? average(early.map(r => r.totalVolume)) : 0;
+        // Fix: Only average RPE from workouts that actually have RPE data
+        const avgRPEValues = recent.map(r => r.avgRPE).filter(x => x > 0);
+        const avgRPE = avgRPEValues.length > 0 ? average(avgRPEValues) : 0;
 
         const oneRMChangePct = oldAvg1RM > 0 ? ((recentAvg1RM - oldAvg1RM) / oldAvg1RM) * 100 : 0;
-        const volumeChangePct = oldAvgVol > 0 ? ((recentAvgVol - oldAvgVol) / oldAvgVol) * 100 : 0;
+        // Calculate volume change - only if we have both periods to compare
+        let volumeChangePct = 0;
+        if (early.length > 0 && oldAvgVol > 0) {
+          const rawChange = ((recentAvgVol - oldAvgVol) / oldAvgVol) * 100;
+          volumeChangePct = rawChange;
+        } else if (early.length === 0 && n === 1) {
+          // Only one workout - can't calculate change
+          volumeChangePct = 0;
+        }
+        
+        // Debug logging - log when volume change is 0% to help diagnose
+        if (volumeChangePct === 0 && early.length > 0) {
+          const actualChange = ((recentAvgVol - oldAvgVol) / oldAvgVol) * 100;
+          console.log(`[ProgressionService] Volume change is 0% for ${exerciseName}:`, {
+            totalWorkouts: n,
+            recentCount: recent.length,
+            earlyCount: early.length,
+            recentAvgVol: recentAvgVol.toFixed(2),
+            oldAvgVol: oldAvgVol.toFixed(2),
+            actualChangePct: actualChange.toFixed(2),
+            recentVolumes: recent.map(r => r.totalVolume.toFixed(2)),
+            earlyVolumes: early.map(r => r.totalVolume.toFixed(2)),
+            reason: Math.abs(actualChange) < 0.05 ? 'Change < 0.05% (rounds to 0)' : 
+                    Math.abs(recentAvgVol - oldAvgVol) < 0.01 ? 'Volumes are identical' : 
+                    'Unknown'
+          });
+        }
+        
+        // Debug logging for RPE issues
+        if (avgRPE === 0 && perWorkout.some(r => r.avgRPE > 0)) {
+          console.warn(`[ProgressionService] RPE calculation issue for ${exerciseName}:`, {
+            workoutsWithRPE: perWorkout.filter(r => r.avgRPE > 0).length,
+            totalWorkouts: perWorkout.length,
+            recentWorkoutsWithRPE: recent.filter(r => r.avgRPE > 0).length
+          });
+        }
 
         let performanceStatus: PerformanceInsight['performanceStatus'] = 'maintaining';
         let recommendation = '';
@@ -578,12 +669,8 @@ class ProgressionService {
   }> {
     try {
       console.log('[ProgressionService] Getting progression overview for user:', userId);
-      // 在分析前尝试进行一次历史同步，确保有可分析的数据（忽略同步失败，不阻断后续流程）
-      try {
-        await this.syncExerciseHistory(userId, 180);
-      } catch (syncError) {
-        console.warn('[ProgressionService] Sync history skipped (non-blocking):', (syncError as any)?.message || syncError);
-      }
+      // Skip sync on every call - it's too slow. Only sync when explicitly needed.
+      // The sync can be done separately or on first load only.
       // Call all APIs in parallel, but handle individual failures gracefully
       const results = await Promise.allSettled([
         this.analyzeProgress(userId, 30),

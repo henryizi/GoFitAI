@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -17,6 +18,7 @@ type ActivityLevel = 'sedentary' | 'moderately_active' | 'very_active';
 
 const ActivityLevelScreen = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
 
   const handleNext = async () => {
@@ -70,8 +72,8 @@ const ActivityLevelScreen = () => {
     <OnboardingLayout
       title="What's your daily activity level?"
       subtitle="How active are you outside of workouts and sports?"
-      progress={0.72}
-      currentStep={8}
+      progress={0.75}
+      currentStep={9}
       totalSteps={12}
       showBackButton={true}
       showCloseButton={false}
@@ -80,6 +82,9 @@ const ActivityLevelScreen = () => {
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 9</Text>
+        </View>
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -124,7 +129,7 @@ const ActivityLevelScreen = () => {
         </View>
       </View>
       
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(40, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -143,6 +148,18 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 20,
     justifyContent: 'flex-start',
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     width: '100%',
@@ -186,14 +203,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
     letterSpacing: 0.3,
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
     letterSpacing: 0.2,
@@ -226,8 +243,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   footer: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 });
 

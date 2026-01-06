@@ -2,7 +2,7 @@
   "expo": {
     "name": "GoFitAI",
     "slug": "gofitai",
-    "version": "1.0.1",
+    "version": "1.21",
     "orientation": "portrait",
     "icon": "./assets/icon-converted.png",
     "userInterfaceStyle": "light",
@@ -10,15 +10,15 @@
     "splash": {
       "image": "./assets/splash-converted.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.henrymadeit.gofitai",
-        "buildNumber": "17",
+        "buildNumber": "37",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -55,7 +55,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-converted.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
       "package": "com.henrymadeit.gofitai",
       "permissions": [

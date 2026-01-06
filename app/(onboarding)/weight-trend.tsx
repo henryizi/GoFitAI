@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/styles/colors';
 import { theme } from '../../src/styles/theme';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -17,6 +18,7 @@ type WeightTrend = 'losing' | 'gaining' | 'stable' | 'unsure';
 
 const WeightTrendScreen = () => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [weightTrend, setWeightTrend] = useState<WeightTrend | null>(null);
 
   const handleNext = async () => {
@@ -33,8 +35,8 @@ const WeightTrendScreen = () => {
     // Analytics in background
     try { identify(user.id, { weight_trend: weightTrend }); } catch {}
     
-    console.log('🚀 Navigating to exercise-frequency screen...');
-    router.replace('/(onboarding)/exercise-frequency');
+    console.log('🚀 Navigating to level screen...');
+    router.replace('/(onboarding)/level');
   };
 
   const handleBack = () => {
@@ -72,7 +74,7 @@ const WeightTrendScreen = () => {
     <OnboardingLayout
       title="How has your weight trended for the past few weeks?"
       subtitle="This helps us understand your current progress"
-      progress={0.54}
+      progress={0.5}
       currentStep={6}
       totalSteps={11}
       showBackButton={true}
@@ -82,6 +84,9 @@ const WeightTrendScreen = () => {
       onClose={handleClose}
     >
       <View style={styles.content}>
+        <View style={styles.questionLabel}>
+          <Text style={styles.questionLabelText}>Question 6</Text>
+        </View>
         <View style={styles.optionsContainer}>
           {options.map((option) => (
             <TouchableOpacity
@@ -120,7 +125,7 @@ const WeightTrendScreen = () => {
         </View>
       </View>
       
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(40, insets.bottom + 16) }]}>
         <OnboardingButton
           title="Continue"
           onPress={handleNext}
@@ -138,6 +143,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     justifyContent: 'flex-start',
+  },
+  questionLabel: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  questionLabelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
   optionsContainer: {
     width: '100%',
@@ -207,8 +224,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   footer: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
 });
 

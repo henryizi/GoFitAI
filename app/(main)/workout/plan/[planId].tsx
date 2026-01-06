@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, ImageBackground, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, ImageBackground, Image, Dimensions, Animated } from 'react-native';
 import { Text, IconButton, ActivityIndicator, TextInput } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -102,9 +102,37 @@ export default function PlanDetailScreen() {
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
   
+  // Dynamic AI Insights Helper
+  const getAIAnalysis = useMemo(() => {
+    if (!profile || !plan) return null;
+
+    const goal = profile.primary_goal?.replace('_', ' ') || plan.primary_goal || 'General Fitness';
+    const freq = profile.preferred_workout_frequency || plan.days_per_week || 3;
+    
+    // Determine Split Logic
+    const uniqueFocuses = new Set(sessions.map(s => s.focus).filter(Boolean));
+    const focusList = Array.from(uniqueFocuses);
+    
+    let splitStrategy = "Custom";
+    if (focusList.some(f => f?.toLowerCase().includes('push')) && focusList.some(f => f?.toLowerCase().includes('pull'))) {
+      splitStrategy = "Push/Pull";
+    } else if (focusList.some(f => f?.toLowerCase().includes('upper')) && focusList.some(f => f?.toLowerCase().includes('lower'))) {
+      splitStrategy = "Upper/Lower";
+    } else if (freq <= 3) {
+      splitStrategy = "Full Body";
+    } else if (freq >= 5) {
+      splitStrategy = "Split";
+    }
+
+    return [
+      { title: "Split", value: splitStrategy, icon: "chart-timeline-variant" },
+      { title: "Goal", value: goal.toUpperCase().split(' ')[0], icon: "target" },
+      { title: "Frequency", value: `${freq} Days`, icon: "calendar-clock" }
+    ];
+  }, [profile, plan, sessions]);
   const [editingSession, setEditingSession] = useState<string | null>(null);
   const [editingExercise, setEditingExercise] = useState<string | null>(null);
   const [editedSets, setEditedSets] = useState<number | null>(null);
@@ -270,10 +298,48 @@ export default function PlanDetailScreen() {
 
 
   const loadPlanDetails = useCallback(async () => {
+    // Always try to fetch the latest plan from database first to ensure we have ai_reasoning
+    if (planId && user?.id) {
+      try {
+        console.log('[PLAN DETAIL] Fetching plan from database to ensure latest data including ai_reasoning...');
+        const latestPlan = await WorkoutService.getPlanById(planId);
+        if (latestPlan) {
+          console.log('[PLAN DETAIL] ✅ Loaded plan from database with reasoning:', {
+            hasAiReasoning: !!(latestPlan as any)?.ai_reasoning,
+            splitReasoning: !!(latestPlan as any)?.ai_reasoning?.split_reasoning,
+            exerciseReasoning: !!(latestPlan as any)?.ai_reasoning?.exercise_selection_reasoning,
+            fullReasoning: (latestPlan as any)?.ai_reasoning
+          });
+          setPlan(latestPlan as any);
+          
+          // Load sessions for this plan
+          const planSessions = await WorkoutService.getSessionsForPlan(planId);
+          setSessions(planSessions);
+          setIsLoading(false);
+          return;
+        }
+      } catch (dbError) {
+        console.warn('[PLAN DETAIL] Could not fetch from database, falling back to planObject:', dbError);
+      }
+    }
+    
+    // Fallback to planObject if database fetch fails or planId not available
     if (planObject) {
         try {
             const parsedPlan = JSON.parse(planObject);
+            console.log('[PLAN DETAIL] Plan loaded from planObject');
+            
             setPlan(parsedPlan);
+            
+            // Load sessions for this plan
+            if (parsedPlan.id || planId) {
+              try {
+                const planSessions = await WorkoutService.getSessionsForPlan(parsedPlan.id || planId as string);
+                setSessions(planSessions);
+              } catch (sessionError) {
+                console.warn('[PLAN DETAIL] Could not load sessions:', sessionError);
+              }
+            }
         
         // Map the weekly schedule to sessions with proper typing
         const mappedSessions = Array.isArray(parsedPlan.weekly_schedule || parsedPlan.weeklySchedule)
@@ -388,6 +454,28 @@ export default function PlanDetailScreen() {
             weeklyScheduleLength: realPlanData.weekly_schedule?.length || realPlanData.weeklySchedule?.length || 0,
             firstDayExercises: realPlanData.weekly_schedule?.[0]?.exercises?.length || realPlanData.weeklySchedule?.[0]?.exercises?.length || 0
           });
+          console.log('[PLAN DETAIL] Real plan data loaded with reasoning:', {
+            hasAiReasoning: !!(realPlanData as any)?.ai_reasoning,
+            splitReasoning: !!(realPlanData as any)?.ai_reasoning?.split_reasoning,
+            exerciseReasoning: !!(realPlanData as any)?.ai_reasoning?.exercise_selection_reasoning,
+            fullReasoning: (realPlanData as any)?.ai_reasoning,
+            // Also check for top-level reasoning fields (in case they're not nested)
+            hasSplitReasoningTopLevel: !!(realPlanData as any)?.split_reasoning,
+            hasExerciseReasoningTopLevel: !!(realPlanData as any)?.exercise_selection_reasoning,
+            hasWeeklySchedule: !!(realPlanData as any)?.weekly_schedule,
+            allPlanKeys: Object.keys(realPlanData || {}),
+            planSource: (realPlanData as any)?.source
+          });
+          
+          // If reasoning exists at top level but not in ai_reasoning, normalize it
+          if (!(realPlanData as any).ai_reasoning && ((realPlanData as any).split_reasoning || (realPlanData as any).exercise_selection_reasoning)) {
+            console.log('[PLAN DETAIL] Normalizing top-level reasoning fields to ai_reasoning object');
+            (realPlanData as any).ai_reasoning = {
+              split_reasoning: (realPlanData as any).split_reasoning || '',
+              exercise_selection_reasoning: (realPlanData as any).exercise_selection_reasoning || ''
+            };
+          }
+          
           setPlan(realPlanData);
           
           // Always attempt to load sessions from DB first (prefer real UUID sessions)
@@ -1297,23 +1385,21 @@ export default function PlanDetailScreen() {
   }, [sessions, plan]);
 
   if (isLoading) {
-  return (
+    return (
       <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={[colors.background, colors.surface]}
-          style={styles.loadingGradient}
-        >
-          <View style={styles.loadingCard}>
-            <LinearGradient
-              colors={[colors.glass, colors.glassStrong]}
-              style={styles.loadingCardGradient}
-            >
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading your workout plan...</Text>
-              <Text style={styles.loadingSubText}>Preparing your fitness journey</Text>
-            </LinearGradient>
+        <StatusBar style="light" />
+        <View style={styles.loadingCard}>
+          <View style={styles.loadingIconContainer}>
+            <Image
+              source={require('../../../../assets/mascot.png')}
+              style={styles.loadingMascot}
+            />
+            <View style={styles.loadingOnlineIndicator} />
           </View>
-        </LinearGradient>
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingSpinner} />
+          <Text style={styles.loadingText}>Loading your workout plan...</Text>
+          <Text style={styles.loadingSubText}>Preparing your fitness journey</Text>
+        </View>
       </View>
     );
   }
@@ -1446,24 +1532,29 @@ export default function PlanDetailScreen() {
                     <View style={{ marginTop: 8 }}>
                       {session.exercises.map((exercise, idx) => (
                         <View key={exercise.id} style={styles.classicExerciseItem}>
-                          <View style={styles.exerciseIconContainer}>
-                            <Text style={styles.exerciseNumber}>{idx + 1}</Text>
+                          <View style={styles.exerciseCardHeader}>
+                            <View style={styles.exerciseNumberBadgeClassic}>
+                              <Text style={styles.exerciseNumberTextClassic}>{idx + 1}</Text>
+                            </View>
+                            <View style={styles.exerciseMainInfoClassic}>
+                              <Text style={styles.exerciseNameTextClassic}>{exercise.name}</Text>
+                            </View>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.exerciseName}>{exercise.name}</Text>
-                            <View style={styles.exerciseMetrics}>
-                              <View style={styles.metric}>
-                                <Icon name="repeat" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.sets} sets</Text>
-                              </View>
-                              <View style={styles.metric}>
-                                <Icon name="sync" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.reps} reps</Text>
-                              </View>
-                              <View style={styles.metric}>
-                                <Icon name="timer-outline" size={14} color={colors.primary} />
-                                <Text style={styles.metricText}>{exercise.rest} rest</Text>
-                              </View>
+                          <View style={styles.exerciseMetricsRowClassic}>
+                            <View style={[styles.exerciseMetricPillClassic, { borderColor: colors.primary }]}>
+                              <Icon name="layers-triple" size={18} color={colors.primary} />
+                              <Text style={styles.exerciseMetricValueClassic}>{exercise.sets}</Text>
+                              <Text style={styles.exerciseMetricLabelClassic}>SETS</Text>
+                            </View>
+                            <View style={[styles.exerciseMetricPillClassic, { borderColor: colors.success }]}>
+                              <Icon name="repeat" size={18} color={colors.success} />
+                              <Text style={styles.exerciseMetricValueClassic}>{exercise.reps}</Text>
+                              <Text style={styles.exerciseMetricLabelClassic}>REPS</Text>
+                            </View>
+                            <View style={[styles.exerciseMetricPillClassic, { borderColor: colors.primary }]}>
+                              <Icon name="timer-sand" size={18} color={colors.primary} />
+                              <Text style={styles.exerciseMetricValueClassic}>{exercise.rest}</Text>
+                              <Text style={styles.exerciseMetricLabelClassic}>REST</Text>
                             </View>
                           </View>
                         </View>
@@ -1503,66 +1594,31 @@ export default function PlanDetailScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+
+      {/* Floating Actions */}
+      <View style={[styles.floatingHeader, { top: insets.top + 10 }]}>
+        <TouchableOpacity 
+          onPress={() => router.push({ pathname: '/(main)/workout/plans', params: { refresh: 'true' } })}
+          style={styles.floatingButton}
+        >
+          <Icon name="arrow-left" size={24} color={colors.white} />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={confirmDeletePlan}
+          style={[styles.floatingButton, { backgroundColor: 'rgba(255, 69, 58, 0.15)' }]}
+        >
+          <Icon name="delete-outline" size={22} color={colors.error} />
+        </TouchableOpacity>
+      </View>
       
-      {/* Enhanced dynamic background */}
-      <ImageBackground
-        source={{ 
-          uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop' 
-        }}
-        style={styles.backgroundImage}
-      >
-                 <LinearGradient
-           colors={[
-             'rgba(0,0,0,0.4)', 
-             'rgba(18,18,18,0.6)', 
-             'rgba(18,18,18,0.8)', 
-             '#121212'
-           ]}
-           style={styles.overlay}
-         />
-      </ImageBackground>
-
-      {/* Animated header blur */}
-      <Animated.View style={[styles.animatedHeader, { opacity: headerOpacity }]}>
-        <BlurView intensity={100} style={styles.blurHeader}>
-          <View style={[styles.quickHeader, { paddingTop: insets.top + 16 }]}>
-            <IconButton
-              icon="arrow-left"
-              iconColor={colors.white}
-              size={24}
-          onPress={() => {
-            console.log('Back button pressed in workout plan detail');
-            try {
-              router.push({
-                pathname: '/(main)/workout/plans',
-                params: { refresh: 'true' }
-              });
-            } catch (error) {
-              console.error('Error navigating back:', error);
-              router.back();
-            }
-          }}
-        />
-            <Text style={styles.headerTitle}>{plan?.name || 'Workout Plan'}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <IconButton
-                icon="delete-outline"
-                iconColor={colors.error}
-                size={24}
-                onPress={confirmDeletePlan}
-              />
-            </View>
-          </View>
-        </BlurView>
-      </Animated.View>
-
       <Animated.ScrollView 
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 140 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 140 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -1591,43 +1647,99 @@ export default function PlanDetailScreen() {
           }
         ]}>
         
-          {/* Title Section */}
-          <View style={styles.titleSection}>
-            <View style={styles.titleGlow}>
-              <View style={styles.titleDateContainer}>
-                <Icon name="calendar-check" size={18} color={colors.primary} />
-                <Text style={styles.titleDate}>YOUR WEEKLY SPLITS</Text>
+          {/* Strategic Overview Badges (Minimalist replacement for Analysis Card) */}
+          <View style={styles.overviewRow}>
+            {getAIAnalysis?.map((insight, idx) => (
+              <View key={idx} style={styles.overviewBadge}>
+                <Icon name={insight.icon} size={18} color={colors.primary} />
+                <Text style={styles.overviewValue}>{insight.value}</Text>
+                <Text style={styles.overviewLabel}>{insight.title}</Text>
               </View>
-              <Text style={styles.titleMain}>{plan?.name || 'Custom Plan'}</Text>
-              <Text style={styles.titleDescription}>
-                Your personalized workout schedule designed for maximum results
-              </Text>
-              <View style={styles.titleAccent} />
-            </View>
+            ))}
           </View>
 
-          {/* Rest Days Notice (orange) under plan name, above workout days */}
+          {/* AI Reasoning Section */}
+          {(() => {
+            // Check multiple possible locations for reasoning
+            const aiReasoning = (plan as any)?.ai_reasoning;
+            let splitReasoning = aiReasoning?.split_reasoning || (plan as any)?.split_reasoning;
+            let exerciseReasoning = aiReasoning?.exercise_selection_reasoning || (plan as any)?.exercise_selection_reasoning;
+            
+            // Filter out empty strings, placeholder text, or invalid reasoning
+            if (splitReasoning && (typeof splitReasoning !== 'string' || !splitReasoning.trim() || splitReasoning.includes('YOUR ACTUAL REASONING'))) {
+              splitReasoning = null;
+            }
+            if (exerciseReasoning && (typeof exerciseReasoning !== 'string' || !exerciseReasoning.trim() || exerciseReasoning.includes('YOUR ACTUAL REASONING'))) {
+              exerciseReasoning = null;
+            }
+            
+            const hasReasoning = !!(splitReasoning || exerciseReasoning);
+            
+            console.log('[PLAN DETAIL] Reasoning check:', {
+              hasPlan: !!plan,
+              hasAiReasoning: !!aiReasoning,
+              splitReasoning: !!splitReasoning,
+              exerciseReasoning: !!exerciseReasoning,
+              splitReasoningText: splitReasoning?.substring(0, 50) || 'N/A',
+              exerciseReasoningText: exerciseReasoning?.substring(0, 50) || 'N/A',
+              fullAiReasoning: aiReasoning,
+              planKeys: plan ? Object.keys(plan).slice(0, 15) : [],
+              willShow: hasReasoning
+            });
+            
+            // If we found reasoning at top level, normalize it
+            if (!aiReasoning && (splitReasoning || exerciseReasoning)) {
+              console.log('[PLAN DETAIL] Found reasoning at top level, normalizing...');
+              if (!(plan as any).ai_reasoning) {
+                (plan as any).ai_reasoning = {};
+              }
+              if (splitReasoning) (plan as any).ai_reasoning.split_reasoning = splitReasoning;
+              if (exerciseReasoning) (plan as any).ai_reasoning.exercise_selection_reasoning = exerciseReasoning;
+            }
+            
+            return hasReasoning;
+          })() && (
+            <View style={styles.reasoningContainer}>
+              <View style={styles.reasoningHeader}>
+                <View style={styles.reasoningIconContainer}>
+                  <Icon name="lightbulb-on" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.reasoningTitle}>Why This Plan?</Text>
+              </View>
+              
+              {(plan as any)?.ai_reasoning?.split_reasoning && (
+                <View style={styles.reasoningCard}>
+                  <View style={styles.reasoningCardHeader}>
+                    <Icon name="calendar-multiple" size={18} color={colors.primary} />
+                    <Text style={styles.reasoningCardTitle}>Training Split</Text>
+                  </View>
+                  <Text style={styles.reasoningText}>
+                    {(plan as any).ai_reasoning.split_reasoning}
+                  </Text>
+                </View>
+              )}
+
+              {(plan as any)?.ai_reasoning?.exercise_selection_reasoning && (
+                <View style={styles.reasoningCard}>
+                  <View style={styles.reasoningCardHeader}>
+                    <Icon name="dumbbell" size={18} color={colors.primary} />
+                    <Text style={styles.reasoningCardTitle}>Exercise Selection</Text>
+                  </View>
+                  <Text style={styles.reasoningText}>
+                    {(plan as any).ai_reasoning.exercise_selection_reasoning}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Weekly Overview - Small badge */}
           {(restDaysCount ?? 0) >= 0 && (
-            <View style={styles.restNoticeContainer}>
-              <LinearGradient
-                colors={[
-                  'rgba(255, 107, 53, 0.25)',
-                  'rgba(255, 107, 53, 0.15)'
-                ]}
-                style={styles.restNoticeGradient}
-              >
-                <View style={styles.restNoticeIconWrap}>
-                  <Icon name="sleep" size={22} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.restNoticeTitle}>Rest days this week</Text>
-                  <Text style={styles.restNoticeCount}><Text style={styles.restNoticeNumber}>{restDaysCount}</Text> day{restDaysCount === 1 ? '' : 's'}</Text>
-                  <Text style={styles.restNoticeSub}>Recovery fuels progress. Keep them sacred.</Text>
-                </View>
-                <View style={styles.restNoticeBadge}>
-                  <Icon name="calendar-week" size={16} color={colors.white} />
-                </View>
-              </LinearGradient>
+            <View style={styles.restDaysBadge}>
+              <Icon name="calendar-refresh" size={14} color={colors.cyan} />
+              <Text style={styles.restDaysBadgeText}>
+                {restDaysCount} Rest Day{restDaysCount !== 1 ? 's' : ''}
+              </Text>
             </View>
           )}
         
@@ -1654,67 +1766,96 @@ export default function PlanDetailScreen() {
             const isRestDay = !session.exercises || session.exercises.length === 0 ||
                             (session.day && typeof session.day === 'string' && session.day.toLowerCase().includes('rest'));
 
+            if (isRestDay) {
+              return (
+                <Animated.View
+                  key={session.id}
+                  style={[
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY: slideAnim }],
+                    },
+                    { marginBottom: 16 }
+                  ]}
+                >
+                  <View style={styles.restDayCard}>
+                    <View style={styles.restDayIconContainer}>
+                      <Icon name="sleep" size={24} color={colors.cyan} />
+                    </View>
+                    <View style={styles.restDayInfo}>
+                      <Text style={styles.sessionDayText}>{session.day || `Day ${index + 1}`}</Text>
+                      <Text style={styles.restDayTitle}>Rest Day</Text>
+                      <Text style={styles.restDayLabel}>Recovery & Growth</Text>
+                    </View>
+                    <Icon name="check-circle-outline" size={24} color="rgba(255,255,255,0.2)" />
+                  </View>
+                </Animated.View>
+              );
+            }
+
             return (
               <Animated.View
-              key={session.id}
+                key={session.id}
                 style={[
                   {
                     opacity: fadeAnim,
                     transform: [
-                      {
-                        translateY: slideAnim,
-                      },
+                      { translateY: slideAnim },
                       {
                         scale: fadeAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [0.9, 1],
+                          outputRange: [0.95, 1],
                         }),
                       },
                     ],
                   },
-                  { marginBottom: 20 }
+                  { marginBottom: 16 }
                 ]}
               >
                 <TouchableOpacity
-              onPress={() => toggleSession(session.id)}
-                  activeOpacity={0.8}
+                  onPress={() => toggleSession(session.id)}
+                  activeOpacity={0.9}
                 >
-                                   <View style={styles.sessionCard}>
-                     <ImageBackground
-                       source={{ uri: getSplitImage(session.focus || "") }}
-                       style={styles.sessionCardBackground}
-                       imageStyle={styles.sessionCardImage}
-                     >
-                                           <LinearGradient
-                         colors={[
-                           'rgba(0,0,0,0.2)',
-                           'rgba(0,0,0,0.4)',
-                           'rgba(0,0,0,0.7)'
-                         ]}
-                         style={styles.cardOverlay}
-                       />
-
+                  <View style={styles.sessionCard}>
+                    <LinearGradient
+                      colors={['rgba(255, 107, 53, 0.15)', 'rgba(255, 107, 53, 0.05)']}
+                      style={styles.sessionCardGradient}
+                    >
                       <View style={styles.sessionHeader}>
                         <View style={styles.sessionIconContainer}>
-                      <Icon
-                        name={isRestDay ? 'sleep' : getSplitIcon(session.focus || "")}
-                        size={22}
-                        color={isRestDay ? colors.secondary : colors.primary}
-                      />
-                    </View>
+                          <Icon
+                            name={getSplitIcon(session.focus || "")}
+                            size={26}
+                            color={colors.primary}
+                          />
+                        </View>
 
-                                              <Text style={styles.sessionName}>
-                          {isRestDay ? 'Rest Day' : (session.focus || `Split ${index + 1}`)}
-                        </Text>
+                        <View style={styles.sessionInfo}>
+                          <Text style={styles.sessionDayText}>{session.day || `Day ${index + 1}`}</Text>
+                          <Text style={styles.sessionName} numberOfLines={1}>
+                            {session.focus || `Split ${index + 1}`}
+                          </Text>
+                          <View style={styles.sessionStats}>
+                            <Icon name="arm-flex" size={14} color="rgba(255,255,255,0.5)" />
+                            <Text style={styles.sessionStatText}>
+                              {session.exercises?.length || 0} Exercises
+                            </Text>
+                            <View style={{ width: 12 }} />
+                            <Icon name="clock-outline" size={14} color="rgba(255,255,255,0.5)" />
+                            <Text style={styles.sessionStatText}>
+                              ~{(session.exercises?.length || 0) * 8} min
+                            </Text>
+                          </View>
+                        </View>
 
-                    <IconButton
-                      icon={expandedSession === session.id ? 'chevron-up' : 'chevron-down'}
-                      size={22}
+                        <IconButton
+                          icon={expandedSession === session.id ? 'chevron-up' : 'chevron-down'}
+                          size={24}
                           iconColor={colors.white}
                           style={styles.sessionToggle}
-                    />
-                  </View>
-                    </ImageBackground>
+                        />
+                      </View>
+                    </LinearGradient>
                   </View>
                 </TouchableOpacity>
 
@@ -1728,7 +1869,7 @@ export default function PlanDetailScreen() {
                     {isRestDay ? (
                       <View style={styles.restDayContainer}>
                         <View style={styles.restDayContent}>
-                          <Icon name="sleep" size={32} color={colors.secondary} />
+                          <Icon name="sleep" size={32} color={colors.cyan} />
                           <Text style={styles.restDayTitleExpanded}>Rest Day</Text>
                           <Text style={styles.restDayDescription}>
                             Take today to recover, relax, and let your muscles rebuild stronger.
@@ -1740,40 +1881,59 @@ export default function PlanDetailScreen() {
                       </View>
                     ) : (
                       session.exercises?.map((exercise, idx) => (
-                        <View key={exercise.id} style={styles.exerciseItem}>
-                          <View style={styles.exerciseIconContainer}>
-                            <Text style={styles.exerciseNumber}>{idx + 1}</Text>
+                        <View key={exercise.id} style={styles.exerciseCard}>
+                          <View style={styles.exerciseCardHeader}>
+                            <View style={styles.exerciseNumberBadge}>
+                              <Text style={styles.exerciseNumberText}>{idx + 1}</Text>
+                            </View>
+                            <View style={styles.exerciseMainInfo}>
+                              <Text style={styles.exerciseNameText} numberOfLines={2}>{exercise.name}</Text>
+                            </View>
+                            {editingExercise !== exercise.id && (
+                              <TouchableOpacity 
+                                style={styles.exerciseEditButton}
+                                onPress={() => handleEditExercise(
+                                  session.id,
+                                  exercise.id,
+                                  exercise.sets,
+                                  exercise.reps,
+                                  exercise.rest,
+                                  exercise.name
+                                )}
+                              >
+                                <Icon name="pencil-outline" size={18} color={colors.primary} />
+                              </TouchableOpacity>
+                            )}
                           </View>
 
-                          <View style={styles.exerciseDetails}>
-                            <View style={styles.exerciseNameRow}>
-                              <Text style={styles.exerciseName}>{exercise.name}</Text>
-
-                              {editingExercise !== exercise.id && (
-                                <IconButton
-                                  icon="pencil"
-                                  size={16}
-                                  iconColor={colors.primary}
-                                  onPress={() => handleEditExercise(
-                                    session.id,
-                                    exercise.id,
-                                    exercise.sets,
-                                    exercise.reps,
-                                    exercise.rest,
-                                    exercise.name
-                                  )}
+                          {editingExercise === exercise.id ? (
+                            <View style={styles.exerciseEditContainer}>
+                              <View style={styles.exerciseEditField}>
+                                <Text style={styles.exerciseEditLabel}>Name</Text>
+                                <TextInput
+                                  value={editedName || ''}
+                                  onChangeText={setEditedName}
+                                  style={styles.exerciseEditInput}
+                                  mode="outlined"
+                                  theme={{
+                                    colors: {
+                                      primary: colors.primary,
+                                      outline: colors.border,
+                                      onSurfaceVariant: colors.textSecondary,
+                                      surface: colors.surface,
+                                      onSurface: colors.text
+                                    }
+                                  }}
                                 />
-                              )}
-                            </View>
-
-                            {editingExercise === exercise.id ? (
-                              <View style={styles.editContainer}>
-                                <View style={styles.editRow}>
-                                  <Text style={styles.editLabel}>Name:</Text>
+                              </View>
+                              <View style={styles.exerciseEditRow}>
+                                <View style={[styles.exerciseEditField, { flex: 1 }]}>
+                                  <Text style={styles.exerciseEditLabel}>Sets</Text>
                                   <TextInput
-                                    value={editedName || ''}
-                                    onChangeText={setEditedName}
-                                    style={styles.editInput}
+                                    value={editedSets?.toString() || ''}
+                                    onChangeText={(text) => setEditedSets(parseInt(text) || 0)}
+                                    keyboardType="numeric"
+                                    style={styles.exerciseEditInput}
                                     mode="outlined"
                                     theme={{
                                       colors: {
@@ -1786,119 +1946,103 @@ export default function PlanDetailScreen() {
                                     }}
                                   />
                                 </View>
-                                <View style={styles.editRow}>
-                                  <Text style={styles.editLabel}>Sets:</Text>
-                                  <TextInput
-                                    value={editedSets?.toString() || ''}
-                                    onChangeText={(text) => setEditedSets(parseInt(text) || 0)}
-                                    keyboardType="numeric"
-                                    style={styles.editInput}
-                                    mode="outlined"
-                                      theme={{
-                                        colors: {
-                                          primary: colors.primary,
-                                          outline: colors.border,
-                                          onSurfaceVariant: colors.textSecondary,
-                                          surface: colors.surface,
-                                          onSurface: colors.text
-                                        }
-                                      }}
-                                  />
-                                </View>
-                                <View style={styles.editRow}>
-                                  <Text style={styles.editLabel}>Reps:</Text>
+                                <View style={[styles.exerciseEditField, { flex: 1 }]}>
+                                  <Text style={styles.exerciseEditLabel}>Reps</Text>
                                   <TextInput
                                     value={editedReps || ''}
                                     onChangeText={setEditedReps}
-                                    style={styles.editInput}
+                                    style={styles.exerciseEditInput}
                                     mode="outlined"
-                                      theme={{
-                                        colors: {
-                                          primary: colors.primary,
-                                          outline: colors.border,
-                                          onSurfaceVariant: colors.textSecondary,
-                                          surface: colors.surface,
-                                          onSurface: colors.text
-                                        }
-                                      }}
+                                    theme={{
+                                      colors: {
+                                        primary: colors.primary,
+                                        outline: colors.border,
+                                        onSurfaceVariant: colors.textSecondary,
+                                        surface: colors.surface,
+                                        onSurface: colors.text
+                                      }
+                                    }}
                                   />
                                 </View>
-                                <View style={styles.editRow}>
-                                  <Text style={styles.editLabel}>Rest:</Text>
+                                <View style={[styles.exerciseEditField, { flex: 1 }]}>
+                                  <Text style={styles.exerciseEditLabel}>Rest</Text>
                                   <TextInput
                                     value={editedRest || ''}
                                     onChangeText={setEditedRest}
-                                    style={styles.editInput}
+                                    style={styles.exerciseEditInput}
                                     mode="outlined"
-                                      theme={{
-                                        colors: {
-                                          primary: colors.primary,
-                                          outline: colors.border,
-                                          onSurfaceVariant: colors.textSecondary,
-                                          surface: colors.surface,
-                                          onSurface: colors.text
-                                        }
-                                      }}
+                                    theme={{
+                                      colors: {
+                                        primary: colors.primary,
+                                        outline: colors.border,
+                                        onSurfaceVariant: colors.textSecondary,
+                                        surface: colors.surface,
+                                        onSurface: colors.text
+                                      }
+                                    }}
                                   />
                                 </View>
-                                <View style={styles.editButtons}>
-                                    <TouchableOpacity
-                                    onPress={cancelEdit}
-                                    style={styles.cancelButton}
-                                    >
-                                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                    onPress={handleSaveExerciseChanges}
-                                      style={styles.saveButtonContainer}
-                                    >
-                                      <LinearGradient
-                                        colors={[colors.primary, colors.primaryDark]}
-                                    style={styles.saveButton}
+                              </View>
+                              <View style={styles.exerciseEditActions}>
+                                <TouchableOpacity
+                                  onPress={cancelEdit}
+                                  style={styles.exerciseEditCancelBtn}
+                                >
+                                  <Text style={styles.exerciseEditCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={handleSaveExerciseChanges}
+                                  style={styles.exerciseEditSaveBtn}
+                                >
+                                  <LinearGradient
+                                    colors={[colors.primary, colors.primaryDark]}
+                                    style={styles.exerciseEditSaveGradient}
                                   >
-                                        <Text style={styles.saveButtonText}>Save</Text>
-                                      </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
+                                    <Text style={styles.exerciseEditSaveText}>Save</Text>
+                                  </LinearGradient>
+                                </TouchableOpacity>
                               </View>
-                            ) : (
-                              <View style={styles.exerciseMetrics}>
-                                {isCardioExercise(exercise) ? (
-                                  // Cardio exercises: show timing-based parameters
-                                  <>
-                                    <View style={styles.metric}>
-                                      <Icon name="timer" size={14} color={colors.primary} />
-                                      <Text style={styles.metricText}>
-                                        {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'} duration
-                                      </Text>
-                                    </View>
-                                    <View style={styles.metric}>
-                                      <Icon name="timer-outline" size={14} color={colors.primary} />
-                                      <Text style={styles.metricText}>
-                                        {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'} rest
-                                      </Text>
-                                    </View>
-                                  </>
-                                ) : (
-                                  // Strength exercises: show traditional sets/reps parameters
-                                  <>
-                                    <View style={styles.metric}>
-                                      <Icon name="repeat" size={14} color={colors.primary} />
-                                      <Text style={styles.metricText}>{exercise.sets} sets</Text>
-                                    </View>
-                                    <View style={styles.metric}>
-                                      <Icon name="sync" size={14} color={colors.primary} />
-                                      <Text style={styles.metricText}>{exercise.reps} reps</Text>
-                                    </View>
-                                    <View style={styles.metric}>
-                                      <Icon name="timer-outline" size={14} color={colors.primary} />
-                                      <Text style={styles.metricText}>{exercise.rest} rest</Text>
-                                    </View>
-                                  </>
-                                )}
-                              </View>
-                            )}
-                          </View>
+                            </View>
+                          ) : (
+                            <View style={styles.exerciseMetricsRow}>
+                              {isCardioExercise(exercise) ? (
+                                <>
+                                  <View style={[styles.exerciseMetricPill, { borderColor: colors.primary }]}>
+                                    <Icon name="timer" size={14} color={colors.primary} />
+                                    <Text style={styles.exerciseMetricValue}>
+                                      {exercise.duration ? `${exercise.duration}s` : exercise.reps || '30s'}
+                                    </Text>
+                                    <Text style={styles.exerciseMetricLabel}>DURATION</Text>
+                                  </View>
+                                  <View style={[styles.exerciseMetricPill, { borderColor: colors.secondary }]}>
+                                    <Icon name="timer-sand" size={14} color={colors.secondary} />
+                                    <Text style={styles.exerciseMetricValue}>
+                                      {exercise.restSeconds ? `${exercise.restSeconds}s` : exercise.rest || '30s'}
+                                    </Text>
+                                    <Text style={styles.exerciseMetricLabel}>REST</Text>
+                                  </View>
+                                </>
+                              ) : (
+                                <>
+                                  <View style={[styles.exerciseMetricPill, { borderColor: colors.primary }]}>
+                                    <Icon name="layers-triple" size={14} color={colors.primary} />
+                                    <Text style={styles.exerciseMetricValue}>{exercise.sets}</Text>
+                                    <Text style={styles.exerciseMetricLabel}>SETS</Text>
+                                  </View>
+                                  <View style={[styles.exerciseMetricPill, { borderColor: colors.success }]}>
+                                    <Icon name="repeat" size={14} color={colors.success} />
+                                    <Text style={styles.exerciseMetricValue}>{exercise.reps}</Text>
+                                    <Text style={styles.exerciseMetricLabel}>REPS</Text>
+                                  </View>
+                                  <View style={[styles.exerciseMetricPill, { borderColor: colors.primary }]}>
+                                    <Icon name="timer-sand" size={14} color={colors.primary} />
+                                    <Text style={styles.exerciseMetricValue}>{exercise.rest}</Text>
+                                    <Text style={styles.exerciseMetricLabel}>REST</Text>
+                                  </View>
+                                </>
+                              )}
+                            </View>
+                          )}
                         </View>
                       ))
                     )}
@@ -1944,7 +2088,7 @@ export default function PlanDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   backgroundImage: {
     position: 'absolute',
@@ -1985,32 +2129,53 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
+    backgroundColor: '#000000',
   },
   loadingCard: {
-    width: width * 0.8,
+    width: width * 0.85,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 20,
-    overflow: 'hidden',
-  },
-  loadingCardGradient: {
-    padding: 40,
+    padding: 32,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  loadingIconContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  loadingMascot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    resizeMode: 'contain',
+  },
+  loadingOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  loadingSpinner: {
+    marginBottom: 20,
   },
   loadingText: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   loadingSubText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   centered: {
     flex: 1,
@@ -2036,18 +2201,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
   },
-     titleSection: {
-     marginBottom: 32,
-     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-     borderRadius: 16,
-     marginHorizontal: -8,
-     paddingHorizontal: 8,
+  titleSection: {
+    marginBottom: 24,
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
   },
-   titleGlow: {
-     position: 'relative',
-     paddingVertical: 20,
-     alignItems: 'flex-start',
-   },
+  titleGlow: {
+    position: 'relative',
+    paddingVertical: 10,
+    alignItems: 'flex-start',
+  },
   titleDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2086,6 +2249,80 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 10,
     zIndex: -1,
+  },
+  floatingHeader: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  floatingButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backdropFilter: 'blur(10px)',
+  },
+  minimalHeader: {
+    marginBottom: 24,
+    alignItems: 'flex-start',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: colors.primary,
+    marginLeft: 4,
+    letterSpacing: 1,
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 60,
+    marginBottom: 32,
+    gap: 12,
+  },
+  overviewBadge: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  overviewValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.white,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  overviewLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   restNoticeContainer: {
     marginBottom: 20,
@@ -2131,6 +2368,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2
   },
+  restDaysBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(90, 200, 250, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 16,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(90, 200, 250, 0.2)',
+  },
+  restDaysBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.cyan,
+  },
   restNoticeBadge: {
     marginLeft: 12,
     width: 32,
@@ -2139,6 +2394,52 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 107, 53, 0.35)',
     justifyContent: 'center',
     alignItems: 'center'
+  },
+  reasoningContainer: {
+    marginBottom: 24,
+    gap: 12,
+  },
+  reasoningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
+  },
+  reasoningIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reasoningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  reasoningCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  reasoningCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  reasoningCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  reasoningText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
   emptyStateContainer: {
     marginBottom: 20,
@@ -2173,50 +2474,105 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sessionCard: {
-    height: 80,
-    borderRadius: 20,
+    height: 100,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowColor: colors.primary,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  sessionCardBackground: {
+  sessionCardGradient: {
     flex: 1,
     justifyContent: 'center',
-  },
-  sessionCardImage: {
-    borderRadius: 20,
-  },
-  cardOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
   },
   sessionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  sessionInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  sessionDayText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  sessionName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.white,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  sessionStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sessionStatText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
   sessionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  sessionToggle: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+  },
+  restDayCard: {
+    height: 90,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(90, 200, 250, 0.2)',
+    backgroundColor: 'rgba(90, 200, 250, 0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  restDayIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(90, 200, 250, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  sessionName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
+  restDayInfo: {
     flex: 1,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  },
+  restDayTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  restDayLabel: {
+    fontSize: 12,
+    color: colors.cyan,
+    fontWeight: '700',
+    marginTop: 2,
   },
   sessionToggle: {
     margin: 0,
@@ -2235,6 +2591,137 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
+  // New Exercise Card Styles - Compact to match session card style
+  exerciseCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  exerciseCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  exerciseNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  exerciseNumberText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  exerciseMainInfo: {
+    flex: 1,
+  },
+  exerciseNameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 20,
+  },
+  exerciseEditButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exerciseMetricsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  exerciseMetricPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  exerciseMetricValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  exerciseMetricLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  exerciseEditContainer: {
+    marginTop: 4,
+    padding: 16,
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.15)',
+  },
+  exerciseEditField: {
+    marginBottom: 12,
+  },
+  exerciseEditRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  exerciseEditLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  exerciseEditInput: {
+    height: 44,
+    fontSize: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  exerciseEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 12,
+  },
+  exerciseEditCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  exerciseEditCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  exerciseEditSaveBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  exerciseEditSaveGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  exerciseEditSaveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  // Keep old styles for backward compatibility
   exerciseItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2442,14 +2929,14 @@ const styles = StyleSheet.create({
   restDayTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.secondary,
+    color: colors.cyan,
     marginTop: 12,
     marginBottom: 8,
   },
   restDayTitleExpanded: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.secondary,
+    color: colors.cyan,
     marginTop: 8,
     marginBottom: 12,
     textAlign: 'center',
@@ -2511,9 +2998,67 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   classicExerciseItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  exerciseCardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 12
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  exerciseNumberBadgeClassic: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  exerciseNumberTextClassic: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  exerciseMainInfoClassic: {
+    flex: 1,
+  },
+  exerciseNameTextClassic: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 24,
+  },
+  exerciseMetricsRowClassic: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  exerciseMetricPillClassic: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseMetricValueClassic: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  exerciseMetricLabelClassic: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   applyBtnContainer: {
     marginTop: 20,

@@ -1,0 +1,105 @@
+═══════════════════════════════════════════════════════════════
+APP STORE REVIEW NOTES - QUICK COPY-PASTE VERSION
+═══════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANT: Test Account Information
+
+Test Account:
+Email: [YOUR_TEST_ACCOUNT_EMAIL]
+Password: [YOUR_TEST_ACCOUNT_PASSWORD]
+
+Note: This account has already completed onboarding and has access. To see the full user experience including onboarding and paywall, please create a new account or sign out and sign up again.
+
+───────────────────────────────────────────────────────────────
+HOW TO TEST ONBOARDING & PAYWALL
+───────────────────────────────────────────────────────────────
+
+Option 1: Create New Account (Recommended)
+1. Sign out of provided test account
+2. Create new account with different email
+3. You will see: Onboarding flow → Paywall (subscription required) → App features
+
+Option 2: Use Provided Account
+- Shows main app dashboard
+- To see paywall: Settings → Subscription → "Upgrade to Premium"
+
+───────────────────────────────────────────────────────────────
+KEY FEATURES TO TEST
+───────────────────────────────────────────────────────────────
+
+1. Onboarding Flow (New Account)
+   - Name → Fitness Level → Goals
+   - Smooth user experience
+
+2. Paywall & Subscription
+   - Appears after onboarding OR Settings → Subscription
+   - Monthly: $9.99/month with 7-day free trial
+   - Lifetime: $79.99 one-time purchase
+   - Test "Restore Purchases"
+
+3. Subscription Required
+   - No free tier - subscription required to use app
+   - Paywall appears after onboarding
+   - Cannot access app without subscribing
+
+4. App Features (After Subscription)
+   - Unlimited AI workouts
+   - Unlimited recipes
+   - Unlimited AI chat
+   - Advanced analytics
+
+5. Core Features
+   - AI workout plan generation
+   - Food photo analysis
+   - Progress photo tracking
+   - Nutrition tracking
+
+───────────────────────────────────────────────────────────────
+SUBSCRIPTION DETAILS
+───────────────────────────────────────────────────────────────
+
+Monthly Premium:
+- Product ID: gofitai_premium_monthly1
+- Price: $9.99/month
+- Free Trial: 7 days (no charge)
+- Auto-renewable: Yes
+
+Lifetime Premium:
+- Product ID: gofitai_premium_lifetime1
+- Price: $79.99
+- Type: One-time purchase (no renewals)
+
+───────────────────────────────────────────────────────────────
+COMPLIANCE
+───────────────────────────────────────────────────────────────
+
+✅ All purchases through Apple IAP
+✅ Clear subscription terms displayed
+✅ Auto-renewal managed in App Store settings
+✅ 7-day free trial clearly communicated
+✅ Subscription required - clear paywall before access
+✅ Privacy policy accessible in-app
+✅ Support contact provided
+
+───────────────────────────────────────────────────────────────
+SUPPORT
+───────────────────────────────────────────────────────────────
+
+Email: henry983690@gmail.com
+Response Time: 24-48 hours
+
+───────────────────────────────────────────────────────────────
+NOTES
+───────────────────────────────────────────────────────────────
+
+- Camera permission required for food/progress photos
+- Internet connection required for AI features
+- Users can sign up with Apple Sign-In or Email
+- All data encrypted and stored securely
+
+If you encounter issues, try creating a fresh account to see onboarding/paywall flows.
+
+Thank you for reviewing GoFitAI!
+
+═══════════════════════════════════════════════════════════════
+

@@ -591,17 +591,6 @@ export default function CustomBuilderScreen() {
               theme={{ colors: { primary: colors.primary, background: colors.surface } }}
               textColor={colors.text}
             />
-
-            <PaperInput
-              label="Description (Optional)"
-              value={planSetup.description}
-              onChangeText={(value) => updatePlanSetup('description', value)}
-              style={styles.textInput}
-              theme={{ colors: { primary: colors.primary, background: colors.surface } }}
-              textColor={colors.text}
-              multiline
-              numberOfLines={3}
-            />
           </Card>
 
           <Card style={styles.setupCard} theme={{ colors: { surface: colors.card } }}>
@@ -609,21 +598,6 @@ export default function CustomBuilderScreen() {
               <Icon name="dumbbell" size={24} color={colors.primary} />
               <Text style={styles.sectionHeaderTitle}>Training Configuration</Text>
             </View>
-
-            <Text style={styles.modernLabel}>Training Level</Text>
-            <SegmentedButtons
-              value={planSetup.trainingLevel}
-              onValueChange={(value) => updatePlanSetup('trainingLevel', value)}
-              buttons={trainingLevels.map(level => ({
-                value: level.value,
-                label: level.label,
-                icon: level.icon,
-                style: {
-                  backgroundColor: planSetup.trainingLevel === level.value ? colors.primary : colors.surface,
-                }
-              }))}
-              style={styles.segmentedButtons}
-            />
 
             <Text style={styles.modernLabel}>Days Per Week</Text>
             <View style={styles.optionGrid}>
@@ -1181,14 +1155,6 @@ export default function CustomBuilderScreen() {
                   <Text style={styles.statValue}>{progressInfo.totalExercises}</Text>
                   <Text style={styles.statLabel}>Exercises</Text>
                 </View>
-                
-                <View style={styles.statDivider} />
-                
-                <View style={styles.statItem}>
-                  <Icon name="speedometer" size={20} color={colors.primary} />
-                  <Text style={styles.statValue}>{planSetup.trainingLevel}</Text>
-                  <Text style={styles.statLabel}>Level</Text>
-                </View>
               </View>
             </View>
           </View>
@@ -1210,27 +1176,28 @@ export default function CustomBuilderScreen() {
                 
                 <View style={styles.exercisesList}>
                   {day.exercises.map((workoutExercise, index) => (
-                    <View key={index} style={styles.reviewExerciseItem}>
-                      <View style={styles.exerciseIconContainer}>
-                        <Icon name="chevron-right" size={16} color={colors.primary} />
+                    <View key={index} style={styles.reviewExerciseCard}>
+                      <View style={styles.reviewExerciseHeader}>
+                        <View style={styles.reviewExerciseNumberBadge}>
+                          <Text style={styles.reviewExerciseNumberText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.reviewExerciseNameText} numberOfLines={2}>{workoutExercise.exercise.name}</Text>
                       </View>
-                      <View style={styles.exerciseContent}>
-                        <Text style={styles.reviewExerciseName}>{workoutExercise.exercise.name}</Text>
-                        <View style={styles.exerciseMetaRow}>
-                          <View style={styles.exerciseMeta}>
-                            <Text style={styles.exerciseMetaLabel}>Sets:</Text>
-                            <Text style={styles.exerciseMetaValue}>{workoutExercise.sets}</Text>
-                          </View>
-                          <Text style={styles.exerciseMetaSeparator}>•</Text>
-                          <View style={styles.exerciseMeta}>
-                            <Text style={styles.exerciseMetaLabel}>Reps:</Text>
-                            <Text style={styles.exerciseMetaValue}>{workoutExercise.reps}</Text>
-                          </View>
-                          <Text style={styles.exerciseMetaSeparator}>•</Text>
-                          <View style={styles.exerciseMeta}>
-                            <Text style={styles.exerciseMetaLabel}>Rest:</Text>
-                            <Text style={styles.exerciseMetaValue}>{workoutExercise.rest}</Text>
-                          </View>
+                      <View style={styles.reviewExerciseMetricsRow}>
+                        <View style={[styles.reviewExerciseMetricPill, { borderLeftColor: colors.primary }]}>
+                          <Icon name="layers-triple" size={14} color={colors.primary} />
+                          <Text style={styles.reviewExerciseMetricValue}>{workoutExercise.sets}</Text>
+                          <Text style={styles.reviewExerciseMetricLabel}>sets</Text>
+                        </View>
+                        <View style={[styles.reviewExerciseMetricPill, { borderLeftColor: colors.success }]}>
+                          <Icon name="repeat" size={14} color={colors.success} />
+                          <Text style={styles.reviewExerciseMetricValue}>{workoutExercise.reps}</Text>
+                          <Text style={styles.reviewExerciseMetricLabel}>reps</Text>
+                        </View>
+                        <View style={[styles.reviewExerciseMetricPill, { borderLeftColor: colors.accent }]}>
+                          <Icon name="timer-sand" size={14} color={colors.accent} />
+                          <Text style={styles.reviewExerciseMetricValue}>{workoutExercise.rest}</Text>
+                          <Text style={styles.reviewExerciseMetricLabel}>rest</Text>
                         </View>
                       </View>
                     </View>
@@ -1858,8 +1825,69 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   exercisesList: {
+    gap: 12,
+  },
+  // New Review Exercise Card Styles
+  reviewExerciseCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  reviewExerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewExerciseNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reviewExerciseNumberText: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  reviewExerciseNameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+    lineHeight: 20,
+  },
+  reviewExerciseMetricsRow: {
+    flexDirection: 'row',
     gap: 8,
   },
+  reviewExerciseMetricPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    padding: 10,
+    borderLeftWidth: 3,
+    alignItems: 'center',
+  },
+  reviewExerciseMetricValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  reviewExerciseMetricLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Keep old styles for backward compatibility
   reviewExerciseItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1910,10 +1938,12 @@ const styles = StyleSheet.create({
   },
   // Plan Setup Styles
   setupCard: {
-    backgroundColor: colors.card,
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
+    padding: 24,
+    marginBottom: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   compactSetupCard: {
     backgroundColor: colors.card,
@@ -1941,13 +1971,17 @@ const styles = StyleSheet.create({
   },
   modernLabel: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 12,
-    marginTop: 20,
+    marginBottom: 16,
+    marginTop: 24,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.9,
   },
   textInput: {
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   segmentedButtons: {
     marginBottom: 20,
@@ -1955,37 +1989,47 @@ const styles = StyleSheet.create({
   optionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 12,
     marginBottom: 20,
   },
   optionCard: {
-    backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    margin: 4,
-    width: '45%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 20,
+    borderRadius: 16,
+    flex: 1,
+    minWidth: '45%',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
   selectedOptionCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
     borderWidth: 2,
-    borderColor: colors.primaryDark,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   optionLabel: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   selectedOptionLabel: {
-    color: '#FFFFFF',
+    color: colors.primary,
   },
   optionDescription: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
+    lineHeight: 18,
   },
   selectedOptionDescription: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   dayConfigCard: {
     backgroundColor: colors.surface,
@@ -2310,17 +2354,28 @@ const styles = StyleSheet.create({
 
   footer: {
     padding: 20,
-    backgroundColor: colors.surface,
+    paddingTop: 16,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   nextButton: {
     backgroundColor: colors.primary,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   nextButtonContent: {
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   nextButtonText: {
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
   createButton: {
     borderRadius: 16,
@@ -2437,11 +2492,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   progressText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
     marginRight: 4,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   cancelEditButton: {
@@ -2527,10 +2581,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 20,
+    backgroundColor: colors.background,
+    borderBottomWidth: 0,
   },
   modernBackButton: {
     padding: 8,
@@ -2543,30 +2596,38 @@ const styles = StyleSheet.create({
   },
   modernHeaderTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   modernHeaderSubtitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '500',
   },
   modernHeaderProgress: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 2,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderWidth: 3,
     borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   modernContent: {
     flex: 1,
     backgroundColor: colors.background,
   },
   modernScrollContent: {
-    paddingBottom: 100,
+    padding: 20,
+    paddingBottom: 120,
   },
   progressBanner: {
     backgroundColor: colors.surface,
@@ -2632,13 +2693,18 @@ const styles = StyleSheet.create({
   modernSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 107, 53, 0.15)',
   },
   sectionHeaderTitle: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     marginLeft: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   dayGrid: {
     flexDirection: 'row',

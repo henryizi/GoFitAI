@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { 
   View, 
   FlatList, 
@@ -6,55 +6,31 @@ import {
   ActivityIndicator, 
   StyleSheet, 
   RefreshControl, 
-  Dimensions,
   Image,
-  Animated,
-  Alert
+  Alert,
+  ScrollView,
+  Text,
+  Modal,
 } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { WorkoutHistoryService, CompletedSessionListItem } from '../../../src/services/workout/WorkoutHistoryService';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurView } from 'expo-blur';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-// import { MotiView } from 'moti';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Platform } from 'react-native';
 
-
-// Get screen dimensions
-const { width, height } = Dimensions.get('window');
-
-// Premium dark theme colors
+// Clean Design System
 const colors = {
   primary: '#FF6B35',
-  primaryLight: '#FF8F65',
   primaryDark: '#E55A2B',
-  primaryGradient: ['#FF6B35', '#FF8F65'] as const,
-  primaryAlpha: 'rgba(255, 107, 53, 0.15)',
-  secondaryAlpha: 'rgba(255, 143, 101, 0.1)',
-  background: '#121212',
-  backgroundDark: '#0A0A0A',
-  backgroundGradient: ['#000000', '#121212'] as const,
-  surface: '#1C1C1E',
-  surfaceLight: '#2C2C2E',
-  surfaceGradient: ['rgba(28, 28, 30, 0.8)', 'rgba(44, 44, 46, 0.9)'] as const,
   text: '#FFFFFF',
   textSecondary: 'rgba(235, 235, 245, 0.6)',
-  textTertiary: 'rgba(235, 235, 245, 0.3)',
-  border: 'rgba(84, 84, 88, 0.6)',
-  borderLight: 'rgba(84, 84, 88, 0.3)',
-  borderLighter: 'rgba(84, 84, 88, 0.15)',
-  shadow: '#000000',
-  success: '#34C759',
-  warning: '#FFCC00',
-  error: '#FF3B30',
-  info: '#5AC8FA',
-  glass: 'rgba(255, 255, 255, 0.05)',
-  glassStrong: 'rgba(255, 255, 255, 0.1)',
-  cardGradient: ['rgba(28, 28, 30, 0.7)', 'rgba(44, 44, 46, 0.8)'] as const,
-  cardGlow: 'rgba(255, 107, 53, 0.1)',
+  success: '#22C55E',
+  warning: '#FF9500',
+  error: '#FF453A',
 };
 
 const WorkoutHistoryListScreen = () => {
@@ -63,22 +39,34 @@ const WorkoutHistoryListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sessions, setSessions] = useState<CompletedSessionListItem[]>([]);
+  const [allSessions, setAllSessions] = useState<CompletedSessionListItem[]>([]);
+  const [selectedTimeFrame, setSelectedTimeFrame] = useState<'all' | 'today' | 'week' | 'month' | 'lastMonth' | 'custom'>('all');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [deletingSessions, setDeletingSessions] = useState<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
-  const scrollY = new Animated.Value(0);
-  
-  // Header animation values
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 60],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
-  
-  const headerScale = scrollY.interpolate({
-    inputRange: [0, 60],
-    outputRange: [0.97, 1],
-    extrapolate: 'clamp'
-  });
+
+  // AI Coach greeting
+  const getAIGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    let greeting = '';
+    let message = '';
+    
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
+    }
+    
+    message = sessions.length > 0 
+      ? `You have ${sessions.length} workout${sessions.length !== 1 ? 's' : ''} in your history.`
+      : "Complete workouts to see your history here.";
+    
+    return { greeting, message };
+  }, [sessions.length]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -87,13 +75,70 @@ const WorkoutHistoryListScreen = () => {
     try {
       const data = await WorkoutHistoryService.getCompletedSessionsWithDetails(user.id);
       console.log('[WorkoutHistory] Loaded sessions:', data.length);
-      setSessions(data);
+      setAllSessions(data);
+      // Apply current filter
+      filterSessionsByTimeFrame(data, selectedTimeFrame);
     } catch (error) {
       console.error('[WorkoutHistory] Error loading sessions:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedTimeFrame]);
+
+  const filterSessionsByTimeFrame = useCallback((allData: CompletedSessionListItem[], timeFrame: typeof selectedTimeFrame, customDate?: Date) => {
+    if (timeFrame === 'all') {
+      setSessions(allData);
+      return;
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisWeek = new Date(today);
+    thisWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const filtered = allData.filter(session => {
+      const sessionDate = new Date(session.completed_at);
+      const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+      
+      switch (timeFrame) {
+        case 'today':
+          return sessionDate >= today;
+        case 'week':
+          return sessionDate >= thisWeek && sessionDate < today;
+        case 'month':
+          return sessionDate >= thisMonth && sessionDate < thisWeek;
+        case 'lastMonth':
+          return sessionDate >= lastMonth && sessionDate < thisMonth;
+        case 'custom':
+          if (customDate) {
+            const customDateOnly = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate());
+            return sessionDateOnly.getTime() === customDateOnly.getTime();
+          }
+          return false;
+        default:
+          return true;
+      }
+    });
+
+    setSessions(filtered);
+  }, []);
+
+  useEffect(() => {
+    if (allSessions.length > 0) {
+      filterSessionsByTimeFrame(allSessions, selectedTimeFrame, selectedTimeFrame === 'custom' ? selectedDate : undefined);
+    }
+  }, [selectedTimeFrame, allSessions, filterSessionsByTimeFrame, selectedDate]);
+
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+      setSelectedTimeFrame('custom');
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -101,13 +146,14 @@ const WorkoutHistoryListScreen = () => {
       console.log('[WorkoutHistory] Refreshing workout history');
       const data = await WorkoutHistoryService.getCompletedSessions(user?.id || '');
       console.log('[WorkoutHistory] Refreshed sessions:', data.length);
-      setSessions(data);
+      setAllSessions(data);
+      filterSessionsByTimeFrame(data, selectedTimeFrame);
     } catch (error) {
       console.error('[WorkoutHistory] Error refreshing sessions:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedTimeFrame, filterSessionsByTimeFrame]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
     if (!user?.id) return;
@@ -186,6 +232,7 @@ const WorkoutHistoryListScreen = () => {
       });
     }
   };
+
   
   // Fix the getExerciseTypeIcon function to handle nullable input
   const getExerciseTypeIcon = (splitName?: string | null) => {
@@ -207,63 +254,9 @@ const WorkoutHistoryListScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar style="light" />
-        <LinearGradient
-          colors={colors.backgroundGradient}
-          style={StyleSheet.absoluteFill}
-        />
         <View style={styles.loadingContent}>
-          <Icon 
-            name="dumbbell" 
-            size={80} 
-            color={colors.primary} 
-            style={styles.loadingLogo}
-          />
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading workout history...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Empty state
-  if (sessions.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <StatusBar style="light" />
-        <LinearGradient
-          colors={colors.backgroundGradient}
-          style={StyleSheet.absoluteFill}
-        />
-        
-        <View style={styles.emptyContent}>
-          <View style={styles.emptyIconContainer}>
-            <Icon name="history" size={60} color={colors.primary} style={styles.emptyIcon} />
-            <View style={styles.emptyIconGlow} />
-          </View>
-          
-          <Text style={styles.emptyTitle}>No Workout History</Text>
-          <Text style={styles.emptyText}>Complete workouts to see your history here</Text>
-          
-          <View style={styles.emptyButtonsContainer}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => {
-                console.log('[WorkoutHistory] Empty state back button pressed - navigating to workout plans');
-                router.push('/(main)/workout/plans');
-              }}
-            >
-              <LinearGradient
-                colors={colors.primaryGradient}
-                style={styles.backButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.backButtonText}>Back to Workouts</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            
-
-          </View>
         </View>
       </View>
     );
@@ -273,211 +266,239 @@ const WorkoutHistoryListScreen = () => {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Background gradient & image */}
-      <LinearGradient
-        colors={colors.backgroundGradient}
-        style={StyleSheet.absoluteFill}
-      />
-      <Image
-        source={{uri: 'https://images.unsplash.com/photo-1580086319619-3ed498161c77?q=80&w=2069&auto=format&fit=crop'}}
-        style={styles.backgroundImage}
-        blurRadius={3}
-      />
-      <View style={styles.backgroundOverlay} />
-      
-      {/* Floating Header Background with Blur */}
-      <Animated.View 
-        style={[
-          styles.headerBackground,
-          { 
-            opacity: headerOpacity, 
-            transform: [{ scale: headerScale }],
-            paddingTop: insets.top
-          }
-        ]}
-      >
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-        <View style={styles.headerBackgroundGradient} />
-      </Animated.View>
-      
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      {/* AI Coach Header */}
+      <View style={[styles.coachHeader, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity 
-          onPress={() => {
-            console.log('[WorkoutHistory] Back button pressed - navigating to workout plans');
-            router.push('/(main)/workout/plans');
-          }} 
-          style={styles.backBtn}
+          onPress={() => router.push('/(main)/workout/plans')} 
+          style={styles.backButton}
+          activeOpacity={0.8}
         >
-          <Icon name="arrow-left" size={24} color={colors.text} />
+          <Icon name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Workout History</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.coachAvatarContainer}>
+          <Image
+            source={require('../../../assets/mascot.png')}
+            style={styles.coachAvatar}
+          />
+          <View style={styles.coachOnlineIndicator} />
+        </View>
+        <View style={styles.coachTextContainer}>
+          <Text style={styles.coachGreeting}>{getAIGreeting.greeting}</Text>
+          <Text style={styles.coachMessage}>{getAIGreeting.message}</Text>
+        </View>
       </View>
       
+      {/* Time Frame Selector */}
+      <View style={styles.timeFrameSelector}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.timeFrameSelectorContent}
+        >
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'today', label: 'Today' },
+            { key: 'week', label: 'This Week' },
+            { key: 'month', label: 'This Month' },
+            { key: 'lastMonth', label: 'Last Month' },
+            { key: 'custom', label: selectedTimeFrame === 'custom' ? selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Pick Date' },
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.key}
+              style={[
+                styles.timeFrameButton,
+                selectedTimeFrame === option.key && styles.timeFrameButtonActive
+              ]}
+              onPress={() => {
+                if (option.key === 'custom') {
+                  setShowDatePicker(true);
+                } else {
+                  setSelectedTimeFrame(option.key as typeof selectedTimeFrame);
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              {option.key === 'custom' && (
+                <Icon 
+                  name="calendar" 
+                  size={14} 
+                  color={selectedTimeFrame === 'custom' ? colors.primary : colors.textSecondary}
+                  style={{ marginRight: 4 }}
+                />
+              )}
+              <Text style={[
+                styles.timeFrameButtonText,
+                selectedTimeFrame === option.key && styles.timeFrameButtonTextActive
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Empty State */}
+      {sessions.length === 0 && !loading && (
+        <View style={styles.emptyContainer}>
+          <Icon name="history" size={48} color={colors.textSecondary} />
+          <Text style={styles.emptyTitle}>No Workout History</Text>
+          <Text style={styles.emptyText}>Complete workouts to see your history here</Text>
+          <TouchableOpacity 
+            style={styles.emptyButton}
+            onPress={() => router.push('/(main)/workout/plans')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emptyButtonText}>Back to Workouts</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Sessions list */}
-      <Animated.FlatList
+      <FlatList
         data={sessions}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: 60 + insets.bottom + 20 }
+        ]}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
           />
         }
-        renderItem={({ item, index }) => (
-          <View style={styles.sessionCardContainer}>
+        renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => router.push({ pathname: '/(main)/workout/history-session/[sessionId]', params: { sessionId: item.id } })}
-              style={styles.sessionCard}
-              activeOpacity={0.8}
-            >
-              <BlurView intensity={10} tint="dark" style={styles.sessionCardBlur}>
-                <LinearGradient
-                  colors={colors.cardGradient}
-                  style={styles.sessionCardGradient}
-                >
-                  <View style={styles.sessionCardContent}>
-                    <View style={styles.sessionIconSection}>
-                      <View style={styles.sessionIconContainer}>
-                        <LinearGradient
-                          colors={['rgba(255,107,53,0.2)', 'rgba(255,107,53,0.1)']}
-                          style={styles.sessionIconGradient}
-                        >
-                          <Icon 
-                            name={getExerciseTypeIcon(item.split_name)} 
-                            size={20} 
-                            color={colors.primary} 
-                          />
-                        </LinearGradient>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.sessionTextContent}>
-                      <Text style={styles.sessionTitle} numberOfLines={1}>
-                        {item.session_name || item.split_name || item.plan_name || `Week ${item.week_number || '-'} Day ${item.day_number || '-'}`}
-                      </Text>
-                      <Text style={styles.sessionDate}>
-                        {formatDate(item.completed_at)}
-                      </Text>
-                      
-                      <View style={styles.sessionMetaRow}>
-                        <View style={styles.sessionMetaItem}>
-                          <Icon name="calendar-week" size={14} color={colors.primary} />
-                          <Text style={styles.sessionMetaText}>
-                            Week {item.week_number ?? '-'}
-                          </Text>
-                        </View>
-                        <View style={styles.sessionMetaItem}>
-                          <Icon name="calendar-today" size={14} color={colors.primary} />
-                          <Text style={styles.sessionMetaText}>
-                            Day {item.day_number ?? '-'}
-                          </Text>
-                        </View>
-                        {item.split_name && (
-                          <View style={styles.sessionMetaItem}>
-                            <Icon name="dumbbell" size={14} color={colors.primary} />
-                            <Text style={styles.sessionMetaText}>
-                              Workout
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      
-                      {/* Exercise and Set Counts */}
-                      <View style={styles.sessionStatsRow}>
-                        {item.total_exercises != null && item.total_exercises > 0 ? (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="dumbbell" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              {String(item.total_exercises).replace(/[?]/g, '')} {item.total_exercises === 1 ? 'Exercise' : 'Exercises'}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="dumbbell" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              No exercises
-                            </Text>
-                          </View>
-                        )}
-                        {item.total_sets != null && item.total_sets > 0 ? (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="repeat" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              {String(item.total_sets).replace(/[?]/g, '')} {item.total_sets === 1 ? 'Set' : 'Sets'}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="repeat" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              No sets
-                            </Text>
-                          </View>
-                        )}
-                        {item.estimated_calories != null && item.estimated_calories > 0 ? (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="fire" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              {String(item.estimated_calories).replace(/[?]/g, '')} cal
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.sessionStatItem}>
-                            <Icon name="fire" size={14} color={colors.textSecondary} />
-                            <Text style={styles.sessionStatText}>
-                              No calories
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    
-                    <View style={styles.sessionActionsContainer}>
-                      <TouchableOpacity
-                        onPress={() => deleteSession(item.id)}
-                        style={[
-                          styles.deleteButton,
-                          deletingSessions.has(item.id) && styles.deleteButtonDisabled
-                        ]}
-                        activeOpacity={0.7}
-                        disabled={deletingSessions.has(item.id)}
-                      >
-                        {deletingSessions.has(item.id) ? (
-                          <ActivityIndicator size="small" color={colors.error} />
-                        ) : (
-                          <Icon 
-                            name="delete-outline" 
-                            size={20} 
-                            color={colors.error}
-                          />
-                        )}
-                      </TouchableOpacity>
-                      <View style={styles.sessionArrowContainer}>
-                        <Icon 
-                          name="chevron-right" 
-                          size={20} 
-                          color={colors.primary}
-                        />
-                      </View>
-                    </View>
+            style={styles.sessionCard}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sessionIconContainer}>
+              <Icon 
+                name={getExerciseTypeIcon(item.split_name)} 
+                size={20} 
+                color={colors.primary} 
+              />
+            </View>
+            
+            <View style={styles.sessionTextContent}>
+              <Text style={styles.sessionTitle} numberOfLines={1}>
+                {item.session_name || item.split_name || item.plan_name || `Week ${item.week_number || '-'} Day ${item.day_number || '-'}`}
+              </Text>
+              <Text style={styles.sessionDate}>
+                {formatDate(item.completed_at)}
+              </Text>
+              
+              <View style={styles.sessionMetaRow}>
+                {item.week_number != null && (
+                  <View style={styles.sessionMetaItem}>
+                    <Icon name="calendar-week" size={12} color={colors.textSecondary} />
+                    <Text style={styles.sessionMetaText}>
+                      Week {item.week_number}
+                    </Text>
                   </View>
-                </LinearGradient>
-              </BlurView>
+                )}
+                {item.day_number != null && (
+                  <View style={styles.sessionMetaItem}>
+                    <Icon name="calendar-today" size={12} color={colors.textSecondary} />
+                    <Text style={styles.sessionMetaText}>
+                      Day {item.day_number}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.sessionStatsRow}>
+                {item.total_exercises != null && item.total_exercises > 0 && (
+                  <View style={styles.sessionStatItem}>
+                    <Icon name="dumbbell" size={12} color={colors.textSecondary} />
+                    <Text style={styles.sessionStatText}>
+                      {String(item.total_exercises).replace(/[?]/g, '')} {item.total_exercises === 1 ? 'Exercise' : 'Exercises'}
+                    </Text>
+                  </View>
+                )}
+                {item.total_sets != null && item.total_sets > 0 && (
+                  <View style={styles.sessionStatItem}>
+                    <Icon name="repeat" size={12} color={colors.textSecondary} />
+                    <Text style={styles.sessionStatText}>
+                      {String(item.total_sets).replace(/[?]/g, '')} {item.total_sets === 1 ? 'Set' : 'Sets'}
+                    </Text>
+                  </View>
+                )}
+                {item.estimated_calories != null && item.estimated_calories > 0 && (
+                  <View style={styles.sessionStatItem}>
+                    <Icon name="fire" size={12} color={colors.textSecondary} />
+                    <Text style={styles.sessionStatText}>
+                      {String(item.estimated_calories).replace(/[?]/g, '')} cal
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            
+            <View style={styles.sessionActionsContainer}>
+              <TouchableOpacity
+                onPress={() => deleteSession(item.id)}
+                style={[
+                  styles.deleteButton,
+                  deletingSessions.has(item.id) && styles.deleteButtonDisabled
+                ]}
+                activeOpacity={0.8}
+                disabled={deletingSessions.has(item.id)}
+              >
+                {deletingSessions.has(item.id) ? (
+                  <ActivityIndicator size="small" color={colors.error} />
+                ) : (
+                  <Icon 
+                    name="delete-outline" 
+                    size={18} 
+                    color={colors.error}
+                  />
+                )}
+              </TouchableOpacity>
+              <Icon 
+                name="chevron-right" 
+                size={18} 
+                color={colors.textSecondary}
+              />
+            </View>
           </TouchableOpacity>
-          </View>
         )}
       />
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(false)}
+                style={styles.modalCloseButton}
+                activeOpacity={0.8}
+              >
+                <Icon name="close" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              maximumDate={new Date()}
+              textColor={colors.text}
+              themeVariant="dark"
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -487,124 +508,167 @@ export default WorkoutHistoryListScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  backgroundImage: {
-    position: 'absolute',
-    width: '100%',
-    height: 300,
-    top: 0,
-    left: 0,
-    opacity: 0.3,
-  },
-  backgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  headerBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    zIndex: 10,
-  },
-  headerBackgroundGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLighter,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    zIndex: 20,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.glass,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    backgroundColor: '#000000',
   },
 
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  sessionCardContainer: {
-    marginBottom: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  sessionCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  sessionCardBlur: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.glassStrong,
-  },
-  sessionCardGradient: {
-    borderRadius: 16,
-  },
-  sessionCardContent: {
-    padding: 16,
+  // AI Coach Header
+  coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    paddingTop: 8,
   },
-  sessionIconSection: {
-    marginRight: 16,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  sessionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
+  coachAvatarContainer: {
+    position: 'relative',
+    marginRight: 14,
   },
-  sessionIconGradient: {
+  coachAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    resizeMode: 'contain',
+  },
+  coachOnlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  coachTextContainer: {
+    flex: 1,
+  },
+  coachGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  coachMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Time Frame Selector
+  timeFrameSelector: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  timeFrameSelectorContent: {
+    paddingRight: 20,
+    gap: 8,
+  },
+  timeFrameButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginRight: 8,
+  },
+  timeFrameButtonActive: {
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    borderColor: colors.primary,
+  },
+  timeFrameButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  timeFrameButtonTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+
+  // Empty State
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // List Content
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  
+  // Session Card
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.2)',
-    borderRadius: 24,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  sessionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sessionTextContent: {
     flex: 1,
   },
   sessionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
   },
   sessionDate: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 8,
   },
@@ -612,36 +676,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
   },
   sessionMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
-    backgroundColor: colors.glass,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 4,
+    gap: 4,
   },
   sessionMetaText: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textSecondary,
-    marginLeft: 6,
+    fontWeight: '500',
   },
   sessionStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
     gap: 12,
   },
   sessionStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   sessionStatText: {
     fontSize: 11,
     color: colors.textSecondary,
-    marginLeft: 4,
     fontWeight: '500',
   },
   sessionActionsContainer: {
@@ -654,164 +714,65 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 69, 58, 0.08)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.3)',
+    borderColor: 'rgba(255, 69, 58, 0.15)',
   },
   deleteButtonDisabled: {
     opacity: 0.5,
-    backgroundColor: 'rgba(255, 59, 48, 0.05)',
   },
-  sessionArrowContainer: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.glass,
-    borderRadius: 16,
-  },
+  // Loading State
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   loadingContent: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingLogo: {
-    width: 80,
-    height: 80,
-    marginBottom: 24,
-    opacity: 0.8,
-  },
-  loadingIndicator: {
-    marginBottom: 16,
-  },
   loadingText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  emptyContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,107,53,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emptyIcon: {
-    opacity: 0.8,
-  },
-  emptyIconGlow: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.2)',
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
     color: colors.textSecondary,
-    marginBottom: 32,
-    textAlign: 'center',
-    maxWidth: '80%',
-  },
-  emptyButtonsContainer: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 8,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    width: '100%',
-    maxWidth: 300,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  backButtonGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  
-  // Exercise Details Styles
-  exerciseDetailsContainer: {
     marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  exerciseDetailsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  exerciseDetailRow: {
+  modalContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    marginBottom: 20,
   },
-  exerciseNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  exerciseDetailName: {
-    fontSize: 13,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
-    marginLeft: 6,
-    fontWeight: '500',
   },
-  exerciseStatsContainer: {
-    flexDirection: 'row',
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  exerciseDetailStat: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 8,
-    fontWeight: '500',
   },
 });
